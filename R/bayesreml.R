@@ -114,173 +114,48 @@ bayesreml <- function(
          "  install.packages('greta')\n",
          "  greta::install_greta_deps()")
 
-  the_call <- match.call()
+  the_call  <- match.call()
+  data_name <- deparse(substitute(data))
 
-  # 1. Parse formulas
-  fixed_info   <- .parse_fixed(fixed, data)
-  random_terms <- if (!is.null(random)) .parse_formula(random, data) else list()
-  rcov_terms   <- if (!is.null(rcov))   .parse_formula(rcov,   data) else
-                  list(list(type = "units"))
-
-  fam_link <- .resolve_family(family, link)
-
-  # 2. Build evaluation environment
-  #    Parent must include greta's namespace so bare calls like normal(),
-
-  #    as_data(), distribution() resolve correctly.
-  greta_ns <- asNamespace("greta")
-  ev <- new.env(parent = greta_ns)
-  .setup_env(ev, fixed_info, random_terms, rcov_terms,
-             data, known_matrices, weights)
-
-  # 3. Generate code
-  ctx <- list(
-    params    = character(0),
-    predictor = character(0),
-    code      = character(0),
-    fam_link  = fam_link,
-    prior_vc  = prior_vc_sd,
-    prior_fx  = prior_fixed_sd
+  # Build the flexyBayes intermediate representation (IR) via the
+  # asreml-format ingest path. See R/fb.R.
+  fb <- fb_from_asreml(
+    fixed          = fixed,
+    random         = random,
+    rcov           = rcov,
+    data           = data,
+    family         = family,
+    link           = link,
+    weights        = weights,
+    known_matrices = known_matrices,
+    prior_fixed_sd = prior_fixed_sd,
+    prior_vc_sd    = prior_vc_sd
   )
 
-  ctx <- .code_fixed(ctx, fixed_info)
-  ctx <- .code_random(ctx, random_terms, data, known_matrices)
-  ctx <- .code_rcov(ctx, rcov_terms, data)
-  ctx <- .code_predictor(ctx, fixed_info)
-  ctx <- .code_likelihood(ctx, fixed_info, rcov_terms, data, weights)
-  ctx <- .code_model(ctx, n_samples, warmup, chains, mcmc_verbose)
-
-  code_str <- paste(ctx$code, collapse = "\n")
-
-  if (verbose) {
-    cat("\n-- bayesreml: generated greta code ",
-        paste(rep("-", 40), collapse = ""), "\n", sep = "")
-    cat(code_str, "\n")
-    cat(paste(rep("-", 60), collapse = ""), "\n\n")
-  }
-
-  if (return_code) return(invisible(code_str))
-
-  # 4. Evaluate
-  t0 <- proc.time()
-  tryCatch(
-    eval(parse(text = code_str), envir = ev),
-    error = function(e)
-      stop("bayesreml evaluation error: ", conditionMessage(e))
+  # Drive the greta backend through the emit shim. Behaviour is
+  # byte-identical to the pre-0.C inline pipeline; see
+  # tests/testthat/test-emit-greta.R for the snapshot regression
+  # firewall and tests/testthat/test-fb-from-asreml.R for the
+  # ingest-side transparency check.
+  emit_greta(
+    fb             = fb,
+    data           = data,
+    known_matrices = known_matrices,
+    weights        = weights,
+    n_samples      = n_samples,
+    warmup         = warmup,
+    chains         = chains,
+    prior_fixed_sd = prior_fixed_sd,
+    prior_vc_sd    = prior_vc_sd,
+    verbose        = verbose,
+    mcmc_verbose   = mcmc_verbose,
+    return_code    = return_code,
+    the_call       = the_call,
+    fixed          = fixed,
+    random         = random,
+    rcov           = rcov,
+    family         = family,
+    link           = link,
+    data_name      = data_name
   )
-  elapsed <- unname((proc.time() - t0)["elapsed"])
-
-  # 5. Post-processing
-  # Extract greta arrays
-  all_obj_names <- ls(ev)
-  is_greta <- vapply(all_obj_names, function(nm) {
-    tryCatch(inherits(get(nm, envir = ev, inherits = FALSE), "greta_array"),
-             error = function(e) FALSE)
-  }, logical(1))
-  greta_arrays <- if (any(is_greta)) {
-    nms <- all_obj_names[is_greta]
-    setNames(lapply(nms, function(nm) get(nm, envir = ev, inherits = FALSE)),
-             nms)
-  } else {
-    list()
-  }
-
-  # Posterior summary
-  post_summary <- tryCatch(summary(ev$atg_draws), error = function(e) NULL)
-
-  # Convergence diagnostics
-  n_eff  <- tryCatch(coda::effectiveSize(ev$atg_draws),
-                     error = function(e) NULL)
-  gelman <- if (chains >= 2 && length(ev$atg_draws) >= 2) {
-    tryCatch(coda::gelman.diag(ev$atg_draws, multivariate = FALSE),
-             error = function(e) NULL)
-  } else NULL
-  conv_diag <- list(n_eff = n_eff, gelman = gelman)
-
-  # 6. Build the three-part output
-
-  # Part 1: GLM-compatible output
-  glm_obj <- .build_glm(
-    fixed_info  = fixed_info,
-    data        = data,
-    draws       = ev$atg_draws,
-    ev          = ev,
-    fam_link    = fam_link,
-    the_call    = the_call,
-    fixed       = fixed
-  )
-
-  # Part 2: Native greta output
-  greta_out <- structure(
-    list(
-      model        = ev$atg_model,
-      draws        = ev$atg_draws,
-      greta_arrays = greta_arrays,
-      env          = ev
-    ),
-    class = "bayesreml_greta"
-  )
-
-  # Part 3: Extras
-  # Variance components table
-  vc_table <- .build_variance_comps(post_summary, ctx$params)
-  # BLUPs
-  blups <- .build_blups(post_summary, random_terms)
-  # Predictions
-  preds <- .build_predictions(data, fixed_info, post_summary, ev, fam_link)
-
-  extras <- structure(
-    list(
-      summary       = post_summary,
-      convergence   = conv_diag,
-      variance_comps = vc_table,
-      blups         = blups,
-      predictions   = preds,
-      code          = code_str,
-      param_names   = unique(ctx$params),
-      parse_info    = list(
-        fixed  = fixed_info,
-        random = random_terms,
-        rcov   = rcov_terms,
-        family = fam_link
-      ),
-      call_info     = list(
-        fixed          = fixed,
-        random         = random,
-        rcov           = rcov,
-        data_name      = deparse(substitute(data)),
-        family         = family,
-        link           = link,
-        known_matrices = known_matrices,
-        weights        = weights,
-        n_samples      = n_samples,
-        warmup         = warmup,
-        chains         = chains,
-        prior_fixed_sd = prior_fixed_sd,
-        prior_vc_sd    = prior_vc_sd
-      ),
-      run_time      = elapsed,
-      model_info    = list(
-        n_obs     = nrow(data),
-        n_fixed   = length(fixed_info$terms) + fixed_info$intercept,
-        n_random  = length(random_terms),
-        n_params  = length(unique(ctx$params)),
-        family    = fam_link$family,
-        link      = fam_link$link
-      )
-    ),
-    class = "bayesreml_extras"
-  )
-
-  # 7. Assemble final object
-  result <- structure(
-    list(
-      glm    = glm_obj,
-      greta  = greta_out,
-      extras = extras
-    ),
-    class = "bayesreml"
-  )
-
-  invisible(result)
 }
