@@ -1,7 +1,7 @@
 ---
 title: "Spatio-temporal models: AR1, spatial, temporal"
 author: "Max Moldovan, Emi Tanaka, Francis K. C. Hui, Beata Sznajder"
-date: "`r Sys.Date()`"
+date: "2026-04-27"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -12,23 +12,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
-  warning   = FALSE,
-  message   = FALSE,
-  fig.width = 6,
-  fig.height = 4,
-  dpi       = 150
-)
-options(bayesreml.silence_default_prior_note = TRUE)
-greta_ok   <- requireNamespace("greta",   quietly = TRUE)
-agridat_ok <- requireNamespace("agridat", quietly = TRUE)
-ggplot2_ok <- requireNamespace("ggplot2", quietly = TRUE)
-set.seed(1400)
-mcmc_small <- list(n_samples = 200, warmup = 200, chains = 1)
-```
+
 
 # 1. Why spatio-temporal models?
 
@@ -73,16 +57,24 @@ with $\tau_i$ replicate effects, $g_j \sim \mathcal{N}(0,
 that are *correlated in space* — separable autoregressive on row and
 column.
 
-```{r stroup-data, eval = agridat_ok}
+
+``` r
 library(bayesreml)
 data(stroup.nin, package = "agridat")
 sn <- stroup.nin[!is.na(stroup.nin$yield) & !is.na(stroup.nin$rep), ]
 sn$row <- factor(sn$row)
 sn$col <- factor(sn$col)
 str(sn)
+#> 'data.frame':	224 obs. of  5 variables:
+#>  $ gen  : Factor w/ 56 levels "Arapahoe","Brule",..: 12 2 50 7 1 14 15 16 4 52 ...
+#>  $ rep  : Factor w/ 4 levels "R1","R2","R3",..: 1 1 1 1 1 1 1 1 1 1 ...
+#>  $ yield: num  29.2 31.6 35 30.1 33 ...
+#>  $ col  : Factor w/ 22 levels "1","2","3","4",..: 16 17 18 19 20 21 22 1 2 3 ...
+#>  $ row  : Factor w/ 11 levels "1","2","3","4",..: 1 1 1 1 1 1 1 2 2 2 ...
 ```
 
-```{r stroup-fit, eval = greta_ok && agridat_ok}
+
+``` r
 fit_spatial <- bayesreml(
   fixed     = yield ~ 1 + rep,
   random    = ~ gen,
@@ -94,6 +86,19 @@ fit_spatial <- bayesreml(
   verbose   = FALSE
 )
 fit_spatial
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ 1 + rep 
+#>   Random : ~gen 
+#>   Rcov   : ~ar1(row):ar1(col) 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 1.9 sec
+#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   Min ESS: 2 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 The variance-component block reports the genotype variance and the
@@ -106,7 +111,8 @@ A common diagnostic is the *plot* of the field-trial residuals: if
 spatial correlation has been adequately accounted for, the
 residuals are visually unstructured.
 
-```{r residual-plot, eval = greta_ok && agridat_ok && ggplot2_ok, fig.height = 4}
+
+``` r
 sn$resid <- residuals(fit_spatial, type = "response")
 library(ggplot2)
 ggplot(sn, aes(x = as.numeric(col), y = as.numeric(row), fill = resid)) +
@@ -119,6 +125,8 @@ ggplot(sn, aes(x = as.numeric(col), y = as.numeric(row), fill = resid)) +
   labs(x = "column", y = "row", fill = "residual",
        title = "Field residuals after AR1 x AR1 spatial fit")
 ```
+
+![plot of chunk residual-plot](bayesreml-spatio-temporal-figs/residual-plot-1.png)
 
 A patchy field — large red and blue regions — indicates remaining
 spatial structure that the AR1×AR1 has not captured. The natural
@@ -133,13 +141,20 @@ vignette analysed it with a random subject intercept; here we add an
 AR1 correlation on the residuals to acknowledge that within-subject
 errors on adjacent days are likely correlated.
 
-```{r sleep-data, eval = greta_ok}
+
+``` r
 data(sleepstudy, package = "lme4")
 sleepstudy$Days_f <- factor(sleepstudy$Days, levels = 0:9)
 str(sleepstudy)
+#> 'data.frame':	180 obs. of  4 variables:
+#>  $ Reaction: num  250 259 251 321 357 ...
+#>  $ Days    : num  0 1 2 3 4 5 6 7 8 9 ...
+#>  $ Subject : Factor w/ 18 levels "308","309","310",..: 1 1 1 1 1 1 1 1 1 1 ...
+#>  $ Days_f  : Factor w/ 10 levels "0","1","2","3",..: 1 2 3 4 5 6 7 8 9 10 ...
 ```
 
-```{r sleep-fit-ar1, eval = greta_ok}
+
+``` r
 fit_temporal <- bayesreml(
   fixed     = Reaction ~ Days,
   random    = ~ Subject,
@@ -151,6 +166,19 @@ fit_temporal <- bayesreml(
   verbose   = FALSE
 )
 fit_temporal
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : Reaction ~ Days 
+#>   Random : ~Subject 
+#>   Rcov   : ~ar1(Days_f):Subject 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 1.9 sec
+#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   Min ESS: 3 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 The new variance component is the AR1 correlation parameter: the
@@ -239,8 +267,68 @@ indices.
 
 # 8. Session information
 
-```{r session-info}
+
+``` r
 sessionInfo()
+#> R version 4.5.2 (2025-10-31)
+#> Platform: aarch64-apple-darwin20
+#> Running under: macOS Tahoe 26.3.1
+#> 
+#> Matrix products: default
+#> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+#> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+#> 
+#> locale:
+#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> 
+#> time zone: Australia/Adelaide
+#> tzcode source: internal
+#> 
+#> attached base packages:
+#> [1] stats     graphics  grDevices utils     datasets  methods   base     
+#> 
+#> other attached packages:
+#> [1] ggplot2_4.0.3        bayesplot_1.15.0     emmeans_2.0.2       
+#> [4] bayesreml_0.1.0.9000
+#> 
+#> loaded via a namespace (and not attached):
+#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
+#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
+#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
+#>  [10] matrixStats_1.5.0      ggridges_0.5.7         e1071_1.7-17          
+#>  [13] compiler_4.5.2         loo_2.9.0              png_0.1-9             
+#>  [16] callr_3.7.6            vctrs_0.7.3            reshape2_1.4.5        
+#>  [19] stringr_1.6.0          pkgconfig_2.0.3        crayon_1.5.3          
+#>  [22] backports_1.5.1        labeling_0.4.3         effectsize_1.0.2      
+#>  [25] nloptr_2.2.1           MatrixModels_0.5-4     INLA_25.10.19         
+#>  [28] xfun_0.57              jsonlite_2.0.0         progress_1.2.3        
+#>  [31] parallel_4.5.2         prettyunits_1.2.0      tensorflow_2.20.0     
+#>  [34] R6_2.6.1               stringi_1.8.7          RColorBrewer_1.1-3    
+#>  [37] reticulate_1.45.0      parallelly_1.47.0      boot_1.3-32           
+#>  [40] numDeriv_2016.8-1.1    estimability_1.5.1     Rcpp_1.1.1-1.1        
+#>  [43] knitr_1.51             zoo_1.8-15             base64enc_0.1-6       
+#>  [46] parameters_0.28.3      Matrix_1.7-4           splines_4.5.2         
+#>  [49] tidyselect_1.2.1       agridat_1.26           dichromat_2.0-0.1     
+#>  [52] abind_1.4-8            codetools_0.2-20       processx_3.9.0        
+#>  [55] listenv_0.10.1         lattice_0.22-7         tibble_3.3.1          
+#>  [58] plyr_1.8.9             withr_3.0.2            bayestestR_0.17.0     
+#>  [61] S7_0.2.2               posterior_1.7.0        coda_0.19-4.1         
+#>  [64] evaluate_1.0.5         marginaleffects_0.32.0 future_1.70.0         
+#>  [67] survival_3.8-3         sf_1.1-0               units_1.0-1           
+#>  [70] proxy_0.4-29           pillar_1.11.1          tensorA_0.36.2.1      
+#>  [73] whisker_0.4.1          KernSmooth_2.23-26     checkmate_2.3.4       
+#>  [76] stats4_4.5.2           reformulas_0.4.4       insight_1.4.6         
+#>  [79] sn_2.1.3               distributional_0.7.0   generics_0.1.4        
+#>  [82] hms_1.1.4              scales_1.4.0           minqa_1.2.8           
+#>  [85] globals_0.19.1         xtable_1.8-8           class_7.3-23          
+#>  [88] glue_1.8.1             tools_4.5.2            data.table_1.18.2.1   
+#>  [91] lme4_2.0-1             mvtnorm_1.3-6          grid_4.5.2            
+#>  [94] rbibutils_2.4.1        datawizard_1.3.0       nlme_3.1-168          
+#>  [97] cli_3.6.6              tfruns_1.5.4           viridisLite_0.4.3     
+#> [100] fmesher_0.7.0          dplyr_1.2.1            gtable_0.3.6          
+#> [103] greta_0.5.1            digest_0.6.39          classInt_0.4-11       
+#> [106] TH.data_1.1-5          farver_2.1.2           lifecycle_1.0.5       
+#> [109] MASS_7.3-65
 ```
 
 # References

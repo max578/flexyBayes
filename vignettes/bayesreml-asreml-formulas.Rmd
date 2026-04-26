@@ -1,7 +1,7 @@
 ---
 title: "asreml-shaped formulas: a reference"
 author: "Max Moldovan, Emi Tanaka, Francis K. C. Hui, Beata Sznajder"
-date: "`r Sys.Date()`"
+date: "2026-04-27"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -12,20 +12,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(
-  collapse  = TRUE,
-  comment   = "#>",
-  warning   = FALSE,
-  message   = FALSE,
-  fig.width = 6,
-  fig.height = 4,
-  dpi       = 150
-)
-options(bayesreml.silence_default_prior_note = TRUE)
-greta_ok <- requireNamespace("greta", quietly = TRUE)
-set.seed(1100)
-```
+
 
 # 1. Scope
 
@@ -59,13 +46,26 @@ across four environments with three replicates per cell, plus
 genotype-level kinship (`G_mat`) and pedigree-derived (`A_mat`)
 matrices.
 
-```{r met-data}
+
+``` r
 library(bayesreml)
 data(met_example, package = "bayesreml")
 dat   <- met_example$dat
 G_mat <- met_example$G_mat
 A_mat <- met_example$A_mat
 str(dat, max.level = 1)
+#> 'data.frame':	120 obs. of  10 variables:
+#>  $ geno   : Factor w/ 10 levels "G1","G10","G2",..: 1 3 4 5 6 7 8 9 10 2 ...
+#>  $ env    : Factor w/ 4 levels "E1","E2","E3",..: 1 1 1 1 1 1 1 1 1 1 ...
+#>  $ rep    : Factor w/ 3 levels "R1","R2","R3": 1 1 1 1 1 1 1 1 1 1 ...
+#>  $ block  : Factor w/ 6 levels "B1","B2","B3",..: 1 2 3 4 5 6 1 2 3 4 ...
+#>  $ row    : Factor w/ 10 levels "1","2","3","4",..: 1 2 3 4 5 6 7 8 9 10 ...
+#>  $ col    : Factor w/ 12 levels "1","2","3","4",..: 1 2 3 4 5 6 7 8 9 10 ...
+#>  $ yield  : num  51.9 45 49.4 48.3 47.8 ...
+#>  $ x_cov  : num  -0.23 0.837 -1.745 1.689 0.865 ...
+#>  $ bin_y  : int  0 1 0 0 0 0 1 1 0 0 ...
+#>  $ count_y: int  10 7 5 9 9 9 4 6 5 8 ...
+#>  - attr(*, "out.attrs")=List of 2
 ```
 
 # 2. Fixed-effect terms
@@ -85,20 +85,46 @@ Two factor-interaction patterns, `*` and `:`, follow R's standard
 semantics: `A * B` expands to `A + B + A:B`; `A:B` is the interaction
 alone.
 
-```{r fixed-factor, eval = greta_ok}
+
+``` r
 fit_fix <- bayesreml(
   fixed = yield ~ env, data = dat,
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_fix
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 3.4 sec
+#>   Params : 3 monitored; 2 fixed, 0 random terms
+#>   Max Rhat: 18.957  [!] 
+#>   Min ESS: 3 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
-```{r fixed-interaction, eval = greta_ok}
+
+``` r
 fit_int <- bayesreml(
   fixed = yield ~ env + x_cov + I(x_cov^2), data = dat,
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_int
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env + x_cov + I(x_cov^2) 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.5 sec
+#>   Params : 5 monitored; 4 fixed, 0 random terms
+#>   Max Rhat: 14.927  [!] 
+#>   Min ESS: 4 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 # 3. Random-effect simple terms
@@ -112,7 +138,8 @@ factor:
 | `ide(g)` | identical-distribution random effect (synonym of simple) |
 | `id(g)` | identity-covariance — the same as simple in v0.1 |
 
-```{r random-simple, eval = greta_ok}
+
+``` r
 fit_rand <- bayesreml(
   fixed     = yield ~ env,
   random    = ~ geno,                       # 'simple' on a bare factor
@@ -120,6 +147,19 @@ fit_rand <- bayesreml(
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_rand
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env 
+#>   Random : ~geno 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.5 sec
+#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   Max Rhat: 25.476  [!] 
+#>   Min ESS: 3 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 The random block reports the genotype-level standard deviation. The
@@ -132,7 +172,8 @@ interpretation; this vignette is purely about syntax.
 random-effect levels — typically a kinship or genomic-relationship
 matrix:
 
-```{r vm-kinship, eval = greta_ok}
+
+``` r
 fit_vm <- bayesreml(
   fixed     = yield ~ env,
   random    = ~ vm(geno, Gmat),
@@ -141,6 +182,19 @@ fit_vm <- bayesreml(
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_vm
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env 
+#>   Random : ~vm(geno, Gmat) 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.6 sec
+#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   Max Rhat: 12.258  [!] 
+#>   Min ESS: 5 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 `ped(g, A)` is the pedigree analogue — the same structure but with a
@@ -171,7 +225,8 @@ this section gives the call shapes.
 | `fa(env, k):geno` | factor-analytic with `k` latent factors (Smith, Cullis, & Thompson, 2001) |
 | `ar1(env):geno` | first-order autoregressive in environment ordering |
 
-```{r structured-fa, eval = greta_ok}
+
+``` r
 fit_fa <- bayesreml(
   fixed     = yield ~ env,
   random    = ~ fa(env, 2):geno,
@@ -179,6 +234,19 @@ fit_fa <- bayesreml(
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_fa
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env 
+#>   Random : ~fa(env, 2):geno 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 2.1 sec
+#>   Params : 5 monitored; 2 fixed, 1 random terms
+#>   Max Rhat: 7.076  [!] 
+#>   Min ESS: 7 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 The factor-analytic model with `k = 2` posits two latent factors
@@ -197,7 +265,8 @@ Two compound patterns capture multi-factor random structures:
 | `A + B` (in random) | crossed: independent random effects on A and on B |
 | `A + A:B` | hierarchical (A and A-within-B both contribute) |
 
-```{r nested, eval = greta_ok}
+
+``` r
 fit_nested <- bayesreml(
   fixed     = yield ~ env,
   random    = ~ rep + rep:block,            # blocks-within-rep nested
@@ -205,6 +274,19 @@ fit_nested <- bayesreml(
   n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
 )
 fit_nested
+#> Bayesian mixed model  [bayesreml]
+#> ------------------------------------------------------- 
+#>   Fixed  : yield ~ env 
+#>   Random : ~rep + rep:block 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 2.1 sec
+#>   Params : 5 monitored; 2 fixed, 2 random terms
+#>   Max Rhat: Inf  [!] 
+#>   Min ESS: 0 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
 ```
 
 # 7. Splines and polynomials
@@ -310,8 +392,44 @@ exported `spl` function. The correct invocation puts smoothers in
 
 # 13. Session information
 
-```{r session-info}
+
+``` r
 sessionInfo()
+#> R version 4.5.2 (2025-10-31)
+#> Platform: aarch64-apple-darwin20
+#> Running under: macOS Tahoe 26.3.1
+#> 
+#> Matrix products: default
+#> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+#> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+#> 
+#> locale:
+#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> 
+#> time zone: Australia/Adelaide
+#> tzcode source: internal
+#> 
+#> attached base packages:
+#> [1] stats     graphics  grDevices utils     datasets  methods   base     
+#> 
+#> other attached packages:
+#> [1] bayesreml_0.1.0.9000
+#> 
+#> loaded via a namespace (and not attached):
+#>  [1] sandwich_3.1-1     future_1.70.0      generics_0.1.4     tfautograph_0.3.2 
+#>  [5] lattice_0.22-7     listenv_0.10.1     hms_1.1.4          digest_0.6.39     
+#>  [9] magrittr_2.0.5     evaluate_1.0.5     grid_4.5.2         estimability_1.5.1
+#> [13] mvtnorm_1.3-6      jsonlite_2.0.0     Matrix_1.7-4       processx_3.9.0    
+#> [17] progress_1.2.3     whisker_0.4.1      backports_1.5.1    survival_3.8-3    
+#> [21] multcomp_1.4-29    tfruns_1.5.4       tensorflow_2.20.0  TH.data_1.1-5     
+#> [25] codetools_0.2-20   abind_1.4-8        cli_3.6.6          greta_0.5.1       
+#> [29] rlang_1.2.0        crayon_1.5.3       parallelly_1.47.0  splines_4.5.2     
+#> [33] base64enc_0.1-6    withr_3.0.2        otel_0.2.0         tools_4.5.2       
+#> [37] parallel_4.5.2     coda_0.19-4.1      globals_0.19.1     reticulate_1.45.0 
+#> [41] vctrs_0.7.3        R6_2.6.1           png_0.1-9          zoo_1.8-15        
+#> [45] lifecycle_1.0.5    emmeans_2.0.2      MASS_7.3-65        pkgconfig_2.0.3   
+#> [49] callr_3.7.6        glue_1.8.1         Rcpp_1.1.1-1.1     xfun_0.57         
+#> [53] knitr_1.51         xtable_1.8-8       compiler_4.5.2     prettyunits_1.2.0
 ```
 
 # References

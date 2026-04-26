@@ -17,7 +17,7 @@
 ^codemeta\.json$
 ^CITATION\.cff$
 ^\.zenodo\.json$
-^vignettes/!precompile\.R$
+^vignettes/_precompile\.R$
 ^vignettes/.*\.Rmd\.orig$
 ^\.pre-commit-config\.yaml$
 ^\.devcontainer$
