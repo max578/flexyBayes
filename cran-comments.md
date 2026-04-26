@@ -6,9 +6,15 @@ This is the first submission of `bayesreml` to CRAN.
 
 - local macOS Tahoe 26.3.1 (Apple Silicon), R 4.5.2 — `R CMD check
   --as-cran` clean (1 NOTE, see below).
-- GitHub Actions matrix (planned for v0.1.0): release / devel / oldrel
-  × ubuntu-latest / macos-14 / windows-latest. CI workflow not yet
-  shipped.
+- GitHub Actions matrix (committed locally — `.github/workflows/`;
+  activates on first push after AAGI-AUS collective rename approval):
+  ubuntu-latest × {R-devel, R-release, R-oldrel-1} plus R-release ×
+  {windows-latest, macos-latest, macos-14 (Apple Silicon)}. INLA is
+  installed on the Linux release leg only via the
+  `Additional_repositories` binary path. greta is intentionally not
+  installed on the standard CI matrix (Python / TF setup is a separate
+  slow workflow); greta-dependent tests gate via `skip_if_no_greta()`
+  and skip cleanly.
 
 ## R CMD check results — itemised per NOTE
 
