@@ -16,6 +16,7 @@
 ^air\.toml$
 ^codemeta\.json$
 ^CITATION\.cff$
+^\.zenodo\.json$
 ^vignettes/!precompile\.R$
 ^vignettes/.*\.Rmd\.orig$
 ^\.pre-commit-config\.yaml$
