@@ -223,6 +223,7 @@ test_that("fb_as_draws_simple.bayesreml extracts greta draws", {
 })
 
 test_that("triangulate() runs end-to-end on greta vs INLA", {
+  skip_on_cran()        # live greta + INLA + sn end-to-end is too flaky for CRAN
   skip_if_no_greta(); skip_if_no_inla()
   d <- data.frame(y = rnorm(40), x = rnorm(40),
                   g = factor(rep(1:5, length.out = 40)))

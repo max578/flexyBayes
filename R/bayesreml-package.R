@@ -1,0 +1,51 @@
+#' bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta and INLA
+#'
+#' `bayesreml` lets you fit Bayesian mixed models using the formula syntax
+#' you already know from ASReml or `lme4`/`brms`, dispatched through one of
+#' two inference engines: greta (Hamiltonian Monte Carlo via TensorFlow) or
+#' INLA (integrated nested Laplace approximation, for the latent Gaussian
+#' model class). The same fitted object supports `summary()`, `predict()`,
+#' `emmeans::emmeans()`, `marginaleffects::predictions()`, and the
+#' `bayesplot::*` family.
+#'
+#' The package's signature feature is `triangulate()`, a cross-engine
+#' posterior comparison that quantifies disagreement between two fits of
+#' the same model on the same data.
+#'
+#' @section Entry points:
+#' Two ingest paths share a single internal model representation
+#' (`fb_terms`):
+#'
+#' * [bayesreml()] — asreml-format entry: `fixed` / `random` / `rcov`
+#'   formulas, `known_matrices` for kinship / pedigree, `weights` for
+#'   pre-aggregated observations.
+#' * [fb()] — brms-format entry: a single `formula` plus `backend`
+#'   (`"greta"`, `"inla"`, or `"auto"`).
+#' * [fb_prior()] — penalised-complexity-canonical prior DSL.
+#' * [triangulate()] — cross-engine posterior comparison.
+#'
+#' @section Vignettes:
+#' Twelve vignettes ship with the package, covering: getting started,
+#' asreml-shaped formulas reference, downstream analysis, backend
+#' internals, priors and regularisation, cross-engine triangulation,
+#' LGM feasibility, foundational regression, hierarchical models,
+#' structured covariance, spatio-temporal, and multi-environment trials
+#' and genomics.
+#'
+#' @section References:
+#' Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H.
+#' (2017). Penalising model component complexity: A principled,
+#' practical approach to constructing priors. *Statistical Science*,
+#' 32(1), 1–28.
+#'
+#' Rue, H., Martino, S., & Chopin, N. (2009). Approximate Bayesian
+#' inference for latent Gaussian models by using integrated nested
+#' Laplace approximations. *Journal of the Royal Statistical Society:
+#' Series B*, 71(2), 319–392.
+#'
+#' Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter,
+#' B., Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., & Modrák, M.
+#' (2020). Bayesian workflow. *arXiv* 2011.01808.
+#'
+#' @keywords internal
+"_PACKAGE"

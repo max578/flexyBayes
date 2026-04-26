@@ -1,0 +1,52 @@
+## Submission
+
+This is the first submission of `bayesreml` to CRAN.
+
+## Test environments
+
+- local macOS Tahoe 26.3.1 (Apple Silicon), R 4.5.2 — `R CMD check
+  --as-cran` clean (1 NOTE, see below).
+- GitHub Actions matrix (planned for v0.1.0): release / devel / oldrel
+  × ubuntu-latest / macos-14 / windows-latest. CI workflow not yet
+  shipped.
+
+## R CMD check results — itemised per NOTE
+
+```
+Status: 1 NOTE
+```
+
+**NOTE 1 — `checking CRAN incoming feasibility`** (`Status: Error`).
+
+- **Category.** Intrinsic to first submission.
+- **Justification.** This NOTE fires the network-side CRAN-status query
+  during the local check; it cannot be suppressed by any package change
+  before submission. The same NOTE will appear on every first-submission
+  package and resolves automatically once CRAN's incoming-checks accept
+  the upload.
+
+## Downstream impact
+
+`bayesreml` has zero reverse dependencies on CRAN. `revdep_check()` is
+N/A for this submission.
+
+## Suggests-only dependencies
+
+`INLA` is not on CRAN; it is hosted at the URL declared in
+`Additional_repositories:`. The package degrades gracefully when INLA
+is not installed: every code path that calls `INLA::*` is guarded by
+`requireNamespace("INLA", quietly = TRUE)`, and tests that exercise
+the live INLA backend skip via `skip_if_not_installed("INLA")`.
+
+`greta` (the default backend) requires Python and TensorFlow. The
+greta entry-point checks for greta's availability and emits a clear
+install hint (`greta::install_greta_deps()`) if absent.
+
+## Vignette compute
+
+Twelve vignettes ship with the package. Heavy MCMC fits inside
+vignettes use small `n_samples` budgets and conditional evaluation
+(`requireNamespace("greta")`, `requireNamespace("INLA")`); failures of
+the live INLA + greta integration during CRAN's clean re-render are
+caught by `tryCatch()` so a single chunk failure does not crash the
+vignette render.
