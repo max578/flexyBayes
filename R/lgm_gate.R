@@ -1,24 +1,24 @@
-# lgm_gate — LGM (latent Gaussian model) feasibility filter (Q5).
+# lgm_gate -- LGM (latent Gaussian model) feasibility filter (Q5).
 #
 # Deliverable 2. Structural-first hybrid filter per
-# design-notes-priors-brms-lgm.md §Q5. Operates on an fb_terms
-# object (the IR — intermediate representation) and decides whether
+# design-notes-priors-brms-lgm.md Sec.Q5. Operates on an fb_terms
+# object (the IR -- intermediate representation) and decides whether
 # the model is feasible for INLA (Integrated Nested Laplace
 # Approximations) dispatch.
 #
 # v0.1 implements 6 of the 7 checks (the structural-first set).
-# Check 7 — the post-fit numerical-confirm gate — is stubbed for
+# Check 7 -- the post-fit numerical-confirm gate -- is stubbed for
 # v0.1; it lands alongside emit_inla() (deliverable 5+) where it
 # can inspect mode.status, mlik finiteness, hyperpar boundary
 # proximity, and posterior skewness.
 #
 # Twin objectives: low false-negative rate (don't refuse INLA-
 # feasible models) and zero silent failure (don't accept models
-# where INLA gives a wrong answer). Non-silent by construction —
+# where INLA gives a wrong answer). Non-silent by construction --
 # every refusal carries the rule id that fired plus a one-line
 # human gloss; overrides are two-key-armed.
 #
-# Internal in v0.1 — called from bayesreml() / fb() / emit_inla()
+# Internal in v0.1 -- called from bayesreml() / fb() / emit_inla()
 # during dispatch. Power users can reach it via `bayesreml:::`.
 # print.lgm_refusal is exported so dispatch works in installed
 # builds.
@@ -49,7 +49,7 @@
 #   checks failed, override the refusal (subject to the two-key
 #   guard).
 # @param acknowledge_silent_bias_risk logical(1). Must be TRUE for
-#   override to take effect. Default FALSE — refusals are non-silent
+#   override to take effect. Default FALSE -- refusals are non-silent
 #   by construction.
 # @param reason character(1) non-empty. Logged into capabilities so
 #   downstream tooling can audit forced-INLA fits.
@@ -69,7 +69,7 @@ lgm_gate <- function(fb,
     .lgm_check_re_prior(fb),            # check 4
     .lgm_check_latent_class(fb),        # check 5
     .lgm_check_hyperparam_budget(fb)    # check 6
-    # check 7 (numerical-confirm) is post-fit — see emit_inla
+    # check 7 (numerical-confirm) is post-fit -- see emit_inla
     # (deliverable 5+).
   )
 
@@ -86,7 +86,7 @@ lgm_gate <- function(fb,
     return(fb)
   }
 
-  # Override path — two-key armed; non-overridable check 7 (numerical)
+  # Override path -- two-key armed; non-overridable check 7 (numerical)
   # is not yet implemented so all v0.1 failures are structural.
   if (identical(force, "inla") && isTRUE(acknowledge_silent_bias_risk)) {
     if (is.null(reason) || !is.character(reason) ||
@@ -104,7 +104,7 @@ lgm_gate <- function(fb,
     return(fb)
   }
 
-  # Default — return a structured refusal.
+  # Default -- return a structured refusal.
   new_lgm_refusal(failures, warnings, fb)
 }
 
@@ -128,11 +128,11 @@ new_lgm_refusal <- function(failures, warnings = list(), fb = NULL) {
 
 is_lgm_refusal <- function(x) inherits(x, "lgm_refusal")
 
-#' Print method for lgm_refusal — LGM feasibility refusal
+#' Print method for lgm_refusal -- LGM feasibility refusal
 #'
 #' Internal S3 method, registered for dispatch only. Emits the
 #' structured refusal template specified in
-#' design-notes-priors-brms-lgm.md §Q5: rule id + one-line gloss +
+#' design-notes-priors-brms-lgm.md Sec.Q5: rule id + one-line gloss +
 #' diagnostic + re-route hint + override hint + docs pointer.
 #'
 #' @param x   an `lgm_refusal` object.
@@ -167,7 +167,7 @@ print.lgm_refusal <- function(x, ...) {
 }
 
 # ---------------------------------------------------------------- #
-# Check helpers — internal                                         #
+# Check helpers -- internal                                         #
 # ---------------------------------------------------------------- #
 #
 # Each check returns a list:
@@ -187,7 +187,7 @@ print.lgm_refusal <- function(x, ...) {
        reason = reason, diagnostic = diagnostic, warning = NULL)
 }
 
-# Check 1 — Family allowlist
+# Check 1 -- Family allowlist
 #
 # family must be in INLA's likelihood roster. With INLA loaded we
 # query inla.models()$likelihood; otherwise fall back to a static
@@ -209,15 +209,14 @@ print.lgm_refusal <- function(x, ...) {
 }
 
 .inla_likelihood_allowlist <- function() {
-  if (requireNamespace("INLA", quietly = TRUE)) {
-    dyn <- tryCatch(names(INLA::inla.models()$likelihood),
-                    error = function(e) NULL)
-    if (!is.null(dyn) && length(dyn)) return(dyn)
-  }
+  # v0.1: static fallback only. Dynamic query
+  # `names(INLA::inla.models()$likelihood)` returns when emit_inla()
+  # lands (deliverable 5+) and INLA joins Suggests +
+  # Additional_repositories for `inla.r-inla-download.org`.
   .inla_likelihood_allowlist_static()
 }
 
-# Static allowlist — frozen at v0.1; refresh on each INLA major
+# Static allowlist -- frozen at v0.1; refresh on each INLA major
 # release if substantive changes are introduced. Covers the common
 # agricultural / health / ecological likelihoods.
 .inla_likelihood_allowlist_static <- function() {
@@ -241,11 +240,11 @@ print.lgm_refusal <- function(x, ...) {
   )
 }
 
-# Check 2 — Predictor linearity
+# Check 2 -- Predictor linearity
 #
 # asreml ingest is always linear (the asreml-format DSL has no
 # non-linear syntax in v0.1). brms ingest (deliverable 1) sets a
-# `nl = TRUE` flag or surfaces a non-linear term type — refuse
+# `nl = TRUE` flag or surfaces a non-linear term type -- refuse
 # there.
 .lgm_check_predictor <- function(fb) {
   has_nl <- any(vapply(fb$fixed_terms, function(t) {
@@ -262,10 +261,10 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("predictor_linearity")
 }
 
-# Check 3 — Distributional regression
+# Check 3 -- Distributional regression
 #
 # brms-style: refuse if any auxiliary parameter (sigma, phi, nu,
-# zi, hu) has a non-trivial RHS. asreml v0.1 has none — addition
+# zi, hu) has a non-trivial RHS. asreml v0.1 has none -- addition
 # slot may carry weights but never dpar regressions.
 .lgm_check_distributional <- function(fb) {
   dpar_terms <- Filter(function(t) {
@@ -283,10 +282,10 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("distributional_regression")
 }
 
-# Check 4 — Random-effect prior is Gaussian / MVN / GMRF
+# Check 4 -- Random-effect prior is Gaussian / MVN / GMRF
 #
 # Legacy asreml priors (lognormal scalar wrapped via
-# fb$priors$legacy = TRUE) map to Gaussian-equivalent on σ and pass
+# fb$priors$legacy = TRUE) map to Gaussian-equivalent on sigma and pass
 # trivially. fb_prior() declarations (deliverable 3) will be
 # inspected term-by-term; v0.1 placeholder accepts.
 .lgm_check_re_prior <- function(fb) {
@@ -318,7 +317,7 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("re_gaussian_prior")
 }
 
-# Check 5 — Latent-class detection
+# Check 5 -- Latent-class detection
 #
 # Refuse models that introduce a discrete latent variable: finite
 # mixtures, hidden Markov models, multistate transitions. Also
@@ -353,12 +352,12 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("latent_class")
 }
 
-# Check 6 — Hyperparameter budget
+# Check 6 -- Hyperparameter budget
 #
 # Count hyperparameters: 1 likelihood (depending on family) + per
 # random-effect contribution (1 for simple, 2 for fa, k+ for fa_gxe,
 # n*(n+1)/2 for us_gxe, etc.) + per heterogeneous-rcov term. Refuse
-# if total > 15 (CCD/grid intractable). Warn at >10 — emit_inla
+# if total > 15 (CCD/grid intractable). Warn at >10 -- emit_inla
 # (deliverable 5+) will set int.strategy = "ccd" automatically.
 .lgm_check_hyperparam_budget <- function(fb,
                                           hard_limit = 15L,

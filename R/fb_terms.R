@@ -1,12 +1,12 @@
-# fb_terms — flexyBayes intermediate representation (IR)
+# fb_terms -- flexyBayes intermediate representation (IR)
 #
 # An S3 class that bridges asreml-format ingest (via parse_formula.R)
 # and brms-formula ingest (via brms::brmsterms(); deliverable 1) to
 # the three v0.1 emit backends: greta (existing), brms / Stan (new),
-# and INLA — Integrated Nested Laplace Approximations (new).
+# and INLA -- Integrated Nested Laplace Approximations (new).
 #
 # Internal for v0.1. Constructed inside `bayesreml()` (the asreml
-# entry, retained) or `fb()` (the brms entry, deliverable 1) — not
+# entry, retained) or `fb()` (the brms entry, deliverable 1) -- not
 # for direct user instantiation. The print and format S3 methods
 # below are exported solely for dispatch under
 # `devtools::load_all()` and `R CMD check --as-cran`.
@@ -25,14 +25,14 @@
 #
 # All inputs are expected to be pre-shaped by the caller
 # (`bayesreml()` or `fb()`); the constructor performs structural
-# validation only — types, lengths, allowed values. Term-level
+# validation only -- types, lengths, allowed values. Term-level
 # semantic validation is the responsibility of `lgm_gate()`
 # (deliverable 2).
 #
 # @param response  length-1 non-empty character: response variable name.
 # @param family    a base-R `family` object, or a length-1 character
 #                  family name (e.g., "gaussian", "binomial").
-# @param link      length-1 character or NULL — link override.
+# @param link      length-1 character or NULL -- link override.
 # @param intercept logical(1).
 # @param fixed_terms,random_terms,rcov_terms,addition_terms
 #                  list of term descriptors. Each element must be a
@@ -41,7 +41,7 @@
 #                  "fa_gxe", "ar1_spatial") are accepted; brms-derived
 #                  types ("gr", "mm", "gp", "s", "cs") will be added
 #                  in phase 0.B / deliverable 1.
-# @param priors    an `fb_prior` object (deliverable 3) or NULL —
+# @param priors    an `fb_prior` object (deliverable 3) or NULL --
 #                  defaults applied downstream by the emit backend.
 # @param data_summary list with at least `n` (sample size) and
 #                  factor-level metadata. Populated by the ingest
@@ -49,7 +49,7 @@
 # @param capabilities character vector of capability flags
 #                  populated by `lgm_gate()` (deliverable 2). Empty
 #                  at construction.
-# @param source    "asreml" or "brms" — provenance, used by
+# @param source    "asreml" or "brms" -- provenance, used by
 #                  `triangulate()` for clear ingest-path labelling
 #                  in cross-engine reports (deliverable 4).
 # @return an fb_terms object (S3, inherits from list).
@@ -151,7 +151,7 @@ is_fb_terms <- function(x) inherits(x, "fb_terms")
 # Accessors                                                        #
 # ---------------------------------------------------------------- #
 
-# Lightweight field accessors. Internal — used inside emit_*()
+# Lightweight field accessors. Internal -- used inside emit_*()
 # helpers so they don't reach into list slots directly. A shared
 # accessor surface insulates the rest of the package from any
 # future representation change (e.g., S7 migration in v0.2+).
@@ -219,7 +219,7 @@ print.fb_terms <- function(x, ...) {
   invisible(x)
 }
 
-#' Format method for fb_terms — one-line summary
+#' Format method for fb_terms -- one-line summary
 #'
 #' Internal S3 method, registered for dispatch only. Used by R's
 #' default print/format machinery for compact display in lists and

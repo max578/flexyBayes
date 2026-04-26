@@ -1,6 +1,6 @@
-# fb_from_brms — flexyBayes brms-format ingest path (deliverable 1).
+# fb_from_brms -- flexyBayes brms-format ingest path (deliverable 1).
 #
-# v0.1 MINIMUM SUBSET — parses a brms-style formula
+# v0.1 MINIMUM SUBSET -- parses a brms-style formula
 #   `response ~ fixed_effects + (1 | g1) + (1 | g2) + ...`
 # via R's formula abstract syntax tree (AST). No runtime brms
 # dependency for this minimum subset; brmsformula objects (built via
@@ -11,13 +11,13 @@
 # - Gaussian / binomial / poisson / Gamma / lognormal / beta family
 #   names; default link or explicit override.
 # - Linear fixed effects (factor / continuous / interaction /
-#   I() expressions) — re-parsed via the existing .parse_fixed
+#   I() expressions) -- re-parsed via the existing .parse_fixed
 #   helper for byte-identity with the asreml ingest path.
 # - Random intercepts via `(1 | g)` and `(1 || g)`.
 # - Optional `weights` argument mapped to addition_terms with
 #   type = "weights" (mirrors fb_from_asreml).
 #
-# Refused (v0.1) — fail-fast at ingest with a clear message:
+# Refused (v0.1) -- fail-fast at ingest with a clear message:
 # - Random slopes `(x | g)` and uncorrelated slopes `(x || g)`.
 # - Smoothers `s()`, `t2()`.
 # - Gaussian processes `gp()`.
@@ -35,7 +35,7 @@
 # regression refusal hooks, and the addition-form family.
 
 # ---------------------------------------------------------------- #
-# Public-style entry — internal in v0.1                            #
+# Public-style entry -- internal in v0.1                            #
 # ---------------------------------------------------------------- #
 
 # Construct an fb_terms object from a brms-style formula.
@@ -204,7 +204,7 @@ fb_from_brms <- function(formula,
           return(invisible())
         }
       }
-      # Bare parentheses around a non-RE expression — descend
+      # Bare parentheses around a non-RE expression -- descend
       visit(e[[2]])
       return(invisible())
     }
@@ -218,7 +218,7 @@ fb_from_brms <- function(formula,
         return(invisible())
       }
 
-      # Unsupported brms specials — bucket into ext_terms
+      # Unsupported brms specials -- bucket into ext_terms
       if (op %in% c("s", "t2")) {
         ext_terms[[length(ext_terms) + 1L]] <<- list(
           type = "smoother", fn = op, deparse = deparse(e)
@@ -246,7 +246,7 @@ fb_from_brms <- function(formula,
       }
     }
 
-    # Default: a fixed-effect term — record its deparse for later
+    # Default: a fixed-effect term -- record its deparse for later
     # re-parsing through .parse_fixed
     fixed_labels <<- c(fixed_labels, deparse(e))
     invisible()

@@ -1,4 +1,4 @@
-# emit_greta — flexyBayes greta backend emit shim.
+# emit_greta -- flexyBayes greta backend emit shim.
 #
 # Phase 0.C: a no-semantic-change shim that takes an fb_terms IR
 # (intermediate representation) object and runs the full greta
@@ -14,7 +14,7 @@
 # tests/testthat/test-emit-greta.R; transparency-tested in
 # tests/testthat/test-fb-from-asreml.R.
 #
-# Internal — not exported. Called from bayesreml() and (in
+# Internal -- not exported. Called from bayesreml() and (in
 # deliverable 4) from triangulate() when greta is one of the
 # requested backends.
 

@@ -33,6 +33,7 @@ Imports:
     splines
 Suggests:
     greta (>= 0.4.0),
+    brms,
     generics,
     bayesplot,
     posterior,

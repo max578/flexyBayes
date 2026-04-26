@@ -1,4 +1,4 @@
-# fb — flexyBayes user-facing entry points and ingest dispatchers.
+# fb -- flexyBayes user-facing entry points and ingest dispatchers.
 #
 # - fb_from_asreml() (deliverable 0.B): asreml-format ingest path,
 #   wraps the existing parse_formula.R helpers (.parse_fixed,
@@ -28,7 +28,7 @@
 # @param random One-sided formula ~ random_terms (asreml syntax) or
 #   NULL.
 # @param rcov One-sided formula ~ residual_structure or NULL. NULL
-#   defaults to list(list(type = "units")) — iid residuals — to
+#   defaults to list(list(type = "units")) -- iid residuals -- to
 #   match bayesreml()'s behaviour.
 # @param data data.frame containing all variables referenced.
 # @param family character family name; resolved via .resolve_family
@@ -41,7 +41,7 @@
 #   list(Gmat = G)). Names recorded in data_summary$known_matrices.
 # @param prior an fb_prior object (deliverable 3) or NULL. NULL
 #   falls back to legacy scalar priors prior_fixed_sd /
-#   prior_vc_sd. Forward-compat hook — fb_prior is wired in
+#   prior_vc_sd. Forward-compat hook -- fb_prior is wired in
 #   deliverable 3.
 # @param prior_fixed_sd numeric: SD for fixed-effect normal priors
 #   (legacy).
@@ -60,7 +60,7 @@ fb_from_asreml <- function(fixed,
                            prior_fixed_sd = 10,
                            prior_vc_sd    = 1) {
 
-  # Delegate parsing to existing helpers verbatim — no behaviour
+  # Delegate parsing to existing helpers verbatim -- no behaviour
   # change relative to bayesreml().
   fixed_info   <- .parse_fixed(fixed, data)
   random_terms <- if (!is.null(random))
@@ -69,7 +69,7 @@ fb_from_asreml <- function(fixed,
     .parse_formula(rcov, data) else list(list(type = "units"))
   fam_link     <- .resolve_family(family, link)
 
-  # weights -> addition_terms (per IR design sketch §2)
+  # weights -> addition_terms (per IR design sketch Sec.2)
   addition_terms <- if (!is.null(weights)) {
     if (!is.numeric(weights) || length(weights) != nrow(data))
       stop("`weights` must be a numeric vector of length nrow(data).",
@@ -79,7 +79,7 @@ fb_from_asreml <- function(fixed,
     list()
   }
 
-  # Priors: forward-compat — accept an fb_prior object when supplied;
+  # Priors: forward-compat -- accept an fb_prior object when supplied;
   # otherwise capture legacy scalar priors. Marked legacy = TRUE so
   # downstream code can detect and dispatch accordingly.
   priors <- if (!is.null(prior)) {
@@ -112,10 +112,10 @@ fb_from_asreml <- function(fixed,
 }
 
 # ---------------------------------------------------------------- #
-# fb() — brms-format public entry (deliverable 1)                  #
+# fb() -- brms-format public entry (deliverable 1)                  #
 # ---------------------------------------------------------------- #
 
-#' Flexible Bayesian fit — brms-formula entry
+#' Flexible Bayesian fit -- brms-formula entry
 #'
 #' Public entry point for the brms-format ingest path. Accepts a
 #' brms-style formula (e.g., `y ~ x + (1 | g)`), parses to the
@@ -128,8 +128,8 @@ fb_from_asreml <- function(fixed,
 #'
 #' - `"greta"`: existing greta backend (always available).
 #' - `"auto"`: prefers INLA when LGM (latent Gaussian model)
-#'   feasible, else greta. v0.1 falls back to greta in all cases —
-#'   `emit_inla()` and `emit_brms()` land in deliverable 5+ — and
+#'   feasible, else greta. v0.1 falls back to greta in all cases --
+#'   `emit_inla()` and `emit_brms()` land in deliverable 5+ -- and
 #'   surfaces the chosen path via a `message()`.
 #' - `"inla"`: not yet implemented; errors politely.
 #' - `"brms"`: not yet implemented; errors politely.
@@ -138,7 +138,7 @@ fb_from_asreml <- function(fixed,
 #'   or a `brmsformula` object built via `brms::bf()`.
 #' @param data a data.frame containing all referenced variables.
 #' @param family character family name or a `family()` object.
-#' @param prior an `fb_prior` object (deliverable 3) or NULL —
+#' @param prior an `fb_prior` object (deliverable 3) or NULL --
 #'   NULL invokes legacy scalar priors.
 #' @param backend one of `"auto"`, `"greta"`, `"brms"`, `"inla"`.
 #' @param weights optional numeric weights vector of length
@@ -214,7 +214,7 @@ fb <- function(formula,
               gate_result$primary_rule,
               "); falling back to greta backend.")
     } else {
-      message("flexyBayes: LGM-feasible model — v0.1 dispatches to ",
+      message("flexyBayes: LGM-feasible model -- v0.1 dispatches to ",
               "greta (emit_inla and emit_brms land in deliverable ",
               "5+).")
     }
