@@ -2,7 +2,7 @@
 % Please edit documentation in R/lgm_gate.R
 \name{print.lgm_refusal}
 \alias{print.lgm_refusal}
-\title{Print method for lgm_refusal — LGM feasibility refusal}
+\title{Print method for lgm_refusal -- LGM feasibility refusal}
 \usage{
 \method{print}{lgm_refusal}(x, ...)
 }
@@ -17,7 +17,7 @@ invisibly returns \code{x}.
 \description{
 Internal S3 method, registered for dispatch only. Emits the
 structured refusal template specified in
-design-notes-priors-brms-lgm.md §Q5: rule id + one-line gloss +
+design-notes-priors-brms-lgm.md Sec.Q5: rule id + one-line gloss +
 diagnostic + re-route hint + override hint + docs pointer.
 }
 \keyword{internal}

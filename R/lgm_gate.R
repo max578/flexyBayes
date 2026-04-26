@@ -209,10 +209,14 @@ print.lgm_refusal <- function(x, ...) {
 }
 
 .inla_likelihood_allowlist <- function() {
-  # v0.1: static fallback only. Dynamic query
-  # `names(INLA::inla.models()$likelihood)` returns when emit_inla()
-  # lands (deliverable 5+) and INLA joins Suggests +
-  # Additional_repositories for `inla.r-inla-download.org`.
+  # Prefer the live INLA roster when the package is installed
+  # (Suggests + Additional_repositories declared in DESCRIPTION).
+  # Fall back to the static list otherwise.
+  if (requireNamespace("INLA", quietly = TRUE)) {
+    dyn <- tryCatch(names(INLA::inla.models()$likelihood),
+                    error = function(e) NULL)
+    if (!is.null(dyn) && length(dyn)) return(dyn)
+  }
   .inla_likelihood_allowlist_static()
 }
 

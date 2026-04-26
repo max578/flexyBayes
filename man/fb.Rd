@@ -2,7 +2,7 @@
 % Please edit documentation in R/fb.R
 \name{fb}
 \alias{fb}
-\title{Flexible Bayesian fit — brms-formula entry}
+\title{Flexible Bayesian fit -- brms-formula entry}
 \usage{
 fb(
   formula,
@@ -29,7 +29,7 @@ or a \code{brmsformula} object built via \code{brms::bf()}.}
 
 \item{family}{character family name or a \code{family()} object.}
 
-\item{prior}{an \code{fb_prior} object (deliverable 3) or NULL —
+\item{prior}{an \code{fb_prior} object (deliverable 3) or NULL --
 NULL invokes legacy scalar priors.}
 
 \item{backend}{one of \code{"auto"}, \code{"greta"}, \code{"brms"}, \code{"inla"}.}
@@ -75,8 +75,8 @@ v0.1 backend support:
 \itemize{
 \item \code{"greta"}: existing greta backend (always available).
 \item \code{"auto"}: prefers INLA when LGM (latent Gaussian model)
-feasible, else greta. v0.1 falls back to greta in all cases —
-\code{emit_inla()} and \code{emit_brms()} land in deliverable 5+ — and
+feasible, else greta. v0.1 falls back to greta in all cases --
+\code{emit_inla()} and \code{emit_brms()} land in deliverable 5+ -- and
 surfaces the chosen path via a \code{message()}.
 \item \code{"inla"}: not yet implemented; errors politely.
 \item \code{"brms"}: not yet implemented; errors politely.

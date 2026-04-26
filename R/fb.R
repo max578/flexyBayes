@@ -249,9 +249,19 @@ fb <- function(formula,
 
   if (effective_backend == "inla") {
     if (is_refusal) stop(gate_result, call. = FALSE)
-    stop("Backend \"inla\" is not yet implemented. ",
-         "emit_inla() lands in deliverable 5+. ",
-         "Use backend = \"greta\" for now.", call. = FALSE)
+    return(emit_inla(
+      fb        = gate_result,
+      data      = data,
+      verbose   = verbose,
+      return_code = return_code,
+      the_call  = the_call,
+      fixed     = formula,
+      random    = NULL,
+      rcov      = NULL,
+      family    = family,
+      link      = NULL,
+      data_name = data_name
+    ))
   }
 
   if (effective_backend == "brms")

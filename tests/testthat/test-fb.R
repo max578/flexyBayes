@@ -91,12 +91,13 @@ test_that("fb() backend='auto' on non-LGM model still returns greta code", {
 # Not-yet-implemented backends                                     #
 # ---------------------------------------------------------------- #
 
-test_that("fb() with backend='inla' errors as not-yet-implemented", {
+test_that("fb() with backend='inla' errors politely without INLA installed", {
   skip_if_no_greta()
+  if (requireNamespace("INLA", quietly = TRUE)) skip("INLA installed; live-fit tested in test-emit-inla.R")
   d <- mk_fb_data()
   expect_error(
     fb(y ~ x, data = d, backend = "inla", verbose = FALSE),
-    "not yet implemented"
+    "Package 'INLA' is required"
   )
 })
 
