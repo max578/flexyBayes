@@ -41,6 +41,8 @@
 
 #' Specify priors via the PC-canonical hybrid DSL
 #'
+#' `r lifecycle::badge("experimental")`
+#'
 #' The flexyBayes prior DSL (domain-specific language) lives on the
 #' standard-deviation scale (never precision / variance) and accepts
 #' two canonical idioms: distributional (`half_normal(scale = 1)`)

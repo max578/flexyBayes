@@ -1,5 +1,7 @@
 #' Bayesian Mixed Models with ASReml Syntax
 #'
+#' `r lifecycle::badge("experimental")`
+#'
 #' Specify mixed models using ASReml formula syntax and estimate them via
 #' Bayesian MCMC using greta. Returns a three-part result: a GLM-compatible
 #' object for use with standard R packages (emmeans, marginaleffects, etc.),

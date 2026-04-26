@@ -95,6 +95,9 @@ diagnostics, \code{variance_comps}, \code{blups}, \code{predictions}, generated 
 If \code{return_code = TRUE}, returns a character string of greta code instead.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 Specify mixed models using ASReml formula syntax and estimate them via
 Bayesian MCMC using greta. Returns a three-part result: a GLM-compatible
 object for use with standard R packages (emmeans, marginaleffects, etc.),

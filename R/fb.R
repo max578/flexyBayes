@@ -117,6 +117,8 @@ fb_from_asreml <- function(fixed,
 
 #' Flexible Bayesian fit -- brms-formula entry
 #'
+#' `r lifecycle::badge("experimental")`
+#'
 #' Public entry point for the brms-format ingest path. Accepts a
 #' brms-style formula (e.g., `y ~ x + (1 | g)`), parses to the
 #' flexyBayes intermediate representation (IR; an `fb_terms`

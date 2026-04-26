@@ -63,14 +63,16 @@ yet implemented or the model is non-LGM under
 \code{backend = "inla"}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 Public entry point for the brms-format ingest path. Accepts a
 brms-style formula (e.g., \code{y ~ x + (1 | g)}), parses to the
 flexyBayes intermediate representation (IR; an \code{fb_terms}
 object), runs \code{lgm_gate()} to assess INLA (Integrated Nested
 Laplace Approximations) feasibility, and dispatches to the
 requested backend.
-}
-\details{
+
 v0.1 backend support:
 \itemize{
 \item \code{"greta"}: existing greta backend (always available).

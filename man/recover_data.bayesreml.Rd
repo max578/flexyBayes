@@ -17,5 +17,5 @@ recover_data.bayesreml(object, data = NULL, ...)
 A data frame suitable for emmeans
 }
 \description{
-Recover data for emmeans
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 }

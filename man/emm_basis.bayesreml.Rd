@@ -21,5 +21,5 @@ emm_basis.bayesreml(object, trms, xlev, grid, ...)
 A list with X, bhat, V, dffun, dfargs
 }
 \description{
-Compute emmeans basis
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 }

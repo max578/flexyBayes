@@ -15,5 +15,8 @@ glance.bayesreml(x, ...)
 A one-row data frame
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 Returns a one-row summary of model-level statistics.
 }

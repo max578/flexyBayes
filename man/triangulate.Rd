@@ -44,11 +44,13 @@ a \code{triangulate_result} S3 object (list). Key fields:
 \code{source_a}, \code{source_b}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 Compute per-parameter posterior comparison metrics across two
 Bayesian fits produced via different backends (greta / INLA /
 brms passthrough). The signature feature of flexyBayes.
-}
-\details{
+
 For each parameter present in both fits (post \code{name_map}), the
 returned table reports: posterior means, posterior SDs, Q2.5 /
 Q97.5 differences (tail drift), Wasserstein-1 distance (1D

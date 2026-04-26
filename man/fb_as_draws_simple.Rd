@@ -24,6 +24,9 @@ fb_as_draws_simple(fit, ...)
 a named list of numeric vectors.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 S3 generic used by \code{triangulate()} to extract a named list of
 numeric posterior-draw vectors from each fit. Methods exist for
 the \code{bayesreml} (greta backend) and \code{bayesreml_inla} (INLA

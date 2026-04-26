@@ -30,6 +30,9 @@ an \code{fb_prior} object (S3, inherits from list) with
 \verb{$specs} carrying the parsed \code{target} / \code{spec} pairs.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 The flexyBayes prior DSL (domain-specific language) lives on the
 standard-deviation scale (never precision / variance) and accepts
 two canonical idioms: distributional (\code{half_normal(scale = 1)})
@@ -38,8 +41,7 @@ and tail-quantile / PC (penalised complexity)
 The PC idiom is the cross-engine interlingua -- it survives every
 backend because it is a probability statement, not a
 distributional name.
-}
-\details{
+
 v0.1 supports the targets and distributions listed above in the
 file header. Calls outside the supported set raise a structured
 error with the supported list.

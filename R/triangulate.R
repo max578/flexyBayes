@@ -24,6 +24,8 @@
 
 #' Cross-engine posterior triangulation
 #'
+#' `r lifecycle::badge("experimental")`
+#'
 #' Compute per-parameter posterior comparison metrics across two
 #' Bayesian fits produced via different backends (greta / INLA /
 #' brms passthrough). The signature feature of flexyBayes.
@@ -286,6 +288,8 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
 # ---------------------------------------------------------------- #
 
 #' Extract per-parameter posterior draws from a model fit
+#'
+#' `r lifecycle::badge("experimental")`
 #'
 #' S3 generic used by `triangulate()` to extract a named list of
 #' numeric posterior-draw vectors from each fit. Methods exist for

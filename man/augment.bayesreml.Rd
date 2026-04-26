@@ -17,6 +17,9 @@ augment.bayesreml(x, data = NULL, ...)
 A data frame with added columns: .fitted, .resid
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+}
+\details{
 Returns the original data with fitted values, residuals, and other
 observation-level statistics.
 }
