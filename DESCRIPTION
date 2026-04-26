@@ -2,10 +2,14 @@ Package: bayesreml
 Title: Bayesian Mixed Models with ASReml Syntax, Powered by Greta
 Version: 0.1.0
 Authors@R: c(
-    person("AAGI", "University of Adelaide", role = c("aut", "cre"),
-           email = "aagi@adelaide.edu.au"),
-    person("Claude", "Anthropic", role = "ctb",
-           comment = "AI-assisted development")
+    person("Max", "Moldovan", email = "max.moldovan@gmail.com",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-9680-8474")),
+    person("Emi", "Tanaka", role = "aut",
+           comment = c(ORCID = "0000-0002-1455-259X")),
+    person("Francis K.C.", "Hui", role = "aut",
+           comment = c(ORCID = "0000-0003-0765-3533")),
+    person("Beata", "Sznajder", role = "aut")
     )
 Description: Specify mixed models using familiar ASReml formula syntax and
     estimate them via Bayesian MCMC using 'greta'. Returns results in formats
@@ -17,8 +21,8 @@ Description: Specify mixed models using familiar ASReml formula syntax and
     as well as structured covariance models (us, fa, ar1), genomic relationship
     matrices (GBLUP), pedigree-based models, spatial models, and splines.
 License: GPL (>= 3)
-URL: https://github.com/AAGI-Org-AU-Public/bayesreml
-BugReports: https://github.com/AAGI-Org-AU-Public/bayesreml/issues
+URL: https://github.com/AAGI-AUS/bayesreml
+BugReports: https://github.com/AAGI-AUS/bayesreml/issues
 Depends:
     R (>= 4.1.0)
 Imports:

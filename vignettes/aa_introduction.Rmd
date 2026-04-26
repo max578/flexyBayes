@@ -71,7 +71,7 @@ If this runs without error, greta and TensorFlow are working.
 
 ```{r install-bayesreml}
 # From GitHub (development version)
-remotes::install_github("AAGI-Org-AU-Public/bayesreml")
+remotes::install_github("AAGI-AUS/bayesreml")
 
 # Or from a local source
 install.packages("bayesreml", repos = NULL, type = "source")

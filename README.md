@@ -25,7 +25,7 @@ greta::install_greta_deps()
 
 # Install bayesreml from GitHub
 # install.packages("remotes")
-remotes::install_github("AAGI-Org-AU-Public/bayesreml")
+remotes::install_github("AAGI-AUS/bayesreml")
 ```
 
 ## Quick Start
@@ -165,10 +165,10 @@ If you use `bayesreml` in your research, please cite:
 
 ```
 @software{bayesreml,
-  title = {bayesreml: Bayesian Mixed Models with ASReml Syntax},
-  author = {AAGI, University of Adelaide},
-  year = {2025},
-  url = {https://github.com/AAGI-Org-AU-Public/bayesreml}
+  title = {bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta},
+  author = {Moldovan, Max and Tanaka, Emi and Hui, Francis K.C. and Sznajder, Beata},
+  year = {2026},
+  url = {https://github.com/AAGI-AUS/bayesreml}
 }
 ```
 
