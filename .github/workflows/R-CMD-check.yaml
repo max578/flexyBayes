@@ -1,0 +1,69 @@
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+name: R-CMD-check
+
+jobs:
+  R-CMD-check:
+    runs-on: ${{ matrix.config.os }}
+
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: macos-latest,   r: 'release'}
+          - {os: macos-14,       r: 'release'}
+          - {os: windows-latest, r: 'release'}
+          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
+          - {os: ubuntu-latest,  r: 'release'}
+          - {os: ubuntu-latest,  r: 'oldrel-1'}
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      _R_CHECK_FORCE_SUGGESTS_: false
+      _R_CHECK_CRAN_INCOMING_REMOTE_: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          http-user-agent: ${{ matrix.config.http-user-agent }}
+          use-public-rspm: true
+
+      # greta requires Python + TensorFlow + tensorflow-probability.
+      # We do not install greta deps here: greta is in Suggests and the
+      # test suite skips greta-dependent tests via skip_if_no_greta()
+      # when the runtime is unavailable. CI verifies the non-greta
+      # surface; full greta integration is exercised in the dedicated
+      # `greta-integration` workflow (separate, slow, manual trigger).
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+          # INLA is in Additional_repositories; install only on Linux
+          # where the precompiled binaries are reliable.
+          dependencies: '"hard"'
+
+      - name: Install INLA on Linux release leg
+        if: runner.os == 'Linux' && matrix.config.r == 'release'
+        run: |
+          install.packages("INLA", repos = c(
+            getOption("repos"),
+            INLA = "https://inla.r-inla-download.org/R/stable"
+          ))
+        shell: Rscript {0}
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          args: 'c("--no-manual", "--as-cran", "--no-build-vignettes")'

@@ -1,0 +1,105 @@
+url: https://aagi-aus.github.io/bayesreml/
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+  opengraph:
+    twitter:
+      card: summary_large_image
+
+development:
+  mode: auto
+
+home:
+  title: bayesreml — Bayesian mixed models with ASReml syntax
+  description: >
+    Specify mixed models using ASReml-style or brms-style formula syntax,
+    estimate them via greta or INLA, and triangulate posterior agreement
+    across engines as a robustness signal.
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, tutorials, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/bayesreml-getting-started.html
+    articles:
+      text: Articles
+      menu:
+        - text: "Foundations"
+        - text: Getting started
+          href: articles/bayesreml-getting-started.html
+        - text: ASReml-style formulas
+          href: articles/bayesreml-asreml-formulas.html
+        - text: Priors and the PC default
+          href: articles/bayesreml-priors.html
+        - text: "---"
+        - text: "Inference & dispatch"
+        - text: Backend internals
+          href: articles/bayesreml-backend-internals.html
+        - text: LGM feasibility filter
+          href: articles/bayesreml-lgm-feasibility.html
+        - text: Cross-engine triangulation
+          href: articles/bayesreml-triangulation.html
+        - text: Downstream analysis
+          href: articles/bayesreml-downstream-analysis.html
+        - text: "---"
+        - text: "Modelling vignettes"
+        - text: Regression
+          href: articles/bayesreml-regression.html
+        - text: Hierarchical models
+          href: articles/bayesreml-hierarchical.html
+        - text: Structured covariance
+          href: articles/bayesreml-structured-covariance.html
+        - text: Spatio-temporal
+          href: articles/bayesreml-spatio-temporal.html
+        - text: METs and genomics
+          href: articles/bayesreml-met-and-genomics.html
+
+reference:
+  - title: User-facing entry points
+    desc: Top-level functions for fitting, specifying, and comparing models.
+    contents:
+      - bayesreml
+      - fb
+      - fb_prior
+      - triangulate
+  - title: Cross-package interop
+    desc: Tidiers, emmeans, and draws conversion.
+    contents:
+      - has_concept("interop")
+      - tidy.bayesreml
+      - glance.bayesreml
+      - augment.bayesreml
+      - emm_basis.bayesreml
+      - recover_data.bayesreml
+      - fb_as_draws_simple
+  - title: Datasets
+    contents:
+      - has_keyword("datasets")
+  - title: Package
+    contents:
+      - bayesreml-package
+
+articles:
+  - title: Foundations
+    navbar: ~
+    contents:
+      - bayesreml-getting-started
+      - bayesreml-asreml-formulas
+      - bayesreml-priors
+  - title: Inference and dispatch
+    contents:
+      - bayesreml-backend-internals
+      - bayesreml-lgm-feasibility
+      - bayesreml-triangulation
+      - bayesreml-downstream-analysis
+  - title: Modelling
+    contents:
+      - bayesreml-regression
+      - bayesreml-hierarchical
+      - bayesreml-structured-covariance
+      - bayesreml-spatio-temporal
+      - bayesreml-met-and-genomics
