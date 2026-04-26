@@ -58,16 +58,22 @@ emit_inla <- function(fb,
          "    dep = TRUE)",
          call. = FALSE)
 
-  # Build INLA formula and family
-  inla_form   <- .build_inla_formula(fb)
-  inla_family <- .resolve_inla_family(fb)
+  # Build INLA formula and family. priors_to_inla() returns a list
+  # keyed by group / smoother var ("sigma" for residual). We thread
+  # the per-term entries into f(..., hyper = list(prec = ...)) and
+  # the "sigma" entry into control.family (residual precision).
   hyper_ctrl  <- if (inherits(fb$priors, "fb_prior"))
     priors_to_inla(fb$priors) else list()
+  inla_form   <- .build_inla_formula(fb, hyper_ctrl = hyper_ctrl)
+  inla_family <- .resolve_inla_family(fb)
+  control_family <- .build_inla_control_family(hyper_ctrl,
+                                                family = inla_family)
 
   if (return_code)
-    return(invisible(list(formula = inla_form,
-                           family  = inla_family,
-                           hyper   = hyper_ctrl)))
+    return(invisible(list(formula        = inla_form,
+                           family         = inla_family,
+                           hyper          = hyper_ctrl,
+                           control_family = control_family)))
 
   if (verbose) {
     cat("\n-- flexyBayes: INLA fit ",
@@ -87,6 +93,7 @@ emit_inla <- function(fb,
       control.compute = list(config = TRUE,
                               return.marginals = TRUE,
                               dic = TRUE, waic = TRUE),
+      control.family  = control_family,
       ...
     ),
     error = function(e)
@@ -147,7 +154,7 @@ emit_inla <- function(fb,
 # fb_terms -> INLA formula                                         #
 # ---------------------------------------------------------------- #
 
-.build_inla_formula <- function(fb) {
+.build_inla_formula <- function(fb, hyper_ctrl = list()) {
   rhs_terms <- character(0)
 
   # Intercept
@@ -168,17 +175,31 @@ emit_inla <- function(fb,
     rhs_terms <- c(rhs_terms, contrib)
   }
 
-  # Random-effect terms via INLA's f()
+  # Random-effect terms via INLA's f(). When the user-supplied
+  # priors_to_inla() output names a hyperparameter for this term,
+  # splice it in as `hyper = list(prec = list(prior = ..., param = ...))`
+  # so the user's prior actually reaches INLA.
   for (term in fb$random_terms) {
-    contrib <- switch(term$type,
+    key <- switch(term$type,
       "simple" = ,
       "ide"    = ,
-      "id"     = paste0("f(", term$var, ", model = \"iid\")"),
-      "spline" = paste0("f(", term$var, ", model = \"rw2\")"),
+      "id"     = term$var,
+      "spline" = term$var,
+      NULL
+    )
+    model_name <- switch(term$type,
+      "simple" = ,
+      "ide"    = ,
+      "id"     = "iid",
+      "spline" = "rw2",
       stop("emit_inla() v0.1 does not support random term type \"",
            term$type, "\". Re-route via backend = \"greta\".",
            call. = FALSE)
     )
+    hyper_str <- .inla_hyper_arg(hyper_ctrl[[key]])
+    contrib   <- paste0("f(", term$var, ", model = \"", model_name, "\"",
+                        if (nzchar(hyper_str)) paste0(", ", hyper_str) else "",
+                        ")")
     rhs_terms <- c(rhs_terms, contrib)
   }
 
@@ -193,6 +214,43 @@ emit_inla <- function(fb,
 
   rhs <- paste(rhs_terms, collapse = " + ")
   stats::as.formula(paste0(fb$response, " ~ ", rhs))
+}
+
+# Build the `hyper = list(prec = list(prior = ..., param = ...))`
+# substring spliced into a random-effect f() call. Returns "" when
+# no entry is present so default INLA priors apply.
+.inla_hyper_arg <- function(entry) {
+  if (is.null(entry)) return("")
+  prior <- entry$prior
+  param <- entry$param
+  if (is.null(prior)) return("")
+  body <- paste0("prior = ", deparse(prior))
+  if (length(param))
+    body <- paste0(body, ", param = c(",
+                   paste(param, collapse = ", "), ")")
+  paste0("hyper = list(prec = list(", body, "))")
+}
+
+# Build the control.family list passed to INLA::inla(). When the
+# user supplies an fb_prior() spec keyed under "sigma", attach it as
+# the residual-precision hyperprior -- but only for families whose
+# likelihood actually carries a precision hyperparameter (Gaussian,
+# lognormal, gamma, beta, T). For Poisson, binomial, exponential
+# etc. the likelihood has no `prec` hyperparameter and INLA refuses
+# any control.family$hyper input, so we silently drop the sigma prior
+# in that case (it is not a no-op for the model -- there is no such
+# parameter to constrain). Returns an empty list when no residual
+# prior is specified, so INLA's default loggamma applies for the
+# Gaussian-family case where prec is the lone hyperparameter.
+.build_inla_control_family <- function(hyper_ctrl, family) {
+  entry <- hyper_ctrl[["sigma"]]
+  if (is.null(entry)) return(list())
+  families_with_prec <- c("gaussian", "stdnormal", "lognormal",
+                           "gamma", "beta", "T", "logistic")
+  if (!tolower(family) %in% families_with_prec) return(list())
+  body <- entry[c("prior", "param")]
+  body <- body[!vapply(body, is.null, logical(1))]
+  list(hyper = list(prec = body))
 }
 
 # ---------------------------------------------------------------- #

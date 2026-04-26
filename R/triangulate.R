@@ -40,6 +40,17 @@
 #' them. Without alignment, only literal-match parameter names are
 #' compared.
 #'
+#' Backends also use different *parameter scales* for variance
+#' components -- INLA reports precision (`Precision for g`), greta
+#' reports standard deviation (`sigma_g`). Supply
+#' `transform_a` / `transform_b` -- named lists of one-argument
+#' functions keyed by parameter name -- to put the two posteriors on
+#' a common scale before comparison. Transforms are applied first;
+#' then `name_map` aligns the (already-transformed) fit_b names to
+#' fit_a's canonical names. Names in `transform_b` therefore refer to
+#' fit_b's *original* parameter names, not the post-`name_map`
+#' canonical names.
+#'
 #' @param fit_a a fit object with a `fb_as_draws_simple` method
 #'   (e.g., `bayesreml` from greta, `bayesreml_inla` from INLA).
 #' @param fit_b a second fit object, typically from a different
@@ -47,6 +58,14 @@
 #' @param name_map named character vector or list mapping fit_b's
 #'   parameter names (left) to canonical names matching fit_a
 #'   (right). Optional.
+#' @param transform_a,transform_b named list of functions, each
+#'   taking a numeric vector of posterior draws and returning a
+#'   numeric vector of the same length. Names key parameters in
+#'   `fit_a` / `fit_b` (using each fit's *original* parameter
+#'   names). Common use: pass
+#'   `transform_b = list("Precision for g" = function(x) 1 / sqrt(x))`
+#'   to convert INLA's precision draws to standard-deviation scale
+#'   so they line up with greta's `sigma_g`. Optional.
 #' @param n_samples integer: number of posterior samples to draw
 #'   for fits whose extractor needs sampling (e.g., INLA via
 #'   `INLA::inla.posterior.sample`).
@@ -55,20 +74,45 @@
 #'   `common` (character), `only_a`, `only_b`, `n_common`,
 #'   `source_a`, `source_b`.
 #' @examples
+#' # Live INLA posterior sampling can fail in restricted-process
+#' # check environments (the `inla.posterior.sample` parallelism
+#' # check trips); the example uses `\dontrun{}` deliberately. On
+#' # an interactive install with greta + INLA + sn available it
+#' # runs in a few seconds.
 #' \dontrun{
-#' library(bayesreml)
-#' d <- data.frame(y = rnorm(40), x = rnorm(40), g = factor(rep(1:5, 8)))
-#' fit_g <- fb(y ~ x + (1 | g), data = d, backend = "greta",
-#'             n_samples = 200, warmup = 200, chains = 2)
-#' fit_i <- fb(y ~ x + (1 | g), data = d, backend = "inla")
-#' tri <- triangulate(
-#'   fit_g, fit_i,
-#'   name_map = c("(Intercept):1" = "mu_atg", "x:1" = "beta_x")
-#' )
-#' print(tri)
+#' if (requireNamespace("greta", quietly = TRUE) &&
+#'     requireNamespace("INLA",  quietly = TRUE)) {
+#'   set.seed(1)
+#'   d <- data.frame(y = rnorm(40), x = rnorm(40),
+#'                   g = factor(rep(1:5, 8)))
+#'   fit_g <- fb(y ~ x + (1 | g), data = d, backend = "greta",
+#'               n_samples = 100, warmup = 100, chains = 1,
+#'               verbose = FALSE)
+#'   fit_i <- fb(y ~ x + (1 | g), data = d, backend = "inla",
+#'               verbose = FALSE)
+#'   prec_to_sd <- function(x) 1 / sqrt(x)
+#'   tri <- triangulate(
+#'     fit_g, fit_i,
+#'     transform_b = list(
+#'       "Precision for g"                         = prec_to_sd,
+#'       "Precision for the Gaussian observations" = prec_to_sd
+#'     ),
+#'     name_map = c(
+#'       "(Intercept):1"                           = "mu_atg",
+#'       "x:1"                                     = "beta_x",
+#'       "Precision for g"                         = "sigma_g",
+#'       "Precision for the Gaussian observations" = "sigma_e_atg"
+#'     )
+#'   )
+#'   print(tri)
+#' }
 #' }
 #' @export
-triangulate <- function(fit_a, fit_b, name_map = NULL, n_samples = 1000L) {
+triangulate <- function(fit_a, fit_b,
+                        name_map    = NULL,
+                        transform_a = NULL,
+                        transform_b = NULL,
+                        n_samples   = 1000L) {
 
   draws_a <- fb_as_draws_simple(fit_a, n_samples = n_samples)
   draws_b <- fb_as_draws_simple(fit_b, n_samples = n_samples)
@@ -79,6 +123,11 @@ triangulate <- function(fit_a, fit_b, name_map = NULL, n_samples = 1000L) {
   if (!is.list(draws_b) || is.null(names(draws_b)))
     stop("`fb_as_draws_simple(fit_b)` must return a named list of ",
          "numeric vectors.", call. = FALSE)
+
+  # Apply per-parameter transforms before any renaming so callers can
+  # key transforms by each fit's native parameter names.
+  draws_a <- .triangulate_apply_transform(draws_a, transform_a, "transform_a")
+  draws_b <- .triangulate_apply_transform(draws_b, transform_b, "transform_b")
 
   if (!is.null(name_map)) {
     if (!(is.list(name_map) || is.character(name_map)) ||
@@ -122,6 +171,34 @@ triangulate <- function(fit_a, fit_b, name_map = NULL, n_samples = 1000L) {
 }
 
 is_triangulate_result <- function(x) inherits(x, "triangulate_result")
+
+# Apply a named list of one-argument transforms to a draws list.
+# Names not present in `draws` are silently ignored (so a single
+# transform spec can be reused across models that share only some
+# parameters). Each function must return a vector of the same length
+# as the input draws.
+.triangulate_apply_transform <- function(draws, transform, label) {
+  if (is.null(transform)) return(draws)
+  if (!is.list(transform) || is.null(names(transform)) ||
+      any(!nzchar(names(transform))))
+    stop("`", label, "` must be a named list of one-argument ",
+         "functions keyed by parameter name.", call. = FALSE)
+  for (nm in names(transform)) {
+    fn <- transform[[nm]]
+    if (!is.function(fn))
+      stop("`", label, "[[\"", nm, "\"]]` must be a function.",
+           call. = FALSE)
+    if (nm %in% names(draws)) {
+      x_in  <- draws[[nm]]
+      x_out <- fn(x_in)
+      if (!is.numeric(x_out) || length(x_out) != length(x_in))
+        stop("`", label, "[[\"", nm, "\"]]` must return a numeric ",
+             "vector of length ", length(x_in), ".", call. = FALSE)
+      draws[[nm]] <- as.numeric(x_out)
+    }
+  }
+  draws
+}
 
 # ---------------------------------------------------------------- #
 # Per-parameter metrics                                            #

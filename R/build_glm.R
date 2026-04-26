@@ -1,6 +1,22 @@
 # Build GLM-compatible output from posterior draws
 # Not exported.
 
+# Reconstruct a fixed-effects-only formula from a parsed fixed_info.
+# Used by .build_glm() so that model.frame() / model.matrix() / terms()
+# never see brms-style random-effects bars (e.g. `(1|g)`), which would
+# otherwise be evaluated as bitwise-OR and warn on factor groups
+# ("Ops.factor(1, g) : '|' not meaningful for factors"). For the asreml
+# ingest path, fixed_info$terms already excludes random terms, so the
+# reconstructed formula is equivalent to the caller-supplied `fixed`.
+.fixed_only_formula <- function(fixed_info, env = parent.frame()) {
+  resp      <- fixed_info$response
+  rhs_parts <- vapply(fixed_info$terms,
+                      function(t) t$label, character(1))
+  rhs <- if (length(rhs_parts)) paste(rhs_parts, collapse = " + ") else "1"
+  if (!isTRUE(fixed_info$intercept)) rhs <- paste(rhs, "- 1")
+  stats::as.formula(paste(resp, "~", rhs), env = env)
+}
+
 # Construct a GLM-compatible object from bayesreml posterior results
 #
 # @param fixed_info Parsed fixed formula
@@ -9,7 +25,9 @@
 # @param ev Evaluation environment
 # @param fam_link Family/link list
 # @param the_call Original match.call()
-# @param fixed Original fixed formula
+# @param fixed Original fixed formula (may include brms-style random
+#   bars; we strip them via .fixed_only_formula() before any
+#   model.frame/model.matrix/terms call)
 # @return Object of class c("bayesreml_glm", "glm", "lm")
 .build_glm <- function(fixed_info, data, draws, ev, fam_link,
                         the_call, fixed) {
@@ -22,14 +40,21 @@
   beta_hat  <- coef_info$coefficients
   beta_vcov <- coef_info$vcov
 
+  # Reconstruct a fixed-only formula so brms-style `(1|g)` terms
+  # don't reach model.frame() / model.matrix() / terms().
+  fixed_only <- .fixed_only_formula(
+    fixed_info,
+    env = if (inherits(fixed, "formula")) environment(fixed) else parent.frame()
+  )
+
   # Build model frame and model matrix
   mf <- tryCatch(
-    model.frame(fixed, data = data, na.action = na.omit),
+    model.frame(fixed_only, data = data, na.action = na.omit),
     error = function(e) data
   )
 
   mm <- tryCatch({
-    X <- model.matrix(fixed, data = data)
+    X <- model.matrix(fixed_only, data = data)
     X
   }, error = function(e) {
     matrix(1, nrow = N, ncol = 1, dimnames = list(NULL, "(Intercept)"))
@@ -78,16 +103,17 @@
     boundary         = FALSE,
     model            = mf,
     call             = the_call,
-    formula          = fixed,
-    terms            = tryCatch(terms(fixed, data = data),
-                               error = function(e) terms(fixed)),
+    formula          = fixed_only,
+    terms            = tryCatch(terms(fixed_only, data = data),
+                               error = function(e) terms(fixed_only)),
     data             = data,
     offset           = NULL,
     control          = list(),
     method           = "bayesreml",
     contrasts        = attr(mm, "contrasts"),
     xlevels          = .getXlevels(
-      tryCatch(terms(fixed, data = data), error = function(e) terms(fixed)),
+      tryCatch(terms(fixed_only, data = data),
+               error = function(e) terms(fixed_only)),
       mf
     ),
     na.action        = NULL

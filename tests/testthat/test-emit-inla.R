@@ -141,9 +141,12 @@ test_that("emit_inla() return_code returns formula and family without fitting", 
 
   res <- bayesreml:::emit_inla(fb = fb, data = d,
                                 verbose = FALSE, return_code = TRUE)
-  expect_named(res, c("formula", "family", "hyper"))
+  expect_named(res, c("formula", "family", "hyper", "control_family"))
   expect_s3_class(res$formula, "formula")
   expect_identical(res$family, "gaussian")
+  # control_family is empty when the user supplies no sigma prior;
+  # populated when fb_prior(sigma ~ pc(...)) is passed.
+  expect_identical(res$control_family, list())
 })
 
 test_that("fb(... backend = 'inla') dispatches to emit_inla", {

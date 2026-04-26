@@ -13,6 +13,12 @@
 # regression in the IR-or-emit transposition. greta is required
 # to be installed (the existing bayesreml() requireNamespace check
 # triggers `skip_if_not_installed("greta")` here too).
+#
+# v0.1.x note on prior defaults: each legacy snapshot test below
+# pins `prior_vc_sd = 1` explicitly so the snapshot exercises the
+# pre-v0.1.x lognormal path verbatim. The new PC-default emission
+# is exercised separately via the "default PC prior" test at the
+# bottom of this file.
 
 skip_if_no_greta <- function() skip_if_not_installed("greta")
 
@@ -37,7 +43,7 @@ test_that("bayesreml() reproduces minimal gaussian code byte-identical", {
   skip_if_no_greta()
   d <- mk_emit_data()
   code <- bayesreml(
-    yield ~ x, data = d,
+    yield ~ x, data = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
   expect_snapshot(cat(code))
@@ -47,7 +53,7 @@ test_that("bayesreml() reproduces simple random-effect code byte-identical", {
   skip_if_no_greta()
   d <- mk_emit_data()
   code <- bayesreml(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
   expect_snapshot(cat(code))
@@ -59,7 +65,7 @@ test_that("bayesreml() reproduces fa_gxe code byte-identical", {
   code <- bayesreml(
     yield ~ env,
     random = ~ fa(env, 2):id(geno),
-    data   = d,
+    data   = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
   expect_snapshot(cat(code))
@@ -72,7 +78,7 @@ test_that("bayesreml() reproduces at(env):units rcov code byte-identical", {
     yield ~ env,
     random = ~ geno,
     rcov   = ~ at(env):units,
-    data   = d,
+    data   = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
   expect_snapshot(cat(code))
@@ -84,10 +90,44 @@ test_that("bayesreml() reproduces ar1_spatial code byte-identical", {
   code <- bayesreml(
     yield ~ env,
     random = ~ ar1(row):id(col),
-    data   = d,
+    data   = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
   expect_snapshot(cat(code))
+})
+
+test_that("bayesreml() default PC prior emits exponential() and a deprecation note", {
+  skip_if_no_greta()
+  d <- mk_emit_data()
+  options(bayesreml._default_prior_note_emitted = FALSE)
+  expect_message(
+    code <- bayesreml(
+      yield ~ env, random = ~ geno, data = d,
+      verbose = FALSE, return_code = TRUE
+    ),
+    regexp = "default changed in v0\\.1\\.x"
+  )
+  # Random-effect group + residual sd should both be PC-derived
+  # exponentials, not lognormals.
+  expect_match(code, "sigma_geno <- greta::exponential\\(rate = ",
+               fixed = FALSE)
+  expect_match(code, "sigma_e_atg <- greta::exponential\\(rate = ",
+               fixed = FALSE)
+  expect_false(grepl("greta::lognormal\\(0, 1\\)", code))
+})
+
+test_that("explicit prior_vc_sd suppresses the deprecation note + retains lognormal", {
+  skip_if_no_greta()
+  d <- mk_emit_data()
+  options(bayesreml._default_prior_note_emitted = FALSE)
+  expect_no_message(
+    code <- bayesreml(
+      yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
+      verbose = FALSE, return_code = TRUE
+    )
+  )
+  expect_match(code, "sigma_geno <- greta::lognormal\\(0, 1\\)",
+               fixed = FALSE)
 })
 
 # ---------------------------------------------------------------- #
@@ -100,8 +140,11 @@ test_that("bayesreml(...) and emit_greta(fb_from_asreml(...)) agree byte-for-byt
   skip_if_no_greta()
   d <- mk_emit_data()
 
+  # Pin both paths to the legacy lognormal default so they exercise
+  # exactly the same prior pipeline. The default-PC path bypasses
+  # this test; it is exercised by the dedicated test above.
   via_bayesreml <- bayesreml(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
     verbose = FALSE, return_code = TRUE
   )
 

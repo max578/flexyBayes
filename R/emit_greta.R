@@ -72,13 +72,20 @@ emit_greta <- function(fb,
   # Generate code (unchanged).                                       #
   # ---------------------------------------------------------------- #
 
+  # If the user supplied an fb_prior(), derive a per-variance-component
+  # PC spec map so codegen can emit greta::exponential(rate) instead
+  # of the legacy lognormal default for the matched groups.
+  pc_per_vc <- if (inherits(fb$priors, "fb_prior"))
+    priors_to_legacy(fb$priors)$pc_per_vc else list()
+
   ctx <- list(
     params    = character(0),
     predictor = character(0),
     code      = character(0),
     fam_link  = fam_link,
     prior_vc  = prior_vc_sd,
-    prior_fx  = prior_fixed_sd
+    prior_fx  = prior_fixed_sd,
+    pc_per_vc = pc_per_vc
   )
 
   ctx <- .code_fixed(ctx, fixed_info)

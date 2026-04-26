@@ -16,6 +16,7 @@ bayesreml(
   n_samples = 1000,
   warmup = 500,
   chains = 4,
+  prior = NULL,
   prior_fixed_sd = 10,
   prior_vc_sd = 1,
   verbose = TRUE,
@@ -53,10 +54,22 @@ Var = sigma^2 / w.}
 
 \item{chains}{Integer: number of MCMC chains.}
 
+\item{prior}{An optional \code{fb_prior()} object specifying priors via the
+PC-canonical hybrid DSL (preferred). When supplied it overrides
+\code{prior_vc_sd} for the variance components it covers. See
+\code{\link[=fb_prior]{fb_prior()}}.}
+
 \item{prior_fixed_sd}{Numeric: SD for fixed-effect normal priors.}
 
 \item{prior_vc_sd}{Numeric: hyperparameter for lognormal variance-component
-priors.}
+priors. \strong{Note:} when both \code{prior} and \code{prior_vc_sd} are left at
+their defaults, v0.1.x activates a PC-prior default
+(\code{pc(upper = 2.5 * sd(y), prob = 0.05)}, Simpson et al. 2017,
+Statistical Science 32(1):1-28) for \code{sigma} and every named
+random-effect group, with a one-time deprecation message
+describing the change. The legacy \code{lognormal(0, 1)} default
+fires only when \code{prior_vc_sd} is passed explicitly. Silence the
+notice via \code{options(bayesreml.silence_default_prior_note = TRUE)}.}
 
 \item{verbose}{Logical: print generated greta code to console.}
 
@@ -89,34 +102,19 @@ native greta output for Bayesian diagnostics, and extras for secondary
 analyses.
 }
 \examples{
-\dontrun{
-# Simple random intercept model
-fit <- bayesreml(
-  fixed  = yield ~ env,
-  random = ~ geno,
-  data   = met_example,
-  n_samples = 1000, warmup = 500, chains = 4
-)
-
-# Inspect results
-summary(fit)
-coef(fit)
-confint(fit)
-
-# Use with emmeans
-library(emmeans)
-emmeans(fit, ~ env)
-
-# Use with marginaleffects
-library(marginaleffects)
-avg_slopes(fit)
-
-# Bayesian diagnostics
-library(bayesplot)
-mcmc_trace(fit$greta$draws)
-
-# View generated greta code
-cat(fit$extras$code)
+\donttest{
+if (requireNamespace("greta", quietly = TRUE)) {
+  data(met_example, package = "bayesreml")
+  # Simple random intercept model (small budget for example purposes)
+  fit <- bayesreml(
+    fixed  = yield ~ env,
+    random = ~ geno,
+    data   = met_example$dat,
+    n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
+  )
+  summary(fit)
+  coef(fit)
+}
 }
 
 }

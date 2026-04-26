@@ -159,12 +159,16 @@ fb_from_asreml <- function(fixed,
 #'   yet implemented or the model is non-LGM under
 #'   `backend = "inla"`.
 #' @examples
-#' \dontrun{
-#' library(bayesreml)
-#' d <- data.frame(y = rnorm(40), x = rnorm(40),
-#'                 g = factor(rep(1:5, 8)))
-#' fit <- fb(y ~ x + (1 | g), data = d, backend = "greta")
-#' summary(fit)
+#' \donttest{
+#' if (requireNamespace("greta", quietly = TRUE)) {
+#'   set.seed(1)
+#'   d <- data.frame(y = rnorm(40), x = rnorm(40),
+#'                   g = factor(rep(1:5, 8)))
+#'   fit <- fb(y ~ x + (1 | g), data = d, backend = "greta",
+#'             n_samples = 100, warmup = 100, chains = 1,
+#'             verbose = FALSE)
+#'   summary(fit)
+#' }
 #' }
 #' @importFrom stats as.formula
 #' @export
@@ -193,6 +197,11 @@ fb <- function(formula,
   the_call  <- match.call()
   data_name <- deparse(substitute(data))
 
+  # Detect "all defaults" -- v0.1.x activates a PC default for
+  # variance components when neither `prior` nor `prior_vc_sd` is
+  # supplied explicitly. See ?fb and NEWS.md.
+  default_prior_active <- is.null(prior) && missing(prior_vc_sd)
+
   # 1. Build IR via the brms-format ingest path.
   fb_obj <- fb_from_brms(
     formula = formula,
@@ -201,6 +210,32 @@ fb <- function(formula,
     prior   = prior,
     weights = weights
   )
+
+  # If the default fired, replace the legacy scalar priors slot with
+  # the PC default fb_prior() built from the IR's random groups and
+  # the response scale, and emit the one-time deprecation note.
+  if (default_prior_active) {
+    grp_names <- vapply(fb_obj$random_terms,
+      function(t) {
+        if (!is.null(t$var) && t$type %in% c("simple", "ide", "id"))
+          t$var else NA_character_
+      }, character(1))
+    grp_names <- grp_names[!is.na(grp_names)]
+    pc_default <- .default_pc_prior(
+      data          = data,
+      response      = fb_obj$response,
+      family        = family,
+      link          = NULL,
+      random_groups = grp_names,
+      alpha         = 0.05
+    )
+    fb_obj$priors <- pc_default
+    prior         <- pc_default
+    .default_prior_note_once(
+      scale = attr(pc_default, "fb_prior_default_scale"),
+      basis = attr(pc_default, "fb_prior_default_basis")
+    )
+  }
 
   # 2. Run LGM-OK filter (deliverable 2).
   gate_result <- lgm_gate(fb_obj)

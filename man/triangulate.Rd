@@ -4,7 +4,14 @@
 \alias{triangulate}
 \title{Cross-engine posterior triangulation}
 \usage{
-triangulate(fit_a, fit_b, name_map = NULL, n_samples = 1000L)
+triangulate(
+  fit_a,
+  fit_b,
+  name_map = NULL,
+  transform_a = NULL,
+  transform_b = NULL,
+  n_samples = 1000L
+)
 }
 \arguments{
 \item{fit_a}{a fit object with a \code{fb_as_draws_simple} method
@@ -16,6 +23,15 @@ backend.}
 \item{name_map}{named character vector or list mapping fit_b's
 parameter names (left) to canonical names matching fit_a
 (right). Optional.}
+
+\item{transform_a, transform_b}{named list of functions, each
+taking a numeric vector of posterior draws and returning a
+numeric vector of the same length. Names key parameters in
+\code{fit_a} / \code{fit_b} (using each fit's \emph{original} parameter
+names). Common use: pass
+\code{transform_b = list("Precision for g" = function(x) 1 / sqrt(x))}
+to convert INLA's precision draws to standard-deviation scale
+so they line up with greta's \code{sigma_g}. Optional.}
 
 \item{n_samples}{integer: number of posterior samples to draw
 for fits whose extractor needs sampling (e.g., INLA via
@@ -44,18 +60,50 @@ Backends use different parameter naming conventions; supply
 \verb{name_map = c(<fit_b name> = <canonical name>, ...)} to align
 them. Without alignment, only literal-match parameter names are
 compared.
+
+Backends also use different \emph{parameter scales} for variance
+components -- INLA reports precision (\verb{Precision for g}), greta
+reports standard deviation (\code{sigma_g}). Supply
+\code{transform_a} / \code{transform_b} -- named lists of one-argument
+functions keyed by parameter name -- to put the two posteriors on
+a common scale before comparison. Transforms are applied first;
+then \code{name_map} aligns the (already-transformed) fit_b names to
+fit_a's canonical names. Names in \code{transform_b} therefore refer to
+fit_b's \emph{original} parameter names, not the post-\code{name_map}
+canonical names.
 }
 \examples{
+# Live INLA posterior sampling can fail in restricted-process
+# check environments (the `inla.posterior.sample` parallelism
+# check trips); the example uses `\dontrun{}` deliberately. On
+# an interactive install with greta + INLA + sn available it
+# runs in a few seconds.
 \dontrun{
-library(bayesreml)
-d <- data.frame(y = rnorm(40), x = rnorm(40), g = factor(rep(1:5, 8)))
-fit_g <- fb(y ~ x + (1 | g), data = d, backend = "greta",
-            n_samples = 200, warmup = 200, chains = 2)
-fit_i <- fb(y ~ x + (1 | g), data = d, backend = "inla")
-tri <- triangulate(
-  fit_g, fit_i,
-  name_map = c("(Intercept):1" = "mu_atg", "x:1" = "beta_x")
-)
-print(tri)
+if (requireNamespace("greta", quietly = TRUE) &&
+    requireNamespace("INLA",  quietly = TRUE)) {
+  set.seed(1)
+  d <- data.frame(y = rnorm(40), x = rnorm(40),
+                  g = factor(rep(1:5, 8)))
+  fit_g <- fb(y ~ x + (1 | g), data = d, backend = "greta",
+              n_samples = 100, warmup = 100, chains = 1,
+              verbose = FALSE)
+  fit_i <- fb(y ~ x + (1 | g), data = d, backend = "inla",
+              verbose = FALSE)
+  prec_to_sd <- function(x) 1 / sqrt(x)
+  tri <- triangulate(
+    fit_g, fit_i,
+    transform_b = list(
+      "Precision for g"                         = prec_to_sd,
+      "Precision for the Gaussian observations" = prec_to_sd
+    ),
+    name_map = c(
+      "(Intercept):1"                           = "mu_atg",
+      "x:1"                                     = "beta_x",
+      "Precision for g"                         = "sigma_g",
+      "Precision for the Gaussian observations" = "sigma_e_atg"
+    )
+  )
+  print(tri)
+}
 }
 }

@@ -83,11 +83,15 @@ surfaces the chosen path via a \code{message()}.
 }
 }
 \examples{
-\dontrun{
-library(bayesreml)
-d <- data.frame(y = rnorm(40), x = rnorm(40),
-                g = factor(rep(1:5, 8)))
-fit <- fb(y ~ x + (1 | g), data = d, backend = "greta")
-summary(fit)
+\donttest{
+if (requireNamespace("greta", quietly = TRUE)) {
+  set.seed(1)
+  d <- data.frame(y = rnorm(40), x = rnorm(40),
+                  g = factor(rep(1:5, 8)))
+  fit <- fb(y ~ x + (1 | g), data = d, backend = "greta",
+            n_samples = 100, warmup = 100, chains = 1,
+            verbose = FALSE)
+  summary(fit)
+}
 }
 }

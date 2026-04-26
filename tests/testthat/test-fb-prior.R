@@ -168,3 +168,75 @@ test_that("priors_to_inla() approximates half_normal via pc.prec", {
   expect_identical(out$sigma$prior, "pc.prec")
   expect_identical(out$sigma$approx_from, "half_normal")
 })
+
+# ---------------------------------------------------------------- #
+# uniform() DSL                                                    #
+# ---------------------------------------------------------------- #
+
+test_that("fb_prior() accepts uniform(lower, upper)", {
+  p <- fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5))
+  expect_s3_class(p, "fb_prior")
+  expect_identical(p$specs[[1]]$spec$family, "uniform")
+  expect_identical(p$specs[[1]]$spec$args$lower, 0)
+  expect_identical(p$specs[[1]]$spec$args$upper, 5)
+})
+
+test_that("uniform() rejects missing upper, negative lower, upper <= lower", {
+  expect_error(fb_prior(sigma ~ uniform(lower = 0)),
+               regexp = "uniform\\(\\) requires `upper`")
+  expect_error(fb_prior(sigma ~ uniform(lower = -1, upper = 5)),
+               regexp = "lower must be >= 0")
+  expect_error(fb_prior(sigma ~ uniform(lower = 5, upper = 5)),
+               regexp = "upper must be > lower")
+})
+
+test_that("priors_to_inla() approximates uniform as pc.prec with matched upper", {
+  options(bayesreml._uniform_inla_approx_emitted = FALSE)
+  p <- fb_prior(sigma ~ uniform(lower = 0, upper = 4))
+  expect_message(out <- bayesreml:::priors_to_inla(p),
+                 regexp = "approximated as PC")
+  expect_identical(out$sigma$prior, "pc.prec")
+  expect_identical(out$sigma$param, c(4, 0.01))
+  expect_identical(out$sigma$approx_from, "uniform")
+})
+
+test_that("priors_to_legacy() refuses uniform with a clear redirect", {
+  p <- fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5))
+  expect_error(bayesreml:::priors_to_legacy(p),
+               regexp = "uniform\\(\\) priors on variance components")
+})
+
+# ---------------------------------------------------------------- #
+# v0.1.x default-prior change (PC default + soft deprecation)      #
+# ---------------------------------------------------------------- #
+
+test_that(".default_pc_prior() builds PC specs scaled by sd(y) (Gaussian)", {
+  set.seed(11)
+  d <- data.frame(y = rnorm(40, sd = 2), g = factor(rep(1:5, 8)))
+  p <- bayesreml:::.default_pc_prior(
+    data = d, response = "y", family = "gaussian",
+    random_groups = c("g"), alpha = 0.05
+  )
+  expect_s3_class(p, "fb_prior")
+  expect_identical(p$specs[[1]]$target$type, "sigma")
+  expect_identical(p$specs[[1]]$spec$family, "pc")
+  # Scale is 2.5 * sd(y); allow tolerance for sample sd noise.
+  expect_true(abs(p$specs[[1]]$spec$args$upper - 2.5 * sd(d$y)) < 1e-9)
+  expect_identical(p$specs[[2]]$target$type, "sd")
+  expect_identical(p$specs[[2]]$target$group, "g")
+})
+
+test_that(".default_prior_scale() picks family-aware scale", {
+  set.seed(12)
+  d_g <- data.frame(y = rnorm(40, sd = 3))
+  s_g <- bayesreml:::.default_prior_scale(d_g, "y", "gaussian")
+  expect_identical(s_g$basis, "identity_sd")
+
+  d_p <- data.frame(y = rpois(40, lambda = 5))
+  s_p <- bayesreml:::.default_prior_scale(d_p, "y", "poisson")
+  expect_identical(s_p$basis, "log_link_sd")
+
+  s_b <- bayesreml:::.default_prior_scale(NULL, "y", "binomial")
+  expect_identical(s_b$basis, "logit_default")
+  expect_identical(s_b$scale, 2.5)
+})

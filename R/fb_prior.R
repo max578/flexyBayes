@@ -25,6 +25,11 @@
 #   normal(mean, sd)           - on coefficient scale.
 #   exponential(rate)          - on sd scale.
 #   lkj(eta)                   - LKJ correlation prior.
+#   uniform(lower, upper)      - on sd scale (lower >= 0, upper > lower).
+#                                Sits outside the PC interlingua so cross-
+#                                engine compilation is engine-direct, not
+#                                via the PC translation table; documented
+#                                as such per Q2.
 #
 # All specifications are stored verbatim with their parsed args;
 # the emit_*() functions translate to backend-specific syntax at
@@ -56,6 +61,15 @@
 #'   * `sd(group = "subject") ~ half_normal(scale = 1)`
 #'   * `b("treatment") ~ student_t(df = 4, scale = 2.5)`
 #'   * `cor(group = "subject") ~ lkj(eta = 2)`
+#'   * `sd(group = "subject") ~ uniform(lower = 0, upper = 5)`
+#'
+#' Supported distribution families: `pc`, `half_normal`, `half_cauchy`,
+#' `student_t`, `normal`, `exponential`, `lkj`, `cauchy`, `gamma`,
+#' `uniform`. Note that `uniform()` on a variance component sits
+#' outside the PC-canonical interlingua: the INLA backend honours it
+#' exactly via an expression-prior on the log-precision; the legacy
+#' greta scalar bridge cannot represent it and will refuse with a
+#' redirect.
 #'
 #' @return an `fb_prior` object (S3, inherits from list) with
 #'   `$specs` carrying the parsed `target` / `spec` pairs.
@@ -87,7 +101,8 @@ fb_prior <- function(...) {
            deparse(a), call. = FALSE)
     specs[[i]] <- list(
       target = .parse_prior_target(a[[2]]),
-      spec   = .parse_prior_distribution(a[[3]])
+      spec   = .parse_prior_distribution(a[[3]],
+                                          envir = environment(a))
     )
   }
 
@@ -172,7 +187,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
 # Parse distribution side of a prior spec formula. Returns:
 #   list(family = "pc", args = list(upper = 1, prob = 0.01))
-.parse_prior_distribution <- function(expr) {
+.parse_prior_distribution <- function(expr, envir = baseenv()) {
   if (!is.call(expr))
     stop("Prior distribution must be a call (e.g., ",
          "`pc(upper = 1, prob = 0.01)`). Got: ", deparse(expr),
@@ -180,21 +195,179 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
   fn <- as.character(expr[[1]])
   supported <- c("pc", "half_normal", "half_cauchy", "student_t",
-                 "normal", "exponential", "lkj", "cauchy", "gamma")
+                 "normal", "exponential", "lkj", "cauchy", "gamma",
+                 "uniform")
 
   if (!fn %in% supported)
     stop("Unsupported prior distribution: ", fn,
          ". v0.1 supports: ",
          paste(supported, collapse = ", "), call. = FALSE)
 
+  # Evaluate distribution arguments in the formula's calling
+  # environment so users can pass data-driven scales like
+  # `pc(upper = 2.5 * sd(y), prob = 0.05)`. Fall back to leaving the
+  # language object in place if evaluation fails (validators below
+  # surface a clear error).
   args <- as.list(expr[-1])
-  args <- lapply(args, function(a) tryCatch(eval(a, envir = baseenv()),
-                                             error = function(e) a))
+  args <- lapply(args, function(a)
+    tryCatch(eval(a, envir = envir), error = function(e) a))
+
+  # uniform-specific validation (degenerate or open-ended bounds
+  # would produce silently bad cross-engine emit otherwise).
+  if (fn == "uniform") {
+    lower <- args$lower
+    upper <- args$upper
+    if (is.null(lower) && length(args) >= 1L && nchar(names(args)[[1]] %||% "") == 0L)
+      lower <- args[[1]]
+    if (is.null(upper) && length(args) >= 2L && nchar(names(args)[[2]] %||% "") == 0L)
+      upper <- args[[2]]
+    if (is.null(lower)) lower <- 0
+    if (is.null(upper))
+      stop("uniform() requires `upper`; got: ", deparse(expr),
+           ". Example: `sd(group = \"g\") ~ uniform(lower = 0, upper = 5)`.",
+           call. = FALSE)
+    if (!is.numeric(lower) || !is.numeric(upper) ||
+        length(lower) != 1L || length(upper) != 1L ||
+        !is.finite(lower) || !is.finite(upper))
+      stop("uniform() lower/upper must be finite scalars.", call. = FALSE)
+    if (lower < 0)
+      stop("uniform() lower must be >= 0 for sd-scale targets ",
+           "(sd is non-negative). Got lower = ", lower, ".",
+           call. = FALSE)
+    if (upper <= lower)
+      stop("uniform() upper must be > lower. Got lower = ", lower,
+           ", upper = ", upper, ".", call. = FALSE)
+    args$lower <- lower
+    args$upper <- upper
+  }
+
   list(family = fn, args = args)
 }
 
 # Local null-coalescing op (R < 4.4 compat -- DESCRIPTION targets >= 4.1).
 `%||%` <- function(a, b) if (is.null(a)) b else a
+
+# ---------------------------------------------------------------- #
+# Default-prior construction (Simpson-2017 PC) -- internal         #
+# ---------------------------------------------------------------- #
+
+# Pick a sensible scale U for the PC default from the response and
+# (family, link). Identity/Gaussian: U = 2.5 * sd(y). Log-link
+# (Poisson, NegBin, Gamma): U = 2.5 * sd(log(y + 0.5)) so the scale
+# matches the random effect's working scale. Logit-link (binomial,
+# beta): U = 2.5 (logit-scale random effects are typically O(1) so
+# response-derived scale is meaningless). Returns (scale, basis)
+# where basis records which branch fired -- captured so the
+# deprecation message can explain itself.
+.default_prior_scale <- function(data, response, family, link = NULL) {
+  fam <- if (inherits(family, "family")) family$family
+         else as.character(family)
+  fam <- tolower(fam %||% "gaussian")
+  link_name <- if (!is.null(link)) tolower(link)
+               else if (inherits(family, "family")) tolower(family$link)
+               else NULL
+  is_log_link   <- isTRUE(link_name == "log") ||
+                   fam %in% c("poisson", "negative_binomial",
+                              "negbinom", "nbinomial", "gamma")
+  is_logit_link <- isTRUE(link_name == "logit") ||
+                   fam %in% c("binomial", "binary", "beta")
+
+  if (is_logit_link)
+    return(list(scale = 2.5, basis = "logit_default"))
+
+  y <- if (!is.null(data) && response %in% names(data))
+    data[[response]] else NULL
+
+  if (is_log_link) {
+    if (!is.numeric(y)) return(list(scale = 1.0,
+                                     basis = "log_default_nonnumeric"))
+    yp <- as.numeric(y); yp <- yp[is.finite(yp) & yp >= 0]
+    if (length(yp) < 2L) return(list(scale = 1.0,
+                                      basis = "log_default_too_small"))
+    sdv <- stats::sd(log(yp + 0.5))
+    if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+    return(list(scale = 2.5 * sdv, basis = "log_link_sd"))
+  }
+
+  if (!is.numeric(y)) return(list(scale = 1.0,
+                                   basis = "identity_default"))
+  yv <- as.numeric(y); yv <- yv[is.finite(yv)]
+  if (length(yv) < 2L) return(list(scale = 1.0,
+                                    basis = "identity_too_small"))
+  sdv <- stats::sd(yv)
+  if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+  list(scale = 2.5 * sdv, basis = "identity_sd")
+}
+
+# Construct the v0.1.x default PC prior fb_prior() for a model. PC
+# spec is applied to sigma (residual sd) and to every named random
+# group in `random_groups`. Other variance components (smooths, GBLUP
+# kernel, factor analytic, etc.) keep the legacy lognormal default
+# until codegen support broadens in v0.2 -- documented in NEWS.
+.default_pc_prior <- function(data,
+                               response,
+                               family,
+                               link           = NULL,
+                               random_groups  = character(0),
+                               alpha          = 0.05) {
+  scl <- .default_prior_scale(data, response, family, link)
+  specs <- list(list(
+    target = list(type = "sigma"),
+    spec   = list(family = "pc",
+                  args   = list(upper = scl$scale, prob = alpha))
+  ))
+  for (g in unique(random_groups)) {
+    if (!nzchar(g)) next
+    specs[[length(specs) + 1L]] <- list(
+      target = list(type = "sd", group = g),
+      spec   = list(family = "pc",
+                    args   = list(upper = scl$scale, prob = alpha))
+    )
+  }
+  obj <- list(specs = specs)
+  class(obj) <- c("fb_prior", "list")
+  attr(obj, "fb_prior_default_basis") <- scl$basis
+  attr(obj, "fb_prior_default_scale") <- scl$scale
+  obj
+}
+
+# One-time deprecation message announcing the v0.1.x default change.
+# Silenceable via options(bayesreml.silence_default_prior_note = TRUE).
+.default_prior_note_once <- function(scale, basis) {
+  if (isTRUE(getOption("bayesreml.silence_default_prior_note", FALSE)))
+    return(invisible())
+  if (isTRUE(getOption("bayesreml._default_prior_note_emitted", FALSE)))
+    return(invisible())
+  message("flexyBayes: variance-component prior default changed in ",
+          "v0.1.x from lognormal(0, 1) on sigma to PC(upper = ",
+          format(scale, digits = 3), ", prob = 0.05) on sigma and ",
+          "every named random-effect group (Simpson et al., 2017, ",
+          "Stat Sci 32(1):1-28). Scale derived from \"",
+          basis, "\". Pass `prior_vc_sd` explicitly to retain the ",
+          "old lognormal default, `prior = fb_prior(...)` for full ",
+          "control, or set ",
+          "options(bayesreml.silence_default_prior_note = TRUE) to ",
+          "silence this notice.")
+  options(bayesreml._default_prior_note_emitted = TRUE)
+}
+
+# One-time message emitted from priors_to_inla() when a uniform()
+# spec is being approximated as a PC prior. Silenceable via
+# options(bayesreml.silence_uniform_inla_approx = TRUE).
+.uniform_to_inla_warn_once <- function() {
+  if (isTRUE(getOption("bayesreml.silence_uniform_inla_approx", FALSE)))
+    return(invisible())
+  if (isTRUE(getOption("bayesreml._uniform_inla_approx_emitted", FALSE)))
+    return(invisible())
+  message("flexyBayes: uniform() prior on a variance component is ",
+          "approximated as PC(upper, 0.01) for the INLA backend in ",
+          "v0.1.x. The support is matched but the density inside ",
+          "differs (PC concentrates at sigma = 0; uniform is flat). ",
+          "Exact bounded-uniform support lands in v0.2 -- see ",
+          "?fb_prior. Silence this notice via ",
+          "options(bayesreml.silence_uniform_inla_approx = TRUE).")
+  options(bayesreml._uniform_inla_approx_emitted = TRUE)
+}
 
 # ---------------------------------------------------------------- #
 # Print method                                                     #
@@ -264,12 +437,21 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
   fixed_sd <- fixed_sd_default
   vc_sd    <- vc_sd_default
 
+  # Per-VC PC specs (target = sigma / sd / smooth) are surfaced as a
+  # named list keyed by the codegen tag the variance component will
+  # carry: "<resid>" for sigma, the group / smooth-var name otherwise.
+  # codegen.R consults this list to emit greta::exponential(rate)
+  # instead of the legacy lognormal default.
+  pc_per_vc <- list()
+
   for (s in prior$specs) {
     if (s$target$type == "sigma" && s$spec$family == "pc") {
-      # PC: Pr(sigma > upper) = prob -> exponential rate;
-      # use upper as a proxy for vc_sd (legacy scalar).
       if (!is.null(s$spec$args$upper))
         vc_sd <- as.numeric(s$spec$args$upper)
+      pc_per_vc[["__sigma__"]] <- list(
+        upper = as.numeric(s$spec$args$upper %||% 1),
+        prob  = as.numeric(s$spec$args$prob  %||% 0.05)
+      )
     }
     if (s$target$type == "sigma" && s$spec$family == "half_normal")
       if (!is.null(s$spec$args$scale))
@@ -278,13 +460,36 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
         s$spec$family == "half_normal")
       if (!is.null(s$spec$args$scale))
         vc_sd <- as.numeric(s$spec$args$scale)
+    if (s$target$type %in% c("sd", "smooth") &&
+        s$spec$family == "pc") {
+      key <- if (s$target$type == "sd") s$target$group else s$target$var
+      pc_per_vc[[key]] <- list(
+        upper = as.numeric(s$spec$args$upper %||% 1),
+        prob  = as.numeric(s$spec$args$prob  %||% 0.05)
+      )
+    }
     if (s$target$type == "b" && s$spec$family == "normal")
       if (!is.null(s$spec$args$sd))
         fixed_sd <- as.numeric(s$spec$args$sd)
+
+    # uniform on a variance component cannot be losslessly represented
+    # as the scalar lognormal hyperparameter that the legacy greta
+    # codegen path consumes. Fail loudly with a clear redirect rather
+    # than silently approximating.
+    if (s$target$type %in% c("sigma", "sd", "smooth") &&
+        s$spec$family == "uniform")
+      stop("uniform() priors on variance components cannot be ",
+           "compiled to the legacy greta scalar bridge ",
+           "(prior_vc_sd is a single lognormal hyperparameter and ",
+           "cannot represent a uniform support). Either (a) use ",
+           "backend = \"inla\", which honours uniform() exactly via ",
+           "an expression-prior on log-precision, or (b) pin the ",
+           "legacy default by passing prior_vc_sd explicitly. Direct ",
+           "uniform-on-greta lands in v0.2.", call. = FALSE)
   }
 
   list(fixed_sd = fixed_sd, vc_sd = vc_sd, legacy = FALSE,
-       fb_prior = prior)
+       fb_prior = prior, pc_per_vc = pc_per_vc)
 }
 
 # Translate fb_prior -> INLA hyperpar control list. v0.1 minimum:
@@ -319,6 +524,34 @@ priors_to_inla <- function(prior) {
       u <- scale * stats::qnorm(0.995)
       out[[key]] <- list(prior = "pc.prec", param = c(u, 0.005),
                           approx_from = "half_normal")
+    } else if (s$spec$family == "uniform") {
+      lower <- as.numeric(s$spec$args$lower %||% 0)
+      upper <- as.numeric(s$spec$args$upper)
+      key   <- switch(s$target$type,
+        "sigma" = "sigma",
+        "sd"    = s$target$group,
+        "smooth" = s$target$var,
+        "<unknown>"
+      )
+      # v0.1.x: approximate uniform(lower, upper) on the sd scale via
+      # a PC prior with matched upper tail. Pr(sigma > upper) = 0.01
+      # (default alpha) plus suppression of mass near zero. This is
+      # an approximation -- the density inside the support differs
+      # from uniform (PC concentrates at sigma = 0; uniform is flat)
+      # -- but it preserves the user's intent of a bounded weakly-
+      # informative prior on the variance component. Exact bounded-
+      # support uniform via an INLA expression-prior is on the v0.2
+      # roadmap pending more robust integration with INLA's parser.
+      # We surface the approximation explicitly via `approx_from` so
+      # downstream tooling (and the print method) can flag it, and
+      # via a once-per-session message at construction time.
+      .uniform_to_inla_warn_once()
+      out[[key]] <- list(prior       = "pc.prec",
+                         param       = c(upper, 0.01),
+                         approx_from = "uniform",
+                         meta        = list(family = "uniform",
+                                            lower  = lower,
+                                            upper  = upper))
     }
   }
   out

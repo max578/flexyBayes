@@ -2,6 +2,27 @@
 # Generates greta code strings from parsed formula descriptors.
 # Not exported.
 
+# Emit the prior declaration line for a single sd-scale variance
+# component. If the codegen context carries a per-VC PC spec for
+# this `key`, emit `greta::exponential(rate = -log(prob)/upper)` --
+# the closed-form interpretation of a PC prior on sigma (Simpson et
+# al. 2017 Stat Sci 32:1-28). Otherwise fall back to the legacy
+# lognormal(0, prior_vc_sd) default. `key` is "__sigma__" for the
+# residual sd, otherwise the random-effect group / smoother variable
+# name.
+.sigma_decl <- function(ctx, lhs, key) {
+  pc <- if (!is.null(ctx$pc_per_vc)) ctx$pc_per_vc[[key]] else NULL
+  if (!is.null(pc) && is.finite(pc$upper) && pc$upper > 0 &&
+      is.finite(pc$prob) && pc$prob > 0 && pc$prob < 1) {
+    rate <- -log(pc$prob) / pc$upper
+    paste0(lhs, " <- greta::exponential(rate = ",
+           formatC(rate, format = "g", digits = 17,
+                    drop0trailing = TRUE), ")")
+  } else {
+    paste0(lhs, " <- greta::lognormal(0, ", ctx$prior_vc, ")")
+  }
+}
+
 # Generate code for fixed effects
 .code_fixed <- function(ctx, fixed_info) {
   psd <- ctx$prior_fx
@@ -93,7 +114,7 @@
       # iid (simple, ide, id)
       "simple" = , "ide" = , "id" = {
         tag <- term$var
-        ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
+        ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- ", tag, "_raw * sigma_", tag)
         ctx <- .add_param(ctx, paste0("sigma_", tag))
@@ -287,7 +308,8 @@
     ctx  <- .add_param(ctx, "sigma_e_atg")
     ctx$resid_expr <- paste0("sigma_e_atg[", tag, "_id]")
   } else {
-    ctx  <- .add(ctx, "sigma_e_atg <- greta::lognormal(0, ", pvc, ")")
+    ctx  <- .add(ctx, .sigma_decl(ctx, "sigma_e_atg",
+                                   "__sigma__"))
     ctx  <- .add_param(ctx, "sigma_e_atg")
     ctx$resid_expr <- "sigma_e_atg"
   }

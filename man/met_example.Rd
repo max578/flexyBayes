@@ -58,14 +58,17 @@ data(met_example)
 str(met_example$dat)
 head(met_example$dat)
 
-# Simple model
-\dontrun{
-fit <- bayesreml(
-  fixed  = yield ~ env,
-  random = ~ geno,
-  data   = met_example$dat
-)
-summary(fit)
+# Simple model (small budget for example purposes)
+\donttest{
+if (requireNamespace("greta", quietly = TRUE)) {
+  fit <- bayesreml(
+    fixed  = yield ~ env,
+    random = ~ geno,
+    data   = met_example$dat,
+    n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
+  )
+  summary(fit)
+}
 }
 
 }

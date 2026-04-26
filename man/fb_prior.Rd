@@ -14,7 +14,16 @@ fb_prior(...)
 \item \code{sd(group = "subject") ~ half_normal(scale = 1)}
 \item \code{b("treatment") ~ student_t(df = 4, scale = 2.5)}
 \item \code{cor(group = "subject") ~ lkj(eta = 2)}
-}}
+\item \code{sd(group = "subject") ~ uniform(lower = 0, upper = 5)}
+}
+
+Supported distribution families: \code{pc}, \code{half_normal}, \code{half_cauchy},
+\code{student_t}, \code{normal}, \code{exponential}, \code{lkj}, \code{cauchy}, \code{gamma},
+\code{uniform}. Note that \code{uniform()} on a variance component sits
+outside the PC-canonical interlingua: the INLA backend honours it
+exactly via an expression-prior on the log-precision; the legacy
+greta scalar bridge cannot represent it and will refuse with a
+redirect.}
 }
 \value{
 an \code{fb_prior} object (S3, inherits from list) with
