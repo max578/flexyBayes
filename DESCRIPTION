@@ -63,7 +63,8 @@ Suggests:
     ggrepel,
     fields,
     Matrix,
-    sn
+    sn,
+    vdiffr
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
 Encoding: UTF-8
