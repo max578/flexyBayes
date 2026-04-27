@@ -2,16 +2,16 @@
 % Please edit documentation in R/triangulate.R
 \name{fb_as_draws_simple}
 \alias{fb_as_draws_simple}
-\alias{fb_as_draws_simple.bayesreml}
-\alias{fb_as_draws_simple.bayesreml_inla}
+\alias{fb_as_draws_simple.flexybayes}
+\alias{fb_as_draws_simple.flexybayes_inla}
 \alias{fb_as_draws_simple.default}
 \title{Extract per-parameter posterior draws from a model fit}
 \usage{
 fb_as_draws_simple(fit, ...)
 
-\method{fb_as_draws_simple}{bayesreml}(fit, ...)
+\method{fb_as_draws_simple}{flexybayes}(fit, ...)
 
-\method{fb_as_draws_simple}{bayesreml_inla}(fit, n_samples = 1000L, ...)
+\method{fb_as_draws_simple}{flexybayes_inla}(fit, n_samples = 1000L, ...)
 
 \method{fb_as_draws_simple}{default}(fit, ...)
 }
@@ -29,7 +29,7 @@ a named list of numeric vectors.
 \details{
 S3 generic used by \code{triangulate()} to extract a named list of
 numeric posterior-draw vectors from each fit. Methods exist for
-the \code{bayesreml} (greta backend) and \code{bayesreml_inla} (INLA
+the \code{flexybayes} (greta backend) and \code{flexybayes_inla} (INLA
 backend) classes; user-defined methods can extend the generic.
 }
 \keyword{internal}

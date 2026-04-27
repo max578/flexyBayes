@@ -16,7 +16,7 @@ invisibly returns \code{x}.
 }
 \description{
 Internal S3 method, registered for dispatch only. Used during
-development and inside the \code{bayesreml()} / \code{fb()} flow to inspect
+development and inside the \code{flexybayes()} / \code{fb()} flow to inspect
 the parsed model object before backend dispatch.
 }
 \keyword{internal}

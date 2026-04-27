@@ -1,11 +1,11 @@
 {
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
-  "identifier": "bayesreml",
+  "identifier": "flexyBayes",
   "description": "Specify mixed models using familiar ASReml formula syntax and estimate them via Bayesian Markov chain Monte Carlo using greta, or via integrated nested Laplace approximation using INLA. Returns results in formats compatible with the standard R modelling ecosystem.",
-  "name": "bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta",
-  "codeRepository": "https://github.com/AAGI-AUS/bayesreml",
-  "issueTracker": "https://github.com/AAGI-AUS/bayesreml/issues",
+  "name": "flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax",
+  "codeRepository": "https://github.com/AAGI-AUS/flexyBayes",
+  "issueTracker": "https://github.com/AAGI-AUS/flexyBayes/issues",
   "license": "https://spdx.org/licenses/GPL-3.0-or-later",
   "version": "0.1.0.9000",
   "programmingLanguage": {

@@ -17,7 +17,7 @@
   stats::as.formula(paste(resp, "~", rhs), env = env)
 }
 
-# Construct a GLM-compatible object from bayesreml posterior results
+# Construct a GLM-compatible object from flexyBayes posterior results
 #
 # @param fixed_info Parsed fixed formula
 # @param data Original data.frame
@@ -28,7 +28,7 @@
 # @param fixed Original fixed formula (may include brms-style random
 #   bars; we strip them via .fixed_only_formula() before any
 #   model.frame/model.matrix/terms call)
-# @return Object of class c("bayesreml_glm", "glm", "lm")
+# @return Object of class c("flexybayes_glm", "glm", "lm")
 .build_glm <- function(fixed_info, data, draws, ev, fam_link,
                         the_call, fixed) {
   N <- nrow(data)
@@ -109,7 +109,7 @@
     data             = data,
     offset           = NULL,
     control          = list(),
-    method           = "bayesreml",
+    method           = "flexyBayes",
     contrasts        = attr(mm, "contrasts"),
     xlevels          = .getXlevels(
       tryCatch(terms(fixed_only, data = data),
@@ -122,7 +122,7 @@
   # Store posterior vcov matrix
   attr(glm_obj, "posterior_vcov") <- beta_vcov
 
-  class(glm_obj) <- c("bayesreml_glm", "glm", "lm")
+  class(glm_obj) <- c("flexybayes_glm", "glm", "lm")
   glm_obj
 }
 

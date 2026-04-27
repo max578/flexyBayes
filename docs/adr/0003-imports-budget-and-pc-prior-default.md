@@ -17,14 +17,14 @@ governing principle: **defaults are policy, not convenience**.
 Every package added to `Imports:` lengthens cold install time,
 broadens the dependency-update surface (Dependabot, CRAN-incoming
 checks), and increases the probability that an upstream change
-breaks `bayesreml`. The audit baseline (`audit-bayesreml-2026-04-18.md`,
-invariant I3) requires "lean hard dependencies".
+breaks `flexyBayes`. The audit baseline (workspace-level audit
+document, invariant I3) requires "lean hard dependencies".
 
 ### Prior defaults
 
 The variance-component prior is the single most consequential
 modelling default in a hierarchical Bayesian package. The legacy
-`bayesreml` v0.1.0 default — `lognormal(0, 1)` on every random-
+`flexyBayes` v0.1.0 default — `lognormal(0, 1)` on every random-
 effect SD and the residual SD — is undocumented, has no published
 rationale, and shrinks variance components in a way that depends
 arbitrarily on the data scale. This is exactly the situation
@@ -75,7 +75,7 @@ Passing `prior_vc_sd` explicitly preserves the legacy
 v0.1.0 emit. Passing `prior = fb_prior(...)` gives full per-component
 control. The change is announced once per session via a
 `message()`; silence with
-`options(bayesreml.silence_default_prior_note = TRUE)`.
+`options(flexyBayes.silence_default_prior_note = TRUE)`.
 
 PC default applies in v0.1.x to the simple / ide / id random-effect
 branch and to the residual sigma. Other branches (vm, ped, at, us,
@@ -139,5 +139,5 @@ fa, ar1, spline) keep the legacy lognormal default and gain
   32(1): 1–28.
 - Gelman, A. (2006). Prior distributions for variance parameters in
   hierarchical models. *Bayesian Analysis* 1(3): 515–534.
-- Audit baseline `audit-bayesreml-2026-04-18.md`, invariant I3.
+- Audit baseline (workspace-level audit document, 2026-04-18), invariant I3.
 - design notes `design-notes-priors-brms-lgm.md` Sec. Q2.

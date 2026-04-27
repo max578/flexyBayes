@@ -1,6 +1,6 @@
 ## Submission
 
-This is the first submission of `bayesreml` to CRAN.
+This is the first submission of `flexyBayes` to CRAN.
 
 ## Test environments
 
@@ -33,7 +33,7 @@ Status: 1 NOTE
 
 ## Downstream impact
 
-`bayesreml` has zero reverse dependencies on CRAN. `revdep_check()` is
+`flexyBayes` has zero reverse dependencies on CRAN. `revdep_check()` is
 N/A for this submission.
 
 ## Suggests-only dependencies

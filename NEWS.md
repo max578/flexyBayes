@@ -1,10 +1,10 @@
-# bayesreml 0.1.0.9000 (development)
+# flexyBayes 0.1.0.9000 (development)
 
 ## Variance-component prior default — change with one-time deprecation note
 
 The default prior on every named random-effect standard deviation
 and the residual standard deviation has changed from
-`lognormal(0, 1)` (the legacy bayesreml default, undocumented and
+`lognormal(0, 1)` (the legacy flexyBayes default, undocumented and
 without a published rationale) to a penalised-complexity (PC) prior
 following Simpson, Rue, Riebler, Martins, & Sørbye (2017,
 *Statistical Science* 32(1):1–28):
@@ -30,7 +30,7 @@ The default fires only when the caller leaves both `prior` and
 preserves the legacy `lognormal(0, prior_vc_sd)` path verbatim,
 and passing `prior = fb_prior(...)` gives full per-component
 control. The change is announced once per session via a `message()`;
-silence it with `options(bayesreml.silence_default_prior_note = TRUE)`.
+silence it with `options(flexyBayes.silence_default_prior_note = TRUE)`.
 
 The `simple` / `ide` / `id` random-effect codegen branch and the
 residual emit honour PC fb_prior() specs by emitting
@@ -80,7 +80,7 @@ brms-style formula through to those functions, which evaluated
 every `fb()` greta fit. Asreml ingest behaviour is unchanged
 (byte-identical fixed-only formula).
 
-## bayesreml() API
+## flexybayes() API
 
 * New `prior` argument (defaults to `NULL`) accepts an `fb_prior()`
   object. Forward-compatible with the v0.2 codegen extensions; in
@@ -95,11 +95,3 @@ every `fb()` greta fit. Asreml ingest behaviour is unchanged
   32(1): 1–28.
 * Gelman, A. (2006). Prior distributions for variance parameters in
   hierarchical models. *Bayesian Analysis* 1(3): 515–534.
-
-# bayesreml 0.1.0
-
-Initial release. Asreml-syntax mixed models compiled to greta;
-IR-based dispatch with `fb()` brms-syntax frontend, `fb_prior()`
-PC-canonical prior DSL, `lgm_gate()` LGM-feasibility filter,
-`triangulate()` cross-engine posterior comparison, and `emit_inla()`
-INLA backend.

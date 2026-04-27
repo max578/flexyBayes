@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a new feature or enhancement for bayesreml
+description: Propose a new feature or enhancement for flexyBayes
 title: "[feature] "
 labels: ["enhancement", "triage"]
 body:
@@ -41,7 +41,7 @@ body:
       label: Scope
       description: Which part of the package would this affect?
       options:
-        - Modelling API (bayesreml(), fb())
+        - Modelling API (flexybayes(), fb())
         - Priors DSL (fb_prior())
         - Backend dispatch / capability gating
         - Triangulation

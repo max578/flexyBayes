@@ -1,5 +1,5 @@
 name: Bug report
-description: Report unexpected behaviour or an error in bayesreml
+description: Report unexpected behaviour or an error in flexyBayes
 title: "[bug] "
 labels: ["bug", "triage"]
 body:
@@ -33,7 +33,7 @@ body:
     id: session
     attributes:
       label: Session info
-      description: Output of `sessionInfo()` — especially the `bayesreml`, `greta`, and `INLA` versions.
+      description: Output of `sessionInfo()` — especially the `flexyBayes`, `greta`, and `INLA` versions.
       render: text
     validations:
       required: true

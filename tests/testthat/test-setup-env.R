@@ -6,10 +6,10 @@ test_that("setup_env creates id vectors for factors", {
     geno = factor(rep(paste0("G", 1:5), 4)),
     env  = factor(rep(paste0("E", 1:4), each = 5))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ env, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ env, dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, list(), list(list(type = "units")),
+  flexyBayes:::.setup_env(ev, fixed_info, list(), list(list(type = "units")),
                           dat, list(), NULL)
 
   expect_true("env_id" %in% ls(ev))
@@ -24,11 +24,11 @@ test_that("setup_env creates random effect ids", {
     y    = rnorm(20),
     geno = factor(rep(paste0("G", 1:5), 4))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
-  random_terms <- bayesreml:::.parse_formula(~ geno, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
+  random_terms <- flexyBayes:::.parse_formula(~ geno, dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, random_terms,
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
                           list(list(type = "units")),
                           dat, list(), NULL)
 
@@ -43,11 +43,11 @@ test_that("setup_env creates nested ids", {
     block = factor(rep(1:3, 4)),
     rep   = factor(rep(1:2, 6))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
-  random_terms <- bayesreml:::.parse_formula(~ block:rep, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
+  random_terms <- flexyBayes:::.parse_formula(~ block:rep, dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, random_terms,
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
                           list(list(type = "units")),
                           dat, list(), NULL)
 
@@ -61,11 +61,11 @@ test_that("setup_env stores known matrices", {
     geno = factor(paste0("G", 1:10))
   )
   G_mat <- diag(10)
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
-  random_terms <- bayesreml:::.parse_formula(~ vm(geno, Gmat), dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
+  random_terms <- flexyBayes:::.parse_formula(~ vm(geno, Gmat), dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, random_terms,
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
                           list(list(type = "units")),
                           dat, list(Gmat = G_mat), NULL)
 
@@ -78,12 +78,12 @@ test_that("setup_env errors on missing matrix", {
     y    = rnorm(10),
     geno = factor(paste0("G", 1:10))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
-  random_terms <- bayesreml:::.parse_formula(~ vm(geno, Gmat), dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
+  random_terms <- flexyBayes:::.parse_formula(~ vm(geno, Gmat), dat)
   ev <- new.env(parent = emptyenv())
 
   expect_error(
-    bayesreml:::.setup_env(ev, fixed_info, random_terms,
+    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
                             list(list(type = "units")),
                             dat, list(), NULL),
     "not found in known_matrices"
@@ -96,10 +96,10 @@ test_that("setup_env creates factor interaction ids", {
     A = factor(rep(1:2, 6)),
     B = factor(rep(1:3, 4))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ A:B, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ A:B, dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, list(),
+  flexyBayes:::.setup_env(ev, fixed_info, list(),
                           list(list(type = "units")),
                           dat, list(), NULL)
 
@@ -109,11 +109,11 @@ test_that("setup_env creates factor interaction ids", {
 
 test_that("setup_env stores weights", {
   dat <- data.frame(y = rnorm(10))
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
   wts <- runif(10, 0.5, 2)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, list(),
+  flexyBayes:::.setup_env(ev, fixed_info, list(),
                           list(list(type = "units")),
                           dat, list(), wts)
 
@@ -126,11 +126,11 @@ test_that("setup_env handles at_units rcov", {
     y   = rnorm(20),
     env = factor(rep(1:4, 5))
   )
-  fixed_info <- bayesreml:::.parse_fixed(y ~ 1, dat)
-  rcov_terms <- bayesreml:::.parse_formula(~ at(env):units, dat)
+  fixed_info <- flexyBayes:::.parse_fixed(y ~ 1, dat)
+  rcov_terms <- flexyBayes:::.parse_formula(~ at(env):units, dat)
   ev <- new.env(parent = emptyenv())
 
-  bayesreml:::.setup_env(ev, fixed_info, list(), rcov_terms,
+  flexyBayes:::.setup_env(ev, fixed_info, list(), rcov_terms,
                           dat, list(), NULL)
 
   expect_true("env_id" %in% ls(ev))

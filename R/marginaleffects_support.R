@@ -1,24 +1,24 @@
-# marginaleffects integration for bayesreml
+# marginaleffects integration for flexyBayes
 #
 # marginaleffects works via coef(), vcov(), predict() S3 methods,
 # which are already defined in methods.R. This file provides any
 # additional support needed.
 
 # No additional methods needed - marginaleffects dispatches via:
-#   coef.bayesreml()    -> methods.R
-#   vcov.bayesreml()    -> methods.R
-#   predict.bayesreml() -> methods.R (handles newdata + type)
-#   formula.bayesreml() -> methods.R
-#   family.bayesreml()  -> methods.R
+#   coef.flexybayes()    -> methods.R
+#   vcov.flexybayes()    -> methods.R
+#   predict.flexybayes() -> methods.R (handles newdata + type)
+#   formula.flexybayes() -> methods.R
+#   family.flexybayes()  -> methods.R
 #
 # For full Bayesian posterior propagation, users should work with
 # fit$greta$draws directly:
 #
 #   library(marginaleffects)
 #   avg_slopes(fit)                         # uses point estimates + vcov
-#   predictions(fit, newdata = nd)          # uses predict.bayesreml
+#   predictions(fit, newdata = nd)          # uses predict.flexybayes
 
-# Register bayesreml as supported by marginaleffects
+# Register flexyBayes as supported by marginaleffects
 # This is called in .onLoad
 .register_marginaleffects <- function() {
   if (requireNamespace("marginaleffects", quietly = TRUE)) {

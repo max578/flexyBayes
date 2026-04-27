@@ -124,11 +124,11 @@ test_that("fb() rejects unknown backend names", {
 })
 
 # ---------------------------------------------------------------- #
-# Round-trip: fb() should agree with bayesreml() on equivalent     #
+# Round-trip: fb() should agree with flexybayes() on equivalent    #
 # call shape (same response + same fixed + same RE => same code).  #
 # ---------------------------------------------------------------- #
 
-test_that("fb() and bayesreml() agree on a simple fixed + RE model", {
+test_that("fb() and flexybayes() agree on a simple fixed + RE model", {
   skip_if_no_greta()
   d <- mk_fb_data()
 
@@ -137,7 +137,7 @@ test_that("fb() and bayesreml() agree on a simple fixed + RE model", {
     backend = "greta",
     verbose = FALSE, return_code = TRUE
   )
-  via_breml <- bayesreml(
+  via_breml <- flexybayes(
     fixed = y ~ x, random = ~ g, data = d,
     verbose = FALSE, return_code = TRUE
   )

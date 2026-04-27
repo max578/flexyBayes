@@ -30,7 +30,7 @@ make_test_data <- function(N = 120, n_geno = 10, n_env = 4, n_rep = 3) {
 
 test_that("CG-1: intercept-only generates mu_atg, no model.matrix", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, data = dat,
+  code <- flexybayes(fixed = yield ~ 1, data = dat,
                     return_code = TRUE, verbose = FALSE)
   expect_true(is.character(code))
   expect_true(check_code(code,
@@ -40,7 +40,7 @@ test_that("CG-1: intercept-only generates mu_atg, no model.matrix", {
 
 test_that("CG-1b: fixed factor uses indexing", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 0 + env, data = dat,
+  code <- flexybayes(fixed = yield ~ 0 + env, data = dat,
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain     = c("alpha_env", "env_id"),
@@ -49,7 +49,7 @@ test_that("CG-1b: fixed factor uses indexing", {
 
 test_that("CG-2: random geno uses u_geno[geno_id]", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ geno, data = dat,
+  code <- flexybayes(fixed = yield ~ 1, random = ~ geno, data = dat,
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain     = c("u_geno[geno_id]", "sigma_geno"),
@@ -60,7 +60,7 @@ test_that("CG-3: vm(geno, Gmat) uses Cholesky", {
   dat <- make_test_data()
   n_geno <- 10
   G_mat <- diag(n_geno) + 0.1
-  code <- bayesreml(fixed = yield ~ 1, random = ~ vm(geno, Gmat),
+  code <- flexybayes(fixed = yield ~ 1, random = ~ vm(geno, Gmat),
                     data = dat, known_matrices = list(Gmat = G_mat),
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
@@ -70,7 +70,7 @@ test_that("CG-3: vm(geno, Gmat) uses Cholesky", {
 
 test_that("CG-4a: at(env):geno generates DIAG structure", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ at(env):geno,
+  code <- flexybayes(fixed = yield ~ 1, random = ~ at(env):geno,
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("sigma_geno_env", "cbind(geno_id, env_id)")))
@@ -78,7 +78,7 @@ test_that("CG-4a: at(env):geno generates DIAG structure", {
 
 test_that("CG-4b: us(env):id(geno) generates LKJ correlation", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ us(env):id(geno),
+  code <- flexybayes(fixed = yield ~ 1, random = ~ us(env):id(geno),
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("lkj_correlation", "cbind(geno_id, env_id)")))
@@ -86,7 +86,7 @@ test_that("CG-4b: us(env):id(geno) generates LKJ correlation", {
 
 test_that("CG-4c: fa(env,2):id(geno) generates FA structure", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ fa(env, 2):id(geno),
+  code <- flexybayes(fixed = yield ~ 1, random = ~ fa(env, 2):id(geno),
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("Lambda_", "psi_", "F_")))
@@ -94,7 +94,7 @@ test_that("CG-4c: fa(env,2):id(geno) generates FA structure", {
 
 test_that("CG-5: ar1(row):id(col) generates spatial terms", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ ar1(row):id(col),
+  code <- flexybayes(fixed = yield ~ 1, random = ~ ar1(row):id(col),
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("row_id", "col_id", "sigma_sp_")))
@@ -102,7 +102,7 @@ test_that("CG-5: ar1(row):id(col) generates spatial terms", {
 
 test_that("CG-6: spl(x_cov) generates B-spline basis", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ spl(x_cov),
+  code <- flexybayes(fixed = yield ~ 1, random = ~ spl(x_cov),
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("splines::bs", "sigma_spl_")))
@@ -110,7 +110,7 @@ test_that("CG-6: spl(x_cov) generates B-spline basis", {
 
 test_that("CG-8: at(env):units generates heterogeneous residual", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, rcov = ~ at(env):units,
+  code <- flexybayes(fixed = yield ~ 1, rcov = ~ at(env):units,
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("sigma_e_atg", "env_id")))
@@ -118,7 +118,7 @@ test_that("CG-8: at(env):units generates heterogeneous residual", {
 
 test_that("CG-10: nested block:rep uses pre-computed ID", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ block:rep,
+  code <- flexybayes(fixed = yield ~ 1, random = ~ block:rep,
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain     = c("nested_id_"),
@@ -127,7 +127,7 @@ test_that("CG-10: nested block:rep uses pre-computed ID", {
 
 test_that("return_code=TRUE returns string, not fit", {
   dat <- make_test_data()
-  result <- bayesreml(fixed = yield ~ 1, data = dat,
+  result <- flexybayes(fixed = yield ~ 1, data = dat,
                       return_code = TRUE, verbose = FALSE)
   expect_true(is.character(result))
   expect_true(nchar(result) > 50)
@@ -135,21 +135,21 @@ test_that("return_code=TRUE returns string, not fit", {
 
 test_that("binomial family generates bernoulli distribution", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = bin_y ~ env, data = dat,
+  code <- flexybayes(fixed = bin_y ~ env, data = dat,
                     family = "binomial", return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code, must_contain = c("bernoulli", "ilogit")))
 })
 
 test_that("poisson family generates poisson distribution", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = count_y ~ env, data = dat,
+  code <- flexybayes(fixed = count_y ~ env, data = dat,
                     family = "poisson", return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code, must_contain = c("poisson", "exp")))
 })
 
 test_that("probit link uses iprobit", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = bin_y ~ env, data = dat,
+  code <- flexybayes(fixed = bin_y ~ env, data = dat,
                     family = "binomial", link = "probit",
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code, must_contain = c("iprobit")))
@@ -158,7 +158,7 @@ test_that("probit link uses iprobit", {
 test_that("unknown family raises error", {
   dat <- make_test_data()
   expect_error(
-    bayesreml(fixed = yield ~ 1, data = dat, family = "tweedie",
+    flexybayes(fixed = yield ~ 1, data = dat, family = "tweedie",
               return_code = TRUE, verbose = FALSE),
     "Unsupported"
   )
@@ -167,7 +167,7 @@ test_that("unknown family raises error", {
 test_that("missing known_matrix raises error", {
   dat <- make_test_data()
   expect_error(
-    bayesreml(fixed = yield ~ 1, random = ~ vm(geno, Gmat),
+    flexybayes(fixed = yield ~ 1, random = ~ vm(geno, Gmat),
               data = dat, return_code = TRUE, verbose = FALSE),
     "not found in known_matrices"
   )
@@ -176,7 +176,7 @@ test_that("missing known_matrix raises error", {
 test_that("missing response variable raises error", {
   dat <- data.frame(x = rnorm(10))
   expect_error(
-    bayesreml(fixed = y ~ x, data = dat,
+    flexybayes(fixed = y ~ x, data = dat,
               return_code = TRUE, verbose = FALSE),
     "not found"
   )
@@ -184,7 +184,7 @@ test_that("missing response variable raises error", {
 
 test_that("crossed random effects generate both terms", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ 1, random = ~ geno + env,
+  code <- flexybayes(fixed = yield ~ 1, random = ~ geno + env,
                     data = dat, return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("sigma_geno", "sigma_env",
@@ -193,7 +193,7 @@ test_that("crossed random effects generate both terms", {
 
 test_that("continuous covariate generates beta coefficient", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ x_cov, data = dat,
+  code <- flexybayes(fixed = yield ~ x_cov, data = dat,
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("beta_x_cov", "as_data(x_cov)")))
@@ -201,7 +201,7 @@ test_that("continuous covariate generates beta coefficient", {
 
 test_that("factor + covariate model has correct structure", {
   dat <- make_test_data()
-  code <- bayesreml(fixed = yield ~ env + x_cov, data = dat,
+  code <- flexybayes(fixed = yield ~ env + x_cov, data = dat,
                     return_code = TRUE, verbose = FALSE)
   expect_true(check_code(code,
     must_contain = c("mu_atg", "tau_env", "beta_x_cov")))

@@ -9,7 +9,7 @@ collective decision).
 
 ## Context
 
-`bayesreml` is an AAGI-AUS collective effort. CRAN's *Repository
+`flexyBayes` is an AAGI-AUS collective effort. CRAN's *Repository
 Policy* requires that a package have a responsive maintainer; the
 AAGI preset audit (`presets/aagi.yml`, mandatory-uplift v0.4.1, item
 S5) requires that maintenance capacity be **disclosed honestly** in

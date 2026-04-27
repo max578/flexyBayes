@@ -8,7 +8,7 @@ Accepted.
 
 ## Context
 
-`bayesreml` is evolving from an ASReml-syntax-to-greta translator
+`flexyBayes` is evolving from an ASReml-syntax-to-greta translator
 (v0.1.0 baseline) into a multi-backend Bayesian framework with
 cross-engine triangulation as the signature output (Variant D
 trajectory, AAGI-AUS collective). Significant architecture decisions

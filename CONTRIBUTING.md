@@ -1,4 +1,4 @@
-# Contributing to bayesreml
+# Contributing to flexyBayes
 
 Thanks for your interest in contributing. The package is an
 `AAGI-AUS` collective effort; we welcome bug reports, fixes,
@@ -7,13 +7,13 @@ documentation improvements, and discussion of new features.
 ## Bug reports and feature requests
 
 Please use the GitHub issue tracker:
-<https://github.com/AAGI-AUS/bayesreml/issues>.
+<https://github.com/AAGI-AUS/flexyBayes/issues>.
 
 Useful information to include:
 
 - a minimal reproducible example;
 - the output of `sessionInfo()`;
-- the output of `packageVersion("bayesreml")` and, if relevant,
+- the output of `packageVersion("flexyBayes")` and, if relevant,
   `packageVersion("greta")` and `packageVersion("INLA")`;
 - whether the issue reproduces on a fresh R session.
 

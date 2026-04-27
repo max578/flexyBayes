@@ -2,19 +2,19 @@
 #
 # Phase 0.C: a no-semantic-change shim that takes an fb_terms IR
 # (intermediate representation) object and runs the full greta
-# backend pipeline that bayesreml() previously ran inline. This
-# lifts greta dispatch out of bayesreml() and behind a single
+# backend pipeline that flexybayes() previously ran inline. This
+# lifts greta dispatch out of flexybayes() and behind a single
 # emit_*() function, mirroring what emit_brms (deliverable 1+) and
 # emit_inla (deliverable 1+) will do.
 #
 # Behaviour invariant: for every input previously valid for
-# bayesreml(), the migrated path bayesreml() -> fb_from_asreml() ->
+# flexybayes(), the migrated path flexybayes() -> fb_from_asreml() ->
 # emit_greta() produces byte-identical generated greta code to the
-# pre-0.C bayesreml() inline pipeline. Snapshot-tested in
+# pre-0.C flexybayes() inline pipeline. Snapshot-tested in
 # tests/testthat/test-emit-greta.R; transparency-tested in
 # tests/testthat/test-fb-from-asreml.R.
 #
-# Internal -- not exported. Called from bayesreml() and (in
+# Internal -- not exported. Called from flexybayes() and (in
 # deliverable 4) from triangulate() when greta is one of the
 # requested backends.
 
@@ -45,7 +45,7 @@ emit_greta <- function(fb,
   # ---------------------------------------------------------------- #
   # Unwrap the IR back into the shape the existing helpers expect.   #
   # No semantic change: fixed_info, random_terms, rcov_terms,        #
-  # fam_link are byte-identical to what bayesreml() previously       #
+  # fam_link are byte-identical to what flexybayes() previously      #
   # produced inline via .parse_fixed / .parse_formula /              #
   # .resolve_family.                                                 #
   # ---------------------------------------------------------------- #
@@ -60,7 +60,7 @@ emit_greta <- function(fb,
   fam_link     <- list(family = fb$family, link = fb$link)
 
   # ---------------------------------------------------------------- #
-  # Build evaluation environment (unchanged from pre-0.C bayesreml). #
+  # Build evaluation environment (unchanged from pre-0.C flexybayes).#
   # ---------------------------------------------------------------- #
 
   greta_ns <- asNamespace("greta")
@@ -98,7 +98,7 @@ emit_greta <- function(fb,
   code_str <- paste(ctx$code, collapse = "\n")
 
   if (verbose) {
-    cat("\n-- bayesreml: generated greta code ",
+    cat("\n-- flexyBayes: generated greta code ",
         paste(rep("-", 40), collapse = ""), "\n", sep = "")
     cat(code_str, "\n")
     cat(paste(rep("-", 60), collapse = ""), "\n\n")
@@ -114,7 +114,7 @@ emit_greta <- function(fb,
   tryCatch(
     eval(parse(text = code_str), envir = ev),
     error = function(e)
-      stop("bayesreml evaluation error: ", conditionMessage(e))
+      stop("flexyBayes evaluation error: ", conditionMessage(e))
   )
   elapsed <- unname((proc.time() - t0)["elapsed"])
 
@@ -164,7 +164,7 @@ emit_greta <- function(fb,
       greta_arrays = greta_arrays,
       env          = ev
     ),
-    class = "bayesreml_greta"
+    class = "flexybayes_greta"
   )
 
   vc_table <- .build_variance_comps(post_summary, ctx$params)
@@ -212,7 +212,7 @@ emit_greta <- function(fb,
         link     = fam_link$link
       )
     ),
-    class = "bayesreml_extras"
+    class = "flexybayes_extras"
   )
 
   result <- structure(
@@ -221,7 +221,7 @@ emit_greta <- function(fb,
       greta  = greta_out,
       extras = extras
     ),
-    class = "bayesreml"
+    class = "flexybayes"
   )
 
   invisible(result)

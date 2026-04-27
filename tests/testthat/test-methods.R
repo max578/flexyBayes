@@ -1,8 +1,8 @@
 # Tests for S3 methods — these test the method dispatch and output structure
 # without requiring greta (use mock objects where needed)
 
-# Create a mock bayesreml object for testing methods
-make_mock_bayesreml <- function() {
+# Create a mock flexybayes object for testing methods
+make_mock_flexybayes <- function() {
   n <- 50
   dat <- data.frame(
     y   = rnorm(n, 50, 5),
@@ -38,11 +38,11 @@ make_mock_bayesreml <- function() {
     rank              = 1L,
     y                 = dat$y,
     linear.predictors = fitted_vals,
-    call              = quote(bayesreml(fixed = y ~ 1, data = dat)),
+    call              = quote(flexybayes(fixed = y ~ 1, data = dat)),
     qr                = qr(matrix(1, n, 1))
   )
   attr(glm_obj, "posterior_vcov") <- V
-  class(glm_obj) <- c("bayesreml_glm", "glm", "lm")
+  class(glm_obj) <- c("flexybayes_glm", "glm", "lm")
 
   # Build greta component (mock)
   greta_out <- structure(
@@ -52,7 +52,7 @@ make_mock_bayesreml <- function() {
       greta_arrays = list(),
       env          = new.env(parent = emptyenv())
     ),
-    class = "bayesreml_greta"
+    class = "flexybayes_greta"
   )
 
   # Build extras
@@ -97,201 +97,201 @@ make_mock_bayesreml <- function() {
         family = "gaussian", link = "identity"
       )
     ),
-    class = "bayesreml_extras"
+    class = "flexybayes_extras"
   )
 
   structure(
     list(glm = glm_obj, greta = greta_out, extras = extras),
-    class = "bayesreml"
+    class = "flexybayes"
   )
 }
 
 
-test_that("print.bayesreml produces output", {
-  fit <- make_mock_bayesreml()
-  expect_output(print(fit), "bayesreml")
+test_that("print.flexybayes produces output", {
+  fit <- make_mock_flexybayes()
+  expect_output(print(fit), "flexyBayes")
   expect_output(print(fit), "Fixed")
   expect_output(print(fit), "MCMC")
 })
 
-test_that("summary.bayesreml produces output", {
-  fit <- make_mock_bayesreml()
+test_that("summary.flexybayes produces output", {
+  fit <- make_mock_flexybayes()
   expect_output(summary(fit), "Fixed effects")
   expect_output(summary(fit), "Variance components")
 })
 
-test_that("coef.bayesreml returns named numeric", {
-  fit <- make_mock_bayesreml()
+test_that("coef.flexybayes returns named numeric", {
+  fit <- make_mock_flexybayes()
   beta <- coef(fit)
   expect_true(is.numeric(beta))
   expect_true(length(beta) > 0)
   expect_true(!is.null(names(beta)))
 })
 
-test_that("vcov.bayesreml returns matrix", {
-  fit <- make_mock_bayesreml()
+test_that("vcov.flexybayes returns matrix", {
+  fit <- make_mock_flexybayes()
   V <- vcov(fit)
   expect_true(is.matrix(V))
   expect_equal(nrow(V), length(coef(fit)))
   expect_equal(ncol(V), length(coef(fit)))
 })
 
-test_that("confint.bayesreml returns matrix with bounds", {
-  fit <- make_mock_bayesreml()
+test_that("confint.flexybayes returns matrix with bounds", {
+  fit <- make_mock_flexybayes()
   ci <- confint(fit)
   expect_true(is.matrix(ci))
   expect_equal(ncol(ci), 2)
   expect_true(all(ci[, 1] < ci[, 2]))
 })
 
-test_that("fitted.bayesreml returns numeric vector", {
-  fit <- make_mock_bayesreml()
+test_that("fitted.flexybayes returns numeric vector", {
+  fit <- make_mock_flexybayes()
   f <- fitted(fit)
   expect_true(is.numeric(f))
   expect_equal(length(f), nobs(fit))
 })
 
-test_that("residuals.bayesreml returns numeric vector", {
-  fit <- make_mock_bayesreml()
+test_that("residuals.flexybayes returns numeric vector", {
+  fit <- make_mock_flexybayes()
   r <- residuals(fit)
   expect_true(is.numeric(r))
   expect_equal(length(r), nobs(fit))
 })
 
-test_that("nobs.bayesreml returns integer", {
-  fit <- make_mock_bayesreml()
+test_that("nobs.flexybayes returns integer", {
+  fit <- make_mock_flexybayes()
   expect_equal(nobs(fit), 50)
 })
 
-test_that("family.bayesreml returns family object", {
-  fit <- make_mock_bayesreml()
+test_that("family.flexybayes returns family object", {
+  fit <- make_mock_flexybayes()
   fam <- family(fit)
   expect_true(inherits(fam, "family"))
   expect_equal(fam$family, "gaussian")
 })
 
-test_that("formula.bayesreml returns formula", {
-  fit <- make_mock_bayesreml()
+test_that("formula.flexybayes returns formula", {
+  fit <- make_mock_flexybayes()
   f <- formula(fit)
   expect_true(inherits(f, "formula"))
 })
 
-test_that("logLik.bayesreml returns logLik object", {
-  fit <- make_mock_bayesreml()
+test_that("logLik.flexybayes returns logLik object", {
+  fit <- make_mock_flexybayes()
   ll <- logLik(fit)
   expect_true(inherits(ll, "logLik"))
   expect_true(is.numeric(as.numeric(ll)))
 })
 
-test_that("predict.bayesreml returns fitted values when newdata is NULL", {
-  fit <- make_mock_bayesreml()
+test_that("predict.flexybayes returns fitted values when newdata is NULL", {
+  fit <- make_mock_flexybayes()
   p <- predict(fit)
   expect_equal(length(p), nobs(fit))
 })
 
-test_that("predict.bayesreml with se.fit returns list", {
-  fit <- make_mock_bayesreml()
+test_that("predict.flexybayes with se.fit returns list", {
+  fit <- make_mock_flexybayes()
   p <- predict(fit, se.fit = TRUE)
   expect_true(is.list(p))
   expect_true("fit" %in% names(p))
   expect_true("se.fit" %in% names(p))
 })
 
-test_that("model.matrix.bayesreml returns matrix", {
-  fit <- make_mock_bayesreml()
+test_that("model.matrix.flexybayes returns matrix", {
+  fit <- make_mock_flexybayes()
   mm <- model.matrix(fit)
   expect_true(is.matrix(mm))
   expect_equal(nrow(mm), nobs(fit))
 })
 
-test_that("tidy.bayesreml returns data frame", {
-  fit <- make_mock_bayesreml()
-  td <- tidy.bayesreml(fit)
+test_that("tidy.flexybayes returns data frame", {
+  fit <- make_mock_flexybayes()
+  td <- tidy.flexybayes(fit)
   expect_true(is.data.frame(td))
   expect_true("term" %in% names(td))
   expect_true("estimate" %in% names(td))
 })
 
-test_that("tidy.bayesreml with effects='random' returns VC", {
-  fit <- make_mock_bayesreml()
-  td <- tidy.bayesreml(fit, effects = "random")
+test_that("tidy.flexybayes with effects='random' returns VC", {
+  fit <- make_mock_flexybayes()
+  td <- tidy.flexybayes(fit, effects = "random")
   expect_true(is.data.frame(td))
   expect_true(nrow(td) > 0)
 })
 
-test_that("glance.bayesreml returns one-row data frame", {
-  fit <- make_mock_bayesreml()
-  gl <- glance.bayesreml(fit)
+test_that("glance.flexybayes returns one-row data frame", {
+  fit <- make_mock_flexybayes()
+  gl <- glance.flexybayes(fit)
   expect_true(is.data.frame(gl))
   expect_equal(nrow(gl), 1)
   expect_true("nobs" %in% names(gl))
 })
 
-test_that("augment.bayesreml returns data with .fitted and .resid", {
-  fit <- make_mock_bayesreml()
-  aug <- augment.bayesreml(fit)
+test_that("augment.flexybayes returns data with .fitted and .resid", {
+  fit <- make_mock_flexybayes()
+  aug <- augment.flexybayes(fit)
   expect_true(is.data.frame(aug))
   expect_true(".fitted" %in% names(aug))
   expect_true(".resid" %in% names(aug))
   expect_equal(nrow(aug), nobs(fit))
 })
 
-test_that("plot.bayesreml runs without error for residuals", {
-  fit <- make_mock_bayesreml()
+test_that("plot.flexybayes runs without error for residuals", {
+  fit <- make_mock_flexybayes()
   expect_no_error(plot(fit, type = "residuals"))
 })
 
-test_that("plot.bayesreml runs without error for effects", {
-  fit <- make_mock_bayesreml()
+test_that("plot.flexybayes runs without error for effects", {
+  fit <- make_mock_flexybayes()
   expect_no_error(plot(fit, type = "effects"))
 })
 
-test_that("plot.bayesreml runs without error for variance", {
-  fit <- make_mock_bayesreml()
+test_that("plot.flexybayes runs without error for variance", {
+  fit <- make_mock_flexybayes()
   expect_no_error(plot(fit, type = "variance"))
 })
 
-test_that("plot.bayesreml runs without error for blups", {
-  fit <- make_mock_bayesreml()
+test_that("plot.flexybayes runs without error for blups", {
+  fit <- make_mock_flexybayes()
   expect_no_error(plot(fit, type = "blups"))
 })
 
-test_that("plot.bayesreml runs without error for pp_check", {
-  fit <- make_mock_bayesreml()
+test_that("plot.flexybayes runs without error for pp_check", {
+  fit <- make_mock_flexybayes()
   expect_no_error(plot(fit, type = "pp_check"))
 })
 
-test_that("summary.bayesreml_glm prints Bayesian summary", {
-  fit <- make_mock_bayesreml()
+test_that("summary.flexybayes_glm prints Bayesian summary", {
+  fit <- make_mock_flexybayes()
   expect_output(summary(fit$glm), "Bayesian GLM")
   expect_output(summary(fit$glm), "posterior")
 })
 
-test_that("confint.bayesreml_glm returns credible intervals", {
-  fit <- make_mock_bayesreml()
+test_that("confint.flexybayes_glm returns credible intervals", {
+  fit <- make_mock_flexybayes()
   ci <- confint(fit$glm)
   expect_true(is.matrix(ci))
   expect_equal(ncol(ci), 2)
 })
 
-test_that("anova.bayesreml compares models", {
-  fit1 <- make_mock_bayesreml()
-  fit2 <- make_mock_bayesreml()
+test_that("anova.flexybayes compares models", {
+  fit1 <- make_mock_flexybayes()
+  fit2 <- make_mock_flexybayes()
   expect_output(anova(fit1, fit2), "model comparison")
 })
 
-test_that("bayesreml object has correct class", {
-  fit <- make_mock_bayesreml()
-  expect_true(inherits(fit, "bayesreml"))
-  expect_true(inherits(fit$glm, "bayesreml_glm"))
+test_that("flexybayes object has correct class", {
+  fit <- make_mock_flexybayes()
+  expect_true(inherits(fit, "flexybayes"))
+  expect_true(inherits(fit$glm, "flexybayes_glm"))
   expect_true(inherits(fit$glm, "glm"))
   expect_true(inherits(fit$glm, "lm"))
-  expect_true(inherits(fit$greta, "bayesreml_greta"))
-  expect_true(inherits(fit$extras, "bayesreml_extras"))
+  expect_true(inherits(fit$greta, "flexybayes_greta"))
+  expect_true(inherits(fit$extras, "flexybayes_extras"))
 })
 
 test_that("extras contains expected components", {
-  fit <- make_mock_bayesreml()
+  fit <- make_mock_flexybayes()
   expect_true(!is.null(fit$extras$summary))
   expect_true(!is.null(fit$extras$convergence))
   expect_true(!is.null(fit$extras$variance_comps))

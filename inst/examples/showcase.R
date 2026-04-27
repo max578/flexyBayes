@@ -1,15 +1,15 @@
 ## ============================================================================
-##  bayesreml showcase — selected models demonstrating the package
+##  flexyBayes showcase — selected models demonstrating the package
 ##
-##  This script runs several bayesreml models using the bundled met_example
+##  This script runs several flexyBayes models using the bundled met_example
 ##  dataset and demonstrates the full analysis workflow.
 ##
 ##  Prerequisites:
-##    library(bayesreml)
+##    library(flexyBayes)
 ##    greta::install_greta_deps()  # one-time TensorFlow setup
 ## ============================================================================
 
-library(bayesreml)
+library(flexyBayes)
 data(met_example)
 dat    <- met_example$dat
 G_mat  <- met_example$G_mat
@@ -22,7 +22,7 @@ cat("Dataset:", nrow(dat), "observations,",
 ## ── 1. Baseline: Intercept-only ─────────────────────────────────────────────
 
 cat("=== Model 1: Intercept-only ===\n")
-fit1 <- bayesreml(
+fit1 <- flexybayes(
   fixed     = yield ~ 1,
   data      = dat,
   n_samples = 500, warmup = 200, chains = 2
@@ -32,7 +32,7 @@ summary(fit1)
 ## ── 2. Fixed effects + random intercept ──────────────────────────────────────
 
 cat("\n=== Model 2: Fixed env + random geno ===\n")
-fit2 <- bayesreml(
+fit2 <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ geno,
   data      = dat,
@@ -45,7 +45,7 @@ print(round(fit2$extras$blups$u_geno, 3))
 ## ── 3. GBLUP with genomic relationship matrix ────────────────────────────────
 
 cat("\n=== Model 3: GBLUP ===\n")
-fit3 <- bayesreml(
+fit3 <- flexybayes(
   fixed          = yield ~ env,
   random         = ~ vm(geno, Gmat),
   data           = dat,
@@ -57,7 +57,7 @@ summary(fit3)
 ## ── 4. GxE with diagonal structure ───────────────────────────────────────────
 
 cat("\n=== Model 4: at(env):geno (diagonal GxE) ===\n")
-fit4 <- bayesreml(
+fit4 <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ at(env):geno,
   data      = dat,
@@ -68,7 +68,7 @@ summary(fit4)
 ## ── 5. Heterogeneous residual variance ───────────────────────────────────────
 
 cat("\n=== Model 5: Heterogeneous residual ===\n")
-fit5 <- bayesreml(
+fit5 <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ geno,
   rcov      = ~ at(env):units,

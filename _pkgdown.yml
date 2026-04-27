@@ -1,4 +1,4 @@
-url: https://aagi-aus.github.io/bayesreml/
+url: https://aagi-aus.github.io/flexyBayes/
 
 template:
   bootstrap: 5
@@ -11,7 +11,7 @@ development:
   mode: auto
 
 home:
-  title: bayesreml — Bayesian mixed models with ASReml syntax
+  title: flexyBayes — Flexible Bayesian mixed models with ASReml and brms-style syntax
   description: >
     Specify mixed models using ASReml-style or brms-style formula syntax,
     estimate them via greta or INLA, and triangulate posterior agreement
@@ -24,45 +24,45 @@ navbar:
   components:
     intro:
       text: Get started
-      href: articles/bayesreml-getting-started.html
+      href: articles/flexyBayes-getting-started.html
     articles:
       text: Articles
       menu:
         - text: "Foundations"
         - text: Getting started
-          href: articles/bayesreml-getting-started.html
+          href: articles/flexyBayes-getting-started.html
         - text: ASReml-style formulas
-          href: articles/bayesreml-asreml-formulas.html
+          href: articles/flexyBayes-asreml-formulas.html
         - text: Priors and the PC default
-          href: articles/bayesreml-priors.html
+          href: articles/flexyBayes-priors.html
         - text: "---"
         - text: "Inference & dispatch"
         - text: Backend internals
-          href: articles/bayesreml-backend-internals.html
+          href: articles/flexyBayes-backend-internals.html
         - text: LGM feasibility filter
-          href: articles/bayesreml-lgm-feasibility.html
+          href: articles/flexyBayes-lgm-feasibility.html
         - text: Cross-engine triangulation
-          href: articles/bayesreml-triangulation.html
+          href: articles/flexyBayes-triangulation.html
         - text: Downstream analysis
-          href: articles/bayesreml-downstream-analysis.html
+          href: articles/flexyBayes-downstream-analysis.html
         - text: "---"
         - text: "Modelling vignettes"
         - text: Regression
-          href: articles/bayesreml-regression.html
+          href: articles/flexyBayes-regression.html
         - text: Hierarchical models
-          href: articles/bayesreml-hierarchical.html
+          href: articles/flexyBayes-hierarchical.html
         - text: Structured covariance
-          href: articles/bayesreml-structured-covariance.html
+          href: articles/flexyBayes-structured-covariance.html
         - text: Spatio-temporal
-          href: articles/bayesreml-spatio-temporal.html
+          href: articles/flexyBayes-spatio-temporal.html
         - text: METs and genomics
-          href: articles/bayesreml-met-and-genomics.html
+          href: articles/flexyBayes-met-and-genomics.html
 
 reference:
   - title: User-facing entry points
     desc: Top-level functions for fitting, specifying, and comparing models.
     contents:
-      - bayesreml
+      - flexybayes
       - fb
       - fb_prior
       - triangulate
@@ -70,36 +70,36 @@ reference:
     desc: Tidiers, emmeans, and draws conversion.
     contents:
       - has_concept("interop")
-      - tidy.bayesreml
-      - glance.bayesreml
-      - augment.bayesreml
-      - emm_basis.bayesreml
-      - recover_data.bayesreml
+      - tidy.flexybayes
+      - glance.flexybayes
+      - augment.flexybayes
+      - emm_basis.flexybayes
+      - recover_data.flexybayes
       - fb_as_draws_simple
   - title: Datasets
     contents:
       - has_keyword("datasets")
   - title: Package
     contents:
-      - bayesreml-package
+      - flexyBayes-package
 
 articles:
   - title: Foundations
     navbar: ~
     contents:
-      - bayesreml-getting-started
-      - bayesreml-asreml-formulas
-      - bayesreml-priors
+      - flexyBayes-getting-started
+      - flexyBayes-asreml-formulas
+      - flexyBayes-priors
   - title: Inference and dispatch
     contents:
-      - bayesreml-backend-internals
-      - bayesreml-lgm-feasibility
-      - bayesreml-triangulation
-      - bayesreml-downstream-analysis
+      - flexyBayes-backend-internals
+      - flexyBayes-lgm-feasibility
+      - flexyBayes-triangulation
+      - flexyBayes-downstream-analysis
   - title: Modelling
     contents:
-      - bayesreml-regression
-      - bayesreml-hierarchical
-      - bayesreml-structured-covariance
-      - bayesreml-spatio-temporal
-      - bayesreml-met-and-genomics
+      - flexyBayes-regression
+      - flexyBayes-hierarchical
+      - flexyBayes-structured-covariance
+      - flexyBayes-spatio-temporal
+      - flexyBayes-met-and-genomics

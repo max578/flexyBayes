@@ -1,8 +1,8 @@
-# Plot methods for bayesreml
+# Plot methods for flexyBayes
 
-#' Plot diagnostics for a bayesreml model
+#' Plot diagnostics for a flexybayes model
 #'
-#' @param x A bayesreml object
+#' @param x A flexybayes object
 #' @param type Character: type of plot to produce.
 #'   - `"diagnostics"`: trace plots + density (requires bayesplot)
 #'   - `"residuals"`: residuals vs fitted + QQ plot
@@ -12,7 +12,7 @@
 #'   - `"pp_check"`: posterior predictive check (observed vs replicated)
 #' @param ... Additional arguments passed to plotting functions
 #' @export
-plot.bayesreml <- function(x, type = c("diagnostics", "residuals", "effects",
+plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
                                         "variance", "blups", "pp_check"),
                             ...) {
   type <- match.arg(type)

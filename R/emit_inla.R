@@ -108,7 +108,7 @@ emit_inla <- function(fb,
             paste(num_check$reasons, collapse = "; "),
             ". Treat the fit with caution.", call. = FALSE)
 
-  # Wrap as a bayesreml_inla object
+  # Wrap as a flexybayes_inla object
   structure(
     list(
       inla       = fit,
@@ -146,7 +146,7 @@ emit_inla <- function(fb,
         formula   = inla_form
       )
     ),
-    class = c("bayesreml_inla", "list")
+    class = c("flexybayes_inla", "list")
   )
 }
 
@@ -304,22 +304,22 @@ emit_inla <- function(fb,
 }
 
 # ---------------------------------------------------------------- #
-# Print + summary methods for the bayesreml_inla wrapper           #
+# Print + summary methods for the flexybayes_inla wrapper          #
 # ---------------------------------------------------------------- #
 
-#' Print method for bayesreml_inla
+#' Print method for flexybayes_inla
 #'
 #' Internal S3 method. Brief one-screen summary of an INLA fit
 #' produced via `fb(... backend = "inla")` or `emit_inla()`.
 #'
-#' @param x   a `bayesreml_inla` object.
+#' @param x   a `flexybayes_inla` object.
 #' @param ... unused.
 #' @return invisibly returns `x`.
 #' @keywords internal
 #' @export
-print.bayesreml_inla <- function(x, ...) {
+print.flexybayes_inla <- function(x, ...) {
   mi <- x$extras$model_info
-  cat("Bayesian fit  [bayesreml_inla / INLA backend]\n")
+  cat("Bayesian fit  [flexybayes_inla / INLA backend]\n")
   cat(strrep("-", 55), "\n")
   cat("  formula: ", deparse(x$extras$formula), "\n", sep = "")
   cat("  family:  ", mi$family, "\n", sep = "")
@@ -340,18 +340,18 @@ print.bayesreml_inla <- function(x, ...) {
   invisible(x)
 }
 
-#' Summary method for bayesreml_inla
+#' Summary method for flexybayes_inla
 #'
 #' Returns the fixed / random / hyperpar posterior summary tables
 #' produced by INLA. Internal S3 method.
 #'
-#' @param object a `bayesreml_inla` object.
+#' @param object a `flexybayes_inla` object.
 #' @param ... unused.
 #' @return invisibly returns the summary list.
 #' @keywords internal
 #' @export
-summary.bayesreml_inla <- function(object, ...) {
-  cat("Bayesian fit summary  [bayesreml_inla / INLA backend]\n")
+summary.flexybayes_inla <- function(object, ...) {
+  cat("Bayesian fit summary  [flexybayes_inla / INLA backend]\n")
   cat(strrep("-", 60), "\n")
   cat("Fixed effects:\n")
   if (!is.null(object$extras$summary$fixed) &&

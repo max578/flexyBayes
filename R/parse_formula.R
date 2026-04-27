@@ -1,4 +1,4 @@
-# Formula parsing for bayesreml
+# Formula parsing for flexyBayes
 # Translates ASReml-style formulas into internal term descriptors.
 # Not exported.
 

@@ -1,4 +1,4 @@
-# emmeans integration for bayesreml
+# emmeans integration for flexyBayes
 #
 # Provides recover_data() and emm_basis() methods so that
 # emmeans::emmeans(fit, ~ factor) works out of the box.
@@ -7,12 +7,12 @@
 #'
 #' `r lifecycle::badge("experimental")`
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param data Optional data frame override (default uses stored data)
 #' @param ... Additional arguments passed to emmeans
 #' @return A data frame suitable for emmeans
 #' @export
-recover_data.bayesreml <- function(object, data = NULL, ...) {
+recover_data.flexybayes <- function(object, data = NULL, ...) {
   if (!requireNamespace("emmeans", quietly = TRUE))
     stop("Package 'emmeans' is required for this method.")
 
@@ -29,14 +29,14 @@ recover_data.bayesreml <- function(object, data = NULL, ...) {
 #'
 #' `r lifecycle::badge("experimental")`
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param trms Terms object
 #' @param xlev Factor levels
 #' @param grid Reference grid
 #' @param ... Additional arguments
 #' @return A list with X, bhat, V, dffun, dfargs
 #' @export
-emm_basis.bayesreml <- function(object, trms, xlev, grid, ...) {
+emm_basis.flexybayes <- function(object, trms, xlev, grid, ...) {
   if (!requireNamespace("emmeans", quietly = TRUE))
     stop("Package 'emmeans' is required for this method.")
 

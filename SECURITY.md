@@ -18,7 +18,7 @@ Instead, email the maintainer privately:
 
 > **max.moldovan@gmail.com**
 
-Use a clear subject line such as `[bayesreml SECURITY] <one-line
+Use a clear subject line such as `[flexyBayes SECURITY] <one-line
 description>`.
 
 We commit to:

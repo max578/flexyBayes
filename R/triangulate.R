@@ -14,8 +14,8 @@
 # alignment, only literal-match parameters are compared.
 #
 # Internal posterior extraction is via the fb_as_draws_simple()
-# generic with methods for `bayesreml` (greta backend) and
-# `bayesreml_inla` (INLA backend). Both return a named list whose
+# generic with methods for `flexybayes` (greta backend) and
+# `flexybayes_inla` (INLA backend). Both return a named list whose
 # values are numeric vectors of posterior draws.
 
 # ---------------------------------------------------------------- #
@@ -54,7 +54,7 @@
 #' canonical names.
 #'
 #' @param fit_a a fit object with a `fb_as_draws_simple` method
-#'   (e.g., `bayesreml` from greta, `bayesreml_inla` from INLA).
+#'   (e.g., `flexybayes` from greta, `flexybayes_inla` from INLA).
 #' @param fit_b a second fit object, typically from a different
 #'   backend.
 #' @param name_map named character vector or list mapping fit_b's
@@ -278,8 +278,8 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
 }
 
 .triangulate_source <- function(fit) {
-  if (inherits(fit, "bayesreml_inla")) return("inla")
-  if (inherits(fit, "bayesreml"))      return("greta")
+  if (inherits(fit, "flexybayes_inla")) return("inla")
+  if (inherits(fit, "flexybayes"))      return("greta")
   paste(class(fit), collapse = "/")
 }
 
@@ -293,7 +293,7 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
 #'
 #' S3 generic used by `triangulate()` to extract a named list of
 #' numeric posterior-draw vectors from each fit. Methods exist for
-#' the `bayesreml` (greta backend) and `bayesreml_inla` (INLA
+#' the `flexybayes` (greta backend) and `flexybayes_inla` (INLA
 #' backend) classes; user-defined methods can extend the generic.
 #'
 #' @param fit a model fit object.
@@ -305,7 +305,7 @@ fb_as_draws_simple <- function(fit, ...) UseMethod("fb_as_draws_simple")
 #' @rdname fb_as_draws_simple
 #' @keywords internal
 #' @export
-fb_as_draws_simple.bayesreml <- function(fit, ...) {
+fb_as_draws_simple.flexybayes <- function(fit, ...) {
   if (is.null(fit$greta) || is.null(fit$greta$draws))
     stop("Cannot extract draws: fit$greta$draws is missing. ",
          "Did the fit complete (return_code = FALSE) and use ",
@@ -320,10 +320,10 @@ fb_as_draws_simple.bayesreml <- function(fit, ...) {
 #' @rdname fb_as_draws_simple
 #' @keywords internal
 #' @export
-fb_as_draws_simple.bayesreml_inla <- function(fit, n_samples = 1000L, ...) {
+fb_as_draws_simple.flexybayes_inla <- function(fit, n_samples = 1000L, ...) {
   if (!requireNamespace("INLA", quietly = TRUE))
     stop("Package 'INLA' is required to extract draws from a ",
-         "bayesreml_inla object.", call. = FALSE)
+         "flexybayes_inla object.", call. = FALSE)
   if (is.null(fit$inla))
     stop("Cannot extract draws: fit$inla is missing.", call. = FALSE)
 

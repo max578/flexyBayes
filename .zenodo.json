@@ -1,5 +1,5 @@
 {
-  "title": "bayesreml: Bayesian mixed models with ASReml syntax",
+  "title": "flexyBayes: Flexible Bayesian mixed models with ASReml and brms-style syntax",
   "description": "<p>An R package for specifying mixed models in ASReml-style or brms-style formula syntax and estimating them via greta or INLA, with cross-engine posterior triangulation as the signature output. Variance components default to PC priors per Simpson, Rue, Riebler, Martins, and Sørbye (2017). Supports Gaussian, binomial, Poisson, negative binomial, gamma, and beta families; structured covariance (us, fa, ar1); genomic relationship matrices (GBLUP); pedigree-based models; spatial models; and splines.</p>",
   "upload_type": "software",
   "license": "GPL-3.0-or-later",
@@ -39,7 +39,7 @@
   "communities": [],
   "related_identifiers": [
     {
-      "identifier": "https://github.com/AAGI-AUS/bayesreml",
+      "identifier": "https://github.com/AAGI-AUS/flexyBayes",
       "relation": "isSupplementTo",
       "resource_type": "software"
     }

@@ -57,7 +57,7 @@ variance-component priors (legacy).}
 string without fitting.}
 }
 \value{
-a \code{bayesreml}-class object (same shape as \code{bayesreml()})
+a \code{flexybayes}-class object (same shape as \code{flexybayes()})
 if dispatch succeeds; an error if the requested backend is not
 yet implemented or the model is non-LGM under
 \code{backend = "inla"}.

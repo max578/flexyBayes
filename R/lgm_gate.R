@@ -18,8 +18,8 @@
 # every refusal carries the rule id that fired plus a one-line
 # human gloss; overrides are two-key-armed.
 #
-# Internal in v0.1 -- called from bayesreml() / fb() / emit_inla()
-# during dispatch. Power users can reach it via `bayesreml:::`.
+# Internal in v0.1 -- called from flexybayes() / fb() / emit_inla()
+# during dispatch. Power users can reach it via `flexyBayes:::`.
 # print.lgm_refusal is exported so dispatch works in installed
 # builds.
 
@@ -39,7 +39,7 @@
 # - an lgm_refusal object (when one or more structural checks fail
 #   and the override path is not taken).
 #
-# Callers (emit_inla; bayesreml(... backend = "inla"); fb(... backend
+# Callers (emit_inla; flexybayes(... backend = "inla"); fb(... backend
 # = "auto")) dispatch on the return value: fb_terms -> proceed;
 # lgm_refusal -> stop() the user-facing call with the formatted
 # refusal, or attempt re-route per backend = "auto" semantics.

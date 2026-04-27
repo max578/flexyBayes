@@ -49,7 +49,7 @@
 #' # Simple model (small budget for example purposes)
 #' \donttest{
 #' if (requireNamespace("greta", quietly = TRUE)) {
-#'   fit <- bayesreml(
+#'   fit <- flexybayes(
 #'     fixed  = yield ~ env,
 #'     random = ~ geno,
 #'     data   = met_example$dat,

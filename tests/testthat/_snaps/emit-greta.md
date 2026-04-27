@@ -1,4 +1,4 @@
-# bayesreml() reproduces minimal gaussian code byte-identical
+# flexybayes() reproduces minimal gaussian code byte-identical
 
     Code
       cat(code)
@@ -17,7 +17,7 @@
       atg_model <- greta::model(mu_atg, beta_x, sigma_e_atg)
       atg_draws <- greta::mcmc(atg_model, n_samples = 1000, warmup = 500, chains = 4, verbose = TRUE)
 
-# bayesreml() reproduces simple random-effect code byte-identical
+# flexybayes() reproduces simple random-effect code byte-identical
 
     Code
       cat(code)
@@ -40,7 +40,7 @@
       atg_model <- greta::model(mu_atg, tau_env, sigma_geno, sigma_e_atg)
       atg_draws <- greta::mcmc(atg_model, n_samples = 1000, warmup = 500, chains = 4, verbose = TRUE)
 
-# bayesreml() reproduces fa_gxe code byte-identical
+# flexybayes() reproduces fa_gxe code byte-identical
 
     Code
       cat(code)
@@ -66,7 +66,7 @@
       atg_model <- greta::model(mu_atg, tau_env, Lambda_geno_env_fa2, psi_geno_env_fa2, sigma_e_atg)
       atg_draws <- greta::mcmc(atg_model, n_samples = 1000, warmup = 500, chains = 4, verbose = TRUE)
 
-# bayesreml() reproduces at(env):units rcov code byte-identical
+# flexybayes() reproduces at(env):units rcov code byte-identical
 
     Code
       cat(code)
@@ -89,7 +89,7 @@
       atg_model <- greta::model(mu_atg, tau_env, sigma_geno, sigma_e_atg)
       atg_draws <- greta::mcmc(atg_model, n_samples = 1000, warmup = 500, chains = 4, verbose = TRUE)
 
-# bayesreml() reproduces ar1_spatial code byte-identical
+# flexybayes() reproduces ar1_spatial code byte-identical
 
     Code
       cat(code)

@@ -5,7 +5,7 @@
 # the three v0.1 emit backends: greta (existing), brms / Stan (new),
 # and INLA -- Integrated Nested Laplace Approximations (new).
 #
-# Internal for v0.1. Constructed inside `bayesreml()` (the asreml
+# Internal for v0.1. Constructed inside `flexybayes()` (the asreml
 # entry, retained) or `fb()` (the brms entry, deliverable 1) -- not
 # for direct user instantiation. The print and format S3 methods
 # below are exported solely for dispatch under
@@ -24,7 +24,7 @@
 # Build an fb_terms object from validated fields.
 #
 # All inputs are expected to be pre-shaped by the caller
-# (`bayesreml()` or `fb()`); the constructor performs structural
+# (`flexybayes()` or `fb()`); the constructor performs structural
 # validation only -- types, lengths, allowed values. Term-level
 # semantic validation is the responsibility of `lgm_gate()`
 # (deliverable 2).
@@ -175,7 +175,7 @@ fb_source         <- function(x) x$source
 #' Print method for fb_terms (intermediate representation)
 #'
 #' Internal S3 method, registered for dispatch only. Used during
-#' development and inside the `bayesreml()` / `fb()` flow to inspect
+#' development and inside the `flexybayes()` / `fb()` flow to inspect
 #' the parsed model object before backend dispatch.
 #'
 #' @param x   an `fb_terms` object.

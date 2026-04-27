@@ -35,7 +35,7 @@ fb_as_draws_simple.synthetic_fit <- function(fit, ...) fit$draws
 test_that(".wasserstein1_1d() is zero for identical samples", {
   set.seed(1L)
   x <- rnorm(500)
-  expect_equal(bayesreml:::.wasserstein1_1d(x, x), 0,
+  expect_equal(flexyBayes:::.wasserstein1_1d(x, x), 0,
                tolerance = 1e-10)
 })
 
@@ -43,12 +43,12 @@ test_that(".wasserstein1_1d() recovers a deterministic shift", {
   set.seed(2L)
   x <- rnorm(2000)
   shift <- 1.5
-  expect_equal(bayesreml:::.wasserstein1_1d(x, x + shift),
+  expect_equal(flexyBayes:::.wasserstein1_1d(x, x + shift),
                shift, tolerance = 0.05)
 })
 
 test_that(".wasserstein1_1d() handles edge case with empty samples", {
-  expect_true(is.na(bayesreml:::.wasserstein1_1d(numeric(0), 1:5)))
+  expect_true(is.na(flexyBayes:::.wasserstein1_1d(numeric(0), 1:5)))
 })
 
 # ---------------------------------------------------------------- #
@@ -59,7 +59,7 @@ test_that(".rhat_means_2() is ~1 when posteriors are nearly identical", {
   set.seed(3L)
   x <- rnorm(500)
   y <- rnorm(500)  # same parent distribution
-  rh <- bayesreml:::.rhat_means_2(x, y)
+  rh <- flexyBayes:::.rhat_means_2(x, y)
   expect_true(rh < 1.1)
 })
 
@@ -67,12 +67,12 @@ test_that(".rhat_means_2() grows when posterior means differ", {
   set.seed(4L)
   x <- rnorm(500, mean = 0, sd = 1)
   y <- rnorm(500, mean = 5, sd = 1)
-  rh <- bayesreml:::.rhat_means_2(x, y)
+  rh <- flexyBayes:::.rhat_means_2(x, y)
   expect_true(rh > 2)
 })
 
 test_that(".rhat_means_2() returns NA when within-variance is zero", {
-  expect_true(is.na(bayesreml:::.rhat_means_2(rep(1, 5), rep(1, 5))))
+  expect_true(is.na(flexyBayes:::.rhat_means_2(rep(1, 5), rep(1, 5))))
 })
 
 # ---------------------------------------------------------------- #
@@ -166,10 +166,10 @@ test_that("triangulate() rejects fb_as_draws_simple returning non-list", {
 # ---------------------------------------------------------------- #
 
 test_that(".triangulate_source() distinguishes greta vs INLA fits", {
-  greta_fit <- structure(list(), class = "bayesreml")
-  inla_fit  <- structure(list(), class = c("bayesreml_inla", "list"))
-  expect_identical(bayesreml:::.triangulate_source(greta_fit), "greta")
-  expect_identical(bayesreml:::.triangulate_source(inla_fit),  "inla")
+  greta_fit <- structure(list(), class = "flexybayes")
+  inla_fit  <- structure(list(), class = c("flexybayes_inla", "list"))
+  expect_identical(flexyBayes:::.triangulate_source(greta_fit), "greta")
+  expect_identical(flexyBayes:::.triangulate_source(inla_fit),  "inla")
 })
 
 # ---------------------------------------------------------------- #
@@ -180,8 +180,8 @@ test_that("is_triangulate_result() recognises the class", {
   set.seed(10L)
   d <- list(p = rnorm(100))
   tri <- triangulate(mk_synthetic(d), mk_synthetic(d))
-  expect_true(bayesreml:::is_triangulate_result(tri))
-  expect_false(bayesreml:::is_triangulate_result(list()))
+  expect_true(flexyBayes:::is_triangulate_result(tri))
+  expect_false(flexyBayes:::is_triangulate_result(list()))
 })
 
 test_that("print.triangulate_result emits the structured header + table", {
@@ -209,14 +209,14 @@ test_that("print.triangulate_result handles zero common parameters", {
 # Live cross-engine: greta vs INLA -- skip when not installed       #
 # ---------------------------------------------------------------- #
 
-test_that("fb_as_draws_simple.bayesreml extracts greta draws", {
+test_that("fb_as_draws_simple.flexybayes extracts greta draws", {
   skip_if_no_greta()
   d <- data.frame(y = rnorm(40), x = rnorm(40),
                   g = factor(rep(1:5, length.out = 40)))
-  fit <- bayesreml(fixed = y ~ x, data = d,
+  fit <- flexybayes(fixed = y ~ x, data = d,
                    n_samples = 50, warmup = 50, chains = 1,
                    verbose = FALSE, mcmc_verbose = FALSE)
-  draws <- bayesreml:::fb_as_draws_simple(fit)
+  draws <- flexyBayes:::fb_as_draws_simple(fit)
   expect_true(is.list(draws))
   expect_true(length(draws) >= 1L)
   expect_true(all(vapply(draws, is.numeric, logical(1))))
@@ -227,7 +227,7 @@ test_that("triangulate() runs end-to-end on greta vs INLA", {
   skip_if_no_greta(); skip_if_no_inla()
   d <- data.frame(y = rnorm(40), x = rnorm(40),
                   g = factor(rep(1:5, length.out = 40)))
-  fit_g <- bayesreml(fixed = y ~ x, data = d,
+  fit_g <- flexybayes(fixed = y ~ x, data = d,
                      n_samples = 50, warmup = 50, chains = 1,
                      verbose = FALSE, mcmc_verbose = FALSE)
   fit_i <- fb(y ~ x, data = d, backend = "inla", verbose = FALSE)

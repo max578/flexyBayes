@@ -1,4 +1,4 @@
-# Numerical validation: bayesreml() vs lme4::lmer() (and asreml::asreml()
+# Numerical validation: flexybayes() vs lme4::lmer() (and asreml::asreml()
 # when available).
 #
 # Audit Phase L (recipe 12). Archetype-1 invariant: the model must
@@ -22,13 +22,13 @@ skip_if_no_greta_quiet <- function() {
   testthat::skip_on_ci()
 }
 
-test_that("bayesreml fixed effects agree with lme4 on sleepstudy", {
+test_that("flexybayes fixed effects agree with lme4 on sleepstudy", {
   skip_if_no_greta_quiet()
 
   data(sleepstudy, package = "lme4")
 
   set.seed(20260427L)
-  fit_b <- bayesreml(
+  fit_b <- flexybayes(
     fixed     = Reaction ~ Days,
     random    = ~ Subject,
     data      = sleepstudy,
@@ -78,14 +78,14 @@ test_that("bayesreml fixed effects agree with lme4 on sleepstudy", {
   )
 })
 
-test_that("bayesreml fixed effects agree with asreml on sleepstudy (when asreml available)", {
+test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml available)", {
   skip_if_no_greta_quiet()
   testthat::skip_if_not_installed("asreml")
 
   data(sleepstudy, package = "lme4")
 
   set.seed(20260427L)
-  fit_b <- bayesreml(
+  fit_b <- flexybayes(
     fixed     = Reaction ~ Days,
     random    = ~ Subject,
     data      = sleepstudy,

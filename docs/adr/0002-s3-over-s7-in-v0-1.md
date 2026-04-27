@@ -10,13 +10,13 @@ support S7 first-class.
 
 ## Context
 
-`bayesreml` exposes a small set of object classes:
+`flexyBayes` exposes a small set of object classes:
 
 | Class | Source | Role |
 |---|---|---|
-| `bayesreml` | `bayesreml()`, `fb()` greta path | top-level fit object |
-| `bayesreml_glm` | `.build_glm()` | GLM-compatible facade |
-| `bayesreml_inla` | `emit_inla()` | INLA-backed fit |
+| `flexybayes` | `flexybayes()`, `fb()` greta path | top-level fit object |
+| `flexybayes_glm` | `.build_glm()` | GLM-compatible facade |
+| `flexybayes_inla` | `emit_inla()` | INLA-backed fit |
 | `fb_terms` | `fb_from_asreml()`, `fb_from_brms()` | intermediate representation |
 | `fb_prior` | `fb_prior()` | prior DSL specification |
 | `triangulate_result` | `triangulate()` | cross-engine comparison output |
@@ -40,7 +40,7 @@ S3 methods regardless of how the underlying object is represented.
 
 ## Decision
 
-Use S3 for all bayesreml classes in v0.1.x. Concretely:
+Use S3 for all flexyBayes classes in v0.1.x. Concretely:
 
 - Class membership via the `class` attribute, set in constructors.
 - Method registration via `S3method()` directives in `NAMESPACE`

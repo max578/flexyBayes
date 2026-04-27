@@ -1,7 +1,7 @@
 # vignettes/_precompile.R
 #
-# Precompile every `bayesreml-*.Rmd.orig` into its sibling
-# `bayesreml-*.Rmd` so that `R CMD build` and `R CMD check` render
+# Precompile every `flexyBayes-*.Rmd.orig` into its sibling
+# `flexyBayes-*.Rmd` so that `R CMD build` and `R CMD check` render
 # the static (already-evaluated) `.Rmd` in seconds rather than
 # re-running the live MCMC chunks every time.
 #
@@ -12,7 +12,7 @@
 # Pre-requisites (the precompile is a one-time payment that must
 # succeed in your interactive session, not in CI):
 #
-# - bayesreml installed at the version matching DESCRIPTION
+# - flexyBayes installed at the version matching DESCRIPTION
 #   (`devtools::install()` or `R CMD INSTALL` of a recent tarball).
 # - greta installed and `greta::install_greta_deps()` completed.
 # - INLA installed (Additional_repositories binary path).

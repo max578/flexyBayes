@@ -334,11 +334,11 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 }
 
 # One-time deprecation message announcing the v0.1.x default change.
-# Silenceable via options(bayesreml.silence_default_prior_note = TRUE).
+# Silenceable via options(flexyBayes.silence_default_prior_note = TRUE).
 .default_prior_note_once <- function(scale, basis) {
-  if (isTRUE(getOption("bayesreml.silence_default_prior_note", FALSE)))
+  if (isTRUE(getOption("flexyBayes.silence_default_prior_note", FALSE)))
     return(invisible())
-  if (isTRUE(getOption("bayesreml._default_prior_note_emitted", FALSE)))
+  if (isTRUE(getOption("flexyBayes._default_prior_note_emitted", FALSE)))
     return(invisible())
   message("flexyBayes: variance-component prior default changed in ",
           "v0.1.x from lognormal(0, 1) on sigma to PC(upper = ",
@@ -348,18 +348,18 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
           basis, "\". Pass `prior_vc_sd` explicitly to retain the ",
           "old lognormal default, `prior = fb_prior(...)` for full ",
           "control, or set ",
-          "options(bayesreml.silence_default_prior_note = TRUE) to ",
+          "options(flexyBayes.silence_default_prior_note = TRUE) to ",
           "silence this notice.")
-  options(bayesreml._default_prior_note_emitted = TRUE)
+  options(flexyBayes._default_prior_note_emitted = TRUE)
 }
 
 # One-time message emitted from priors_to_inla() when a uniform()
 # spec is being approximated as a PC prior. Silenceable via
-# options(bayesreml.silence_uniform_inla_approx = TRUE).
+# options(flexyBayes.silence_uniform_inla_approx = TRUE).
 .uniform_to_inla_warn_once <- function() {
-  if (isTRUE(getOption("bayesreml.silence_uniform_inla_approx", FALSE)))
+  if (isTRUE(getOption("flexyBayes.silence_uniform_inla_approx", FALSE)))
     return(invisible())
-  if (isTRUE(getOption("bayesreml._uniform_inla_approx_emitted", FALSE)))
+  if (isTRUE(getOption("flexyBayes._uniform_inla_approx_emitted", FALSE)))
     return(invisible())
   message("flexyBayes: uniform() prior on a variance component is ",
           "approximated as PC(upper, 0.01) for the INLA backend in ",
@@ -367,8 +367,8 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
           "differs (PC concentrates at sigma = 0; uniform is flat). ",
           "Exact bounded-uniform support lands in v0.2 -- see ",
           "?fb_prior. Silence this notice via ",
-          "options(bayesreml.silence_uniform_inla_approx = TRUE).")
-  options(bayesreml._uniform_inla_approx_emitted = TRUE)
+          "options(flexyBayes.silence_uniform_inla_approx = TRUE).")
+  options(flexyBayes._uniform_inla_approx_emitted = TRUE)
 }
 
 # ---------------------------------------------------------------- #

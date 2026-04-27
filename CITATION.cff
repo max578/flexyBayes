@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use bayesreml in your research, please cite it as below."
-title: "bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta"
+message: "If you use flexyBayes in your research, please cite it as below."
+title: "flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax"
 abstract: >-
   Specify mixed models using familiar ASReml formula syntax and estimate
   them via Bayesian Markov chain Monte Carlo using greta, or via
@@ -23,8 +23,8 @@ authors:
 version: 0.1.0.9000
 date-released: "2026-04-26"
 license: GPL-3.0-or-later
-repository-code: "https://github.com/AAGI-AUS/bayesreml"
-url: "https://github.com/AAGI-AUS/bayesreml"
+repository-code: "https://github.com/AAGI-AUS/flexyBayes"
+url: "https://github.com/AAGI-AUS/flexyBayes"
 keywords:
   - bayesian-statistics
   - mixed-models

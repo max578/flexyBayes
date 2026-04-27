@@ -1,4 +1,4 @@
-# Environment setup for bayesreml
+# Environment setup for flexyBayes
 # Populates the evaluation environment with all R objects the generated code
 # will reference (ID vectors, level counts, known matrices, etc.)
 # Not exported.

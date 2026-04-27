@@ -21,7 +21,7 @@
 
 # Construct an fb_terms object from asreml-format formula arguments.
 #
-# Argument names and defaults mirror bayesreml() one-for-one so the
+# Argument names and defaults mirror flexybayes() one-for-one so the
 # wrapper is a drop-in for the parsing portion of that function.
 #
 # @param fixed Two-sided formula: response ~ fixed_effects.
@@ -29,7 +29,7 @@
 #   NULL.
 # @param rcov One-sided formula ~ residual_structure or NULL. NULL
 #   defaults to list(list(type = "units")) -- iid residuals -- to
-#   match bayesreml()'s behaviour.
+#   match flexybayes()'s behaviour.
 # @param data data.frame containing all variables referenced.
 # @param family character family name; resolved via .resolve_family
 #   (gaussian, binomial, binary, poisson, negative_binomial,
@@ -61,7 +61,7 @@ fb_from_asreml <- function(fixed,
                            prior_vc_sd    = 1) {
 
   # Delegate parsing to existing helpers verbatim -- no behaviour
-  # change relative to bayesreml().
+  # change relative to flexybayes().
   fixed_info   <- .parse_fixed(fixed, data)
   random_terms <- if (!is.null(random))
     .parse_formula(random, data) else list()
@@ -156,7 +156,7 @@ fb_from_asreml <- function(fixed,
 #' @param mcmc_verbose logical: show MCMC progress bar.
 #' @param return_code logical: if TRUE, return the generated code
 #'   string without fitting.
-#' @return a `bayesreml`-class object (same shape as `bayesreml()`)
+#' @return a `flexybayes`-class object (same shape as `flexybayes()`)
 #'   if dispatch succeeds; an error if the requested backend is not
 #'   yet implemented or the model is non-LGM under
 #'   `backend = "inla"`.

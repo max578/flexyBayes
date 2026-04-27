@@ -1,8 +1,8 @@
 ## ============================================================================
-##  bayesreml -- Comprehensive Model Gallery
+##  flexyBayes -- Comprehensive Model Gallery
 ##
 ##  This script demonstrates every model type, family, random-effect structure,
-##  and residual structure supported by bayesreml. Each model is generated
+##  and residual structure supported by flexyBayes. Each model is generated
 ##  using return_code = TRUE so the generated greta code can be inspected
 ##  without requiring TensorFlow. Section 6 shows how to actually fit a model
 ##  and use all downstream methods.
@@ -12,7 +12,7 @@
 ##    # Or run interactively section by section
 ## ============================================================================
 
-library(bayesreml)
+library(flexyBayes)
 
 ## -- Setup: load bundled dataset ----------------------------------------------
 
@@ -32,7 +32,7 @@ show_model <- function(title, ...) {
   cat(strrep("=", 70), "\n")
   cat(" ", title, "\n")
   cat(strrep("=", 70), "\n")
-  code <- bayesreml(..., return_code = TRUE, verbose = FALSE,
+  code <- flexybayes(..., return_code = TRUE, verbose = FALSE,
                     n_samples = 500, warmup = 200, chains = 2)
   cat(code, "\n")
   invisible(code)
@@ -298,7 +298,7 @@ greta_ok <- tryCatch({
 if (greta_ok) {
   cat("\ngreta + TensorFlow detected -- fitting a live model...\n\n")
 
-  fit <- bayesreml(
+  fit <- flexybayes(
     fixed     = yield ~ env,
     random    = ~ geno,
     data      = dat,
@@ -306,7 +306,7 @@ if (greta_ok) {
     verbose   = TRUE
   )
 
-  ## -- S3 methods on bayesreml object --
+  ## -- S3 methods on flexybayes object --
   cat("\n--- print() ---\n")
   print(fit)
 
@@ -351,7 +351,7 @@ if (greta_ok) {
   cat("  fit:", head(p$fit, 5), "\n")
   cat("  se: ", head(p$se.fit, 5), "\n")
 
-  ## -- S3 methods on bayesreml_glm sub-object --
+  ## -- S3 methods on flexybayes_glm sub-object --
   cat("\n--- summary(fit$glm) ---\n")
   summary(fit$glm)
 
@@ -360,16 +360,16 @@ if (greta_ok) {
 
   ## -- Broom-style tidiers --
   cat("\n--- tidy() ---\n")
-  print(tidy.bayesreml(fit))
+  print(tidy.flexybayes(fit))
 
   cat("\n--- tidy(effects = 'random') ---\n")
-  print(tidy.bayesreml(fit, effects = "random"))
+  print(tidy.flexybayes(fit, effects = "random"))
 
   cat("\n--- glance() ---\n")
-  print(glance.bayesreml(fit))
+  print(glance.flexybayes(fit))
 
   cat("\n--- augment() (first 5 rows) ---\n")
-  print(head(augment.bayesreml(fit), 5))
+  print(head(augment.flexybayes(fit), 5))
 
   ## -- Variance components & BLUPs --
   cat("\n--- Variance components ---\n")
@@ -408,7 +408,7 @@ if (greta_ok) {
 
   ## -- Model comparison --
   cat("\n--- Model comparison (anova) ---\n")
-  fit2 <- bayesreml(
+  fit2 <- flexybayes(
     fixed     = yield ~ env,
     random    = ~ geno + env:block,
     data      = dat,
@@ -447,7 +447,7 @@ cat("\n", strrep("#", 70), "\n")
 cat("  SECTION 7: S3 Methods (mock object, no greta needed)\n")
 cat(strrep("#", 70), "\n")
 
-## Build a mock bayesreml object to demonstrate all methods
+## Build a mock flexybayes object to demonstrate all methods
 n <- nrow(dat)
 n_samples <- 100
 draws_mat <- matrix(rnorm(n_samples * 3), ncol = 3)
@@ -475,16 +475,16 @@ glm_obj <- list(
   rank              = 1L,
   y                 = dat$yield,
   linear.predictors = fitted_vals,
-  call              = quote(bayesreml(fixed = yield ~ 1, data = dat)),
+  call              = quote(flexybayes(fixed = yield ~ 1, data = dat)),
   qr                = qr(matrix(1, n, 1))
 )
 attr(glm_obj, "posterior_vcov") <- V
-class(glm_obj) <- c("bayesreml_glm", "glm", "lm")
+class(glm_obj) <- c("flexybayes_glm", "glm", "lm")
 
 greta_out <- structure(
   list(model = NULL, draws = draws,
        greta_arrays = list(), env = new.env(parent = emptyenv())),
-  class = "bayesreml_greta"
+  class = "flexybayes_greta"
 )
 
 post_summary <- summary(draws)
@@ -521,11 +521,11 @@ extras <- structure(list(
     n_obs = n, n_fixed = 1L, n_random = 0L, n_params = 3L,
     family = "gaussian", link = "identity"
   )
-), class = "bayesreml_extras")
+), class = "flexybayes_extras")
 
 mock_fit <- structure(
   list(glm = glm_obj, greta = greta_out, extras = extras),
-  class = "bayesreml"
+  class = "flexybayes"
 )
 
 ## Now demonstrate every S3 method
@@ -580,16 +580,16 @@ cat("\n--- confint(glm sub-object) ---\n")
 print(confint(mock_fit$glm))
 
 cat("\n--- tidy ---\n")
-print(tidy.bayesreml(mock_fit))
+print(tidy.flexybayes(mock_fit))
 
 cat("\n--- tidy (random effects) ---\n")
-print(tidy.bayesreml(mock_fit, effects = "random"))
+print(tidy.flexybayes(mock_fit, effects = "random"))
 
 cat("\n--- glance ---\n")
-print(glance.bayesreml(mock_fit))
+print(glance.flexybayes(mock_fit))
 
 cat("\n--- augment (first 5 rows) ---\n")
-print(head(augment.bayesreml(mock_fit), 5))
+print(head(augment.flexybayes(mock_fit), 5))
 
 cat("\n--- plot: residuals ---\n")
 plot(mock_fit, type = "residuals")

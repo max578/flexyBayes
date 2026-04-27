@@ -1,5 +1,5 @@
-Package: bayesreml
-Title: Bayesian Mixed Models with ASReml Syntax, Powered by Greta
+Package: flexyBayes
+Title: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax
 Version: 0.1.0.9000
 Authors@R: c(
     person("Max", "Moldovan", email = "max.moldovan@gmail.com",
@@ -11,18 +11,20 @@ Authors@R: c(
            comment = c(ORCID = "0000-0003-0765-3533")),
     person("Beata", "Sznajder", role = "aut")
     )
-Description: Specify mixed models using familiar ASReml formula syntax and
-    estimate them via Bayesian MCMC using 'greta'. Returns results in formats
+Description: Specify mixed models using familiar ASReml or brms-style formula
+    syntax and estimate them via greta or INLA. Returns results in formats
     compatible with the standard R modelling ecosystem including 'summary()',
     'emmeans', 'marginaleffects', and 'effectsize'. The package translates
-    ASReml-style formulas (fixed, random, rcov) to efficient greta code using
-    an indexing approach that scales to large agricultural datasets. Supports
-    Gaussian, binomial, Poisson, negative binomial, gamma, and beta families,
-    as well as structured covariance models (us, fa, ar1), genomic relationship
-    matrices (GBLUP), pedigree-based models, spatial models, and splines.
+    ASReml-style formulas (fixed, random, rcov) to backend-specific code
+    (greta or INLA) using an indexing approach that scales to large
+    agricultural datasets, and supports cross-engine posterior triangulation
+    as a robustness signal. Supports Gaussian, binomial, Poisson, negative
+    binomial, gamma, and beta families, as well as structured covariance
+    models (us, fa, ar1), genomic relationship matrices (GBLUP),
+    pedigree-based models, spatial models, and splines.
 License: GPL (>= 3)
-URL: https://github.com/AAGI-AUS/bayesreml
-BugReports: https://github.com/AAGI-AUS/bayesreml/issues
+URL: https://github.com/AAGI-AUS/flexyBayes
+BugReports: https://github.com/AAGI-AUS/flexyBayes/issues
 Depends:
     R (>= 4.1.0)
 Imports:

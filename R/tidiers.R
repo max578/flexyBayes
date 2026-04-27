@@ -1,13 +1,13 @@
-# broom-style tidy, glance, augment methods for bayesreml
+# broom-style tidy, glance, augment methods for flexyBayes
 
-#' Tidy a bayesreml model
+#' Tidy a flexybayes model
 #'
 #' `r lifecycle::badge("experimental")`
 #'
 #' Returns a tidy data frame of fixed effect estimates with posterior
 #' statistics.
 #'
-#' @param x A bayesreml object
+#' @param x A flexybayes object
 #' @param conf.int Logical: include credible intervals?
 #' @param conf.level Credible level (default 0.95)
 #' @param effects Which effects to return: `"fixed"` or `"random"`
@@ -15,7 +15,7 @@
 #' @return A data frame with columns: term, estimate, std.error,
 #'   conf.low, conf.high
 #' @export
-tidy.bayesreml <- function(x, conf.int = TRUE, conf.level = 0.95,
+tidy.flexybayes <- function(x, conf.int = TRUE, conf.level = 0.95,
                             effects = c("fixed", "random"), ...) {
   effects <- match.arg(effects)
 
@@ -60,17 +60,17 @@ tidy.bayesreml <- function(x, conf.int = TRUE, conf.level = 0.95,
   result
 }
 
-#' Glance at a bayesreml model
+#' Glance at a flexybayes model
 #'
 #' `r lifecycle::badge("experimental")`
 #'
 #' Returns a one-row summary of model-level statistics.
 #'
-#' @param x A bayesreml object
+#' @param x A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return A one-row data frame
 #' @export
-glance.bayesreml <- function(x, ...) {
+glance.flexybayes <- function(x, ...) {
   mi <- x$extras$model_info
   ll <- logLik(x)
 
@@ -98,19 +98,19 @@ glance.bayesreml <- function(x, ...) {
   )
 }
 
-#' Augment a bayesreml model
+#' Augment a flexybayes model
 #'
 #' `r lifecycle::badge("experimental")`
 #'
 #' Returns the original data with fitted values, residuals, and other
 #' observation-level statistics.
 #'
-#' @param x A bayesreml object
+#' @param x A flexybayes object
 #' @param data Optional data frame (defaults to original data)
 #' @param ... Additional arguments (ignored)
 #' @return A data frame with added columns: .fitted, .resid
 #' @export
-augment.bayesreml <- function(x, data = NULL, ...) {
+augment.flexybayes <- function(x, data = NULL, ...) {
   if (is.null(data)) data <- x$glm$data
 
   result <- data

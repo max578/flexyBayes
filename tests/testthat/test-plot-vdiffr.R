@@ -1,4 +1,4 @@
-# Visual-regression snapshots for plot.bayesreml() via vdiffr.
+# Visual-regression snapshots for plot.flexybayes() via vdiffr.
 #
 # Audit Phase L (recipe 11). Snapshots are intentionally limited to
 # the deterministic plot types -- "effects", "variance", "residuals" --
@@ -36,7 +36,7 @@ skip_if_no_greta_quiet <- function() {
         x = rnorm(40),
         g = factor(rep(seq_len(5), length.out = 40))
       )
-      fit <<- bayesreml(
+      fit <<- flexybayes(
         fixed     = y ~ x,
         random    = ~ g,
         data      = d,
@@ -51,7 +51,7 @@ skip_if_no_greta_quiet <- function() {
   }
 })
 
-test_that("plot.bayesreml(type = 'effects') matches snapshot", {
+test_that("plot.flexybayes(type = 'effects') matches snapshot", {
   skip_if_no_greta_quiet()
   fit <- .cached_fit()
   vdiffr::expect_doppelganger(
@@ -60,7 +60,7 @@ test_that("plot.bayesreml(type = 'effects') matches snapshot", {
   )
 })
 
-test_that("plot.bayesreml(type = 'variance') matches snapshot", {
+test_that("plot.flexybayes(type = 'variance') matches snapshot", {
   skip_if_no_greta_quiet()
   fit <- .cached_fit()
   vdiffr::expect_doppelganger(
@@ -69,7 +69,7 @@ test_that("plot.bayesreml(type = 'variance') matches snapshot", {
   )
 })
 
-test_that("plot.bayesreml(type = 'residuals') matches snapshot", {
+test_that("plot.flexybayes(type = 'residuals') matches snapshot", {
   skip_if_no_greta_quiet()
   fit <- .cached_fit()
   vdiffr::expect_doppelganger(

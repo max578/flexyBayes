@@ -1,4 +1,4 @@
 library(testthat)
-library(bayesreml)
+library(flexyBayes)
 
-test_check("bayesreml")
+test_check("flexyBayes")

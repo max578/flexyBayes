@@ -29,7 +29,7 @@ mk_brms_data <- function() {
 
 test_that("fb_from_brms() handles minimal gaussian fixed-only model", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ x, data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ x, data = d)
   expect_s3_class(fb, "fb_terms")
   expect_identical(fb$response, "y")
   expect_identical(fb$family,   "gaussian")
@@ -46,14 +46,14 @@ test_that("fb_from_brms() handles minimal gaussian fixed-only model", {
 
 test_that("fb_from_brms() handles intercept-only model", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ 1, data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ 1, data = d)
   expect_true(fb$intercept)
   expect_length(fb$fixed_terms, 0L)
 })
 
 test_that("fb_from_brms() handles factor fixed effect", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ g, data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ g, data = d)
   expect_length(fb$fixed_terms, 1L)
   expect_identical(fb$fixed_terms[[1]]$type, "factor")
   expect_identical(fb$fixed_terms[[1]]$n_levels, 5L)
@@ -65,7 +65,7 @@ test_that("fb_from_brms() handles factor fixed effect", {
 
 test_that("fb_from_brms() handles `(1 | g)` random intercept", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ x + (1 | g), data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g), data = d)
   expect_length(fb$random_terms, 1L)
   expect_identical(fb$random_terms[[1]]$type,  "simple")
   expect_identical(fb$random_terms[[1]]$var,   "g")
@@ -74,7 +74,7 @@ test_that("fb_from_brms() handles `(1 | g)` random intercept", {
 
 test_that("fb_from_brms() handles `(1 || g)` (uncorrelated) random intercept", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ x + (1 || g), data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ x + (1 || g), data = d)
   expect_length(fb$random_terms, 1L)
   expect_identical(fb$random_terms[[1]]$type, "simple")
   expect_identical(fb$random_terms[[1]]$var,  "g")
@@ -82,7 +82,7 @@ test_that("fb_from_brms() handles `(1 || g)` (uncorrelated) random intercept", {
 
 test_that("fb_from_brms() handles two random intercepts", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ x + (1 | g) + (1 | site), data = d)
+  fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g) + (1 | site), data = d)
   expect_length(fb$random_terms, 2L)
   vars <- vapply(fb$random_terms, function(r) r$var, character(1))
   expect_setequal(vars, c("g", "site"))
@@ -94,14 +94,14 @@ test_that("fb_from_brms() handles two random intercepts", {
 
 test_that("fb_from_brms() handles binomial family with default logit", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y01 ~ x, data = d, family = "binomial")
+  fb <- flexyBayes:::fb_from_brms(y01 ~ x, data = d, family = "binomial")
   expect_identical(fb$family, "binomial")
   expect_identical(fb$link,   "logit")
 })
 
 test_that("fb_from_brms() accepts a `family()` object", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y01 ~ x, data = d,
+  fb <- flexyBayes:::fb_from_brms(y01 ~ x, data = d,
                                   family = stats::binomial(link = "probit"))
   expect_identical(fb$family, "binomial")
   expect_identical(fb$link,   "probit")
@@ -110,7 +110,7 @@ test_that("fb_from_brms() accepts a `family()` object", {
 test_that("fb_from_brms() rejects an unsupported character family", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x, data = d, family = "weibull5p_hyp"),
+    flexyBayes:::fb_from_brms(y ~ x, data = d, family = "weibull5p_hyp"),
     "Unsupported family"
   )
 })
@@ -122,7 +122,7 @@ test_that("fb_from_brms() rejects an unsupported character family", {
 test_that("fb_from_brms() captures `weights` as an addition_term", {
   d <- mk_brms_data()
   w <- runif(nrow(d))
-  fb <- bayesreml:::fb_from_brms(y ~ x, data = d, weights = w)
+  fb <- flexyBayes:::fb_from_brms(y ~ x, data = d, weights = w)
   expect_length(fb$addition_terms, 1L)
   expect_identical(fb$addition_terms[[1]]$type,   "weights")
   expect_identical(fb$addition_terms[[1]]$values, w)
@@ -131,7 +131,7 @@ test_that("fb_from_brms() captures `weights` as an addition_term", {
 test_that("fb_from_brms() rejects mismatched weights length", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x, data = d, weights = 1:5),
+    flexyBayes:::fb_from_brms(y ~ x, data = d, weights = 1:5),
     "must be a numeric vector of length nrow"
   )
 })
@@ -143,7 +143,7 @@ test_that("fb_from_brms() rejects mismatched weights length", {
 test_that("fb_from_brms() refuses random slopes (x | g) for v0.1", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x + (x | g), data = d),
+    flexyBayes:::fb_from_brms(y ~ x + (x | g), data = d),
     "only supports random intercepts"
   )
 })
@@ -151,7 +151,7 @@ test_that("fb_from_brms() refuses random slopes (x | g) for v0.1", {
 test_that("fb_from_brms() refuses smoothers s() for v0.1", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ s(x), data = d),
+    flexyBayes:::fb_from_brms(y ~ s(x), data = d),
     "does not yet support: smoother"
   )
 })
@@ -159,7 +159,7 @@ test_that("fb_from_brms() refuses smoothers s() for v0.1", {
 test_that("fb_from_brms() refuses gp() for v0.1", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ gp(lon, lat), data = d),
+    flexyBayes:::fb_from_brms(y ~ gp(lon, lat), data = d),
     "does not yet support: gp"
   )
 })
@@ -167,7 +167,7 @@ test_that("fb_from_brms() refuses gp() for v0.1", {
 test_that("fb_from_brms() refuses ar() for v0.1", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x + ar(p = 1, gr = g), data = d),
+    flexyBayes:::fb_from_brms(y ~ x + ar(p = 1, gr = g), data = d),
     "does not yet support: autocorrelation"
   )
 })
@@ -175,7 +175,7 @@ test_that("fb_from_brms() refuses ar() for v0.1", {
 test_that("fb_from_brms() refuses cens() for v0.1", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x + cens(g), data = d),
+    flexyBayes:::fb_from_brms(y ~ x + cens(g), data = d),
     "does not yet support: addition_form"
   )
 })
@@ -186,18 +186,18 @@ test_that("fb_from_brms() refuses cens() for v0.1", {
 
 test_that("fb_from_brms() result passes validate_fb_terms()", {
   d  <- mk_brms_data()
-  fb <- bayesreml:::fb_from_brms(y ~ x + (1 | g), data = d)
-  expect_silent(bayesreml:::validate_fb_terms(fb))
+  fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g), data = d)
+  expect_silent(flexyBayes:::validate_fb_terms(fb))
 })
 
 test_that("fb_from_brms() rejects malformed input", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(~ x, data = d),
+    flexyBayes:::fb_from_brms(~ x, data = d),
     "must be two-sided"
   )
   expect_error(
-    bayesreml:::fb_from_brms(y ~ x, data = d, family = list("not_family")),
+    flexyBayes:::fb_from_brms(y ~ x, data = d, family = list("not_family")),
     "`family` must be"
   )
 })
@@ -205,7 +205,7 @@ test_that("fb_from_brms() rejects malformed input", {
 test_that("fb_from_brms() rejects response not in data", {
   d <- mk_brms_data()
   expect_error(
-    bayesreml:::fb_from_brms(missing_y ~ x, data = d),
+    flexyBayes:::fb_from_brms(missing_y ~ x, data = d),
     "Response variable 'missing_y' not found"
   )
 })

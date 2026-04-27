@@ -105,9 +105,9 @@ test_that("fb_prior() rejects unsupported distributions", {
 
 test_that("is_fb_prior() recognises the class", {
   p <- fb_prior(sigma ~ pc(upper = 1, prob = 0.01))
-  expect_true(bayesreml:::is_fb_prior(p))
-  expect_false(bayesreml:::is_fb_prior(list()))
-  expect_false(bayesreml:::is_fb_prior(NULL))
+  expect_true(flexyBayes:::is_fb_prior(p))
+  expect_false(flexyBayes:::is_fb_prior(list()))
+  expect_false(flexyBayes:::is_fb_prior(NULL))
 })
 
 test_that("print.fb_prior() emits a multi-line summary", {
@@ -129,19 +129,19 @@ test_that("print.fb_prior() emits a multi-line summary", {
 
 test_that("priors_to_legacy() extracts vc_sd from sigma pc spec", {
   p <- fb_prior(sigma ~ pc(upper = 3, prob = 0.05))
-  out <- bayesreml:::priors_to_legacy(p)
+  out <- flexyBayes:::priors_to_legacy(p)
   expect_identical(out$vc_sd, 3)
   expect_false(out$legacy)
 })
 
 test_that("priors_to_legacy() extracts fixed_sd from b normal spec", {
   p <- fb_prior(b("treatment") ~ normal(mean = 0, sd = 7))
-  out <- bayesreml:::priors_to_legacy(p)
+  out <- flexyBayes:::priors_to_legacy(p)
   expect_identical(out$fixed_sd, 7)
 })
 
 test_that("priors_to_legacy() falls back to defaults for non-fb_prior input", {
-  out <- bayesreml:::priors_to_legacy(NULL)
+  out <- flexyBayes:::priors_to_legacy(NULL)
   expect_identical(out$fixed_sd, 10)
   expect_identical(out$vc_sd,    1)
   expect_true(out$legacy)
@@ -149,7 +149,7 @@ test_that("priors_to_legacy() falls back to defaults for non-fb_prior input", {
 
 test_that("priors_to_inla() emits pc.prec for sigma pc spec", {
   p <- fb_prior(sigma ~ pc(upper = 2, prob = 0.05))
-  out <- bayesreml:::priors_to_inla(p)
+  out <- flexyBayes:::priors_to_inla(p)
   expect_named(out, "sigma")
   expect_identical(out$sigma$prior, "pc.prec")
   expect_identical(out$sigma$param, c(2, 0.05))
@@ -157,13 +157,13 @@ test_that("priors_to_inla() emits pc.prec for sigma pc spec", {
 
 test_that("priors_to_inla() emits pc.prec keyed by sd group", {
   p <- fb_prior(sd(group = "subject") ~ pc(upper = 1, prob = 0.01))
-  out <- bayesreml:::priors_to_inla(p)
+  out <- flexyBayes:::priors_to_inla(p)
   expect_named(out, "subject")
 })
 
 test_that("priors_to_inla() approximates half_normal via pc.prec", {
   p <- fb_prior(sigma ~ half_normal(scale = 1))
-  out <- bayesreml:::priors_to_inla(p)
+  out <- flexyBayes:::priors_to_inla(p)
   expect_named(out, "sigma")
   expect_identical(out$sigma$prior, "pc.prec")
   expect_identical(out$sigma$approx_from, "half_normal")
@@ -191,9 +191,9 @@ test_that("uniform() rejects missing upper, negative lower, upper <= lower", {
 })
 
 test_that("priors_to_inla() approximates uniform as pc.prec with matched upper", {
-  options(bayesreml._uniform_inla_approx_emitted = FALSE)
+  options(flexyBayes._uniform_inla_approx_emitted = FALSE)
   p <- fb_prior(sigma ~ uniform(lower = 0, upper = 4))
-  expect_message(out <- bayesreml:::priors_to_inla(p),
+  expect_message(out <- flexyBayes:::priors_to_inla(p),
                  regexp = "approximated as PC")
   expect_identical(out$sigma$prior, "pc.prec")
   expect_identical(out$sigma$param, c(4, 0.01))
@@ -202,7 +202,7 @@ test_that("priors_to_inla() approximates uniform as pc.prec with matched upper",
 
 test_that("priors_to_legacy() refuses uniform with a clear redirect", {
   p <- fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5))
-  expect_error(bayesreml:::priors_to_legacy(p),
+  expect_error(flexyBayes:::priors_to_legacy(p),
                regexp = "uniform\\(\\) priors on variance components")
 })
 
@@ -213,7 +213,7 @@ test_that("priors_to_legacy() refuses uniform with a clear redirect", {
 test_that(".default_pc_prior() builds PC specs scaled by sd(y) (Gaussian)", {
   set.seed(11)
   d <- data.frame(y = rnorm(40, sd = 2), g = factor(rep(1:5, 8)))
-  p <- bayesreml:::.default_pc_prior(
+  p <- flexyBayes:::.default_pc_prior(
     data = d, response = "y", family = "gaussian",
     random_groups = c("g"), alpha = 0.05
   )
@@ -229,14 +229,14 @@ test_that(".default_pc_prior() builds PC specs scaled by sd(y) (Gaussian)", {
 test_that(".default_prior_scale() picks family-aware scale", {
   set.seed(12)
   d_g <- data.frame(y = rnorm(40, sd = 3))
-  s_g <- bayesreml:::.default_prior_scale(d_g, "y", "gaussian")
+  s_g <- flexyBayes:::.default_prior_scale(d_g, "y", "gaussian")
   expect_identical(s_g$basis, "identity_sd")
 
   d_p <- data.frame(y = rpois(40, lambda = 5))
-  s_p <- bayesreml:::.default_prior_scale(d_p, "y", "poisson")
+  s_p <- flexyBayes:::.default_prior_scale(d_p, "y", "poisson")
   expect_identical(s_p$basis, "log_link_sd")
 
-  s_b <- bayesreml:::.default_prior_scale(NULL, "y", "binomial")
+  s_b <- flexyBayes:::.default_prior_scale(NULL, "y", "binomial")
   expect_identical(s_b$basis, "logit_default")
   expect_identical(s_b$scale, 2.5)
 })

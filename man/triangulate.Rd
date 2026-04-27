@@ -15,7 +15,7 @@ triangulate(
 }
 \arguments{
 \item{fit_a}{a fit object with a \code{fb_as_draws_simple} method
-(e.g., \code{bayesreml} from greta, \code{bayesreml_inla} from INLA).}
+(e.g., \code{flexybayes} from greta, \code{flexybayes_inla} from INLA).}
 
 \item{fit_b}{a second fit object, typically from a different
 backend.}

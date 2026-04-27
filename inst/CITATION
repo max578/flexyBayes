@@ -1,6 +1,6 @@
 bibentry(
   bibtype  = "Manual",
-  title    = "bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta",
+  title    = "flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax",
   author   = c(
     person("Max", "Moldovan",
            comment = c(ORCID = "0000-0001-9680-8474")),
@@ -12,5 +12,5 @@ bibentry(
   ),
   year     = "2026",
   note     = "R package version 0.1.0",
-  url      = "https://github.com/AAGI-AUS/bayesreml"
+  url      = "https://github.com/AAGI-AUS/flexyBayes"
 )

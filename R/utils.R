@@ -1,4 +1,4 @@
-# Internal utility helpers for bayesreml
+# Internal utility helpers for flexyBayes
 # Not exported
 
 # Add a line of code to the code generation context
@@ -49,7 +49,7 @@
   list(family = fam, link = lnk)
 }
 
-# Map bayesreml family string to stats::family object
+# Map flexyBayes family string to stats::family object
 .get_stats_family <- function(fam_link) {
   switch(fam_link$family,
     "gaussian"          = gaussian(link = fam_link$link),

@@ -1,6 +1,6 @@
 # Code of Conduct
 
-The `bayesreml` project has adopted the [Contributor Covenant version
+The `flexyBayes` project has adopted the [Contributor Covenant version
 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)
 as the code of conduct for everyone participating in this project.
 The full canonical text is maintained at the link above and applies

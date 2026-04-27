@@ -1,14 +1,14 @@
-# S3 methods for the bayesreml class
+# S3 methods for the flexybayes class
 
-#' Print a bayesreml object
-#' @param x A bayesreml object
+#' Print a flexybayes object
+#' @param x A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @export
-print.bayesreml <- function(x, ...) {
+print.flexybayes <- function(x, ...) {
   ci <- x$extras$call_info
   mi <- x$extras$model_info
 
-  cat("Bayesian mixed model  [bayesreml]\n")
+  cat("Bayesian mixed model  [flexyBayes]\n")
   cat(strrep("-", 55), "\n")
 
   cat("  Fixed  :", deparse(ci$fixed), "\n")
@@ -47,17 +47,17 @@ print.bayesreml <- function(x, ...) {
   invisible(x)
 }
 
-#' Summarise a bayesreml object
+#' Summarise a flexybayes object
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Invisibly returns the posterior summary
 #' @export
-summary.bayesreml <- function(object, ...) {
+summary.flexybayes <- function(object, ...) {
   ci <- object$extras$call_info
   mi <- object$extras$model_info
 
-  cat("Bayesian mixed model summary  [bayesreml]\n")
+  cat("Bayesian mixed model summary  [flexyBayes]\n")
   cat(strrep("=", 60), "\n")
   cat("  Fixed  :", deparse(ci$fixed), "\n")
   if (!is.null(ci$random)) cat("  Random :", deparse(ci$random), "\n")
@@ -117,20 +117,20 @@ summary.bayesreml <- function(object, ...) {
 }
 
 #' Extract fixed effect coefficients
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Named numeric vector of posterior mean fixed effects
 #' @export
-coef.bayesreml <- function(object, ...) {
+coef.flexybayes <- function(object, ...) {
   object$glm$coefficients
 }
 
 #' Extract variance-covariance matrix of fixed effects
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Posterior covariance matrix of fixed effect coefficients
 #' @export
-vcov.bayesreml <- function(object, ...) {
+vcov.flexybayes <- function(object, ...) {
   attr(object$glm, "posterior_vcov")
 }
 
@@ -139,13 +139,13 @@ vcov.bayesreml <- function(object, ...) {
 #' Returns posterior quantile-based credible intervals, not
 #' frequentist confidence intervals.
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param parm Parameter names (NULL for all fixed effects)
 #' @param level Credible level (default 0.95)
 #' @param ... Additional arguments (ignored)
 #' @return Matrix with lower and upper credible bounds
 #' @export
-confint.bayesreml <- function(object, parm = NULL, level = 0.95, ...) {
+confint.flexybayes <- function(object, parm = NULL, level = 0.95, ...) {
   draws <- object$greta$draws
   all_draws <- do.call(rbind, lapply(draws, as.matrix))
 
@@ -216,26 +216,26 @@ confint.bayesreml <- function(object, parm = NULL, level = 0.95, ...) {
 }
 
 #' Extract fitted values
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Numeric vector of posterior mean fitted values
 #' @export
-fitted.bayesreml <- function(object, ...) {
+fitted.flexybayes <- function(object, ...) {
   object$glm$fitted.values
 }
 
 #' Extract residuals
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Numeric vector of residuals (observed - fitted)
 #' @export
-residuals.bayesreml <- function(object, ...) {
+residuals.flexybayes <- function(object, ...) {
   object$glm$residuals
 }
 
-#' Predict from a bayesreml model
+#' Predict from a flexybayes model
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param newdata Optional new data frame for prediction. If NULL, returns
 #'   fitted values from the original data.
 #' @param type `"link"` for linear predictor, `"response"` for response scale.
@@ -244,7 +244,7 @@ residuals.bayesreml <- function(object, ...) {
 #' @return If `se.fit = FALSE`, a numeric vector. If `se.fit = TRUE`, a list
 #'   with `fit` and `se.fit`.
 #' @export
-predict.bayesreml <- function(object, newdata = NULL,
+predict.flexybayes <- function(object, newdata = NULL,
                                type = c("response", "link"),
                                se.fit = FALSE, ...) {
   type <- match.arg(type)
@@ -307,11 +307,11 @@ predict.bayesreml <- function(object, newdata = NULL,
 }
 
 #' Log-likelihood (approximate)
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return logLik object
 #' @export
-logLik.bayesreml <- function(object, ...) {
+logLik.flexybayes <- function(object, ...) {
   y <- object$glm$y
   fitted <- fitted(object)
   fam_link <- object$extras$parse_info$family
@@ -345,50 +345,50 @@ logLik.bayesreml <- function(object, ...) {
 }
 
 #' Number of observations
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return Integer
 #' @export
-nobs.bayesreml <- function(object, ...) {
+nobs.flexybayes <- function(object, ...) {
   object$extras$model_info$n_obs
 }
 
 #' Extract model family
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return A family object
 #' @export
-family.bayesreml <- function(object, ...) {
+family.flexybayes <- function(object, ...) {
   object$glm$family
 }
 
 #' Extract model formula
-#' @param x A bayesreml object
+#' @param x A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return The fixed formula
 #' @export
-formula.bayesreml <- function(x, ...) {
+formula.flexybayes <- function(x, ...) {
   x$glm$formula
 }
 
 #' Extract model matrix
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Additional arguments (ignored)
 #' @return The fixed effects model matrix
 #' @export
-model.matrix.bayesreml <- function(object, ...) {
+model.matrix.flexybayes <- function(object, ...) {
   model.matrix(object$glm$formula, data = object$glm$data)
 }
 
-#' Update a bayesreml model
+#' Update a flexybayes model
 #'
 #' Re-fit the model with modified arguments.
 #'
-#' @param object A bayesreml object
+#' @param object A flexybayes object
 #' @param ... Arguments to override (e.g., `n_samples = 2000`)
-#' @return A new bayesreml object
+#' @return A new flexybayes object
 #' @export
-update.bayesreml <- function(object, ...) {
+update.flexybayes <- function(object, ...) {
   cl <- object$extras$call_info
   dots <- list(...)
 
@@ -413,18 +413,18 @@ update.bayesreml <- function(object, ...) {
     args[[nm]] <- dots[[nm]]
   }
 
-  do.call(bayesreml, args)
+  do.call(flexybayes, args)
 }
 
-#' Compare bayesreml models
+#' Compare flexybayes models
 #'
 #' Bayesian model comparison using WAIC or DIC.
 #'
-#' @param object A bayesreml object
-#' @param ... Additional bayesreml objects to compare
+#' @param object A flexybayes object
+#' @param ... Additional flexybayes objects to compare
 #' @return A data frame with model comparison statistics
 #' @export
-anova.bayesreml <- function(object, ...) {
+anova.flexybayes <- function(object, ...) {
   models <- c(list(object), list(...))
   n_models <- length(models)
 

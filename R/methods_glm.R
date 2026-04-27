@@ -1,15 +1,15 @@
-# S3 methods for bayesreml_glm (overrides of glm/lm methods with Bayesian
+# S3 methods for flexybayes_glm (overrides of glm/lm methods with Bayesian
 # semantics)
 
-#' Summary for bayesreml GLM-compatible object
+#' Summary for flexybayes GLM-compatible object
 #'
 #' Similar to `summary.glm()` but with Bayesian posterior statistics
 #' instead of p-values.
 #'
-#' @param object A bayesreml_glm object (accessed via `fit$glm`)
+#' @param object A flexybayes_glm object (accessed via `fit$glm`)
 #' @param ... Additional arguments (ignored)
 #' @export
-summary.bayesreml_glm <- function(object, ...) {
+summary.flexybayes_glm <- function(object, ...) {
   beta <- object$coefficients
   V    <- attr(object, "posterior_vcov")
 
@@ -30,7 +30,7 @@ summary.bayesreml_glm <- function(object, ...) {
     `Pr(>|z|)` = 2 * (1 - pd)
   )
 
-  cat("\nBayesian GLM summary (bayesreml)\n")
+  cat("\nBayesian GLM summary (flexyBayes)\n")
   cat("Family:", object$family$family, "\n")
   cat("Link:  ", object$family$link, "\n\n")
   cat("Coefficients (posterior means):\n")
@@ -43,16 +43,16 @@ summary.bayesreml_glm <- function(object, ...) {
   invisible(coef_table)
 }
 
-#' Credible intervals for bayesreml_glm
+#' Credible intervals for flexybayes_glm
 #'
 #' Returns posterior quantile-based credible intervals.
 #'
-#' @param object A bayesreml_glm object
+#' @param object A flexybayes_glm object
 #' @param parm Parameter names
 #' @param level Credible level
 #' @param ... Additional arguments (ignored)
 #' @export
-confint.bayesreml_glm <- function(object, parm = NULL, level = 0.95, ...) {
+confint.flexybayes_glm <- function(object, parm = NULL, level = 0.95, ...) {
   beta <- object$coefficients
   V    <- attr(object, "posterior_vcov")
 

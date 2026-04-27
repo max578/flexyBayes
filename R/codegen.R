@@ -1,4 +1,4 @@
-# Code generation for bayesreml
+# Code generation for flexyBayes
 # Generates greta code strings from parsed formula descriptors.
 # Not exported.
 

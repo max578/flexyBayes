@@ -1,4 +1,4 @@
-# Generate the met_example dataset for bayesreml
+# Generate the met_example dataset for flexyBayes
 # Run this script to recreate data/met_example.rda
 
 set.seed(42)

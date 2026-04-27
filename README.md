@@ -1,10 +1,10 @@
-# bayesreml
+# flexyBayes
 
-Bayesian Mixed Models with ASReml Syntax, Powered by Greta
+Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax
 
 ## Overview
 
-`bayesreml` lets you specify mixed models using the familiar ASReml formula
+`flexyBayes` lets you specify mixed models using the familiar ASReml formula
 interface (`fixed`, `random`, `rcov`) and estimates them via Bayesian MCMC
 using [greta](https://greta-stats.org/). Results are returned in three
 complementary formats:
@@ -23,20 +23,20 @@ complementary formats:
 install.packages("greta")
 greta::install_greta_deps()
 
-# Install bayesreml from GitHub
+# Install flexyBayes from GitHub
 # install.packages("remotes")
-remotes::install_github("AAGI-AUS/bayesreml")
+remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
 ## Quick Start
 
 ```r
-library(bayesreml)
+library(flexyBayes)
 data(met_example)
 dat <- met_example$dat
 
 # Fit a mixed model with ASReml-like syntax
-fit <- bayesreml(
+fit <- flexybayes(
   fixed  = yield ~ env,
   random = ~ geno,
   data   = dat,
@@ -117,15 +117,15 @@ family = "beta"               # logit link
 ## Three-Part Output
 
 ```r
-fit$glm         # c("bayesreml_glm", "glm", "lm")
+fit$glm         # c("flexybayes_glm", "glm", "lm")
                 # coefficients, fitted.values, residuals, vcov, family, terms
                 # Works with: summary(), emmeans(), marginaleffects(), effectsize()
 
-fit$greta       # "bayesreml_greta"
+fit$greta       # "flexybayes_greta"
                 # model, draws (mcmc.list), greta_arrays, env
                 # Works with: bayesplot, greta::calculate(), posterior
 
-fit$extras      # "bayesreml_extras"
+fit$extras      # "flexybayes_extras"
                 # summary, convergence, variance_comps, blups, predictions,
                 # code, param_names, parse_info, call_info, run_time
 ```
@@ -161,14 +161,14 @@ GLMM Model Formulations Reference:
 
 ## Citation
 
-If you use `bayesreml` in your research, please cite:
+If you use `flexyBayes` in your research, please cite:
 
 ```
-@software{bayesreml,
-  title = {bayesreml: Bayesian Mixed Models with ASReml Syntax, Powered by Greta},
+@software{flexyBayes,
+  title = {flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax},
   author = {Moldovan, Max and Tanaka, Emi and Hui, Francis K.C. and Sznajder, Beata},
   year = {2026},
-  url = {https://github.com/AAGI-AUS/bayesreml}
+  url = {https://github.com/AAGI-AUS/flexyBayes}
 }
 ```
 
