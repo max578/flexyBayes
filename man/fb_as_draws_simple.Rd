@@ -4,6 +4,7 @@
 \alias{fb_as_draws_simple}
 \alias{fb_as_draws_simple.flexybayes}
 \alias{fb_as_draws_simple.flexybayes_inla}
+\alias{fb_as_draws_simple.flexybayes_brms}
 \alias{fb_as_draws_simple.default}
 \title{Extract per-parameter posterior draws from a model fit}
 \usage{
@@ -12,6 +13,8 @@ fb_as_draws_simple(fit, ...)
 \method{fb_as_draws_simple}{flexybayes}(fit, ...)
 
 \method{fb_as_draws_simple}{flexybayes_inla}(fit, n_samples = 1000L, ...)
+
+\method{fb_as_draws_simple}{flexybayes_brms}(fit, ...)
 
 \method{fb_as_draws_simple}{default}(fit, ...)
 }
@@ -24,9 +27,6 @@ fb_as_draws_simple(fit, ...)
 a named list of numeric vectors.
 }
 \description{
-\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
-}
-\details{
 S3 generic used by \code{triangulate()} to extract a named list of
 numeric posterior-draw vectors from each fit. Methods exist for
 the \code{flexybayes} (greta backend) and \code{flexybayes_inla} (INLA

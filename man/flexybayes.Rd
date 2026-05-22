@@ -2,6 +2,7 @@
 % Please edit documentation in R/flexybayes.R
 \name{flexybayes}
 \alias{flexybayes}
+\alias{fb}
 \title{Bayesian Mixed Models with ASReml Syntax}
 \usage{
 flexybayes(
@@ -17,11 +18,35 @@ flexybayes(
   warmup = 500,
   chains = 4,
   prior = NULL,
-  prior_fixed_sd = 10,
+  prior_fixed_sd = 100,
   prior_vc_sd = 1,
   verbose = TRUE,
   mcmc_verbose = TRUE,
-  return_code = FALSE
+  return_code = FALSE,
+  review_code = FALSE,
+  backend = c("greta", "inla", "auto")
+)
+
+fb(
+  fixed,
+  random = NULL,
+  rcov = NULL,
+  data,
+  family = "gaussian",
+  link = NULL,
+  known_matrices = list(),
+  weights = NULL,
+  n_samples = 1000,
+  warmup = 500,
+  chains = 4,
+  prior = NULL,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1,
+  verbose = TRUE,
+  mcmc_verbose = TRUE,
+  return_code = FALSE,
+  review_code = FALSE,
+  backend = c("greta", "inla", "auto")
 )
 }
 \arguments{
@@ -59,17 +84,31 @@ PC-canonical hybrid DSL (preferred). When supplied it overrides
 \code{prior_vc_sd} for the variance components it covers. See
 \code{\link[=fb_prior]{fb_prior()}}.}
 
-\item{prior_fixed_sd}{Numeric: SD for fixed-effect normal priors.}
+\item{prior_fixed_sd}{Numeric: SD for fixed-effect normal priors,
+applied uniformly to the intercept, factor contrasts, continuous
+slopes, factor x continuous interactions, and \code{I()}-expression
+terms. Default \code{100} — weakly informative on the natural response
+scale for the vast majority of agricultural / clinical responses
+(covers responses with central tendency up to several hundred
+without crushing the posterior toward zero), while still
+regularising at sample sizes below ~ 30 per coefficient. Set
+wider (e.g. \code{1000}) for responses on a larger natural scale, or
+narrower for explicit shrinkage. Rationale follows Gelman (2006)
+\emph{Bayesian Analysis} 1(3):515-534 on weakly-informative priors for
+regression coefficients on the data scale.}
 
-\item{prior_vc_sd}{Numeric: hyperparameter for lognormal variance-component
-priors. \strong{Note:} when both \code{prior} and \code{prior_vc_sd} are left at
-their defaults, v0.1.x activates a PC-prior default
-(\code{pc(upper = 2.5 * sd(y), prob = 0.05)}, Simpson et al. 2017,
-Statistical Science 32(1):1-28) for \code{sigma} and every named
-random-effect group, with a one-time deprecation message
-describing the change. The legacy \code{lognormal(0, 1)} default
+\item{prior_vc_sd}{Numeric: hyperparameter for the legacy
+\code{lognormal(0, prior_vc_sd)} variance-component prior. \strong{Note:}
+when both \code{prior} and \code{prior_vc_sd} are left at their defaults,
+v0.1 activates a bounded-uniform default on the SD scale
+(\code{uniform(0, U)} with family-aware \code{U}: \code{5 * sd(y)} for Gaussian;
+\code{5} on the logit scale for binomial / beta; \code{3} on the log scale
+for Poisson / negative-binomial / gamma) for \code{sigma} and every
+named random-effect group. Theory: Gelman (2006), \emph{Bayesian
+Analysis} 1(3):515-534. The legacy \code{lognormal(0, 1)} default
 fires only when \code{prior_vc_sd} is passed explicitly. Silence the
-notice via \code{options(flexyBayes.silence_default_prior_note = TRUE)}.}
+one-time announcement message via
+\code{options(flexyBayes.silence_default_prior_note = TRUE)}.}
 
 \item{verbose}{Logical: print generated greta code to console.}
 
@@ -77,6 +116,38 @@ notice via \code{options(flexyBayes.silence_default_prior_note = TRUE)}.}
 
 \item{return_code}{Logical: if TRUE, return the generated code string
 without fitting the model.}
+
+\item{review_code}{Logical: if TRUE, do not fit the model immediately;
+instead return a \verb{<flexybayes_review>} deferred-execution object
+carrying the generated backend code, the resolved prior, the
+parsed intermediate representation (IR), the captured call, and
+a snapshot of \code{.Random.seed}. Inspect the code with \code{\link[=cat_code]{cat_code()}};
+run the deferred fit with \code{\link[=proceed]{proceed()}}; a second \code{\link[=proceed]{proceed()}} call
+returns the cached fit. Useful as a teaching / auditing surface
+before a long MCMC run. Default \code{FALSE} preserves the existing
+run-immediately semantics. A session-level override is available
+via \code{options(flexyBayes.review_code_default = TRUE)}; the
+argument value at call time always wins. Closest published
+precedent: \code{\link[brms:stancode]{brms::make_stancode()}} plus the \code{chains = 0} idiom
+for "do everything except sampling". \code{review_code = TRUE} and
+\code{return_code = TRUE} are mutually exclusive.}
+
+\item{backend}{Character: one of \code{"greta"} (default; existing
+behaviour --- emit to greta and fit via MCMC), \code{"inla"}
+(explicit INLA; calls \code{lgm_gate()} and raises a structured
+refusal if the model is not LGM-feasible), or \code{"auto"} (calls
+\code{lgm_gate()} and routes to INLA on accept, greta on refuse).
+Under \code{"auto"}, falling back to greta emits a one-time
+silenceable note carrying the gate's primary failure rule;
+\code{options(flexyBayes.silence_auto_fallback_note = TRUE)}
+silences it. When INLA is not installed under \code{"auto"}, the
+call routes to greta with the note
+\code{auto_inla_unavailable} (silenceable via
+\code{options(flexyBayes.silence_auto_inla_missing_note = TRUE)}).
+\code{\link[=backend_decision]{backend_decision()}} surfaces the dispatch trace post-fit.
+\code{review_code = TRUE} is currently scoped to \code{backend = "greta"}
+only; combining with \code{backend = "inla"} / \code{"auto"} raises a
+structured refusal until INLA-side \code{code}-slot support lands.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:
@@ -95,9 +166,6 @@ diagnostics, \code{variance_comps}, \code{blups}, \code{predictions}, generated 
 If \code{return_code = TRUE}, returns a character string of greta code instead.
 }
 \description{
-\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
-}
-\details{
 Specify mixed models using ASReml formula syntax and estimate them via
 Bayesian MCMC using greta. Returns a three-part result: a GLM-compatible
 object for use with standard R packages (emmeans, marginaleffects, etc.),

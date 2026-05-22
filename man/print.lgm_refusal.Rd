@@ -16,8 +16,7 @@ invisibly returns \code{x}.
 }
 \description{
 Internal S3 method, registered for dispatch only. Emits the
-structured refusal template specified in
-design-notes-priors-brms-lgm.md Sec.Q5: rule id + one-line gloss +
+structured refusal template: rule id + one-line gloss +
 diagnostic + re-route hint + override hint + docs pointer.
 }
 \keyword{internal}

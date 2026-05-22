@@ -17,5 +17,5 @@ recover_data.flexybayes(object, data = NULL, ...)
 A data frame suitable for emmeans
 }
 \description{
-\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+Recover data for emmeans
 }
