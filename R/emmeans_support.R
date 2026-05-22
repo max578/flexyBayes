@@ -5,8 +5,6 @@
 
 #' Recover data for emmeans
 #'
-#' `r lifecycle::badge("experimental")`
-#'
 #' @param object A flexybayes object
 #' @param data Optional data frame override (default uses stored data)
 #' @param ... Additional arguments passed to emmeans
@@ -26,8 +24,6 @@ recover_data.flexybayes <- function(object, data = NULL, ...) {
 }
 
 #' Compute emmeans basis
-#'
-#' `r lifecycle::badge("experimental")`
 #'
 #' @param object A flexybayes object
 #' @param trms Terms object

@@ -2,8 +2,6 @@
 
 #' Tidy a flexybayes model
 #'
-#' `r lifecycle::badge("experimental")`
-#'
 #' Returns a tidy data frame of fixed effect estimates with posterior
 #' statistics.
 #'
@@ -62,8 +60,6 @@ tidy.flexybayes <- function(x, conf.int = TRUE, conf.level = 0.95,
 
 #' Glance at a flexybayes model
 #'
-#' `r lifecycle::badge("experimental")`
-#'
 #' Returns a one-row summary of model-level statistics.
 #'
 #' @param x A flexybayes object
@@ -99,8 +95,6 @@ glance.flexybayes <- function(x, ...) {
 }
 
 #' Augment a flexybayes model
-#'
-#' `r lifecycle::badge("experimental")`
 #'
 #' Returns the original data with fitted values, residuals, and other
 #' observation-level statistics.

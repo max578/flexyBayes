@@ -24,8 +24,6 @@
 
 #' Cross-engine posterior triangulation
 #'
-#' `r lifecycle::badge("experimental")`
-#'
 #' Compute per-parameter posterior comparison metrics across two
 #' Bayesian fits produced via different backends (greta / INLA /
 #' brms passthrough). The signature feature of flexyBayes.
@@ -126,6 +124,23 @@ triangulate <- function(fit_a, fit_b,
     stop("`fb_as_draws_simple(fit_b)` must return a named list of ",
          "numeric vectors.", call. = FALSE)
 
+  # ADR 0005: when transforms / name_map are not user-supplied, fall
+  # back to the per-backend canonical-name registry. User-supplied
+  # values always win over the registry per the explicit-over-implicit
+  # principle. Resolve canonical_names() defensively (returns empty
+  # list when no mapper is registered for the backend / class).
+  cn_a <- tryCatch(canonical_names(fit_a, drop = TRUE),
+                   error = function(e) list(map = character(0),
+                                            transform = list()))
+  cn_b <- tryCatch(canonical_names(fit_b, drop = TRUE),
+                   error = function(e) list(map = character(0),
+                                            transform = list()))
+
+  if (is.null(transform_a) && length(cn_a$transform) > 0L)
+    transform_a <- cn_a$transform
+  if (is.null(transform_b) && length(cn_b$transform) > 0L)
+    transform_b <- cn_b$transform
+
   # Apply per-parameter transforms before any renaming so callers can
   # key transforms by each fit's native parameter names.
   draws_a <- .triangulate_apply_transform(draws_a, transform_a, "transform_a")
@@ -137,13 +152,28 @@ triangulate <- function(fit_a, fit_b,
       stop("`name_map` must be a named character vector or list ",
            "mapping fit_b's parameter names to canonical names.",
            call. = FALSE)
-    new_names <- names(draws_b)
-    for (i in seq_along(new_names)) {
-      if (new_names[i] %in% names(name_map))
-        new_names[i] <- as.character(name_map[[new_names[i]]])
-    }
-    names(draws_b) <- new_names
   }
+
+  # Combined-precedence rename: user-supplied name_map > registry
+  # > identity. The user map applies only to fit_b (existing
+  # contract); the registry applies to both fits. For each native
+  # name we check name_map first (if applicable) then fall back to
+  # the canonical-name registry; un-mapped names retain their
+  # backend-native form.
+  .resolve_canonical <- function(nm, reg_map, user_map) {
+    if (!is.null(user_map) && nm %in% names(user_map))
+      return(as.character(user_map[[nm]]))
+    if (!is.null(reg_map) && nm %in% names(reg_map))
+      return(as.character(reg_map[[nm]]))
+    nm
+  }
+
+  names(draws_a) <- vapply(names(draws_a),
+    .resolve_canonical, character(1),
+    reg_map = cn_a$map, user_map = NULL)
+  names(draws_b) <- vapply(names(draws_b),
+    .resolve_canonical, character(1),
+    reg_map = cn_b$map, user_map = name_map)
 
   common <- intersect(names(draws_a), names(draws_b))
   only_a <- setdiff(names(draws_a), common)
@@ -278,6 +308,7 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
 }
 
 .triangulate_source <- function(fit) {
+  if (inherits(fit, "flexybayes_brms")) return("brms")
   if (inherits(fit, "flexybayes_inla")) return("inla")
   if (inherits(fit, "flexybayes"))      return("greta")
   paste(class(fit), collapse = "/")
@@ -288,8 +319,6 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
 # ---------------------------------------------------------------- #
 
 #' Extract per-parameter posterior draws from a model fit
-#'
-#' `r lifecycle::badge("experimental")`
 #'
 #' S3 generic used by `triangulate()` to extract a named list of
 #' numeric posterior-draw vectors from each fit. Methods exist for
@@ -354,6 +383,26 @@ fb_as_draws_simple.flexybayes_inla <- function(fit, n_samples = 1000L, ...) {
       function(s) as.numeric(s$hyperpar[pn]), numeric(1))
   }
   out
+}
+
+#' @rdname fb_as_draws_simple
+#' @keywords internal
+#' @export
+fb_as_draws_simple.flexybayes_brms <- function(fit, ...) {
+  if (!requireNamespace("posterior", quietly = TRUE))
+    stop("Package 'posterior' is required to extract draws from a ",
+         "flexybayes_brms object.", call. = FALSE)
+  if (is.null(fit$brms))
+    stop("Cannot extract draws: fit$brms is missing.", call. = FALSE)
+  m <- tryCatch(as.matrix(posterior::as_draws_matrix(fit$brms)),
+                error = function(e)
+                  stop("posterior::as_draws_matrix() failed on the ",
+                       "brms fit: ", conditionMessage(e),
+                       call. = FALSE))
+  cols <- colnames(m)
+  if (is.null(cols)) cols <- paste0("V", seq_len(ncol(m)))
+  setNames(lapply(seq_len(ncol(m)), function(j) as.numeric(m[, j])),
+           cols)
 }
 
 #' @rdname fb_as_draws_simple

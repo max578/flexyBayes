@@ -54,10 +54,12 @@
 # @return an fb_terms object with source = "brms".
 fb_from_brms <- function(formula,
                          data,
-                         family  = "gaussian",
-                         link    = NULL,
-                         prior   = NULL,
-                         weights = NULL,
+                         family         = "gaussian",
+                         link           = NULL,
+                         prior          = NULL,
+                         weights        = NULL,
+                         prior_fixed_sd = 100,
+                         prior_vc_sd    = 1,
                          ...) {
 
   if (inherits(formula, "brmsformula")) {
@@ -73,6 +75,22 @@ fb_from_brms <- function(formula,
   if (length(formula) < 3L)
     stop("`formula` must be two-sided: response ~ predictors.",
          call. = FALSE)
+
+  # LHS-pipe brms addition forms (`y | trials(n) ~ ...`,
+  # `y | cens(c) ~ ...`, `y | weights(w) ~ ...`, `y | se(s) ~ ...`).
+  # The hand-rolled v0.1 walker does not parse the addition-form
+  # surface; refuse at ingest with a corpus-naming message rather
+  # than fall through to the cryptic "Response variable not found
+  # in data" error from the later names(data) lookup.
+  if (is.call(formula[[2L]]) &&
+      identical(formula[[2L]][[1L]], as.name("|")))
+    stop("v0.2 brms ingest does not yet support LHS addition forms ",
+         "(`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.). The ",
+         "supported brms corpus is single-column responses only ",
+         "(use `family = \"binomial\"` for Bernoulli with a 0/1 ",
+         "response). Addition forms are queued for a future ",
+         "expansion of the brms ingest layer. Got: ",
+         deparse(formula[[2L]]), call. = FALSE)
 
   # ------------------------- Family + link ----------------------- #
   if (inherits(family, "family")) {
@@ -143,7 +161,8 @@ fb_from_brms <- function(formula,
   priors <- if (!is.null(prior)) {
     prior
   } else {
-    list(fixed_sd = 10, vc_sd = 1, legacy = TRUE)
+    list(fixed_sd = prior_fixed_sd, vc_sd = prior_vc_sd,
+         legacy = TRUE)
   }
 
   data_summary <- list(

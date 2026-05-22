@@ -64,7 +64,8 @@ new_fb_terms <- function(response,
                          priors = NULL,
                          data_summary = list(),
                          capabilities = character(),
-                         source = c("asreml", "brms")) {
+                         source = c("asreml", "brms", "greta"),
+                         greta_meta = NULL) {
   source <- match.arg(source)
 
   obj <- list(
@@ -79,7 +80,8 @@ new_fb_terms <- function(response,
     priors         = priors,
     data_summary   = data_summary,
     capabilities   = capabilities,
-    source         = source
+    source         = source,
+    greta_meta     = greta_meta
   )
   class(obj) <- c("fb_terms", "list")
   validate_fb_terms(obj)
@@ -111,9 +113,15 @@ validate_fb_terms <- function(x) {
     stop("`link` must be NULL or a length-1 character vector.",
          call. = FALSE)
 
-  if (!is.logical(x$intercept) || length(x$intercept) != 1L ||
-      is.na(x$intercept))
+  if (!is.logical(x$intercept) || length(x$intercept) != 1L)
     stop("`intercept` must be TRUE or FALSE.", call. = FALSE)
+  # NA permitted only when source = "greta" (ADR 0012 §2): greta-direct
+  # models do not declare an intercept syntactically. Otherwise the
+  # original "TRUE or FALSE" contract holds.
+  if (is.na(x$intercept) && !identical(x$source, "greta"))
+    stop("`intercept` must be TRUE or FALSE (NA only permitted on ",
+         "the greta-direct entry, where the IR carries ",
+         "`source = \"greta\"`).", call. = FALSE)
 
   for (slot in c("fixed_terms", "random_terms",
                  "rcov_terms", "addition_terms")) {
@@ -135,8 +143,25 @@ validate_fb_terms <- function(x) {
   if (!is.character(x$capabilities))
     stop("`capabilities` must be a character vector.", call. = FALSE)
 
-  if (!x$source %in% c("asreml", "brms"))
-    stop('`source` must be "asreml" or "brms".', call. = FALSE)
+  if (!x$source %in% c("asreml", "brms", "greta"))
+    stop('`source` must be "asreml", "brms", or "greta".', call. = FALSE)
+
+  # greta_meta is required when source = "greta" and forbidden otherwise.
+  # ADR 0012 §2 specifies the slot for the post-hoc IR built from a
+  # user-supplied greta_model object.
+  if (identical(x$source, "greta")) {
+    if (!is.list(x$greta_meta))
+      stop("`greta_meta` must be a list when `source = \"greta\"`.",
+           call. = FALSE)
+    for (req in c("arrays", "canonical_map", "model_dim", "n_data"))
+      if (is.null(x$greta_meta[[req]]))
+        stop("`greta_meta$", req, "` is required when source = \"greta\".",
+             call. = FALSE)
+  } else {
+    if (!is.null(x$greta_meta))
+      stop("`greta_meta` is only valid when `source = \"greta\"`.",
+           call. = FALSE)
+  }
 
   invisible(x)
 }

@@ -461,3 +461,168 @@ anova.flexybayes <- function(object, ...) {
 
   invisible(result)
 }
+
+
+# ---------------------------------------------------------------- #
+# flexybayes_direct_greta -- subclass method overrides              #
+# ---------------------------------------------------------------- #
+# fb_greta() returns objects of class
+#   c("flexybayes_direct_greta", "flexybayes", "list")
+# (subclass first so S3 dispatch finds the direct-greta overrides
+# before the parent flexybayes methods). Three methods dispatch to
+# greta-direct-aware overrides; everything else (summary, vcov,
+# confint, prior_summary, posterior_samples) inherits verbatim from
+# the parent "flexybayes" class.
+
+#' Print a flexybayes object built via fb_greta() (direct greta entry)
+#'
+#' Distinguishes the direct-greta entry from the asreml-style /
+#' brms-style formula entries by listing target parameters and the
+#' inferred likelihood family.
+#'
+#' @param x A `flexybayes_direct_greta` object.
+#' @param ... Additional arguments (ignored).
+#' @return Invisibly returns `x`.
+#' @export
+print.flexybayes_direct_greta <- function(x, ...) {
+  ci  <- x$extras$call_info
+  mi  <- x$extras$model_info
+  cm  <- mi$canonical_map
+
+  cat("Bayesian model  [flexyBayes / direct-greta entry]\n")
+  cat(strrep("-", 55), "\n")
+  cat("  Entry  : fb_greta() (user-built greta model)\n")
+  cat("  Family :", mi$family, "(likelihood:", mi$likelihood, ")\n")
+  cat("  MCMC   :", ci$chains, "chain(s) x", ci$n_samples, "samples",
+      "(warmup =", ci$warmup, ") --",
+      round(x$extras$run_time, 1), "sec\n")
+  cat("  Params :", mi$n_params, "monitored",
+      "(", length(cm), "target greta_arrays)\n")
+
+  if (length(cm) > 0L) {
+    cat("  Targets:", paste(names(cm), collapse = ", "), "\n")
+    has_renames <- any(names(cm) != unname(cm))
+    if (has_renames) {
+      cat("  Canonical map:\n")
+      for (i in seq_along(cm)) {
+        if (names(cm)[i] != cm[i])
+          cat("    ", names(cm)[i], " -> ", cm[i], "\n", sep = "")
+      }
+    }
+  }
+
+  if (!is.null(x$extras$convergence$gelman)) {
+    rhat <- x$extras$convergence$gelman$psrf[, "Point est."]
+    max_rhat <- max(rhat, na.rm = TRUE)
+    flag <- if (max_rhat < 1.05) " [OK]" else
+            if (max_rhat < 1.10) " [borderline]" else " [!]"
+    cat("  Max Rhat:", round(max_rhat, 3), flag, "\n")
+  }
+  min_eff <- if (!is.null(x$extras$convergence$n_eff))
+               min(x$extras$convergence$n_eff, na.rm = TRUE) else NA
+  if (!is.na(min_eff))
+    cat("  Min ESS:", round(min_eff, 0), "\n")
+
+  cat(strrep("-", 55), "\n")
+  cat("  $glm    -- minimal GLM-compatible shim ",
+      "(posterior means of target params)\n", sep = "")
+  cat("  $greta  -- native greta (model, draws, greta_arrays)\n")
+  cat("  $extras -- diagnostics, canonical_map, backend_decision\n")
+
+  invisible(x)
+}
+
+#' Extract canonical-named posterior means from an fb_greta() fit
+#'
+#' Returns the posterior means of the target greta_arrays under
+#' their canonical names. Differs from `coef.flexybayes()` only in
+#' the source of the names (canonical map rather than fixed-effect
+#' formula terms).
+#'
+#' @param object A `flexybayes_direct_greta` object.
+#' @param ... Additional arguments (ignored).
+#' @return Named numeric vector of posterior mean target parameters.
+#' @export
+coef.flexybayes_direct_greta <- function(object, ...) {
+  # The parent class stores posterior means on object$glm$coefficients
+  # already keyed by canonical names (renamed at fit time in
+  # fb_greta()). Return that verbatim.
+  object$glm$coefficients
+}
+
+#' Predict from a flexybayes_direct_greta fit
+#'
+#' Direct-greta fits do not encode a Wilkinson-Rogers formula on the
+#' IR, so `predict()` cannot mechanically apply the model matrix to
+#' `newdata`. The user must supply an explicit predictor function
+#' `f(theta, newdata)` mapping a length-`p` named parameter vector
+#' and a data frame to a length-`nrow(newdata)` vector of predicted
+#' values. Posterior-mean prediction is computed by applying `f()`
+#' to each posterior draw and averaging.
+#'
+#' @param object A `flexybayes_direct_greta` object.
+#' @param newdata A data frame.
+#' @param predictor A function `function(theta, newdata) -> numeric`
+#'   where `theta` is a named vector of canonical-named target
+#'   parameters and `newdata` is the data frame passed in.
+#' @param type Character; `"response"` (default; on the response
+#'   scale) or `"link"` (on the linear-predictor scale). Currently
+#'   identity link only; non-Gaussian families queued for v0.3.
+#' @param n_draws Integer; number of posterior draws to use (default
+#'   500). The predictor function is applied to each draw and the
+#'   mean is returned.
+#' @param ... Additional arguments (ignored).
+#' @return Numeric vector of length `nrow(newdata)`.
+#' @export
+predict.flexybayes_direct_greta <- function(object,
+                                            newdata,
+                                            predictor,
+                                            type = c("response", "link"),
+                                            n_draws = 500L,
+                                            ...) {
+  type <- match.arg(type)
+  if (missing(newdata) || is.null(newdata))
+    stop("`newdata` must be supplied to predict() on an fb_greta() ",
+         "fit (the IR does not encode a Wilkinson-Rogers formula ",
+         "that predict() can mechanically apply).", call. = FALSE)
+  if (missing(predictor) || !is.function(predictor))
+    stop("`predictor` must be a function `function(theta, newdata) ",
+         "-> numeric` mapping a named parameter vector and newdata to ",
+         "a vector of predictions. See ?predict.flexybayes_direct_greta ",
+         "for the contract.", call. = FALSE)
+
+  draws <- object$greta$draws
+  all_draws <- do.call(rbind, lapply(draws, as.matrix))
+
+  # Apply the canonical-name rename to the draw matrix so the
+  # predictor sees the canonical names (consistent with coef()).
+  cm <- object$extras$model_info$canonical_map
+  greta_names <- names(cm)
+  canon       <- unname(cm)
+  for (i in seq_along(greta_names)) {
+    if (identical(greta_names[i], canon[i])) next
+    pat <- paste0("^", greta_names[i], "(\\[|$)")
+    repl <- paste0(canon[i], "\\1")
+    colnames(all_draws) <- sub(pat, repl, colnames(all_draws))
+  }
+
+  n_total <- nrow(all_draws)
+  if (n_draws >= n_total) {
+    idx <- seq_len(n_total)
+  } else {
+    idx <- sort(sample.int(n_total, n_draws, replace = FALSE))
+  }
+
+  preds_mat <- vapply(idx, function(k) {
+    theta <- setNames(as.numeric(all_draws[k, ]), colnames(all_draws))
+    out <- predictor(theta, newdata)
+    if (!is.numeric(out) || length(out) != nrow(newdata))
+      stop("`predictor(theta, newdata)` must return a numeric vector ",
+           "of length nrow(newdata) = ", nrow(newdata),
+           "; got length ", length(out), ".", call. = FALSE)
+    out
+  }, numeric(nrow(newdata)))
+
+  if (is.null(dim(preds_mat))) preds_mat <- matrix(preds_mat, nrow = 1L)
+  rowMeans(preds_mat)
+}

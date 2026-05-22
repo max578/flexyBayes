@@ -102,6 +102,13 @@
     "str"  = list(list(type = "str", formula = expr[[2]],
                        structure = if (length(expr) > 2) expr[[3]] else NULL)),
     "spl"  = list(list(type = "spline", var = .dep(expr, 2))),
+    # mgcv-style univariate smooth s(x[, k = ..., bs = ...]). ADR
+    # 0004 D3 scope: v0.1 supports s() only; te() / ti() / t2()
+    # tensor-product smooths defer to v0.2. The full original call is
+    # captured here; .enrich() evaluates it via mgcv::smoothCon() to
+    # build the n x k design matrix.
+    "s"    = list(list(type = "smooth_mgcv", call = expr,
+                       var  = .dep(expr, 2))),
     "dsum" = {
       arg <- expr[[2]]
       grp <- tryCatch({
@@ -230,6 +237,28 @@
         term$n_outer <- nlevels(factor(data[[term$outer]]))
       if (term$inner %in% names(data))
         term$n_inner <- nlevels(factor(data[[term$inner]]))
+      term
+    },
+    "smooth_mgcv" = {
+      if (!requireNamespace("mgcv", quietly = TRUE))
+        stop("`mgcv` is required for s() smooth terms. ",
+             "Install with: install.packages(\"mgcv\")",
+             call. = FALSE)
+      if (is.null(term$var) || !term$var %in% names(data))
+        stop("Smooth s() variable '", term$var,
+             "' not found in data.", call. = FALSE)
+      # Build the design matrix at parse time. The original call is
+      # evaluated against mgcv's namespace so user-supplied k / bs /
+      # by arguments are honoured. absorb.cons = TRUE folds the sum-
+      # to-zero constraint into the basis so we can treat the
+      # coefficients as exchangeable normals downstream.
+      sm_spec <- eval(term$call, envir = asNamespace("mgcv"))
+      sm_obj  <- mgcv::smoothCon(sm_spec, data = data,
+                                  absorb.cons   = TRUE,
+                                  scale.penalty = TRUE)[[1]]
+      term$X            <- sm_obj$X
+      term$k            <- ncol(sm_obj$X)
+      term$smooth_label <- sm_obj$label
       term
     },
     term

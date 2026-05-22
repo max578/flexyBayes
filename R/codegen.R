@@ -3,14 +3,31 @@
 # Not exported.
 
 # Emit the prior declaration line for a single sd-scale variance
-# component. If the codegen context carries a per-VC PC spec for
-# this `key`, emit `greta::exponential(rate = -log(prob)/upper)` --
-# the closed-form interpretation of a PC prior on sigma (Simpson et
-# al. 2017 Stat Sci 32:1-28). Otherwise fall back to the legacy
-# lognormal(0, prior_vc_sd) default. `key` is "__sigma__" for the
-# residual sd, otherwise the random-effect group / smoother variable
-# name.
+# component. Decision order (ADR 0004 D2):
+#   1. Per-VC uniform spec for `key`: emit
+#      `greta::uniform(lower, upper)` -- the v0.1 default for
+#      `sigma` + named random groups via .default_uniform_prior().
+#   2. Per-VC PC spec for `key`: emit
+#      `greta::exponential(rate = -log(prob)/upper)` -- the closed-
+#      form interpretation of a PC prior on sigma (Simpson et al.
+#      2017 Stat Sci 32:1-28); kept as an explicit-choice prior in
+#      v0.1 (ADR 0003).
+#   3. Fallback: legacy `lognormal(0, prior_vc_sd)`.
+# `key` is "__sigma__" for residual sd; otherwise the random-effect
+# group / smoother variable name.
 .sigma_decl <- function(ctx, lhs, key) {
+  unif <- if (!is.null(ctx$uniform_per_vc))
+    ctx$uniform_per_vc[[key]] else NULL
+  if (!is.null(unif) && is.finite(unif$upper) && unif$upper > 0 &&
+      is.finite(unif$lower) && unif$lower >= 0 &&
+      unif$upper > unif$lower) {
+    return(paste0(lhs, " <- greta::uniform(",
+                  format(unif$lower, scientific = FALSE,
+                         trim = TRUE), ", ",
+                  format(unif$upper, scientific = FALSE,
+                         trim = TRUE), ")"))
+  }
+
   pc <- if (!is.null(ctx$pc_per_vc)) ctx$pc_per_vc[[key]] else NULL
   if (!is.null(pc) && is.finite(pc$upper) && pc$upper > 0 &&
       is.finite(pc$prob) && pc$prob > 0 && pc$prob < 1) {
@@ -54,7 +71,7 @@
       },
       "continuous" = {
         tag <- term$var
-        ctx <- .add(ctx, "beta_", tag, " <- normal(0, 2)")
+        ctx <- .add(ctx, "beta_", tag, " <- normal(0, ", psd, ")")
         ctx <- .add_param(ctx, paste0("beta_", tag))
         ctx <- .add_pred(ctx, paste0("beta_", tag, " * as_data(", tag, ")"))
         ctx
@@ -77,7 +94,7 @@
       "interaction" = {
         v1 <- term$vars[1]; v2 <- term$vars[2]
         tag <- paste0(v1, "_x_", v2)
-        ctx <- .add(ctx, "beta_", tag, " <- normal(0, 2)")
+        ctx <- .add(ctx, "beta_", tag, " <- normal(0, ", psd, ")")
         ctx <- .add_param(ctx, paste0("beta_", tag))
         ctx <- .add_pred(ctx,
           paste0("beta_", tag, " * as_data(", v1, ") * as_data(", v2, ")"))
@@ -87,7 +104,7 @@
         raw_lbl  <- term$label
         tag      <- gsub("[^A-Za-z0-9_]", "_", raw_lbl)
         inner    <- gsub("^I\\((.*)\\)$", "\\1", trimws(raw_lbl))
-        ctx <- .add(ctx, "beta_", tag, " <- normal(0, 2)")
+        ctx <- .add(ctx, "beta_", tag, " <- normal(0, ", psd, ")")
         ctx <- .add(ctx, "x_", tag,
                     " <- as_data(as.numeric(with(dat_atg, ", inner, ")))")
         ctx <- .add_param(ctx, paste0("beta_", tag))
@@ -279,6 +296,32 @@
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ncol(B_", tag, "))")
+        ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
+                    "_raw * sigma_", tag, ")")
+        ctx <- .add_param(ctx, paste0("sigma_", tag))
+        ctx <- .add_pred(ctx, paste0("f_", tag))
+        ctx
+      },
+
+      # mgcv-style univariate smooth: s(x[, k = ..., bs = ...]) (ADR
+      # 0004 D3). The basis matrix `term$X` was built at parse time
+      # via mgcv::smoothCon(); emitted here as a literal n x k data
+      # block followed by a random-effect layer with sigma drawn
+      # from the priors-aware .sigma_decl(). Keying by the variable
+      # name lets fb_prior(smooth("x") ~ ...) target this smooth.
+      "smooth_mgcv" = {
+        vname <- term$var
+        tag   <- paste0("s_", vname)
+        X     <- term$X
+        vals  <- paste(format(as.numeric(X), digits = 17,
+                              scientific = FALSE, trim = TRUE),
+                       collapse = ", ")
+        ctx <- .add(ctx, "B_", tag, " <- matrix(c(", vals, "), nrow = ",
+                    nrow(X), ", ncol = ", term$k, ")")
+        ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
+        ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), vname))
+        ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ",
+                    term$k, ")")
         ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
                     "_raw * sigma_", tag, ")")
         ctx <- .add_param(ctx, paste0("sigma_", tag))

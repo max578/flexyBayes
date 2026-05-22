@@ -82,6 +82,12 @@ lgm_gate <- function(fb,
     caps <- c(fb$capabilities, "lgm_compatible")
     for (w in warnings)
       caps <- c(caps, paste0("lgm_warning:", w$rule_id, ":", w$warning))
+    # gretaR slot capability: informational at v0.2 (slot dormant);
+    # at v0.3 the flag value flips to "gretaR_dispatch_eligible"
+    # when the activation boolean + audit mechanism both agree.
+    # Sole consumer at v0.2 is the gretaR_slot test suite + a future
+    # v0.3 dispatch path; no v0.2 dispatch consults the flag.
+    caps <- c(caps, .gretaR_slot_capability())
     fb$capabilities <- caps
     return(fb)
   }
@@ -131,8 +137,7 @@ is_lgm_refusal <- function(x) inherits(x, "lgm_refusal")
 #' Print method for lgm_refusal -- LGM feasibility refusal
 #'
 #' Internal S3 method, registered for dispatch only. Emits the
-#' structured refusal template specified in
-#' design-notes-priors-brms-lgm.md Sec.Q5: rule id + one-line gloss +
+#' structured refusal template: rule id + one-line gloss +
 #' diagnostic + re-route hint + override hint + docs pointer.
 #'
 #' @param x   an `lgm_refusal` object.
@@ -154,15 +159,18 @@ print.lgm_refusal <- function(x, ...) {
     for (w in x$warnings)
       cat("  - [", w$rule_id, "] ", w$warning, "\n", sep = "")
   }
-  cat("Re-route: try backend = \"stan\" (brms-equivalent) or ",
-      "\"nimble\".\n", sep = "")
-  cat("For mixtures with <= 2 components, see the planned ",
-      "INLA-within-MCMC escape\n  (Gomez-Rubio & Rue 2018; ",
-      "deliverable 5+).\n", sep = "")
+  cat("Re-route: try backend = \"brms\" via fb_brms() for the Stan ",
+      "passthrough\n  (model must be in the brms corpus), or ",
+      "backend = \"greta\" for the broader\n  flexyBayes formula ",
+      "path. NIMBLE is planned future work, not yet implemented.\n",
+      sep = "")
+  cat("For mixtures with <= 2 components, the planned ",
+      "INLA-within-MCMC escape\n  (Gomez-Rubio & Rue 2018) is on ",
+      "the roadmap.\n", sep = "")
   cat("Override (not recommended): lgm_gate(fb, force = \"inla\",\n")
   cat("  acknowledge_silent_bias_risk = TRUE, reason = \"<your ",
       "reason>\")\n", sep = "")
-  cat("Docs: vignette(\"lgm-feasibility\") (deliverable 7).\n")
+  cat("Docs: vignette(\"flexyBayes-11-lgm-feasibility\").\n")
   invisible(x)
 }
 

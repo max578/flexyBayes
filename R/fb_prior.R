@@ -41,8 +41,6 @@
 
 #' Specify priors via the PC-canonical hybrid DSL
 #'
-#' `r lifecycle::badge("experimental")`
-#'
 #' The flexyBayes prior DSL (domain-specific language) lives on the
 #' standard-deviation scale (never precision / variance) and accepts
 #' two canonical idioms: distributional (`half_normal(scale = 1)`)
@@ -301,11 +299,12 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   list(scale = 2.5 * sdv, basis = "identity_sd")
 }
 
-# Construct the v0.1.x default PC prior fb_prior() for a model. PC
-# spec is applied to sigma (residual sd) and to every named random
-# group in `random_groups`. Other variance components (smooths, GBLUP
-# kernel, factor analytic, etc.) keep the legacy lognormal default
-# until codegen support broadens in v0.2 -- documented in NEWS.
+# Construct a PC prior fb_prior() for a model. PC spec applied to
+# sigma + every named random group in `random_groups`. Retained in
+# v0.1.x as an explicit-choice constructor (e.g., used in vignette 06
+# advanced appendix and PC-default tests); no longer the v0.1
+# default. ADR 0004 supersedes ADR 0003 (PC default) with the
+# bounded-uniform default below.
 .default_pc_prior <- function(data,
                                response,
                                family,
@@ -333,21 +332,96 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   obj
 }
 
-# One-time deprecation message announcing the v0.1.x default change.
-# Silenceable via options(flexyBayes.silence_default_prior_note = TRUE).
+# Pick a sensible upper bound U for the uniform-on-SD default per
+# (family, link). Returns (scale, basis):
+# - Gaussian / identity link: U = 5 * sd(y); basis = "identity_sd_uniform"
+# - Log link (Poisson, NegBin, Gamma): U = 3; basis = "log_link_uniform"
+#   covers a 20x ratio of group means -- wide for any realistic use.
+# - Logit link (Binomial, Beta): U = 5; basis = "logit_uniform"
+#   covers the full probability range.
+# Wider than the PC default's 2.5*sd because uniform is flat across
+# its support; the upper must be loose enough to be uninformative.
+# Theory: Gelman 2006, Bayesian Analysis 1(3):515-534, sec.4 worked
+# example. ADR 0004.
+.default_uniform_scale <- function(data, response, family, link = NULL) {
+  fam <- if (inherits(family, "family")) family$family
+         else as.character(family)
+  fam <- tolower(fam %||% "gaussian")
+  link_name <- if (!is.null(link)) tolower(link)
+               else if (inherits(family, "family")) tolower(family$link)
+               else NULL
+  is_log_link   <- isTRUE(link_name == "log") ||
+                   fam %in% c("poisson", "negative_binomial",
+                              "negbinom", "nbinomial", "gamma")
+  is_logit_link <- isTRUE(link_name == "logit") ||
+                   fam %in% c("binomial", "binary", "beta")
+
+  if (is_logit_link)
+    return(list(scale = 5, basis = "logit_uniform"))
+
+  if (is_log_link)
+    return(list(scale = 3, basis = "log_link_uniform"))
+
+  y <- if (!is.null(data) && response %in% names(data))
+    data[[response]] else NULL
+
+  if (!is.numeric(y)) return(list(scale = 1.0,
+                                   basis = "identity_default_uniform"))
+  yv <- as.numeric(y); yv <- yv[is.finite(yv)]
+  if (length(yv) < 2L) return(list(scale = 1.0,
+                                    basis = "identity_too_small_uniform"))
+  sdv <- stats::sd(yv)
+  if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+  list(scale = 5 * sdv, basis = "identity_sd_uniform")
+}
+
+# Construct the v0.1 default uniform prior fb_prior() for a model.
+# Bounded uniform on SD: sigma ~ uniform(0, U) and every named random
+# group's SD ~ uniform(0, U). Other variance components (smooths,
+# GBLUP, factor-analytic, structured covariance) keep the legacy
+# lognormal default until codegen support broadens in v0.2. ADR 0004
+# (design-notes-priors-brms-lgm.md) supersedes ADR 0003 (PC default).
+.default_uniform_prior <- function(data,
+                                    response,
+                                    family,
+                                    link           = NULL,
+                                    random_groups  = character(0)) {
+  scl <- .default_uniform_scale(data, response, family, link)
+  specs <- list(list(
+    target = list(type = "sigma"),
+    spec   = list(family = "uniform",
+                  args   = list(lower = 0, upper = scl$scale))
+  ))
+  for (g in unique(random_groups)) {
+    if (!nzchar(g)) next
+    specs[[length(specs) + 1L]] <- list(
+      target = list(type = "sd", group = g),
+      spec   = list(family = "uniform",
+                    args   = list(lower = 0, upper = scl$scale))
+    )
+  }
+  obj <- list(specs = specs)
+  class(obj) <- c("fb_prior", "list")
+  attr(obj, "fb_prior_default_basis") <- scl$basis
+  attr(obj, "fb_prior_default_scale") <- scl$scale
+  obj
+}
+
+# One-time announcement of the v0.1.x default change. ADR 0004
+# (uniform default) supersedes ADR 0003 (PC default). Silenceable via
+# options(flexyBayes.silence_default_prior_note = TRUE).
 .default_prior_note_once <- function(scale, basis) {
   if (isTRUE(getOption("flexyBayes.silence_default_prior_note", FALSE)))
     return(invisible())
   if (isTRUE(getOption("flexyBayes._default_prior_note_emitted", FALSE)))
     return(invisible())
-  message("flexyBayes: variance-component prior default changed in ",
-          "v0.1.x from lognormal(0, 1) on sigma to PC(upper = ",
-          format(scale, digits = 3), ", prob = 0.05) on sigma and ",
-          "every named random-effect group (Simpson et al., 2017, ",
-          "Stat Sci 32(1):1-28). Scale derived from \"",
-          basis, "\". Pass `prior_vc_sd` explicitly to retain the ",
-          "old lognormal default, `prior = fb_prior(...)` for full ",
-          "control, or set ",
+  message("flexyBayes: variance-component prior default is uniform(0, ",
+          format(scale, digits = 3), ") on every SD (residual sigma + ",
+          "every named random-effect group), following Gelman (2006, ",
+          "Bayesian Analysis 1(3):515-534). Scale basis = \"",
+          basis, "\". Pass `prior_vc_sd` explicitly for the legacy ",
+          "lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` ",
+          "for full control, or ",
           "options(flexyBayes.silence_default_prior_note = TRUE) to ",
           "silence this notice.")
   options(flexyBayes._default_prior_note_emitted = TRUE)
@@ -439,12 +513,19 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
   fixed_sd <- fixed_sd_default
   vc_sd    <- vc_sd_default
 
-  # Per-VC PC specs (target = sigma / sd / smooth) are surfaced as a
-  # named list keyed by the codegen tag the variance component will
-  # carry: "<resid>" for sigma, the group / smooth-var name otherwise.
-  # codegen.R consults this list to emit greta::exponential(rate)
-  # instead of the legacy lognormal default.
+  # Per-VC PC specs (target = sigma / sd / smooth) keyed by the
+  # codegen tag the variance component carries: "__sigma__" for
+  # residual sigma; group / smooth-var name otherwise. codegen.R's
+  # .sigma_decl emits greta::exponential(rate) for these.
   pc_per_vc <- list()
+
+  # Per-VC uniform specs, same keying. codegen.R's .sigma_decl emits
+  # greta::uniform(lower, upper) for these. Mirrors pc_per_vc; under
+  # ADR 0004 these are the v0.1 default for sigma + named random
+  # groups via .default_uniform_prior(). Structured-covariance
+  # branches (us, fa, ar1, vm, ped) bypass .sigma_decl and stay on
+  # the legacy lognormal pending v0.2 codegen broadening.
+  uniform_per_vc <- list()
 
   for (s in prior$specs) {
     if (s$target$type == "sigma" && s$spec$family == "pc") {
@@ -474,24 +555,31 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
       if (!is.null(s$spec$args$sd))
         fixed_sd <- as.numeric(s$spec$args$sd)
 
-    # uniform on a variance component cannot be losslessly represented
-    # as the scalar lognormal hyperparameter that the legacy greta
-    # codegen path consumes. Fail loudly with a clear redirect rather
-    # than silently approximating.
+    # uniform on a variance component (target = sigma / sd / smooth):
+    # surface in uniform_per_vc; codegen .sigma_decl emits
+    # greta::uniform(lower, upper) directly. ADR 0004 D2.
     if (s$target$type %in% c("sigma", "sd", "smooth") &&
-        s$spec$family == "uniform")
-      stop("uniform() priors on variance components cannot be ",
-           "compiled to the legacy greta scalar bridge ",
-           "(prior_vc_sd is a single lognormal hyperparameter and ",
-           "cannot represent a uniform support). Either (a) use ",
-           "backend = \"inla\", which honours uniform() exactly via ",
-           "an expression-prior on log-precision, or (b) pin the ",
-           "legacy default by passing prior_vc_sd explicitly. Direct ",
-           "uniform-on-greta lands in v0.2.", call. = FALSE)
+        s$spec$family == "uniform") {
+      key <- switch(
+        s$target$type,
+        "sigma"  = "__sigma__",
+        "sd"     = s$target$group,
+        "smooth" = s$target$var
+      )
+      uniform_per_vc[[key]] <- list(
+        lower = as.numeric(s$spec$args$lower %||% 0),
+        upper = as.numeric(s$spec$args$upper)
+      )
+      # Fallback vc_sd legacy hyperparameter -- best-effort for
+      # structured-covariance branches that don't yet honour uniform.
+      if (s$target$type == "sigma" && !is.null(s$spec$args$upper))
+        vc_sd <- as.numeric(s$spec$args$upper)
+    }
   }
 
   list(fixed_sd = fixed_sd, vc_sd = vc_sd, legacy = FALSE,
-       fb_prior = prior, pc_per_vc = pc_per_vc)
+       fb_prior = prior, pc_per_vc = pc_per_vc,
+       uniform_per_vc = uniform_per_vc)
 }
 
 # Translate fb_prior -> INLA hyperpar control list. v0.1 minimum:
