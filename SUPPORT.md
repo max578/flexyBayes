@@ -19,19 +19,22 @@ depends on what kind of question you have.
 Agricultural Genomics Institute (AAGI-AUS) collective. The capacity
 block below is updated alongside each release.
 
-> **TODO (Max + collective):** fill in concrete numbers before v0.1.0.
-> Honest, not aspirational. Per audit AAGI preset S5 the entries
-> below are *placeholders* and must be replaced before this file
-> ships at release.
+> **Note.** The bus-factor / SLA / abandonment-protocol entries below
+> are pending the AAGI-AUS collective conversation that also governs
+> project decisions D5 (paper coauthors), D8 (upstream rename), and
+> D10 (paper venue). Until that conversation lands, do not infer
+> commitments from this file beyond the items already labelled with
+> concrete values. This file is `.Rbuildignore`'d and ships only on
+> the GitHub repository / pkgdown site, not in the CRAN tarball.
 
 | Field | Current value | Notes |
 |---|---|---|
 | Primary maintainer | Max Moldovan | Adelaide University; contact via package author email. |
-| Bus factor | TODO | Number of contributors who can land a release without external help. |
-| Weekly maintenance hours | TODO | Honest median across recent quarters. |
-| Issue response SLA | TODO | E.g., "first response within 7 business days for bug reports." |
+| Bus factor | Pending AAGI-AUS collective decision | Will be set jointly with D5 / D8 / D10. |
+| Weekly maintenance hours | Pending AAGI-AUS collective decision | Honest median across recent quarters will be reported once measured. |
+| Issue response SLA | Pending AAGI-AUS collective decision | No SLA committed under the development build (`0.2.0.9000`). |
 | Critical security SLA | 7 days | See [`SECURITY.md`](SECURITY.md). |
-| Abandonment protocol | TODO | What happens if maintainers can no longer maintain — handover plan, archive plan, or hand-off to an institutional successor. |
+| Abandonment protocol | Pending AAGI-AUS collective decision; default fallback = AAGI-AUS institutional handover | Concrete handover / archive plan ratified with D5 / D8. |
 
 ## Reprex etiquette
 
@@ -56,4 +59,4 @@ formula).
 - INLA model-tuning beyond the `lgm_gate()` / `priors_to_inla()`
   surface — see [r-inla.org](https://www.r-inla.org/).
 - greta's own Python / TensorFlow installation — see
-  [greta-stats.org](https://greta-stats.org).
+  [greta-dev/greta](https://github.com/greta-dev/greta).

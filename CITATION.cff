@@ -20,8 +20,8 @@ authors:
     orcid: "https://orcid.org/0000-0003-0765-3533"
   - given-names: "Beata"
     family-names: "Sznajder"
-version: 0.1.0.9000
-date-released: "2026-04-26"
+version: 0.2.0.9000
+date-released: "2026-05-22"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/AAGI-AUS/flexyBayes"
 url: "https://github.com/AAGI-AUS/flexyBayes"

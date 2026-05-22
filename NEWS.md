@@ -1,97 +1,230 @@
-# flexyBayes 0.1.0.9000 (development)
+# flexyBayes 0.2.0 (development)
 
-## Variance-component prior default — change with one-time deprecation note
+## Four-verb API
 
-The default prior on every named random-effect standard deviation
-and the residual standard deviation has changed from
-`lognormal(0, 1)` (the legacy flexyBayes default, undocumented and
-without a published rationale) to a penalised-complexity (PC) prior
-following Simpson, Rue, Riebler, Martins, & Sørbye (2017,
-*Statistical Science* 32(1):1–28):
+`flexyBayes` exposes four user-facing entry points covering the
+formula-grammar × backend-ambition cross-product:
 
+| Verb | Grammar | Backend choices | Use when |
+|---|---|---|---|
+| `flexybayes()` | ASReml (`fixed` / `random` / `rcov`) | `greta`, `inla`, `auto` | ASReml syntax; agricultural / variance-component workflows. |
+| `fb_brms()` | brms / lme4 (`y ~ x + (1 | g)`) | `greta`, `inla`, `brms`, `auto` | brms or lme4 syntax; Stan passthrough on `backend = "brms"`. |
+| `fb_greta()` | direct greta model graph | `greta` | Expert escape hatch; supplies a pre-built greta model. |
+| `triangulate()` | n/a | n/a | Pairwise cross-engine posterior comparison. |
+
+`fb()` remains as a literal alias for `flexybayes()`.
+
+## Dispatch trace
+
+Every fit records a structured `backend_decision()` describing which
+backend ran and why:
+
+```r
+fit <- flexybayes(yield ~ env, random = ~ geno, data = trial)
+backend_decision(fit)
+#> $backend     "greta"
+#> $path        "auto_inla_refuse"
+#> $gate_checks <list of lgm_gate rules + pass/fail>
+#> $reason      "lgm_gate refused at check `hyperparam_budget`."
 ```
-sigma ~ pc(upper = U, prob = 0.05)
+
+`backend = "auto"` runs `lgm_gate()` and routes to INLA on acceptance,
+otherwise to greta. `auto` never routes to Stan — brms's first-call
+Stan compile (typically 30–60 s) is incompatible with the auto-fast-
+path promise; Stan is opt-in only via explicit `backend = "brms"` on
+`fb_brms()`.
+
+## Stan passthrough on `fb_brms(backend = "brms")`
+
+`fb_brms()` builds the flexyBayes intermediate representation (IR),
+translates the prior, hands off to `brms::brm()`, and wraps the
+returned `brmsfit` in a `c("flexybayes_brms", "flexybayes")` subclass.
+The live `brmsfit` is exposed on the `$brms` slot so brms's own
+posterior tooling (`loo()`, `posterior_predict()`, `bayes_factor()`)
+remains directly available.
+
+```r
+fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),
+                 data = sleepstudy, backend = "brms")
+fit_g <- fb_brms(Reaction ~ Days + (1 | Subject),
+                 data = sleepstudy, backend = "greta")
+triangulate(fit_s, fit_g)
 ```
 
-with `U` chosen family-aware:
+`review_code = TRUE` on the Stan path returns Stan source via
+`brms::make_stancode()` — compile-free inspection before any Stan
+compilation fires.
 
-* Gaussian / identity link: `U = 2.5 * sd(y)`.
-* Log link (Poisson, NegBin, Gamma): `U = 2.5 * sd(log(y + 0.5))`.
-* Logit link (binomial, beta): `U = 2.5` (logit-scale random
-  effects are typically order one on any data scale).
+## Cross-engine triangulation
 
-The PC prior places maximum density at `sigma = 0` and decays
-exponentially with rate `-log(0.05) / U`, encoding shrinkage to
-the simpler model (no random effect) unless the data say otherwise
-— the property that the previous lognormal default lacked.
+`triangulate(fit_a, fit_b)` computes mean difference, SD ratio, tail
+drift, Wasserstein-1, and R-hat-on-means on every parameter the two
+fits have in common. Canonical-name resolution (see below) means the
+caller usually does not need to pass a `name_map`.
 
-The default fires only when the caller leaves both `prior` and
-`prior_vc_sd` at their defaults; passing `prior_vc_sd` explicitly
-preserves the legacy `lognormal(0, prior_vc_sd)` path verbatim,
-and passing `prior = fb_prior(...)` gives full per-component
-control. The change is announced once per session via a `message()`;
-silence it with `options(flexyBayes.silence_default_prior_note = TRUE)`.
+```r
+fit_g <- flexybayes(yield ~ env, random = ~ geno, data = trial,
+                    backend = "greta")
+fit_i <- flexybayes(yield ~ env, random = ~ geno, data = trial,
+                    backend = "inla")
+triangulate(fit_g, fit_i)
+#> Common parameters: 5
+#> # A tibble: 5 × 6
+#>   parameter        mean_diff sd_ratio tail_drift wasserstein_1 rhat_means
+#>   <chr>                <dbl>    <dbl>      <dbl>         <dbl>      <dbl>
+#> 1 (Intercept)        -0.041   0.997      0.012         0.041     1.002
+#> ...
+```
 
-The `simple` / `ide` / `id` random-effect codegen branch and the
-residual emit honour PC fb_prior() specs by emitting
-`greta::exponential(rate = -log(prob)/upper)`. Other random-effect
-branches (vm, ped, at, us, fa, ar1, spline) keep the legacy
-lognormal default in v0.1.x and are extended to honour fb_prior()
-in v0.2.
+## `canonical_names()` registry
 
-## fb_prior() additions
+Each backend names parameters differently (greta's `sigma_g`, INLA's
+`Precision for g` on the precision scale, brms's `sd_g__Intercept`,
+etc.). `canonical_names()` resolves backend-native names to a single
+canonical name and applies the appropriate scale transform — most
+visibly, INLA's precision draws are flipped to the SD scale before
+comparison.
 
-* `uniform(lower, upper)` is now accepted in the DSL for sd-scale
-  targets (`sigma`, `sd(group = ...)`, `smooth(...)`). The INLA
-  backend translates `uniform(0, U)` to a PC prior with matched
-  upper tail (`pc.prec(U, 0.01)`) and a one-time message flagging
-  the approximation; exact bounded-support uniform via INLA's
-  expression-prior is on the v0.2 roadmap. The legacy greta scalar
-  bridge refuses uniform with a redirect; direct uniform on the
-  greta backend lands in v0.2.
-* `fb_prior()` documentation now lists the full supported family
-  set.
+```r
+canonical_names(fit_i)
+#>   native                canonical    transform
+#>   "(Intercept)"         "(Intercept)" identity
+#>   "Precision for g"     "sd_g"        1/sqrt(.)
+#>   "Precision for the Gaussian observations" "sigma" 1/sqrt(.)
+```
 
-## triangulate()
+`triangulate()` uses the registry to align parameters before
+computing metrics.
 
-* New `transform_a` / `transform_b` arguments, named lists of
-  one-argument functions keyed by parameter name, applied to draws
-  *before* `name_map` renaming. Common use:
-  `transform_b = list("Precision for g" = function(x) 1 / sqrt(x))`
-  to put INLA's precision draws on the standard-deviation scale so
-  they line up with greta's `sigma_g`.
+## `prior_summary()` accessor
 
-## emit_inla() — bug fix
+A new exported S3 generic surfaces the resolved priors used to fit
+the model. The summary distinguishes three resolution paths:
 
-`priors_to_inla()` output is now actually injected into the INLA
-formula (`f(group, model = "iid", hyper = list(prec = ...))`) and
-into `control.family$hyper$prec` for the residual sigma. Previously
-the helper was computed but never reached the INLA call, so
-user-supplied priors were silently ignored.
+- **auto-default** — bounded uniform on SD per Gelman (2006); fires
+  when neither a user `fb_prior()` nor a legacy `prior_vc_sd` scalar
+  is supplied.
+- **user-supplied** — the `fb_prior()` object the caller passed via
+  the `prior` argument.
+- **legacy-scalar** — the `prior_fixed_sd` / `prior_vc_sd` bridge,
+  preserved verbatim when `prior_vc_sd` is passed explicitly.
 
-## .build_glm() — bug fix
+```r
+fit <- flexybayes(Reaction ~ Days, random = ~ Subject,
+                  data = sleepstudy)
+prior_summary(fit)
+#> <prior_summary>  backend = greta
+#>   Source: auto-default bounded uniform on SD (Gelman 2006)
+#>     Upper bound U = 282.7
+#>     Scale basis    = 5 * sd(Reaction)
+```
 
-`.build_glm()` now uses a fixed-effects-only formula reconstructed
-from the parsed IR for `model.frame()` / `model.matrix()` /
-`terms()` calls. The previous implementation passed the user's full
-brms-style formula through to those functions, which evaluated
-`(1|g)` as bitwise-OR and emitted
-`Ops.factor(1, g) : '|' not meaningful for factors` warnings for
-every `fb()` greta fit. Asreml ingest behaviour is unchanged
-(byte-identical fixed-only formula).
+On `fb_greta()` fits the summary is flagged `declaration_only = TRUE`
+because flexyBayes does not re-prior the user-built greta graph; the
+prior records what the user declared the model encodes.
 
-## flexybayes() API
+## `review_code = TRUE` workflow
 
-* New `prior` argument (defaults to `NULL`) accepts an `fb_prior()`
-  object. Forward-compatible with the v0.2 codegen extensions; in
-  v0.1.x the supplied prior takes effect via INLA dispatch and via
-  the simple/ide/id greta branch.
+A new optional argument on `flexybayes()`, `fb_brms()`, and
+`fb_greta()` lets users inspect the generated backend code before any
+sampling fires, then advance into the fit when ready:
+
+```r
+rev <- flexybayes(yield ~ env, random = ~ geno, data = trial,
+                  review_code = TRUE)
+rev                  # two-line summary: backend + IR dimensions
+cat_code(rev)        # emit the generated greta (or Stan) code
+fit <- proceed(rev)  # fit; a second proceed(rev) returns the cache
+```
+
+The returned `<flexybayes_review>` object carries the generated code,
+the parsed IR, the resolved prior, the captured call, and a snapshot
+of `.Random.seed`. The seed snapshot is restored on `proceed()` entry
+so a direct call and a review-then-proceed pair reproduce the same
+R-RNG state.
+
+`review_code = TRUE` and `return_code = TRUE` (the older
+code-string-only option) are mutually exclusive. Default is `FALSE`;
+session-level override via
+`options(flexyBayes.review_code_default = TRUE)`.
+
+## Prior contract
+
+Auto-default (no `prior` and no `prior_vc_sd` supplied):
+
+| Target | Default | Notes |
+|---|---|---|
+| Residual `sigma` (Gaussian / identity link) | `uniform(0, 5 * sd(y))` | Gelman 2006 |
+| Residual `sigma` (log link) | `uniform(0, 5 * sd(log(y + 0.5)))` | Gelman 2006 |
+| Residual `sigma` (logit link) | `uniform(0, 5)` | Gelman 2006 |
+| `sd(group)` for `simple` / `ide` / `id` terms | matched to residual by family | Gelman 2006 |
+| Fixed-effect coefficients | `normal(0, prior_fixed_sd)`, `prior_fixed_sd = 100` | Gelman 2006 |
+
+Structured-covariance random terms (`vm`, `ped`, `at`, `us`, `fa`,
+`ar1`) currently fall back to the legacy `lognormal(0, prior_vc_sd)`
+default; per-form uniform defaults are scheduled for v0.2.5.
+
+The PC prior remains a first-class explicit option via
+`fb_prior(sigma ~ pc(upper = U, prob = p))` and is the cross-engine
+interlingua (Simpson et al. 2017) for translation across greta / INLA
+/ brms.
+
+The `prior_fixed_sd` default was raised from 10 to 100 in this cycle;
+the previous value was too tight for responses on the natural data
+scale (e.g., `sleepstudy$Reaction` with mean ≈ 298 ms) and induced a
+substantial intercept bias against the REML reference.
+
+`fb_prior()` accepts the targets `sigma`, `sd(group)`, `b(name)`,
+`cor(group)`, `smooth(var)`, and the families `pc`, `normal`,
+`student_t`, `half_normal`, `half_cauchy`, `cauchy`, `gamma`,
+`exponential`, `lkj`, `uniform`.
+
+## LGM feasibility filter
+
+`lgm_gate(fb)` runs a structural feasibility check on the parsed IR
+before INLA dispatch. The filter returns either an acceptance or an
+`lgm_refusal` object carrying every rule that failed, the diagnostic,
+the suggested re-route (`backend = "brms"` via `fb_brms()` for the
+Stan passthrough; greta for the broader flexyBayes formula path), and
+a two-key-armed override path.
+
+The structural refusals currently live in two places (the gate plus
+`emit_inla()`); folding the emit-time refusals into the gate is the
+ADR 0017 v0.2.5 work.
+
+## `gretaR` slot
+
+A dormant scaffold for the `gretaR` backend is registered:
+`gretaR_status()` reports `activated = FALSE` and explains the
+activation procedure. The four touch-points (`match.arg` extension,
+canonical-name mapper, dispatch branch, status helper) are in place
+so v0.3 activation reduces to a single short patch plus the
+`emit_gretaR.R` body — once the gretaR package goes public and
+audit-clean.
+
+## Vignettes
+
+Twelve numbered vignettes ship with the package:
+
+1. Getting started · 2. ASReml-shaped formulas · 3. Foundational
+regression · 4. Hierarchical models · 5. Structured covariance ·
+6. Priors and regularisation · 7. METs and genomic selection ·
+8. Downstream analysis · 9. Spatio-temporal models · 10. Cross-
+engine triangulation · 11. LGM feasibility filter · 12. Backend
+internals.
+
+Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern
+(`vignettes/_precompile.R`); the `.Rmd` that ships in the package
+tarball is the pre-evaluated static output.
 
 ## References
 
-* Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H.
+- Gelman, A. (2006). Prior distributions for variance parameters in
+  hierarchical models. *Bayesian Analysis* 1(3): 515–534.
+- Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H.
   (2017). Penalising model component complexity: a principled,
   practical approach to constructing priors. *Statistical Science*
   32(1): 1–28.
-* Gelman, A. (2006). Prior distributions for variance parameters in
-  hierarchical models. *Bayesian Analysis* 1(3): 515–534.
+- Rue, H., Martino, S., & Chopin, N. (2009). Approximate Bayesian
+  inference for latent Gaussian models by using integrated nested
+  Laplace approximations. *JRSS: Series B* 71(2): 319–392.

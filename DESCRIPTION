@@ -1,6 +1,6 @@
 Package: flexyBayes
-Title: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax
-Version: 0.1.0.9000
+Title: Flexible Bayesian Mixed Models with ASReml and 'brms'-Style Syntax
+Version: 0.2.0.9000
 Authors@R: c(
     person("Max", "Moldovan", email = "max.moldovan@gmail.com",
            role = c("aut", "cre"),
@@ -34,6 +34,7 @@ Imports:
     methods,
     graphics,
     splines,
+    mgcv,
     utils
 Suggests:
     greta (>= 0.4.0),

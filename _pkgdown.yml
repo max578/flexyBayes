@@ -24,39 +24,41 @@ navbar:
   components:
     intro:
       text: Get started
-      href: articles/flexyBayes-getting-started.html
+      href: articles/flexyBayes-01-getting-started.html
     articles:
-      text: Articles
+      text: Tutorials
       menu:
         - text: "Foundations"
-        - text: Getting started
-          href: articles/flexyBayes-getting-started.html
-        - text: ASReml-style formulas
-          href: articles/flexyBayes-asreml-formulas.html
-        - text: Priors and the PC default
-          href: articles/flexyBayes-priors.html
+        - text: 01 — Getting started
+          href: articles/flexyBayes-01-getting-started.html
+        - text: 02 — asreml-shaped formulas
+          href: articles/flexyBayes-02-asreml-formulas.html
+        - text: 03 — Foundational regression
+          href: articles/flexyBayes-03-regression.html
         - text: "---"
-        - text: "Inference & dispatch"
-        - text: Backend internals
-          href: articles/flexyBayes-backend-internals.html
-        - text: LGM feasibility filter
-          href: articles/flexyBayes-lgm-feasibility.html
-        - text: Cross-engine triangulation
-          href: articles/flexyBayes-triangulation.html
-        - text: Downstream analysis
-          href: articles/flexyBayes-downstream-analysis.html
+        - text: "Core mixed-model concepts"
+        - text: 04 — Hierarchical models
+          href: articles/flexyBayes-04-hierarchical.html
+        - text: 05 — Structured covariance
+          href: articles/flexyBayes-05-structured-covariance.html
+        - text: 06 — Priors and regularisation
+          href: articles/flexyBayes-06-priors.html
         - text: "---"
-        - text: "Modelling vignettes"
-        - text: Regression
-          href: articles/flexyBayes-regression.html
-        - text: Hierarchical models
-          href: articles/flexyBayes-hierarchical.html
-        - text: Structured covariance
-          href: articles/flexyBayes-structured-covariance.html
-        - text: Spatio-temporal
-          href: articles/flexyBayes-spatio-temporal.html
-        - text: METs and genomics
-          href: articles/flexyBayes-met-and-genomics.html
+        - text: "Applied workflows"
+        - text: 07 — METs and genomic selection
+          href: articles/flexyBayes-07-met-and-genomics.html
+        - text: 08 — Downstream analysis
+          href: articles/flexyBayes-08-downstream-analysis.html
+        - text: 09 — Spatio-temporal models
+          href: articles/flexyBayes-09-spatio-temporal.html
+        - text: "---"
+        - text: "Advanced & internals"
+        - text: 10 — Cross-engine triangulation
+          href: articles/flexyBayes-10-triangulation.html
+        - text: 11 — LGM feasibility filter
+          href: articles/flexyBayes-11-lgm-feasibility.html
+        - text: 12 — Backend internals
+          href: articles/flexyBayes-12-backend-internals.html
 
 reference:
   - title: User-facing entry points
@@ -87,19 +89,21 @@ articles:
   - title: Foundations
     navbar: ~
     contents:
-      - flexyBayes-getting-started
-      - flexyBayes-asreml-formulas
-      - flexyBayes-priors
-  - title: Inference and dispatch
+      - flexyBayes-01-getting-started
+      - flexyBayes-02-asreml-formulas
+      - flexyBayes-03-regression
+  - title: Core mixed-model concepts
     contents:
-      - flexyBayes-backend-internals
-      - flexyBayes-lgm-feasibility
-      - flexyBayes-triangulation
-      - flexyBayes-downstream-analysis
-  - title: Modelling
+      - flexyBayes-04-hierarchical
+      - flexyBayes-05-structured-covariance
+      - flexyBayes-06-priors
+  - title: Applied workflows
     contents:
-      - flexyBayes-regression
-      - flexyBayes-hierarchical
-      - flexyBayes-structured-covariance
-      - flexyBayes-spatio-temporal
-      - flexyBayes-met-and-genomics
+      - flexyBayes-07-met-and-genomics
+      - flexyBayes-08-downstream-analysis
+      - flexyBayes-09-spatio-temporal
+  - title: Advanced and internals
+    contents:
+      - flexyBayes-10-triangulation
+      - flexyBayes-11-lgm-feasibility
+      - flexyBayes-12-backend-internals

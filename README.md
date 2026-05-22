@@ -2,47 +2,75 @@
 
 Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax
 
-## Overview
+`flexyBayes` is a multi-backend Bayesian mixed-model framework with
+cross-engine posterior **triangulation** exposed as a first-class
+robustness diagnostic. The package routes one model specification to
+greta (MCMC), INLA (integrated nested Laplace approximation), or brms
+(Stan passthrough), and tells you — with evidence — when the engines
+agree, when they differ, and why a backend was refused.
 
-`flexyBayes` lets you specify mixed models using the familiar ASReml formula
-interface (`fixed`, `random`, `rcov`) and estimates them via Bayesian MCMC
-using [greta](https://greta-stats.org/). Results are returned in three
-complementary formats:
+## Which entry point do I use?
 
-- **`$glm`** -- GLM-compatible object that works with `summary()`, `emmeans`,
-  `marginaleffects`, `effectsize`, and other standard R packages
-- **`$greta`** -- native greta output (`draws`, `model`, `greta_arrays`) for
-  use with `bayesplot`, `greta::calculate()`, `posterior::as_draws()`
-- **`$extras`** -- BLUPs, variance components, convergence diagnostics,
-  generated code, and more
+| If you have… | Use | Notes |
+|---|---|---|
+| ASReml syntax (`fixed` / `random` / `rcov`) | `flexybayes()` | Variance-component / agricultural workflows. |
+| brms or lme4 syntax (`y ~ x + (1 \| g)`) | `fb_brms()` | Also the Stan passthrough on `backend = "brms"`. |
+| A pre-built greta model | `fb_greta()` | Expert escape hatch; priors are declaration-only. |
+| Two fits you want to compare across engines | `triangulate()` | Auto-resolves canonical parameter names. |
+
+`fb()` is a literal alias for `flexybayes()`.
+
+## Which backend will I get?
+
+| Verb | `greta` | `inla` | `brms` (Stan) | `auto` |
+|---|:-:|:-:|:-:|:-:|
+| `flexybayes()` | ✓ | ✓ | – | ✓ (greta or INLA via `lgm_gate()`) |
+| `fb_brms()` | ✓ | ✓ | ✓ | ✓ (greta or INLA — **never** Stan) |
+| `fb_greta()` | ✓ | – | – | – |
+
+`backend = "auto"` runs the LGM feasibility gate; on acceptance it
+routes to INLA, otherwise to greta. It never routes to Stan, because
+brms's first-call Stan compile (typically 30–60 s) is incompatible
+with the auto-fast-path promise. Stan is opt-in only via explicit
+`backend = "brms"` on `fb_brms()`.
 
 ## Installation
 
 ```r
-# Install greta first
+# Install greta (default backend)
 install.packages("greta")
 greta::install_greta_deps()
 
-# Install flexyBayes from GitHub
+# INLA (optional, second backend) — not on CRAN
+install.packages("INLA",
+  repos = c(getOption("repos"),
+            INLA = "https://inla.r-inla-download.org/R/stable"))
+
+# brms (optional, Stan passthrough)
+install.packages("brms")
+
+# flexyBayes from GitHub
 # install.packages("remotes")
 remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
-## Quick Start
+`flexyBayes` degrades gracefully when optional engines are missing:
+greta-dependent code paths gate via `skip_if_no_greta()`; INLA paths
+gate via `requireNamespace("INLA", quietly = TRUE)`; brms paths gate
+the same way.
+
+## Quick start
 
 ```r
 library(flexyBayes)
-data(met_example)
-dat <- met_example$dat
+data(sleepstudy, package = "lme4")
 
-# Fit a mixed model with ASReml-like syntax
+# Fit a mixed model with ASReml-style syntax
 fit <- flexybayes(
-  fixed  = yield ~ env,
-  random = ~ geno,
-  data   = dat,
-  n_samples = 1000,
-  warmup = 500,
-  chains = 4
+  fixed  = Reaction ~ Days,
+  random = ~ Subject,
+  data   = sleepstudy,
+  n_samples = 2000, warmup = 2000, chains = 2
 )
 
 # Standard R output
@@ -50,39 +78,83 @@ summary(fit)
 coef(fit)
 confint(fit)
 
-# emmeans
-library(emmeans)
-emmeans(fit, ~ env)
-
-# marginaleffects
-library(marginaleffects)
-avg_slopes(fit)
-
-# Bayesian diagnostics
-library(bayesplot)
-mcmc_trace(fit$greta$draws)
-
-# View generated greta code
-cat(fit$extras$code)
+# emmeans + marginaleffects
+emmeans::emmeans(fit, ~ Days, at = list(Days = c(0, 5)))
+marginaleffects::avg_slopes(fit)
 ```
 
-## Supported ASReml Syntax
+## Cross-engine triangulation
 
-### Fixed Effects
+Fit the same model on two backends and compare:
 
 ```r
-yield ~ 1                    # intercept only
+fit_g <- flexybayes(Reaction ~ Days, random = ~ Subject,
+                    data = sleepstudy, backend = "greta")
+fit_i <- flexybayes(Reaction ~ Days, random = ~ Subject,
+                    data = sleepstudy, backend = "inla")
+
+triangulate(fit_g, fit_i)
+#> Common parameters: 3
+#> # A tibble: 3 × 6
+#>   parameter   mean_diff sd_ratio tail_drift wasserstein_1 rhat_means
+#>   <chr>           <dbl>    <dbl>      <dbl>         <dbl>      <dbl>
+#> 1 (Intercept)    -0.04     0.997     0.012          0.04      1.002
+#> 2 Days            0.001    1.001     0.003          0.001     1.000
+#> 3 sigma           0.12     1.004     0.020          0.12      1.001
+```
+
+Add a third engine via brms / Stan:
+
+```r
+fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),
+                 data = sleepstudy, backend = "brms")
+
+triangulate(fit_g, fit_s)
+triangulate(fit_i, fit_s)
+```
+
+`canonical_names()` does the work of aligning backend-native parameter
+names (greta's `sigma_g`, INLA's `Precision for g` on the precision
+scale, brms's `sd_g__Intercept`) to a single canonical name with the
+correct scale transform — no `name_map` argument needed in standard
+cases.
+
+## Companion accessors
+
+| Accessor | Returns |
+|---|---|
+| `backend_decision(fit)` | The captured dispatch trace: backend, path, `lgm_gate` checks, reason. |
+| `prior_summary(fit)` | The resolved prior — auto-default (bounded uniform on SD per Gelman 2006), user-supplied `fb_prior()`, or legacy scalar bridge. |
+| `canonical_names(fit)` | The backend-native ↔ canonical-name table with per-row scale transforms. |
+| `review_code = TRUE` on `flexybayes()` / `fb_brms()` / `fb_greta()` | Inspect-before-fit workflow; `cat_code(rev)` prints the generated backend code; `proceed(rev)` advances into the fit. |
+
+## Output structure
+
+Every fit carries three (or four) top-level slots:
+
+```r
+fit$glm         # GLM-compatible shim — works with summary(), emmeans,
+                # marginaleffects, effectsize, broom
+
+fit$greta       # native greta output (when backend = "greta")
+fit$inla        # native INLA output (when backend = "inla")
+fit$brms        # live brmsfit (when backend = "brms")
+
+fit$extras      # BLUPs, variance components, convergence diagnostics,
+                # generated code, parsed IR, run time, captured call
+```
+
+## Supported ASReml syntax (reference)
+
+```r
+# Fixed effects
 yield ~ env                  # fixed factor
 yield ~ env + x_cov          # factor + covariate
 yield ~ 0 + env              # means model (no intercept)
 yield ~ env + I(x^2)         # expression terms
-```
 
-### Random Effects
-
-```r
+# Random effects
 random = ~ geno                       # simple iid
-random = ~ geno + env                 # crossed
 random = ~ block:rep                  # nested
 random = ~ vm(geno, Gmat)             # GBLUP (genomic)
 random = ~ ped(animal, Amat)          # pedigree (animal model)
@@ -91,73 +163,56 @@ random = ~ us(env):id(geno)           # unstructured GxE
 random = ~ fa(env, 2):id(geno)        # factor-analytic GxE
 random = ~ ar1(row):id(col)           # spatial AR1
 random = ~ spl(x_cov)                 # P-spline
-random = ~ vm(geno, Gmat):id(env)     # genomic GxE
-```
 
-### Residual Structure
-
-```r
+# Residual
 rcov = ~ units                # iid residuals (default)
 rcov = ~ at(env):units        # heterogeneous by environment
-rcov = ~ dsum(~ units | env)  # equivalent to above
+
+# Families
+family = "gaussian" | "binomial" | "poisson" | "negative_binomial" |
+         "gamma" | "beta"
 ```
-
-### Families
-
-```r
-family = "gaussian"           # identity link (default)
-family = "binomial"           # logit link
-family = "binomial", link = "probit"  # probit link
-family = "poisson"            # log link
-family = "negative_binomial"  # log link
-family = "gamma"              # log link
-family = "beta"               # logit link
-```
-
-## Three-Part Output
-
-```r
-fit$glm         # c("flexybayes_glm", "glm", "lm")
-                # coefficients, fitted.values, residuals, vcov, family, terms
-                # Works with: summary(), emmeans(), marginaleffects(), effectsize()
-
-fit$greta       # "flexybayes_greta"
-                # model, draws (mcmc.list), greta_arrays, env
-                # Works with: bayesplot, greta::calculate(), posterior
-
-fit$extras      # "flexybayes_extras"
-                # summary, convergence, variance_comps, blups, predictions,
-                # code, param_names, parse_info, call_info, run_time
-```
-
-## Design Principles
-
-- **Indexing, not model matrices**: Parameters are sized by number of levels
-  (`p`), not observations (`N`), giving O(p) memory for random effects
-- **Non-centered parameterisation**: All random effects use NCP for efficient
-  MCMC sampling
-- **Cholesky decomposition**: Known covariance matrices (G, A) are decomposed
-  once for computational efficiency
-- **LKJ priors**: Correlation matrices use LKJ(eta=2) priors for
-  regularisation
 
 ## Vignettes
 
-The package includes 25 vignettes covering all 20 model categories from the
-GLMM Model Formulations Reference:
+Twelve numbered vignettes ship with the package:
 
-- **Getting Started**: Installation, first model, output navigation
-- **Syntax Guide**: Complete ASReml formula reference
-- **Downstream Analysis**: emmeans, marginaleffects, effectsize workflows
-- **Tutorials 1--20**: One tutorial per model category, each with open-source
-  datasets, mathematical notation, interpretation guidance, and
-  publication-quality visualisations
+1. Getting started
+2. ASReml-shaped formulas
+3. Foundational regression
+4. Hierarchical models
+5. Structured covariance
+6. Priors and regularisation
+7. METs and genomic selection
+8. Downstream analysis
+9. Spatio-temporal models
+10. Cross-engine triangulation
+11. LGM feasibility filter
+12. Backend internals
+
+Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern; the `.Rmd`
+that ships in the package tarball is the pre-evaluated static output.
+
+## Design principles
+
+- **Indexing, not model matrices**: parameters are sized by number of
+  levels (`p`), not observations (`N`), giving O(p) memory for random
+  effects.
+- **Non-centred parameterisation**: all random effects use NCP for
+  efficient MCMC sampling.
+- **Cholesky decomposition**: known covariance matrices (G, A) are
+  decomposed once.
+- **Triangulation as first-class output**: the package is built
+  around the claim that *evidence of cross-engine agreement* is the
+  signature flexyBayes deliverable, not "one more Bayesian mixed-
+  model frontend".
 
 ## Requirements
 
-- R >= 4.1.0
-- greta >= 0.4.0 (requires Python + TensorFlow + TensorFlow Probability)
-- Install greta dependencies: `greta::install_greta_deps()`
+- R ≥ 4.1.0
+- greta ≥ 0.4.0 (Python + TensorFlow + TensorFlow Probability)
+- INLA (optional, via Additional_repositories)
+- brms (optional, for the Stan passthrough)
 
 ## Citation
 
@@ -165,13 +220,15 @@ If you use `flexyBayes` in your research, please cite:
 
 ```
 @software{flexyBayes,
-  title = {flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax},
-  author = {Moldovan, Max and Tanaka, Emi and Hui, Francis K.C. and Sznajder, Beata},
-  year = {2026},
-  url = {https://github.com/AAGI-AUS/flexyBayes}
+  title  = {flexyBayes: Flexible Bayesian Mixed Models with ASReml
+            and brms-Style Syntax},
+  author = {Moldovan, Max and Tanaka, Emi and Hui, Francis K.C. and
+            Sznajder, Beata},
+  year   = {2026},
+  url    = {https://github.com/AAGI-AUS/flexyBayes}
 }
 ```
 
 ## License
 
-GPL (>= 3)
+GPL (≥ 3)
