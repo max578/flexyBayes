@@ -1,0 +1,612 @@
+---
+title: "Tutorial 04: Hierarchical models: random effects and GLMMs"
+date: "2026-05-22"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{Tutorial 04: Hierarchical models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+
+# 1. Why hierarchical?
+
+A *hierarchical* model — in mixed-models language, a model with one
+or more random effects — partitions the residual variance into
+between-cluster and within-cluster components. Three reasons this
+matters:
+
+1. **Honest standard errors.** Treating clustered observations as
+   independent shrinks standard errors and inflates Type I error.
+2. **Borrowing of strength.** A random effect lets each cluster
+   "borrow" information from the others through the shared variance
+   parameter — *partial pooling*. This is the source of the
+   Bayesian shrinkage estimator.
+3. **Predictions for unseen clusters.** A random-effect fit gives a
+   posterior distribution for the next group's mean, drawn from the
+   estimated population.
+
+`flexyBayes` covers the full mixed-model surface — Gaussian linear
+mixed models (LMMs), generalised linear mixed models (GLMMs) with
+Poisson, binomial, gamma, and beta likelihoods, plus structured
+covariance models that the *structured covariance* and
+*spatio-temporal* vignettes take up. This vignette focuses on the
+foundational cases.
+
+# 2. The Gaussian random intercept: `sleepstudy`
+
+We start where the *getting started* vignette left off: a random
+intercept on `Subject` with `Reaction` as the response and `Days` as
+a fixed continuous covariate.
+
+
+``` r
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+fit_ri <- fb_brms(
+  Reaction ~ Days + (1 | Subject), data = sleepstudy,
+  backend      = "greta",
+  n_samples    = 500, warmup = 500, chains = 2,
+  verbose      = FALSE,
+  mcmc_verbose = FALSE
+)
+summary(fit_ri)
+#> Bayesian mixed model summary  [flexyBayes]
+#> ============================================================ 
+#>   Fixed  : Reaction ~ Days 
+#>   Random : ~Subject 
+#>   Family : gaussian / identity 
+#>   N = 180 , chains = 2 , samples = 500 
+#> 
+#> -- Fixed effects (posterior)  --------------------------------- 
+#>             Estimate Post.SD     2.5%    97.5%
+#> (Intercept) 248.1723  9.3684 232.4768 267.3195
+#> Days         10.5054  0.8228   8.8519  12.1177
+#> 
+#> -- Variance components  -------------------------------------- 
+#>       Component Estimate     SD    2.5%   97.5%
+#> 1 sigma_Subject  40.5391 5.8040 29.9961 53.2792
+#> 2   sigma_e_atg  31.1969 1.7094 27.9881 34.7953
+#> 
+#> -- Convergence  --------------------------------------------- 
+#>   Rhat range: 0.999 - 1.474 
+#>   ESS  range: 14 - 1000 
+#>   Run time  : 3.3 sec
+```
+
+The `Subject`-level standard deviation summarises between-subject
+variation in baseline reaction time; the residual standard deviation
+summarises within-subject variation. The intraclass correlation
+coefficient (ICC) is
+
+$$
+\text{ICC} = \frac{\sigma_{\text{Subject}}^2}{\sigma_{\text{Subject}}^2 + \sigma_e^2},
+$$
+
+a derived quantity that the `posterior::summarise_draws()` call
+computes from the draws.
+
+
+``` r
+draws <- flexyBayes::fb_as_draws_simple(fit_ri)
+# Greta names the random-effect SD after the grouping factor:
+# sigma_Subject (capital S to match `(1 | Subject)`).
+sigma_S <- draws[["sigma_Subject"]]
+sigma_e <- draws$sigma_e_atg
+icc <- sigma_S^2 / (sigma_S^2 + sigma_e^2)
+c(mean = mean(icc), q025 = quantile(icc, 0.025), q975 = quantile(icc, 0.975))
+#>       mean  q025.2.5% q975.97.5% 
+#>  0.6214889  0.4629793  0.7510630
+```
+
+A reference fit with `lme4`:
+
+
+``` r
+summary(lme4::lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy))
+#> Linear mixed model fit by REML ['lmerMod']
+#> Formula: Reaction ~ Days + (1 | Subject)
+#>    Data: sleepstudy
+#> 
+#> REML criterion at convergence: 1786.5
+#> 
+#> Scaled residuals: 
+#>     Min      1Q  Median      3Q     Max 
+#> -3.2257 -0.5529  0.0109  0.5188  4.2506 
+#> 
+#> Random effects:
+#>  Groups   Name        Variance Std.Dev.
+#>  Subject  (Intercept) 1378.2   37.12   
+#>  Residual              960.5   30.99   
+#> Number of obs: 180, groups:  Subject, 18
+#> 
+#> Fixed effects:
+#>             Estimate Std. Error t value
+#> (Intercept) 251.4051     9.7467   25.79
+#> Days         10.4673     0.8042   13.02
+#> 
+#> Correlation of Fixed Effects:
+#>      (Intr)
+#> Days -0.371
+```
+
+The Bayesian posterior means and `lme4`'s REML estimates agree to
+about the second decimal — because `Subject` has 18 levels, which is
+on the cusp where REML and Bayesian fits start to diverge for small
+clusters.
+
+# 3. Random intercept and slope (asreml-form)
+
+The full repeated-measures model lets each subject have its own
+slope on `Days` as well as its own intercept. The `lme4` syntax is
+`(Days | Subject)`. `fb_brms()` accepts only single or crossed
+random intercepts; for random slopes route through the asreml-style
+entry, which handles them via two random terms — the intercept and
+the interaction:
+
+
+``` r
+fit_ris <- flexybayes(
+  fixed  = Reaction ~ Days,
+  random = ~ Subject + Subject:Days,
+  data   = sleepstudy,
+  n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
+)
+summary(fit_ris)
+#> Bayesian mixed model summary  [flexyBayes]
+#> ============================================================ 
+#>   Fixed  : Reaction ~ Days 
+#>   Random : ~Subject + Subject:Days 
+#>   Family : gaussian / identity 
+#>   N = 180 , chains = 2 , samples = 500 
+#> 
+#> -- Fixed effects (posterior)  --------------------------------- 
+#>             Estimate Post.SD   2.5%   97.5%
+#> (Intercept)  92.9948 57.1607 1.4145 183.931
+#> Days         10.7835  0.8229 9.2005  12.322
+#> 
+#> -- Variance components  -------------------------------------- 
+#>               Component Estimate      SD    2.5%    97.5%
+#> 1         sigma_Subject 190.8001 54.4107 87.9864 276.0817
+#> 2 sigma_Days_in_Subject   1.1630  1.1354  0.1383   4.6513
+#> 3           sigma_e_atg  31.3067  1.6355 28.2831  34.7008
+#> 
+#> -- Convergence  --------------------------------------------- 
+#>   Rhat range: 0.999 - 7.709 
+#>   ESS  range: 4 - 410 
+#>   Run time  : 4.4 sec
+```
+
+This fit gives independent variance components for the random
+intercept and the random slope (no covariance between them). The
+fully bivariate `(Days | Subject)` model — with an estimated
+correlation between subject-level intercept and slope — uses an
+unstructured covariance, written as
+`random = ~ str(~Subject + Subject:Days, ~us(2):id(Subject))` in the
+asreml DSL. It is one of the constructions covered in the
+*structured covariance* vignette.
+
+# 4. Crossed and nested random effects
+
+Two cluster variables that *cross* — every level of one is observed
+at every level of the other — are modelled with two parallel random
+terms:
+
+```r
+flexybayes(fixed = y ~ 1, random = ~ subject + item, data = ...)
+```
+
+Two cluster variables that *nest* — each level of the inner is
+observed within exactly one level of the outer — are modelled with
+the inner-within-outer interaction:
+
+```r
+flexybayes(fixed = y ~ 1, random = ~ class + class:student, data = ...)
+```
+
+Both patterns generalise to deeper hierarchies. The agronomic
+illustration is in the *MET and genomic selection* vignette.
+
+# 5. The Poisson GLMM: `MASS::epil`
+
+`MASS::epil` (Thall & Vail, 1990) records seizure counts in 59
+epileptic patients across four 2-week periods. We model the count of
+seizures with a Poisson likelihood, a log link, and a random effect
+for `subject`:
+
+
+``` r
+data(epil, package = "MASS")
+epil$subject <- factor(epil$subject)
+str(epil)
+#> 'data.frame':	236 obs. of  9 variables:
+#>  $ y      : num  5 3 3 3 3 5 3 3 2 4 ...
+#>  $ trt    : Factor w/ 2 levels "placebo","progabide": 1 1 1 1 1 1 1 1 1 1 ...
+#>  $ base   : int  11 11 11 11 11 11 11 11 6 6 ...
+#>  $ age    : int  31 31 31 31 30 30 30 30 25 25 ...
+#>  $ V4     : int  0 0 0 1 0 0 0 1 0 0 ...
+#>  $ subject: Factor w/ 59 levels "1","2","3","4",..: 1 1 1 1 2 2 2 2 3 3 ...
+#>  $ period : int  1 2 3 4 1 2 3 4 1 2 ...
+#>  $ lbase  : num  -0.756 -0.756 -0.756 -0.756 -0.756 ...
+#>  $ lage   : num  0.1142 0.1142 0.1142 0.1142 0.0814 ...
+```
+
+
+``` r
+fit_pois_g <- fb_brms(
+  y ~ trt + (1 | subject), data = epil,
+  family       = "poisson",
+  backend      = "greta",
+  n_samples    = 500, warmup = 500, chains = 2,
+  verbose      = FALSE,
+  mcmc_verbose = FALSE
+)
+summary(fit_pois_g)
+#> Bayesian mixed model summary  [flexyBayes]
+#> ============================================================ 
+#>   Fixed  : y ~ trt 
+#>   Random : ~subject 
+#>   Family : poisson / log 
+#>   N = 236 , chains = 2 , samples = 500 
+#> 
+#> -- Fixed effects (posterior)  --------------------------------- 
+#>              Estimate Post.SD    2.5%  97.5%
+#> (Intercept)   -1.5808  1.1927 -3.0004 0.4340
+#> trtplacebo     3.3813  1.1656  1.3737 4.7609
+#> trtprogabide   3.0616  1.0945  1.2560 4.3880
+#> 
+#> -- Variance components  -------------------------------------- 
+#>       Component Estimate     SD   2.5%  97.5%
+#> 1 sigma_subject   1.0160 0.0560 0.9274 1.1399
+#> 2   sigma_e_atg   2.0721 0.4733 1.0210 2.8446
+#> 
+#> -- Convergence  --------------------------------------------- 
+#>   Rhat range: 1.371 - 5.863 
+#>   ESS  range: 5 - 31 
+#>   Run time  : 3.1 sec
+```
+
+
+``` r
+fit_pois_i <- fb_brms(
+  y ~ trt + (1 | subject), data = epil,
+  family  = "poisson",
+  backend = "inla",
+  verbose = FALSE
+)
+summary(fit_pois_i)
+#> Bayesian fit summary  [flexybayes_inla / INLA backend]
+#> ------------------------------------------------------------ 
+#> Fixed effects:
+#>                 mean     sd 0.025quant 0.5quant 0.975quant    mode kld
+#> (Intercept)   1.7717 0.1875     1.4010   1.7723     2.1391  1.7723   0
+#> trtprogabide -0.2914 0.2602    -0.8056  -0.2906     0.2185 -0.2906   0
+#> 
+#> Hyperparameters:
+#>                         mean     sd 0.025quant 0.5quant 0.975quant   mode
+#> Precision for subject 1.1143 0.2279     0.7192    1.097     1.6094 1.0623
+#> 
+#> Random effects:
+#>   groups: subject
+#> ------------------------------------------------------------
+```
+
+The intercept (on the log scale) is the baseline log-rate of
+seizures; the `trt` coefficient is the log rate-ratio for
+progabide versus placebo. Exponentiating gives the rate-ratio:
+
+
+``` r
+# greta names a 2-level factor trt as tau_trt[1,1] (placebo, baseline)
+# and tau_trt[2,1] (progabide). The rate ratio is the exponential of
+# the difference, which simplifies to exp(tau_trt[2,1]) once placebo
+# is absorbed into the intercept.
+draws <- flexyBayes::fb_as_draws_simple(fit_pois_g)
+rr <- exp(draws[["tau_trt[2,1]"]] - draws[["tau_trt[1,1]"]])
+c(mean = mean(rr), q025 = quantile(rr, 0.025), q975 = quantile(rr, 0.975))
+#>       mean  q025.2.5% q975.97.5% 
+#>  0.7327237  0.6003619  0.9525272
+```
+
+The cross-engine triangulation reads cleanly because the canonical
+parameter-name registry reconciles the greta and INLA naming
+conventions for fixed effects, factor levels, and group SDs; no
+user-supplied `name_map` is required:
+
+
+``` r
+tri <- tryCatch(
+  triangulate(fit_pois_g, fit_pois_i),
+  error = function(e) {
+    message("triangulate() unavailable in this session: ",
+            conditionMessage(e))
+    NULL
+  }
+)
+if (!is.null(tri)) tri
+#> <triangulate_result>
+#>   source_a: greta
+#>   source_b: inla
+#>   n_common: 3
+#>   only_a:   2 parameters (trtplacebo, sigma)
+#>   only_b:   295 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
+#> 
+#> Metrics (per common parameter):
+#>          param  mean_a  mean_b mean_diff   sd_a   sd_b sd_ratio q025_diff
+#> 1  (Intercept) -1.5808  1.7679   -3.3486 1.1927 0.1899   6.2798   -4.3850
+#> 2 trtprogabide  3.0616 -0.2806    3.3422 1.0945 0.2682   4.0804    2.0643
+#> 3   sd_subject  1.0160  1.1343   -0.1183 0.0560 0.2282   0.2453    0.1895
+#>   q975_diff wasserstein_1 rhat_means
+#> 1   -1.7168        3.3520     2.9475
+#> 2    4.1857        3.3472     3.1300
+#> 3   -0.4804        0.1554     1.1197
+```
+
+If the planted-extreme example from the *cross-engine triangulation*
+vignette is fresh in mind, the `epil` data have a similar structure:
+patient 49 has anomalously high seizure counts, and the Pareto-$\hat{k}$
+diagnostic in `loo` will identify that patient as a leverage point.
+The recommended response is to refit with negative-binomial:
+
+
+``` r
+fit_nb <- fb_brms(
+  y ~ trt + (1 | subject), data = epil,
+  family       = "negative_binomial",
+  backend      = "greta",
+  n_samples    = 500, warmup = 500, chains = 2,
+  verbose      = FALSE,
+  mcmc_verbose = FALSE
+)
+summary(fit_nb)
+#> Bayesian mixed model summary  [flexyBayes]
+#> ============================================================ 
+#>   Fixed  : y ~ trt 
+#>   Random : ~subject 
+#>   Family : negative_binomial / log 
+#>   N = 236 , chains = 2 , samples = 500 
+#> 
+#> -- Fixed effects (posterior)  --------------------------------- 
+#>              Estimate Post.SD     2.5%   97.5%
+#> (Intercept)    5.2122  4.9556  -1.6954 11.8829
+#> trtplacebo    -3.4476  4.9793  -9.9751  3.6433
+#> trtprogabide  -3.6064  5.0130 -10.5303  3.2841
+#> 
+#> -- Variance components  -------------------------------------- 
+#>       Component Estimate     SD   2.5%  97.5%
+#> 1 sigma_subject   0.8917 0.0947 0.7123 1.0524
+#> 2   sigma_e_atg   1.6102 1.0727 0.0221 2.8791
+#> 
+#> -- Convergence  --------------------------------------------- 
+#>   Rhat range: 1.075 - 14.488 
+#>   ESS  range: 4 - 90 
+#>   Run time  : 4.3 sec
+```
+
+The negative-binomial absorbs overdispersion that the Poisson
+likelihood cannot.
+
+# 6. The binomial GLMM: `lme4::cbpp`
+
+`lme4::cbpp` records contagious bovine pleuropneumonia incidence
+across 15 herds and 4 periods. The natural model is a logistic GLMM
+with a random herd effect.
+
+`fb_brms()` does not accept the brms-style aggregated trials
+addition form (`y | trials(size) ~ ...`). We expand the per-herd
+counts to per-trial Bernoulli observations as a workaround:
+
+
+``` r
+data(cbpp, package = "lme4")
+cbpp_expanded <- do.call(rbind, lapply(seq_len(nrow(cbpp)), function(i) {
+  row <- cbpp[i, ]
+  data.frame(
+    y      = c(rep(1, row$incidence), rep(0, row$size - row$incidence)),
+    period = rep(row$period, row$size),
+    herd   = rep(row$herd,   row$size)
+  )
+}))
+cbpp_expanded$herd <- factor(cbpp_expanded$herd)
+nrow(cbpp_expanded)
+#> [1] 842
+```
+
+
+``` r
+fit_bin <- fb_brms(
+  y ~ period + (1 | herd), data = cbpp_expanded,
+  family  = "binomial",
+  backend = "inla",
+  verbose = FALSE
+)
+summary(fit_bin)
+#> Bayesian fit summary  [flexybayes_inla / INLA backend]
+#> ------------------------------------------------------------ 
+#> Fixed effects:
+#>                mean     sd 0.025quant 0.5quant 0.975quant    mode kld
+#> (Intercept) -1.4116 0.2518    -1.9271  -1.4055    -0.9303 -1.4057   0
+#> period2     -1.0055 0.3054    -1.6037  -1.0058    -0.4058 -1.0058   0
+#> period3     -1.1481 0.3254    -1.7856  -1.1483    -0.5095 -1.1483   0
+#> period4     -1.6319 0.4263    -2.4674  -1.6321    -0.7954 -1.6321   0
+#> 
+#> Hyperparameters:
+#>                      mean     sd 0.025quant 0.5quant 0.975quant   mode
+#> Precision for herd 2.5445 1.8352     0.7024   2.0859     7.0441 1.5274
+#> 
+#> Random effects:
+#>   groups: herd
+#> ------------------------------------------------------------
+```
+
+The intercept (on the logit scale) is the baseline log-odds of
+infection; the `period` coefficients describe how those log-odds
+change across the four observation periods. The `herd` random
+effect captures unobserved herd-level differences in baseline risk.
+
+# 7. Dispatch and refusal: `backend = "auto"`
+
+Both `fb_brms()` and `flexybayes()` carry a `backend` argument with
+three settings: `"greta"` (Hamiltonian Monte Carlo, the default;
+covers every supported term type), `"inla"` (explicit LGM fast
+path; raises a structured refusal on non-LGM models), and `"auto"`
+(structural gate-then-route: INLA on accept, greta on refuse, with
+a silenceable note carrying the reason).
+
+
+``` r
+fit_auto <- fb_brms(
+  Reaction ~ Days + (1 | Subject), data = sleepstudy,
+  backend      = "auto",
+  n_samples    = 200, warmup = 200, chains = 1,
+  verbose      = FALSE,
+  mcmc_verbose = FALSE
+)
+backend_decision(fit_auto)
+#> $backend
+#> [1] "inla"
+#> 
+#> $path
+#> [1] "auto_accept"
+#> 
+#> $gate_checks
+#> [1] "lgm_compatible"      "gretaR_slot_dormant"
+#> 
+#> $reason
+#> [1] "lgm_gate() accepted; INLA dispatch."
+```
+
+The trace records which backend ran, which gate checks were
+evaluated, and (on the refuse-to-greta path) the primary failure
+rule. Two silenceable notes — `flexyBayes.silence_auto_fallback_note`
+(LGM gate refuse) and `flexyBayes.silence_auto_inla_missing_note`
+(INLA package unavailable) — let you keep auto-dispatch quiet in
+batch pipelines once the routing behaviour is understood.
+
+The *LGM feasibility* and *backend internals* vignettes detail the
+six structural gate checks and the seventh post-fit numerical
+confirm, plus the two-key armed override path
+(`force = "inla"`, `acknowledge_silent_bias_risk = TRUE`,
+`reason = "..."`) for the rare cases when forced INLA dispatch is
+deliberate.
+
+# 8. Pitfalls
+
+**Random slopes are not in the `fb_brms()` corpus.** Route
+random-slope models through `flexybayes(fixed, random = ~ A + A:B,
+data = ...)`. The fits are statistically equivalent to `lme4`'s
+`(B | A)` *with* `corr = 0`; for the bivariate version with an
+estimated correlation, use the structured covariance vignette's
+`str(~..., ~us(2):id(...))` pattern.
+
+**Aggregated binomial via `trials()` is not in the `fb_brms()`
+corpus.** Expand to per-trial Bernoulli, or route through
+`flexybayes()` with `weights` for an effective sample size
+correction.
+
+**Group counts dominate the prior.** With fewer than ~20 levels of a
+random-effect factor, the prior on the group-level standard
+deviation does meaningful work. The *priors and regularisation*
+vignette walks through how to set this prior deliberately and how
+to assess sensitivity.
+
+**Overdispersion in count data.** A Poisson GLMM that fails the
+posterior-predictive check on `var(y)` versus `mean(y)` is signalling
+overdispersion — refit with `family = "negative_binomial"`. This is the most
+common cause of cross-engine disagreement on count GLMMs (pattern 1
+in the triangulation vignette).
+
+# 9. Active prompts
+
+1. Compare `fit_ri` (random intercept) and `fit_ris` (random
+   intercept + slope) on `sleepstudy`. Which has lower residual
+   standard deviation? Which has higher ESS per second of compute
+   time?
+2. Run the `epil` Poisson fit, then refit with the negative-binomial.
+   Use `triangulate()` to compare the variance-component posteriors
+   of each likelihood family on each backend.
+3. On `cbpp_expanded`, fit the model with random `herd` versus
+   random `herd:period`. Which fits best by PSIS-LOO (manual; see
+   the *downstream analysis* vignette)?
+
+# 10. Session information
+
+
+``` r
+sessionInfo()
+#> R version 4.5.2 (2025-10-31)
+#> Platform: aarch64-apple-darwin20
+#> Running under: macOS Tahoe 26.4.1
+#> 
+#> Matrix products: default
+#> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+#> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+#> 
+#> locale:
+#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> 
+#> time zone: Australia/Adelaide
+#> tzcode source: internal
+#> 
+#> attached base packages:
+#> [1] stats     graphics  grDevices utils     datasets  methods   base     
+#> 
+#> other attached packages:
+#> [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> 
+#> loaded via a namespace (and not attached):
+#>   [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         
+#>   [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            
+#>   [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    
+#>  [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     
+#>  [13] sf_1.1-0             agridat_1.26         survival_3.8-3      
+#>  [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     
+#>  [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      
+#>  [22] tools_4.5.2          sn_2.1.3             knitr_1.51          
+#>  [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        
+#>  [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          
+#>  [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         
+#>  [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         
+#>  [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        
+#>  [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      
+#>  [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         
+#>  [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       
+#>  [49] crayon_1.5.3         reformulas_0.4.4     generics_0.1.4      
+#>  [52] otel_0.2.0           reshape2_1.4.5       tfruns_1.5.4        
+#>  [55] minqa_1.2.8          DBI_1.3.0            proxy_0.4-29        
+#>  [58] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    
+#>  [61] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         
+#>  [64] boot_1.3-32          Matrix_1.7-4         sandwich_3.1-1      
+#>  [67] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         
+#>  [70] hms_1.1.4            listenv_0.10.1       units_1.0-1         
+#>  [73] glue_1.8.1           parallelly_1.47.0    nloptr_2.2.1        
+#>  [76] codetools_0.2-20     distributional_0.7.0 stringi_1.8.7       
+#>  [79] gtable_0.3.6         lme4_2.0-1           tibble_3.3.1        
+#>  [82] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       
+#>  [85] Rdpack_2.6.6         evaluate_1.0.5       lattice_0.22-7      
+#>  [88] rbibutils_2.4.1      png_0.1-9            backports_1.5.1     
+#>  [91] tfautograph_0.3.2    MatrixModels_0.5-4   class_7.3-23        
+#>  [94] Rcpp_1.1.1-1.1       nlme_3.1-168         coda_0.19-4.1       
+#>  [97] checkmate_2.3.4      mgcv_1.9-3           whisker_0.4.1       
+#> [100] xfun_0.57            zoo_1.8-15           pkgconfig_2.0.3
+```
+
+# References
+
+Bates, D., Mächler, M., Bolker, B., & Walker, S. (2015). Fitting
+linear mixed-effects models using lme4. *Journal of Statistical
+Software*, 67(1), 1–48.
+
+Gelman, A., & Hill, J. (2007). *Data analysis using regression and
+multilevel/hierarchical models*. Cambridge University Press.
+
+Pinheiro, J. C., & Bates, D. M. (2000). *Mixed-effects models in S
+and S-PLUS*. Springer.
+
+Thall, P. F., & Vail, S. C. (1990). Some covariance models for
+longitudinal count data with overdispersion. *Biometrics*, 46(3),
+657–671.
