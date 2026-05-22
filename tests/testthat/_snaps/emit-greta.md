@@ -4,8 +4,8 @@
       cat(code)
     Output
       # -- Fixed effects -------------------------------------------
-      mu_atg <- normal(0, 10)
-      beta_x <- normal(0, 2)
+      mu_atg <- normal(0, 100)
+      beta_x <- normal(0, 100)
       # -- Residual ------------------------------------------------
       sigma_e_atg <- greta::lognormal(0, 1)
       # -- Linear predictor ----------------------------------------
@@ -23,8 +23,8 @@
       cat(code)
     Output
       # -- Fixed effects -------------------------------------------
-      mu_atg <- normal(0, 10)
-      tau_env <- normal(0, 10, dim = n_env)
+      mu_atg <- normal(0, 100)
+      tau_env <- normal(0, 100, dim = n_env)
       # -- Random effects ------------------------------------------
       sigma_geno <- greta::lognormal(0, 1)
       geno_raw <- normal(0, 1, dim = n_geno)
@@ -46,8 +46,8 @@
       cat(code)
     Output
       # -- Fixed effects -------------------------------------------
-      mu_atg <- normal(0, 10)
-      tau_env <- normal(0, 10, dim = n_env)
+      mu_atg <- normal(0, 100)
+      tau_env <- normal(0, 100, dim = n_env)
       # -- Random effects ------------------------------------------
       Lambda_geno_env_fa2 <- normal(0, 1, dim = c(n_env, 2L))
       psi_geno_env_fa2    <- greta::lognormal(0, 1, dim = n_env)
@@ -72,8 +72,8 @@
       cat(code)
     Output
       # -- Fixed effects -------------------------------------------
-      mu_atg <- normal(0, 10)
-      tau_env <- normal(0, 10, dim = n_env)
+      mu_atg <- normal(0, 100)
+      tau_env <- normal(0, 100, dim = n_env)
       # -- Random effects ------------------------------------------
       sigma_geno <- greta::lognormal(0, 1)
       geno_raw <- normal(0, 1, dim = n_geno)
@@ -95,8 +95,8 @@
       cat(code)
     Output
       # -- Fixed effects -------------------------------------------
-      mu_atg <- normal(0, 10)
-      tau_env <- normal(0, 10, dim = n_env)
+      mu_atg <- normal(0, 100)
+      tau_env <- normal(0, 100, dim = n_env)
       # -- Random effects ------------------------------------------
       sigma_sp_row_col <- greta::lognormal(0, 1)
       sp_row_col_row_raw <- normal(0, 1, dim = n_row)

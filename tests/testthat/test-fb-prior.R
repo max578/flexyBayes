@@ -200,10 +200,19 @@ test_that("priors_to_inla() approximates uniform as pc.prec with matched upper",
   expect_identical(out$sigma$approx_from, "uniform")
 })
 
-test_that("priors_to_legacy() refuses uniform with a clear redirect", {
+test_that("priors_to_legacy() exposes uniform-on-VC via uniform_per_vc (ADR 0004)", {
   p <- fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5))
-  expect_error(flexyBayes:::priors_to_legacy(p),
-               regexp = "uniform\\(\\) priors on variance components")
+  out <- flexyBayes:::priors_to_legacy(p)
+  expect_true("g" %in% names(out$uniform_per_vc))
+  expect_identical(out$uniform_per_vc$g$lower, 0)
+  expect_identical(out$uniform_per_vc$g$upper, 5)
+})
+
+test_that("priors_to_legacy() exposes uniform-on-sigma via uniform_per_vc", {
+  p <- fb_prior(sigma ~ uniform(lower = 0, upper = 7))
+  out <- flexyBayes:::priors_to_legacy(p)
+  expect_true("__sigma__" %in% names(out$uniform_per_vc))
+  expect_identical(out$uniform_per_vc[["__sigma__"]]$upper, 7)
 })
 
 # ---------------------------------------------------------------- #
@@ -239,4 +248,50 @@ test_that(".default_prior_scale() picks family-aware scale", {
   s_b <- flexyBayes:::.default_prior_scale(NULL, "y", "binomial")
   expect_identical(s_b$basis, "logit_default")
   expect_identical(s_b$scale, 2.5)
+})
+
+# ---------------------------------------------------------------- #
+# v0.1 uniform default (ADR 0004 supersedes ADR 0003 PC default)   #
+# ---------------------------------------------------------------- #
+
+test_that(".default_uniform_prior() builds uniform specs scaled by 5*sd(y) (Gaussian)", {
+  set.seed(11)
+  d <- data.frame(y = rnorm(40, sd = 2), g = factor(rep(1:5, 8)))
+  p <- flexyBayes:::.default_uniform_prior(
+    data = d, response = "y", family = "gaussian",
+    random_groups = c("g")
+  )
+  expect_s3_class(p, "fb_prior")
+  expect_identical(p$specs[[1]]$target$type, "sigma")
+  expect_identical(p$specs[[1]]$spec$family, "uniform")
+  expect_identical(p$specs[[1]]$spec$args$lower, 0)
+  expect_true(abs(p$specs[[1]]$spec$args$upper - 5 * sd(d$y)) < 1e-9)
+  expect_identical(p$specs[[2]]$target$type, "sd")
+  expect_identical(p$specs[[2]]$target$group, "g")
+  expect_identical(p$specs[[2]]$spec$family, "uniform")
+})
+
+test_that(".default_uniform_scale() picks family-aware bounds", {
+  set.seed(12)
+  d_g <- data.frame(y = rnorm(40, sd = 3))
+  s_g <- flexyBayes:::.default_uniform_scale(d_g, "y", "gaussian")
+  expect_identical(s_g$basis, "identity_sd_uniform")
+  expect_true(abs(s_g$scale - 5 * sd(d_g$y)) < 1e-9)
+
+  s_p <- flexyBayes:::.default_uniform_scale(NULL, "y", "poisson")
+  expect_identical(s_p$basis, "log_link_uniform")
+  expect_identical(s_p$scale, 3)
+
+  s_b <- flexyBayes:::.default_uniform_scale(NULL, "y", "binomial")
+  expect_identical(s_b$basis, "logit_uniform")
+  expect_identical(s_b$scale, 5)
+
+  s_be <- flexyBayes:::.default_uniform_scale(NULL, "y", "beta")
+  expect_identical(s_be$basis, "logit_uniform")
+  expect_identical(s_be$scale, 5)
+
+  s_nb <- flexyBayes:::.default_uniform_scale(NULL, "y",
+                                              "negative_binomial")
+  expect_identical(s_nb$basis, "log_link_uniform")
+  expect_identical(s_nb$scale, 3)
 })

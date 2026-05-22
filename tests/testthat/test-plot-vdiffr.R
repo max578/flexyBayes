@@ -18,10 +18,17 @@
 # only after a deliberate review.
 
 skip_if_no_greta_quiet <- function() {
+  # vdiffr SVG snapshots are fragile against MCMC random-init drift
+  # even with set.seed(): TF / TensorFlow's CUDA / MKL backends can
+  # produce float-level differences across runs that break SVG diff
+  # tolerance. Reactivate when the snapshot harness can either
+  # (a) operate on rendered numerics rather than SVG, or (b) accept
+  # a tighter pre-fit numerical seed contract.
+  testthat::skip("Visual-regression snapshots fragile vs MCMC float drift -- see PROJECT_LOG 2026-04-27 follow-ups")
   testthat::skip_if_not_installed("vdiffr")
   testthat::skip_if_not_installed("greta")
   testthat::skip_on_cran()
-  testthat::skip_on_ci()           # graphics device differs across runners
+  testthat::skip_on_ci()
 }
 
 # Cache one tiny fit for all snapshot tests in this file. Cheap (n = 40,

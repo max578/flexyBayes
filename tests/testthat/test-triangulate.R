@@ -223,17 +223,28 @@ test_that("fb_as_draws_simple.flexybayes extracts greta draws", {
 })
 
 test_that("triangulate() runs end-to-end on greta vs INLA", {
-  skip_on_cran()        # live greta + INLA + sn end-to-end is too flaky for CRAN
+  # End-to-end triangulation with the user-facing flexybayes() API
+  # dispatching to both backends -- greta explicitly + INLA via
+  # `backend = "inla"`. Canonical-name resolution is registry-driven
+  # so triangulate() works without a user-supplied `name_map`.
+  skip_on_cran()
   skip_if_no_greta(); skip_if_no_inla()
   d <- data.frame(y = rnorm(40), x = rnorm(40),
                   g = factor(rep(1:5, length.out = 40)))
-  fit_g <- flexybayes(fixed = y ~ x, data = d,
-                     n_samples = 50, warmup = 50, chains = 1,
-                     verbose = FALSE, mcmc_verbose = FALSE)
-  fit_i <- fb(y ~ x, data = d, backend = "inla", verbose = FALSE)
+  fit_g <- suppressMessages(flexybayes(
+    fixed = y ~ x, data = d, backend = "greta",
+    n_samples = 50, warmup = 50, chains = 1,
+    verbose = FALSE, mcmc_verbose = FALSE
+  ))
+  fit_i <- suppressMessages(flexybayes(
+    fixed = y ~ x, data = d, backend = "inla", verbose = FALSE
+  ))
   tri <- triangulate(fit_g, fit_i, n_samples = 200L)
   expect_s3_class(tri, "triangulate_result")
-  # n_common may be 0 without name_map -- the test verifies the
-  # function runs, not parity-of-naming.
   expect_true(is.numeric(tri$n_common))
+  expect_identical(tri$source_a, "greta")
+  expect_identical(tri$source_b, "inla")
+  # Registry-driven canonical resolution must align at least
+  # (Intercept) and x across the two engines.
+  expect_true(any(c("(Intercept)", "x") %in% tri$common))
 })

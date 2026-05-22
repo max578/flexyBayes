@@ -96,7 +96,7 @@ test_that("flexybayes() reproduces ar1_spatial code byte-identical", {
   expect_snapshot(cat(code))
 })
 
-test_that("flexybayes() default PC prior emits exponential() and a deprecation note", {
+test_that("flexybayes() default uniform prior emits greta::uniform() and an announcement", {
   skip_if_no_greta()
   d <- mk_emit_data()
   options(flexyBayes._default_prior_note_emitted = FALSE)
@@ -105,15 +105,16 @@ test_that("flexybayes() default PC prior emits exponential() and a deprecation n
       yield ~ env, random = ~ geno, data = d,
       verbose = FALSE, return_code = TRUE
     ),
-    regexp = "default changed in v0\\.1\\.x"
+    regexp = "uniform\\(0,"
   )
-  # Random-effect group + residual sd should both be PC-derived
-  # exponentials, not lognormals.
-  expect_match(code, "sigma_geno <- greta::exponential\\(rate = ",
+  # Random-effect group + residual sd should both be uniform on the
+  # SD scale per ADR 0004, not lognormal or PC-exponential.
+  expect_match(code, "sigma_geno <- greta::uniform\\(0, ",
                fixed = FALSE)
-  expect_match(code, "sigma_e_atg <- greta::exponential\\(rate = ",
+  expect_match(code, "sigma_e_atg <- greta::uniform\\(0, ",
                fixed = FALSE)
   expect_false(grepl("greta::lognormal\\(0, 1\\)", code))
+  expect_false(grepl("greta::exponential\\(rate", code))
 })
 
 test_that("explicit prior_vc_sd suppresses the deprecation note + retains lognormal", {
