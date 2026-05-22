@@ -11,7 +11,11 @@ URL declared in `DESCRIPTION` is forward-pointing and 404s today — see
 ## Test environments
 
 - local macOS Tahoe 26.3.1 (Apple Silicon), R 4.5.2 — `R CMD check
-  --as-cran`, 2 NOTEs (both itemised below).
+  --as-cran`, 2-NOTE structural baseline (NOTE 1 + NOTE 2 below);
+  one additional environmental NOTE (NOTE 3) fires when the check
+  host cannot reach a network time source. Net `Status:` on the
+  current dev machine is `2 NOTEs` when networked / `3 NOTEs`
+  offline.
 - GitHub Actions matrix (committed locally — `.github/workflows/`;
   activates on first push after the D8 collective decision):
   ubuntu-latest × {R-devel, R-release, R-oldrel-1} plus R-release ×
@@ -68,6 +72,22 @@ enough HTML Tidy.
 Environmental: the local HTML Tidy binary on macOS Tahoe is older
 than the version `R CMD check` is happy with. CRAN's check farm runs
 a current Tidy, so this NOTE does not appear on CRAN itself.
+
+**NOTE 3 (environmental, only when offline) — `checking for future file timestamps`.**
+
+```
+unable to verify current time
+```
+
+`R CMD check` queries `worldclockapi.com` (or a similar network time
+source) to validate that no file in the source tarball carries a
+modification timestamp in the future. When the check host cannot
+reach that network service — offline build environment, firewalled
+CI runner, etc. — the check returns this NOTE rather than failing
+the timestamp validation. No package file actually carries a future
+timestamp on the development workstation; on a networked check host
+this NOTE does not appear. CRAN's check farm is networked, so this
+NOTE does not appear on CRAN.
 
 ## Downstream impact
 

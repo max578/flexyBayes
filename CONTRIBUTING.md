@@ -108,8 +108,11 @@ _R_CHECK_CRAN_INCOMING_REMOTE_=true R CMD check --as-cran \
 
 Expected: **Status: 2 NOTEs** baseline preserved (CRAN-incoming
 feasibility with URL 404 sub-item gated on the upstream rename
-conversation; HTML Tidy environmental). See `cran-comments.md` for
-the per-NOTE itemisation.
+conversation; HTML Tidy environmental). A third NOTE
+(`unable to verify current time`) fires on offline / firewalled
+check hosts where `R CMD check` cannot reach a network time source;
+it does not appear on networked machines or on CRAN. See
+`cran-comments.md` for the per-NOTE itemisation.
 
 #### Re-precompile vignettes
 
