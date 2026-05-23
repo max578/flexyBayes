@@ -140,12 +140,20 @@ test_that("fb_from_brms() rejects mismatched weights length", {
 # Fail-fast refusals for unsupported v0.1 features                 #
 # ---------------------------------------------------------------- #
 
-test_that("fb_from_brms() refuses random slopes (x | g) for v0.1", {
+test_that("fb_from_brms() refuses correlated random slopes (x | g) per ADR 0020", {
   d <- mk_brms_data()
-  expect_error(
+  # Uncorrelated random slopes (x || g) are now supported per ADR
+  # 0020 (covered by test-random-slopes-uncor.R); the correlated
+  # form (x | g) continues to refuse but with the new typed
+  # condition class flexybayes_correlated_slope_unsupported.
+  err <- tryCatch(
     flexyBayes:::fb_from_brms(y ~ x + (x | g), data = d),
-    "only supports random intercepts"
+    error = function(e) e
   )
+  expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
+  expect_identical(err$deferral_target, "v0.3")
+  expect_identical(err$workaround,      "(x || g)")
+  expect_true(grepl("Correlated random slopes", conditionMessage(err)))
 })
 
 test_that("fb_from_brms() refuses smoothers s() for v0.1", {
