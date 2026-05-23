@@ -75,9 +75,14 @@ lgm_gate <- function(fb,
     .lgm_check_latent_class(fb),                 # check 5
     .lgm_check_hyperparam_budget(fb),            # check 6
     .lgm_check_fixed_term_inla_support(fb),      # check 7 (ADR 0017)
-    .lgm_check_random_term_inla_support(fb),    # check 8 (ADR 0017)
-    .lgm_check_rcov_term_inla_support(fb)       # check 9 (ADR 0017)
-    # check 10 (numerical-confirm) is post-fit -- see emit_inla.
+    .lgm_check_random_term_inla_support(fb),     # check 8 (ADR 0017)
+    .lgm_check_rcov_term_inla_support(fb),       # check 9 (ADR 0017)
+    # check 10 (ADR 0019 §Decision 5) -- conditional INLA-mapping
+    # verification for the factor_numeric_interaction term class.
+    # Refuses the INLA emit path when verification has not been run
+    # or did not pass on this host.
+    .lgm_check_factor_numeric_interaction_inla_verified(fb)
+    # post-fit numerical-confirm gate -- see emit_inla.
   )
 
   failures <- Filter(function(r) !isTRUE(r$pass), checks)
@@ -488,10 +493,17 @@ print.lgm_refusal <- function(x, ...) {
 
 # Allowlist: fixed-term types that emit_inla()'s fixed-effect
 # switch() accepts. Anything else is refused at the gate with the
-# offending type named.
+# offending type named. ADR 0019 (Stage 1A, v0.2.6) adds
+# `factor_numeric_interaction` -- treatment-coded indexed slopes for
+# factor x continuous interactions -- to the allowlist. INLA's
+# native `f:x` notation handles this term shape directly for the
+# gaussian-identity case; non-gaussian cases re-route to greta per
+# the §3.4 INLA verification policy (see
+# .lgm_check_factor_numeric_interaction_inla_verified() below).
 .inla_fixed_term_type_allowlist <- function() {
   c("factor", "continuous", "interaction",
-    "factor_interaction", "expression")
+    "factor_interaction", "factor_numeric_interaction",
+    "expression")
 }
 
 # Allowlist: random-term types that emit_inla()'s random-effect
@@ -644,4 +656,78 @@ print.lgm_refusal <- function(x, ...) {
     ))
   }
   .lgm_pass("rcov_term_type_inla")
+}
+
+# Check 10 -- ADR 0019 §Decision 5 / merged-v2 §3.4 verification gate
+# for the `factor_numeric_interaction` term class.
+#
+# The fixed-term allowlist (check 7) accepts the new term class
+# structurally, but the INLA mapper for this class only ships if the
+# three-arbitrator verification test (INLA vs greta vs lme4 on a
+# gaussian-identity fixture) has passed on this host. The
+# verification artefact lives at
+# `inst/extdata/inla-verification/factor_numeric_interaction.rds`
+# and carries `pass = TRUE` only after the verification test in
+# `tests/testthat/test-factor-continuous-inla-verification.R` runs.
+#
+# If the IR contains no `factor_numeric_interaction` term, this
+# check is a trivial pass -- the gate is term-class-specific.
+.lgm_check_factor_numeric_interaction_inla_verified <- function(fb) {
+  rule_id <- "factor_numeric_interaction_inla_verified"
+  has_fni <- any(vapply(fb$fixed_terms, function(t)
+    identical(t$type, "factor_numeric_interaction"),
+    logical(1)))
+  if (!has_fni) return(.lgm_pass(rule_id))
+
+  # Probe the on-disk verification artefact. The artefact is written
+  # by tests/testthat/test-factor-continuous-inla-verification.R after
+  # a successful three-arbitrator run. Absence is treated identically
+  # to a recorded failure -- the §3.4 policy forbids silent translation
+  # of an unverified mapping.
+  verified <- .factor_numeric_interaction_inla_verified()
+  if (isTRUE(verified)) return(.lgm_pass(rule_id))
+
+  .lgm_fail(
+    rule_id,
+    paste0("factor:continuous indexed interaction INLA mapping ",
+           "deferred to v0.3 (no successful three-arbitrator ",
+           "verification artefact on this host). Re-route via ",
+           "backend = \"greta\" (treatment-coded indexed-slope emit ",
+           "ships in v0.2.6) or backend = \"brms\" (Stan ",
+           "passthrough)."),
+    diagnostic = paste0(
+      "verification artefact path: ",
+      .factor_numeric_interaction_verification_path(),
+      "; expected `pass = TRUE` on a stored ",
+      "<flexybayes_inla_verification> record.")
+  )
+}
+
+# Look up the on-disk INLA-verification artefact for the
+# factor_numeric_interaction term class. Returns TRUE iff the
+# artefact exists, is readable, and reports a passing verification
+# run; FALSE in every other case (missing, unreadable, malformed,
+# pass = FALSE).
+.factor_numeric_interaction_inla_verified <- function() {
+  path <- .factor_numeric_interaction_verification_path()
+  if (!file.exists(path)) return(FALSE)
+  rec <- tryCatch(readRDS(path), error = function(e) NULL)
+  if (is.null(rec)) return(FALSE)
+  isTRUE(rec$pass)
+}
+
+# Absolute path to the verification artefact. Lives in inst/extdata
+# so it ships with the installed package (and is reachable via
+# system.file() from the test harness). The directory is created on
+# demand by the verification test; the directory may not exist on a
+# fresh checkout, in which case .factor_numeric_interaction_inla_verified()
+# returns FALSE as expected.
+.factor_numeric_interaction_verification_path <- function() {
+  base <- system.file("extdata", "inla-verification",
+                       package = "flexyBayes",
+                       mustWork = FALSE)
+  if (!nzchar(base)) {
+    base <- file.path(tempdir(), "flexyBayes-inla-verification")
+  }
+  file.path(base, "factor_numeric_interaction.rds")
 }

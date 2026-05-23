@@ -176,6 +176,14 @@ emit_inla <- function(fb,
       "continuous"         = term$var,
       "interaction"        = paste(term$vars, collapse = ":"),
       "factor_interaction" = paste(term$vars, collapse = ":"),
+      # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed
+      # interaction. INLA's native `f:x` notation produces the same
+      # treatment-coded indexed-slope shape as base R model.matrix();
+      # the §3.4 verification gate
+      # (.lgm_check_factor_numeric_interaction_inla_verified) confirmed
+      # posterior agreement with both greta and lme4 on a gaussian-
+      # identity fixture before this branch became reachable.
+      "factor_numeric_interaction" = paste(term$vars, collapse = ":"),
       "expression"         = term$label,
       # ADR 0017: this stop() is an internal contract-violation
       # assertion. Under the new gate, .lgm_check_fixed_term_inla_support()
