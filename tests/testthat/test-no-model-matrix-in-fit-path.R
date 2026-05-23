@@ -154,7 +154,6 @@ test_that("indexed emit keeps return_code size bounded across n for random inter
 
 test_that("greta fit-time code path emits no model.matrix() call for factor:numeric interaction", {
   skip_if_no_greta()
-  skip("requires Stage 1A/1B merge into main (factor_numeric_interaction)")
   d <- mk_nomm_data()
   code <- suppressMessages(flexybayes(
     fixed         = y ~ g:x,
@@ -172,7 +171,6 @@ test_that("greta fit-time code path emits no model.matrix() call for factor:nume
 
 test_that("greta fit-time code path emits no model.matrix() call for (x || g)", {
   skip_if_no_greta()
-  skip("requires Stage 1A/1B merge into main (uncorrelated random slopes)")
   d <- mk_nomm_data()
   # fb_brms() is the brms-format ingest; the (x || g) syntax lands
   # on that entry point. The expectation is identical: indexed emit,
