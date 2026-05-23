@@ -1,3 +1,70 @@
+# flexyBayes 0.3.1
+
+## Trust Pass -- preflight + aggregation honesty hardening
+
+A focused three-phase pass on the public API's honesty contract,
+spanning the preflight layer, the aggregation taxonomy, and the
+public-facing metadata. Closes a deep review of the v0.3.0.9000
+development tip end-to-end. No user-facing API signature changes;
+every revision tightens behaviour the package already promised.
+
+**Trust bugs.** A session-level `options(flexyBayes.review_code_default
+= TRUE)` no longer slips past the unsupported-backend refusal on
+`backend = "inla"` / `"auto"` for either `flexybayes()` or `fb_brms()`
+-- option resolution now runs before the backend guard. The preflight
+refusal headline no longer claims "the design exceeds the active
+memory ceiling" when the refusal is actually
+`representation_unknown_for_preflight`; the headline now branches on
+the reason code so an unknown-representation refusal does not falsely
+send the user down the ceiling-override path.
+
+**Preflight taxonomy.** Structured-covariance random terms are split
+into known-indexed forms (`vm`, `ped`, `ar1`, `ar1_spatial`) that
+keep the tested heuristic estimator, and everything else (`at`,
+`us`, `fa`, `at_simple`, `us_gxe`, `fa_gxe`, `vm_gxe`, ...) that
+now routes to `representation_unknown_for_preflight` rather than
+silently under-estimating the design memory at large N. The previous
+"single level" fallback in `.preflight_term_level_count()` was
+replaced with `NA_integer_`; every consumer branch (structured-cov,
+random intercept, uncorrelated random slope, fixed factor, factor
+:numeric interaction) now treats an unresolvable level count as the
+signal to escalate to an unknown-representation refusal.
+
+**Aggregation refusal codes.** The Stage 3A out-of-scope taxonomy was
+renamed and aligned across the two emitters that report it:
+`.assert_aggregate_in_scope()` (the runtime gate) and
+`.fb_aggregation_plan()` (the model-level planner) now produce the
+same reason code for the same model. The previous catch-all
+`random_slope_in_scope` is replaced by three positively-named codes
+(`random_slope_not_aggregatable`, `structured_random_not_aggregatable`,
+`smooth_term_not_aggregatable`); the planner's
+`compression_data_dependent` is renamed
+`continuous_cell_key_data_dependent` for clarity.
+
+**Public-facing metadata.** The `codemeta.json` version field, the
+`cran-comments.md` build description, `SECURITY.md`, `SUPPORT.md`,
+and the README's `review_code` support row are all refreshed for
+the 0.3.x line. `API_STABILITY.md` splits the structured-covariance
+default-priors row by actual implemented behaviour (`vm`/`ped` on
+the uniform-on-SD default; `at`/`us`/`fa`/`ar1`/`spl` on the legacy
+lognormal). `CONTRIBUTING.md` documents the source-directory
+`R CMD check` footgun and recommends the build-then-check workflow.
+
+The AAGI-AUS GitHub URL declared in `DESCRIPTION` is the agreed
+forward destination; until the upstream repository rename ships,
+the CRAN-incoming feasibility check raises a sub-NOTE for the URL.
+`cran-comments.md` itemises this and the other structural NOTE
+sub-items in full.
+
+## Test coverage
+
+`PASS 1187 / FAIL 0 / SKIP 72` on `tools/tally.R` (was 1151/0/72 at
+the deep-review baseline; +36 expectations across the Trust Pass).
+9 new `test_that` blocks pin the structured-covariance preflight
+split and the renamed aggregation taxonomy; 8 ordered cases pin the
+`review_code` option-default ordering across both formula verbs.
+
+
 # flexyBayes 0.3.0.9000
 
 ## Stage 3A foundation -- exact Gaussian aggregation via sufficient statistics
