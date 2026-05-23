@@ -251,7 +251,7 @@ fb_brms <- function(formula,
 
   rcov_form <- stats::as.formula("~ units", env = environment(formula))
 
-  # ----- 2. Default-uniform prior expansion (ADR 0004) --------------
+  # ----- 2. Default-uniform prior expansion (ADR 0004 + §1.4) -------
   if (default_prior_active) {
     grp_names <- vapply(fb$random_terms,
       function(t) {
@@ -259,12 +259,21 @@ fb_brms <- function(formula,
           t$var else NA_character_
       }, character(1))
     grp_names <- grp_names[!is.na(grp_names)]
+    # AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups
+    # also receive the uniform-on-SD default (extends ADR 0004).
+    vm_ped_names <- vapply(fb$random_terms,
+      function(t) {
+        if (!is.null(t$var) && t$type %in% c("vm", "ped"))
+          t$var else NA_character_
+      }, character(1))
+    vm_ped_names <- vm_ped_names[!is.na(vm_ped_names)]
     unif_default <- .default_uniform_prior(
       data           = data,
       response       = response,
       family         = family,
       link           = link,
-      random_groups  = grp_names
+      random_groups  = grp_names,
+      vm_ped_groups  = vm_ped_names
     )
     fb$priors <- unif_default
     prior     <- unif_default

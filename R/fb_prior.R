@@ -377,15 +377,34 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
 # Construct the v0.1 default uniform prior fb_prior() for a model.
 # Bounded uniform on SD: sigma ~ uniform(0, U) and every named random
-# group's SD ~ uniform(0, U). Other variance components (smooths,
-# GBLUP, factor-analytic, structured covariance) keep the legacy
-# lognormal default until codegen support broadens in v0.2. ADR 0004
-# (design-notes-priors-brms-lgm.md) supersedes ADR 0003 (PC default).
+# group's SD ~ uniform(0, U).
+#
+# AMBITION_STAGE.md §1.4 extension (extending ADR 0004): the uniform-
+# on-SD default now also fires on vm() and ped() structured-cov
+# random terms. The two forms share the simple-RI scale derivation
+# (5 * sd(response) heuristic; identity / log / logit family-aware
+# branches via .default_uniform_scale()) because their natural
+# variance-matrix scaling is identity in the SD-on-the-Cholesky-
+# scaled-random-effect interpretation that codegen .code_random's
+# vm / ped branches use (u_<tag> = L_G %*% (z * sigma_<tag>); the
+# Cholesky absorbs G's scale and sigma is purely the residual-scale
+# multiplier). The remaining structured forms (at, us, fa, ar1)
+# still fall through to the legacy lognormal pending later v0.2.x
+# patches (each has a different natural scale -- per-level SDs for
+# at, full Cholesky for us, SD+correlation for ar1/fa -- and a
+# uniform default per form requires methodological judgement that
+# is being deferred per §1.4).
+#
+# `vm_ped_groups` is a character vector of `term$var` strings (one
+# per vm / ped random term) and is keyed identically to `random_groups`
+# in priors_to_legacy() / priors_to_inla() so the uniform_per_vc
+# entries surface through the existing dispatch.
 .default_uniform_prior <- function(data,
                                     response,
                                     family,
                                     link           = NULL,
-                                    random_groups  = character(0)) {
+                                    random_groups  = character(0),
+                                    vm_ped_groups  = character(0)) {
   scl <- .default_uniform_scale(data, response, family, link)
   specs <- list(list(
     target = list(type = "sigma"),
@@ -400,10 +419,26 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
                     args   = list(lower = 0, upper = scl$scale))
     )
   }
+  # §1.4 vm() + ped() branch. Add a separate spec per structured group
+  # so prior_summary() surfaces them distinctly from the simple-RI
+  # groups; carry a `_default_uniform_form` tag (vm / ped) so the
+  # surface can explain which structured form the spec came from.
+  for (g in unique(vm_ped_groups)) {
+    if (!nzchar(g)) next
+    sp <- list(
+      target = list(type = "sd", group = g),
+      spec   = list(family = "uniform",
+                    args   = list(lower = 0, upper = scl$scale))
+    )
+    attr(sp, "_default_uniform_form") <- "vm_or_ped"
+    specs[[length(specs) + 1L]] <- sp
+  }
   obj <- list(specs = specs)
   class(obj) <- c("fb_prior", "list")
   attr(obj, "fb_prior_default_basis") <- scl$basis
   attr(obj, "fb_prior_default_scale") <- scl$scale
+  if (length(vm_ped_groups) > 0L)
+    attr(obj, "fb_prior_default_vm_ped_groups") <- unique(vm_ped_groups)
   obj
 }
 

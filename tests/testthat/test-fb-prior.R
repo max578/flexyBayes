@@ -271,6 +271,84 @@ test_that(".default_uniform_prior() builds uniform specs scaled by 5*sd(y) (Gaus
   expect_identical(p$specs[[2]]$spec$family, "uniform")
 })
 
+# AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups gain
+# uniform-on-SD defaults (extending ADR 0004). Subtests cover the
+# class of the returned object, the scale calculation, the
+# attribute presence on the result, and that the other structured
+# forms (at, us, fa, ar1) still fall through to the legacy
+# lognormal default (unchanged in this work).
+
+test_that(".default_uniform_prior() extends to vm() + ped() per §1.4", {
+  set.seed(20260523L)
+  d <- data.frame(y = stats::rnorm(50L, sd = 2))
+  p <- flexyBayes:::.default_uniform_prior(
+    data           = d,
+    response       = "y",
+    family         = "gaussian",
+    random_groups  = character(0),
+    vm_ped_groups  = c("geno_vm", "animal_ped")
+  )
+  # Class.
+  expect_s3_class(p, "fb_prior")
+  # First spec is still sigma (residual SD).
+  expect_identical(p$specs[[1]]$target$type, "sigma")
+  # Two additional specs for vm + ped, each as sd(group = ...).
+  expect_length(p$specs, 3L)
+  expect_identical(p$specs[[2]]$target$type, "sd")
+  expect_identical(p$specs[[2]]$target$group, "geno_vm")
+  expect_identical(p$specs[[2]]$spec$family, "uniform")
+  expect_identical(p$specs[[3]]$target$group, "animal_ped")
+  expect_identical(p$specs[[3]]$spec$family, "uniform")
+  # Scale calculation: identity-link Gaussian -> 5 * sd(y).
+  expect_true(abs(p$specs[[2]]$spec$args$upper - 5 * stats::sd(d$y))
+              < 1e-9)
+  # Attribute trail: per-form marker + per-prior basis.
+  expect_identical(attr(p, "fb_prior_default_vm_ped_groups"),
+                   c("geno_vm", "animal_ped"))
+  expect_identical(attr(p, "fb_prior_default_basis"),
+                   "identity_sd_uniform")
+  expect_identical(attr(p$specs[[2]], "_default_uniform_form"),
+                   "vm_or_ped")
+  expect_identical(attr(p$specs[[3]], "_default_uniform_form"),
+                   "vm_or_ped")
+})
+
+test_that(".default_uniform_prior() handles vm/ped alone (no simple RI)", {
+  set.seed(20260524L)
+  d <- data.frame(y = stats::rnorm(40L, sd = 3))
+  p <- flexyBayes:::.default_uniform_prior(
+    data           = d,
+    response       = "y",
+    family         = "gaussian",
+    vm_ped_groups  = "geno_vm"
+  )
+  expect_length(p$specs, 2L)  # sigma + one vm group
+  expect_identical(p$specs[[2]]$target$group, "geno_vm")
+})
+
+test_that(".default_uniform_prior() leaves at/us/fa/ar1 outside its default set", {
+  set.seed(20260525L)
+  d <- data.frame(y = stats::rnorm(40L))
+  # The function takes only `random_groups` (simple/ide/id) and
+  # `vm_ped_groups` -- other structured forms are not part of the
+  # caller's enumeration in flexybayes()/fb_brms() (see code in
+  # the same files), so they continue to fall through to the
+  # legacy lognormal default at codegen time. We assert here that
+  # passing no vm_ped_groups returns only sigma + simple-RI specs.
+  p <- flexyBayes:::.default_uniform_prior(
+    data           = d,
+    response       = "y",
+    family         = "gaussian",
+    random_groups  = "g",
+    vm_ped_groups  = character(0)
+  )
+  expect_length(p$specs, 2L)  # sigma + g
+  expect_identical(p$specs[[2]]$target$type, "sd")
+  expect_identical(p$specs[[2]]$target$group, "g")
+  # No vm_ped attribute when none supplied.
+  expect_null(attr(p, "fb_prior_default_vm_ped_groups"))
+})
+
 test_that(".default_uniform_scale() picks family-aware bounds", {
   set.seed(12)
   d_g <- data.frame(y = rnorm(40, sd = 3))
