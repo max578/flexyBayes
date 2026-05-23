@@ -14,11 +14,22 @@
 #   I() expressions) -- re-parsed via the existing .parse_fixed
 #   helper for byte-identity with the asreml ingest path.
 # - Random intercepts via `(1 | g)` and `(1 || g)`.
+# - Uncorrelated random intercept + slope via `(x || g)` and the
+#   equivalent `(1 + x || g)`. Each level of g carries an
+#   independent intercept deviation AND an independent slope
+#   deviation, both drawn from their own univariate-normal priors
+#   (no correlation parameter). The explicit `(0 + x || g)` shape
+#   suppresses the intercept block (slope-only). Semantics match
+#   lme4 / brms exactly: `(x || g)` expands to
+#   `(1 | g) + (0 + x | g)`. Per ADR 0020 in
+#   design-notes-priors-brms-lgm.md; lifts the v0.2 refusal.
 # - Optional `weights` argument mapped to addition_terms with
 #   type = "weights" (mirrors fb_from_asreml).
 #
 # Refused (v0.1) -- fail-fast at ingest with a clear message:
-# - Random slopes `(x | g)` and uncorrelated slopes `(x || g)`.
+# - Correlated random slopes `(x | g)` (deferred to v0.3 / Stage 5A
+#   structured-covariance representation per ADR 0025; refuses with
+#   condition class flexybayes_correlated_slope_unsupported).
 # - Smoothers `s()`, `t2()`.
 # - Gaussian processes `gp()`.
 # - Autocorrelation `ar()`, `ma()`, `arma()`, `cosy()`, `car()`.
@@ -134,16 +145,27 @@ fb_from_brms <- function(formula,
   )
   fixed_info <- .parse_fixed(fixed_form, data)
 
-  # Translate each (1 | g) RE pair to a parse_formula.R-style
-  # term descriptor, refusing random slopes
+  # Translate each (1 | g) / (x || g) / (1 + x || g) RE pair to a
+  # parse_formula.R-style term descriptor. `(x | g)` correlated slopes
+  # raise a structured refusal (ADR 0020 §Decision 2) with a v0.3
+  # deferral pointer; everything else outside the supported set
+  # raises the legacy refusal.
   random_terms <- list()
   for (pair in walked$re_pairs) {
     rt <- .brms_re_to_fb(pair, data)
-    if (rt$type == "brms_re_unsupported")
-      stop("v0.1 brms ingest only supports random intercepts ",
-           "(1 | g) or (1 || g). Found: ", rt$deparse,
-           ". Random slopes will be added in subsequent iterations.",
-           call. = FALSE)
+    if (identical(rt$type, "brms_re_correlated_slope_unsupported"))
+      .stop_correlated_slope_unsupported(
+        grouping_factor = rt$rhs,
+        slope_variable  = rt$slope_var
+      )
+    if (identical(rt$type, "brms_re_unsupported"))
+      stop("v0.2 brms ingest does not yet support this random-effect ",
+           "specification. Found: ", rt$deparse,
+           ". Supported in v0.2.6: (1 | g), (1 || g), (x || g), ",
+           "(1 + x || g). Other forms (factor random slopes, ",
+           "multi-variable uncorrelated slopes, group-of-coefficients ",
+           "shorthand) are queued for later expansion of the brms ",
+           "ingest layer.", call. = FALSE)
     random_terms[[length(random_terms) + 1L]] <- rt
   }
 
@@ -283,7 +305,20 @@ fb_from_brms <- function(formula,
 # Translate a single brms RE pair (lhs | rhs) to a parse_formula.R
 # term descriptor.
 #
-# v0.1: only `(1 | g)` and `(1 || g)` are supported.
+# v0.2.6 supported (ADR 0020):
+#   (1 | g)        -> type = "simple"             (random intercept)
+#   (1 || g)       -> type = "simple"             (random intercept)
+#   (x || g)       -> type = "simple_slope_uncor" (intercept + slope,
+#                                                  uncorrelated; the
+#                                                  intercept is implicit
+#                                                  per lme4 / brms semantics)
+#   (1 + x || g)   -> type = "simple_slope_uncor" (with_intercept = TRUE;
+#                                                  same model as above)
+#   (0 + x || g)   -> type = "simple_slope_uncor" (with_intercept = FALSE;
+#                                                  slope-only)
+#   (x | g)        -> type = "brms_re_correlated_slope_unsupported"
+#                     (correlated slope; deferred to v0.3 per ADR 0025)
+#
 # Anything else returns a marker descriptor whose type =
 # "brms_re_unsupported" so the caller can reject with a clear
 # message.
@@ -294,12 +329,25 @@ fb_from_brms <- function(formula,
 
   group_name <- deparse(rhs)
   lhs_str    <- deparse(lhs)
-  is_one     <- (is.numeric(lhs) && length(lhs) == 1L &&
-                 isTRUE(all.equal(as.numeric(lhs), 1))) ||
-                (is.name(lhs) && as.character(lhs) == "1") ||
-                identical(lhs_str, "1")
 
-  if (is_one) {
+  is_one <- function(e) {
+    if (is.numeric(e) && length(e) == 1L &&
+        isTRUE(all.equal(as.numeric(e), 1)))
+      return(TRUE)
+    if (is.name(e) && as.character(e) == "1")
+      return(TRUE)
+    identical(deparse(e), "1")
+  }
+
+  is_simple_var <- function(e) {
+    if (!is.name(e)) return(FALSE)
+    nm <- as.character(e)
+    nm %in% names(data) && !is.factor(data[[nm]]) &&
+      !is.character(data[[nm]]) && is.numeric(data[[nm]])
+  }
+
+  # Random intercept: (1 | g) or (1 || g).
+  if (is_one(lhs)) {
     out <- list(type = "simple", var = group_name)
     if (group_name %in% names(data)) {
       f <- factor(data[[group_name]])
@@ -307,6 +355,74 @@ fb_from_brms <- function(formula,
       out$var_levels <- levels(f)
     }
     return(out)
+  }
+
+  # Intercept + slope uncorrelated: (x || g) (bare slope -- the
+  # implicit "+ 1" matches lme4 / brms semantics: see
+  # ?lme4::lFormula -- the bare-slope form is sugar for
+  # (1 | g) + (0 + x | g)). The intercept block is included by
+  # default; explicit 0 + suppresses it (handled below).
+  if (isFALSE(cor) && is_simple_var(lhs)) {
+    return(.brms_re_to_fb_slope_uncor(
+      slope_var      = as.character(lhs),
+      group_name     = group_name,
+      with_intercept = TRUE,
+      data           = data
+    ))
+  }
+
+  # `lhs ± slope` forms: (1 + x || g), (0 + x || g), (x + 1 || g).
+  # The `1` token signals the intercept block; the `0` token
+  # suppresses it. Anything else with the same shape (e.g.
+  # (x + z || g) for two slopes) falls through to the generic
+  # "brms_re_unsupported" refusal -- multi-slope (x + z || g) is
+  # queued for a later expansion of the brms ingest layer.
+  is_zero <- function(e) {
+    if (is.numeric(e) && length(e) == 1L &&
+        isTRUE(all.equal(as.numeric(e), 0))) return(TRUE)
+    if (is.name(e) && as.character(e) == "0") return(TRUE)
+    identical(deparse(e), "0")
+  }
+  if (isFALSE(cor) && is.call(lhs) &&
+      identical(lhs[[1L]], as.name("+")) && length(lhs) == 3L) {
+    left  <- lhs[[2L]]
+    right <- lhs[[3L]]
+    sv <- NULL
+    with_int <- NA
+    if (is_one(left)  && is_simple_var(right)) { sv <- as.character(right); with_int <- TRUE  }
+    if (is_one(right) && is_simple_var(left))  { sv <- as.character(left);  with_int <- TRUE  }
+    if (is_zero(left) && is_simple_var(right)) { sv <- as.character(right); with_int <- FALSE }
+    if (is_zero(right) && is_simple_var(left)) { sv <- as.character(left);  with_int <- FALSE }
+    if (!is.null(sv))
+      return(.brms_re_to_fb_slope_uncor(
+        slope_var      = sv,
+        group_name     = group_name,
+        with_intercept = with_int,
+        data           = data
+      ))
+  }
+
+  # Slope correlated: (x | g) or (1 + x | g). Refused with the
+  # structured v0.3 deferral message (ADR 0020 §Decision 2).
+  if (isTRUE(cor)) {
+    slope_var <- NA_character_
+    if (is_simple_var(lhs)) {
+      slope_var <- as.character(lhs)
+    } else if (is.call(lhs) && identical(lhs[[1L]], as.name("+")) &&
+               length(lhs) == 3L) {
+      left  <- lhs[[2L]]
+      right <- lhs[[3L]]
+      if (is_one(left)  && is_simple_var(right)) slope_var <- as.character(right)
+      if (is_one(right) && is_simple_var(left))  slope_var <- as.character(left)
+    }
+    if (!is.na(slope_var))
+      return(list(
+        type      = "brms_re_correlated_slope_unsupported",
+        lhs       = lhs_str,
+        rhs       = group_name,
+        slope_var = slope_var,
+        deparse   = paste0("(", lhs_str, " | ", group_name, ")")
+      ))
   }
 
   list(
@@ -318,4 +434,62 @@ fb_from_brms <- function(formula,
                      if (isTRUE(cor)) " | " else " || ",
                      group_name, ")")
   )
+}
+
+# Build an IR slot for an uncorrelated random-slope term. Used by
+# both (x || g) and (1 + x || g). Carries the canonical-name pieces
+# (slope_var, var) that codegen + canonical_names + emit_brms read.
+.brms_re_to_fb_slope_uncor <- function(slope_var,
+                                        group_name,
+                                        with_intercept,
+                                        data) {
+  out <- list(
+    type           = "simple_slope_uncor",
+    var            = group_name,
+    slope_var      = slope_var,
+    with_intercept = isTRUE(with_intercept)
+  )
+  if (group_name %in% names(data)) {
+    f <- factor(data[[group_name]])
+    out$var_n      <- nlevels(f)
+    out$var_levels <- levels(f)
+  }
+  if (slope_var %in% names(data))
+    out$slope_var_values <- as.numeric(data[[slope_var]])
+  out
+}
+
+# Raise the ADR 0020 §Decision 2 structured refusal for (x | g).
+# The custom condition class flexybayes_correlated_slope_unsupported
+# carries the grouping factor, slope variable, deferral target, and
+# workaround so downstream tooling can pattern-match on the slots
+# without parsing free text.
+.stop_correlated_slope_unsupported <- function(grouping_factor,
+                                                slope_variable) {
+  msg <- paste0(
+    "Correlated random slopes (x | g) are not yet supported in v0.2.6.\n",
+    "Uncorrelated random slopes (x || g) are supported -- they fit the\n",
+    "marginal slope and intercept variances independently and are equivalent\n",
+    "to the correlated form when the correlation is small.\n\n",
+    "If your model needs the correlation parameter, defer to v0.3 (Stage 5A\n",
+    "structured-covariance representation; tracked in plan-indexing-bigdata-\n",
+    "merged-2026-05-23-v2.md \u00a73.3 ADR 0025).\n\n",
+    "Workaround: re-fit as (x || g) if the correlation is not of inferential\n",
+    "interest, or use backend = \"greta\" via fb_brms() with a hand-rolled\n",
+    "covariance prior.\n\n",
+    "Got: (", slope_variable, " | ", grouping_factor, ")"
+  )
+  cond <- structure(
+    class = c("flexybayes_correlated_slope_unsupported",
+              "error", "condition"),
+    list(
+      message          = msg,
+      call             = NULL,
+      grouping_factor  = grouping_factor,
+      slope_variable   = slope_variable,
+      deferral_target  = "v0.3",
+      workaround       = "(x || g)"
+    )
+  )
+  stop(cond)
 }
