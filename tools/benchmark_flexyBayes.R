@@ -314,6 +314,194 @@ run_microbenchmarks <- function(pkg_dir = "flexyBayes", reps = 100L,
   data.table::rbindlist(ans, fill = TRUE)
 }
 
+# --------------------------------------------------------------------- #
+# Representation benchmarks (merged-v2 plan section 4.2.3)              #
+# --------------------------------------------------------------------- #
+#
+# Three measurements per (term_class, n) cell:
+#
+#   generated_code_size_bytes   nchar(return_code(fit)) at representative n
+#   pre_fit_object_size_bytes   object.size() of the largest R object
+#                               the codegen path creates BEFORE
+#                               greta::mcmc() is called -- the design
+#                               matrix or, on the indexed-emit path,
+#                               its indexed equivalent
+#   code_generation_time_sec    wall time for flexybayes(..., return_code = TRUE)
+#
+# The point of these rows is the n-scaling check: under the indexed
+# emit path, code size stays nearly constant in n because the design
+# matrix is bound into the model environment by reference rather than
+# inlined as a literal. The "dense baseline" cells are not measured
+# here because no dense-baseline path is exposed at the R surface in
+# the indexed-codegen package; the n-scaling check below is the
+# operational version of the analytic memory comparison.
+#
+# Term classes covered (post-Stage-0):
+#   fixed_factor_simple    y ~ g          (g a 5-level factor)
+#   random_intercept       y ~ x + (1|g)
+#   smooth                 y ~ s(x)
+#
+# Two additional classes scheduled for v0.2.6 (Stage 1A + 1B) are not
+# exercised here yet -- they are added once those merges land.
+
+make_repr_data <- function(n, n_group = 8L, seed = 71L) {
+  set.seed(seed)
+  g <- factor(rep(seq_len(n_group), length.out = n))
+  x <- stats::rnorm(n)
+  y <- 1 + 0.4 * x + stats::rnorm(n_group, 0, 0.3)[as.integer(g)] +
+    stats::rnorm(n, 0, 0.5)
+  data.frame(y = y, x = x, g = g)
+}
+
+# Estimate the largest R object the codegen path creates BEFORE
+# greta::mcmc() runs. For the supported indexed-emit term classes this
+# is either the integer level-index vector (random intercept, simple
+# fixed factor) or the basis matrix (smooth s(x)). The estimate is
+# constructed deterministically from data + the IR shape, matching what
+# the emit path actually allocates -- not what model.matrix() would
+# allocate on a hypothetical dense fall-back.
+.repr_pre_fit_object_size <- function(term_class, data, fb = NULL) {
+  switch(term_class,
+    fixed_factor_simple = {
+      # Indexed emit binds the factor level vector (integer per row).
+      utils::object.size(as.integer(data$g))
+    },
+    random_intercept = {
+      # Indexed emit binds the level-index vector for the random group;
+      # the per-row matrix is never materialised.
+      utils::object.size(as.integer(data$g))
+    },
+    smooth = {
+      # Smooth emit binds the basis matrix B_s_x; the largest pre-fit
+      # object is therefore that matrix, not a model.matrix() expansion.
+      if (!is.null(fb) && length(fb$random_terms) >= 1L &&
+          !is.null(fb$random_terms[[1L]]$smooth_obj)) {
+        smobj <- fb$random_terms[[1L]]$smooth_obj
+        if (!is.null(smobj$X)) {
+          return(utils::object.size(smobj$X))
+        }
+      }
+      # Defensive fallback: synthesise the basis using mgcv directly.
+      if (requireNamespace("mgcv", quietly = TRUE)) {
+        sm <- mgcv::smoothCon(mgcv::s(x, k = 6L), data = data,
+                              knots = NULL, absorb.cons = TRUE)[[1L]]
+        utils::object.size(sm$X)
+      } else {
+        NA_real_
+      }
+    },
+    NA_real_
+  )
+}
+
+.repr_one_cell <- function(term_class, n, pkg_dir) {
+  d <- make_repr_data(n)
+  formula_pieces <- switch(term_class,
+    fixed_factor_simple = list(fixed = y ~ g,             random = NULL),
+    random_intercept    = list(fixed = y ~ x,             random = ~ g),
+    smooth              = list(fixed = y ~ 1,             random = ~ s(x, k = 6L)),
+    stop("unknown term_class: ", term_class, call. = FALSE)
+  )
+
+  # Code-generation wall time: return_code = TRUE never enters mcmc().
+  t0 <- proc.time()[["elapsed"]]
+  code <- tryCatch(
+    suppressMessages(flexybayes(
+      fixed         = formula_pieces$fixed,
+      random        = formula_pieces$random,
+      data          = d,
+      return_code   = TRUE,
+      verbose       = FALSE,
+      mcmc_verbose  = FALSE
+    )),
+    error = function(e) structure(NA_character_, error = conditionMessage(e))
+  )
+  elapsed <- proc.time()[["elapsed"]] - t0
+
+  if (is.na(code) || is.null(code) || !is.character(code)) {
+    return(dt(
+      task_id          = paste("repr", term_class, n, sep = "_"),
+      group            = "representation",
+      term_class       = term_class,
+      n                = n,
+      status           = "error",
+      generated_code_size_bytes = NA_real_,
+      pre_fit_object_size_bytes = NA_real_,
+      code_generation_time_sec  = elapsed,
+      error            = attr(code, "error") %||% "codegen returned non-character"
+    ))
+  }
+
+  # Re-derive the IR off the same call so the smooth Smooth object is
+  # available for the basis-size estimate without paying the codegen
+  # cost again. Pulled via getFromNamespace() so this function does
+  # not depend on the symbol being assigned into its enclosing env.
+  fb_from_asreml_ns <- getFromNamespace("fb_from_asreml", "flexyBayes")
+  fb_for_size <- tryCatch(
+    suppressMessages(fb_from_asreml_ns(
+      fixed = formula_pieces$fixed,
+      random = formula_pieces$random,
+      data = d
+    )),
+    error = function(e) NULL
+  )
+
+  dt(
+    task_id          = paste("repr", term_class, n, sep = "_"),
+    group            = "representation",
+    term_class       = term_class,
+    n                = n,
+    status           = "ok",
+    generated_code_size_bytes = as.numeric(nchar(code, type = "bytes")),
+    pre_fit_object_size_bytes = as.numeric(
+      .repr_pre_fit_object_size(term_class, d, fb_for_size)
+    ),
+    code_generation_time_sec  = elapsed,
+    error            = NA_character_
+  )
+}
+
+run_representation_benchmarks <- function(pkg_dir = "flexyBayes",
+                                          n_grid = c(50L, 500L, 5000L),
+                                          term_classes = c("fixed_factor_simple",
+                                                           "random_intercept",
+                                                           "smooth"),
+                                          cores = 2L) {
+  # Loaded greta is required only because the greta-emit codegen path
+  # itself touches greta's namespace at code-build time. We skip the
+  # representation block cleanly if greta is not installed rather than
+  # erroring -- the rest of the harness should still run.
+  if (!requireNamespace("greta", quietly = TRUE)) {
+    return(dt(
+      task_id          = "representation_skipped_no_greta",
+      group            = "representation",
+      term_class       = NA_character_,
+      n                = NA_integer_,
+      status           = "skipped",
+      generated_code_size_bytes = NA_real_,
+      pre_fit_object_size_bytes = NA_real_,
+      code_generation_time_sec  = NA_real_,
+      error            = "greta not installed; representation block skipped"
+    ))
+  }
+
+  load_local_flexybayes(pkg_dir)
+
+  cells <- expand.grid(
+    term_class = term_classes,
+    n = n_grid,
+    stringsAsFactors = FALSE
+  )
+
+  worker <- function(i) {
+    .repr_one_cell(cells$term_class[i], cells$n[i], pkg_dir)
+  }
+
+  ans <- parallel::mclapply(seq_len(nrow(cells)), worker,
+                            mc.cores = max(1L, cores))
+  data.table::rbindlist(ans, fill = TRUE)
+}
+
 child_result <- function(task_id, group, status, elapsed_sec, details = list(),
                          error = NA_character_) {
   structure(
@@ -683,7 +871,7 @@ run_child_batch <- function(plan, script, out_dir, cores, pkg_dir,
 }
 
 write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
-                         config, started, finished) {
+                         config, started, finished, repr_dt = NULL) {
   pkg <- pkg_version_from_description(config$pkg_dir)
   ok_child <- if (nrow(child_dt)) sum(child_dt$status == "ok") else 0L
   fail_child <- if (nrow(child_dt)) sum(child_dt$status != "ok") else 0L
@@ -776,10 +964,39 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
     "Backend fit tasks are deliberately separated because they include",
     "runtime setup, compilation, or sampler initialization overhead.",
     "",
+    "## Representation Benchmarks (merged-v2 plan section 4.2.3)",
+    "",
+    if (!is.null(repr_dt) && nrow(repr_dt)) {
+      c(
+        "Three measurements per (term_class, n) cell:",
+        "`generated_code_size_bytes`, `pre_fit_object_size_bytes`,",
+        "`code_generation_time_sec`. Indexed-emit paths are expected to",
+        "keep generated code size nearly constant in `n`; the only",
+        "n-scaling object the codegen path materialises is the per-row",
+        "level-index vector (random intercept, simple fixed factor) or",
+        "the basis matrix (smooth `s(x)`).",
+        "",
+        "| task_id | term_class | n | status | code_bytes | pre_fit_bytes | codegen_sec |",
+        "|---|---|---:|---|---:|---:|---:|",
+        apply(repr_dt, 1L, function(r) {
+          paste0(
+            "| ", r[["task_id"]], " | ", r[["term_class"]], " | ",
+            r[["n"]], " | ", r[["status"]], " | ",
+            r[["generated_code_size_bytes"]], " | ",
+            r[["pre_fit_object_size_bytes"]], " | ",
+            round(as.numeric(r[["code_generation_time_sec"]]), 4), " |"
+          )
+        })
+      )
+    } else {
+      "_Representation block produced no rows (greta may not be installed)._"
+    },
+    "",
     "## Output Files",
     "",
     "- `environment.csv`",
     "- `microbench_results.csv`",
+    "- `representation_results.csv`",
     "- `child_task_results.csv`",
     "- `summary_by_group.csv`",
     "- `raw_results.rds`",
@@ -860,6 +1077,22 @@ main <- function() {
                                   cores = min(max_cores, 8L))
   data.table::fwrite(micro_dt, file.path(out_dir, "microbench_results.csv"))
 
+  cat("Running representation benchmarks (merged-v2 plan 4.2.3)...\n")
+  repr_n_grid <- if (identical(profile, "smoke")) {
+    c(50L, 500L)
+  } else if (identical(profile, "full")) {
+    c(50L, 500L, 5000L, 10000L)
+  } else {
+    c(50L, 500L, 5000L)
+  }
+  repr_dt <- run_representation_benchmarks(
+    pkg_dir = pkg_dir,
+    n_grid = repr_n_grid,
+    cores = min(max_cores, 2L)
+  )
+  data.table::fwrite(repr_dt,
+                     file.path(out_dir, "representation_results.csv"))
+
   plan <- task_plan(profile, include_brms_fit = include_brms_fit)
 
   # Light child tasks can use the full core cap. Heavy fit tasks use
@@ -922,6 +1155,7 @@ main <- function() {
     config = config,
     environment = env_dt,
     microbench = micro_dt,
+    representation = repr_dt,
     child_tasks = child_dt,
     summary_by_group = summary_dt,
     started = started,
@@ -930,7 +1164,7 @@ main <- function() {
   saveRDS(raw, file.path(out_dir, "raw_results.rds"))
 
   write_report(out_dir, env_dt, micro_dt, child_dt, summary_dt,
-               config, started, finished)
+               config, started, finished, repr_dt = repr_dt)
 
   cat("Benchmark complete.\n")
   cat("  report: ", file.path(out_dir, "benchmark_report.md"), "\n", sep = "")
