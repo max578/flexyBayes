@@ -2,9 +2,15 @@
 #
 # Wraps a data.frame / data.table in a list-shaped S3 object
 # `<fb_dataset>` carrying:
-#   $data         the underlying data.table (in-place if input was a
-#                 data.table; converted via as.data.table() if input
-#                 was a data.frame; NULL for the metadata-only path)
+#   $data         the underlying data.table -- always a copy of user
+#                 input (`data.table::copy()` when the input is already
+#                 a data.table; `data.table::as.data.table()` when the
+#                 input is a data.frame). NULL for the metadata-only
+#                 path. The copy is intentional: the wrapper guarantees
+#                 that downstream emit / aggregation paths cannot
+#                 mutate caller-supplied data. At large N, callers
+#                 who need zero-copy should use the metadata-only path
+#                 (data = NULL with n_rows / col_types / dictionaries).
 #   $dictionaries named list of stable factor-level dictionaries (per
 #                 factor / character column, ordered character vector
 #                 of levels frozen at wrap time; chunked-prediction
@@ -16,9 +22,13 @@
 #                 "character", "logical", or fall-through class[1])
 #   $origin       "data.frame" | "data.table" | "metadata-only"
 #
-# Internal-only at v0.3.0: no `@export` tag on the constructor; no
-# man page generated. Export is gated on at least two downstream
-# workflows (Stage 3A aggregation + Stage 3B chunked predict)
+# Internal-only at v0.3.0: no `@export` tag on the constructor itself.
+# The S3 `print` / `format` methods (registered for diagnostic dispatch
+# from refusal messages and `review_code` summaries) carry generated
+# `.Rd` entries -- their output format is internal-grade and may change
+# without a deprecation cycle (see API_STABILITY.md, "Internal-but-S3-
+# visible diagnostics"). Constructor export is gated on at least two
+# downstream workflows (Stage 3A aggregation + Stage 3B chunked predict)
 # stabilising the contract.
 #
 # Metadata-only path (`data = NULL`): caller supplies n_rows,

@@ -1,4 +1,117 @@
-# flexyBayes 0.2.6.9000
+# flexyBayes 0.3.0.9000
+
+## Stage 3A foundation -- exact Gaussian aggregation via sufficient statistics
+
+Internal `.fb_aggregate_gaussian()` collapses a per-row Gaussian-identity
+mixed model into one row per cell, where a cell is the maximal subset of
+observations sharing the same linear-predictor value. Three sufficient
+statistics per cell (`n_k`, `S1_k = sum(y)`, `S2_k = sum(y^2)`) carry
+all the information the Gaussian-identity log-likelihood needs.
+
+The implementation is foundation-only at this release: the algebraic
+correctness gate landed, the backend emit path is not yet wired. A
+property-based test draws twenty random in-scope intermediate
+representations across three N scales (100, 500, 2000) with random
+coefficients and confirms that the aggregated log-likelihood matches the
+raw per-row form to relative error below `1e-12` in every case. The
+biased cell-mean shortcut is exposed only so the same test can confirm
+a regression would be caught.
+
+The scope envelope refuses (typed condition
+`flexybayes_aggregate_out_of_scope`) on: non-Gaussian family,
+non-identity link, smooth fixed-effect term, or any random slope --
+all of which break the cell-constant linear predictor.
+
+Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
+the greta / INLA aggregated emit path and the `$exactness` slot.
+
+## Stage 3A foundation -- memory shape correction + model-level plan
+
+Two follow-up changes to the Stage 3A foundation surfaced by the
+2026-05-23 audit:
+
+- `<fb_aggregated>$design_matrix` (the full `N x p` per-row design
+  matrix) is replaced by `$cell_design` (the `K x p` per-cell form).
+  The aggregated emit path only needs the per-cell linear predictor;
+  carrying the per-row matrix defeated the compression contract at
+  large `N` and was not an implementation shape compatible with the
+  10M-100M-row roadmap. Per-row equivalence verification (the
+  bit-exact log-likelihood gate) now rebuilds the per-row design
+  locally via `stats::model.matrix()`.
+
+- New internal `.fb_aggregation_plan()` returning a model-level
+  `<fb_aggregation_plan>` with seven slots: `eligible`,
+  `reason_codes`, `cell_key_terms`, `requires_materialisation`,
+  `K_est`, `N`, `compression_est`. The plan reads only IR + dataset
+  metadata; no design materialised. `.fb_preflight()` attaches the
+  plan to its result for diagnostic visibility. The plan is
+  informational at v0.3.0.9000: the per-term
+  `aggregated_likelihood_candidate` flag remains the dispatcher
+  contract through v0.3.1. In v0.3.2 the plan supersedes per-term
+  flags as the dispatch input when the aggregated emit path lands.
+
+  Productivity threshold: `K_est / N <= 0.5` (at least 2:1 compression
+  expected from metadata). Below the threshold the plan reports
+  `eligible = TRUE`; above it reports
+  `reason_codes = "compression_unproductive"`. Continuous fixed
+  terms make the cell count data-dependent (cannot estimate from
+  metadata) and the plan reports
+  `reason_codes = "compression_data_dependent"`.
+
+## Preflight hardening -- smooth/spline estimators + unknown-term refusal
+
+The Stage 2 preflight layer now characterises every term class the
+asreml and brms parsers can emit. Five new branches:
+
+- Mgcv smooth terms (`s(x)`, `smooth_mgcv` in the IR) on either side
+  of the formula: dense `N x k` basis estimate using the resolved
+  `term$k` from `mgcv::smoothCon()`. Previously parser-emitted smooths
+  fell through to a single-column estimate -- a factor-of-`k`
+  under-estimate that could let a large smooth model pass preflight
+  when the actual basis exceeded the ceiling.
+- P-spline terms (`spl(x)`): dense `N x df` basis with `df = 8`
+  matching the codegen default.
+- Factor:factor interactions: dense treatment-coded `N x (prod(L) - 1)`
+  estimate; the audit-named high-cardinality scary case.
+- Factor:continuous interactions (ADR 0019 indexed slope): integer
+  index column + continuous column + `(L - 1)` per-level slope
+  coefficients.
+- Polynomial terms (`pol(x, d)`): dense `N x d` basis.
+
+The fixed and random fallthrough branches no longer record a
+single-dense-column estimate framed as "conservative lower bound" --
+a lower bound is the opposite of conservative for a refusal gate.
+Unrecognised term classes now flag the per-term entry with
+`unknown_representation = TRUE` and the top-level preflight returns a
+typed `flexybayes_preflight_refusal` with
+`reason_code = "representation_unknown_for_preflight"` carrying the
+binding term label. Structured-covariance random terms (`vm`, `ped`,
+`fa`, `us`, `at`, `ar1`, `nested`, etc.) remain estimated via the
+indexed-representation heuristic and are now labelled
+`representation_class = "indexed_structured_estimate"` with a header
+note that production fits at large `N` should set `memory_ceiling_gb`
+explicitly rather than relying on the default.
+
+## Behaviour change -- default RAM fraction lowered from 80% to 60%
+
+The default design-memory ceiling is now `60%` of system RAM (was
+`80%`). This is conservative for shared workstations, CI runners, and
+interactive laptops where the user expects the rest of the machine to
+remain responsive under load. A new global option
+`flexyBayes.preflight_ram_fraction` exposes the fraction for per-host
+tuning:
+
+```r
+options(flexyBayes.preflight_ram_fraction = 0.5)   # tighter
+options(flexyBayes.preflight_ram_fraction = 0.9)   # looser, single-user host
+```
+
+The fraction is validated as `(0, 1]`. The 8 GiB fallback (used when
+neither the `benchmarkme` nor the `memuse` RAM probe is installed)
+is unaffected -- the fallback is already a conservative absolute
+floor.
+
+# flexyBayes 0.3.0
 
 ## Stage 2 design-memory preflight
 
@@ -35,6 +148,8 @@ The `aggregated_likelihood_candidate` flag on each per-term entry is
 a forward-looking promise to the gaussian-identity aggregated
 backend path; the flag has no runtime effect at v0.3.0 (no
 aggregation runs yet) but is consumed by later stages.
+
+# flexyBayes 0.2.6
 
 ## Correctness fix -- factor:continuous interaction (ADR 0019)
 

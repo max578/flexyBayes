@@ -244,9 +244,11 @@
               fb$data_summary$n >= threshold))
     return(NULL)
   # Optional global ceiling override -- lets the user set a stricter
-  # cap than 0.8 x RAM (e.g. on a shared host) without passing an
-  # argument through every dispatch entry. NULL falls back to the
-  # default RAM-probe resolution inside .fb_preflight().
+  # cap than the default 60% x RAM (e.g. on a shared host) without
+  # passing an argument through every dispatch entry. NULL falls back
+  # to the default RAM-probe resolution inside .fb_preflight(). The
+  # related option `flexyBayes.preflight_ram_fraction` adjusts the
+  # default fraction multiplicatively (audit P2.3, 2026-05-23).
   pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
   pf_dataset <- .fb_dataset(data)
   pf_result  <- .fb_preflight(fb, pf_dataset,
