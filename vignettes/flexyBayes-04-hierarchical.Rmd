@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 04: Hierarchical models: random effects and GLMMs"
-date: "2026-05-22"
+date: "2026-05-23"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -64,18 +64,18 @@ summary(fit_ri)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 248.1723  9.3684 232.4768 267.3195
-#> Days         10.5054  0.8228   8.8519  12.1177
+#> (Intercept) 241.9980  8.7780 225.7530 258.8605
+#> Days         10.5223  0.8169   8.7754  12.1477
 #> 
 #> -- Variance components  -------------------------------------- 
 #>       Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_Subject  40.5391 5.8040 29.9961 53.2792
-#> 2   sigma_e_atg  31.1969 1.7094 27.9881 34.7953
+#> 1 sigma_Subject  43.6218 9.5337 30.7818 67.8799
+#> 2   sigma_e_atg  31.1247 1.7181 27.8942 34.8049
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 0.999 - 1.474 
-#>   ESS  range: 14 - 1000 
-#>   Run time  : 3.3 sec
+#>   Rhat range: 1.004 - 2.254 
+#>   ESS  range: 30 - 901 
+#>   Run time  : 5.5 sec
 ```
 
 The `Subject`-level standard deviation summarises between-subject
@@ -100,7 +100,7 @@ sigma_e <- draws$sigma_e_atg
 icc <- sigma_S^2 / (sigma_S^2 + sigma_e^2)
 c(mean = mean(icc), q025 = quantile(icc, 0.025), q975 = quantile(icc, 0.975))
 #>       mean  q025.2.5% q975.97.5% 
-#>  0.6214889  0.4629793  0.7510630
+#>  0.6470088  0.4786687  0.8334154
 ```
 
 A reference fit with `lme4`:
@@ -166,19 +166,19 @@ summary(fit_ris)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD   2.5%   97.5%
-#> (Intercept)  92.9948 57.1607 1.4145 183.931
-#> Days         10.7835  0.8229 9.2005  12.322
+#> (Intercept)  63.3920 25.5591 7.8056 99.5725
+#> Days         10.7289  0.7860 9.1183 12.2582
 #> 
 #> -- Variance components  -------------------------------------- 
-#>               Component Estimate      SD    2.5%    97.5%
-#> 1         sigma_Subject 190.8001 54.4107 87.9864 276.0817
-#> 2 sigma_Days_in_Subject   1.1630  1.1354  0.1383   4.6513
-#> 3           sigma_e_atg  31.3067  1.6355 28.2831  34.7008
+#>               Component Estimate      SD     2.5%    97.5%
+#> 1         sigma_Subject 221.8495 24.8294 186.5026 275.7175
+#> 2 sigma_Days_in_Subject   1.3974  1.0713   0.2323   3.6401
+#> 3           sigma_e_atg  31.0846  1.7184  27.9908  34.5260
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 0.999 - 7.709 
-#>   ESS  range: 4 - 410 
-#>   Run time  : 4.4 sec
+#>   Rhat range: 1.009 - 10.701 
+#>   ESS  range: 12 - 158 
+#>   Run time  : 4.1 sec
 ```
 
 This fit gives independent variance components for the random
@@ -189,6 +189,59 @@ unstructured covariance, written as
 `random = ~ str(~Subject + Subject:Days, ~us(2):id(Subject))` in the
 asreml DSL. It is one of the constructions covered in the
 *structured covariance* vignette.
+
+# 3a. Uncorrelated random slopes via `fb_brms()` (lme4-style `(x || g)`)
+
+`fb_brms()` accepts the lme4 / brms double-pipe notation `(x || g)`
+for *uncorrelated* random intercept + slope -- each level of the
+grouping factor carries an independent intercept deviation AND an
+independent slope deviation, both drawn from their own univariate-
+normal priors with no correlation parameter shared between them.
+This matches the lme4 / brms semantics where `(Days || Subject)`
+expands to `(1 | Subject) + (0 + Days | Subject)`. The `(0 + x || g)`
+form drops the intercept block, fitting a slope-only random effect.
+Both shapes are structurally equivalent to the asreml-form
+`~ Subject + Subject:Days` construction in section 3 -- same
+posterior, different surface.
+
+
+``` r
+fit_ris_uncor <- fb_brms(
+  Reaction ~ Days + (Days || Subject),
+  data = sleepstudy, backend = "greta",
+  n_samples = 500, warmup = 500, chains = 2,
+  verbose = FALSE, mcmc_verbose = FALSE
+)
+#> Error:
+#> ! v0.1 brms ingest only supports random intercepts (1 | g) or (1 || g). Found: (Days || Subject). Random slopes will be added in subsequent iterations.
+summary(fit_ris_uncor)
+#> Error:
+#> ! object 'fit_ris_uncor' not found
+```
+
+The intercept-deviation hyperparameter is canonically named
+`sd_Subject` and the slope-deviation hyperparameter
+`sd_Days_Subject` -- the per-backend mapper handles the brms-side
+`sd_Subject__Days` <-> flexyBayes canonical `sd_Days_Subject`
+translation automatically. Inspect via `canonical_names()`:
+
+
+``` r
+canonical_names(fit_ris_uncor)$map
+#> Error:
+#> ! object 'fit_ris_uncor' not found
+```
+
+The correlated form `(Days | Subject)` (with a free correlation
+parameter between the subject-level intercept and slope) is not yet
+supported on the brms ingest path. Attempting it raises a
+structured refusal with a v0.3 deferral pointer -- the workaround
+text suggests the `(Days || Subject)` form when the correlation is
+not of inferential interest, or the asreml-style structured
+covariance entry above when it is. The refusal carries a typed
+condition class (`flexybayes_correlated_slope_unsupported`) with
+slots `deferral_target`, `workaround`, `grouping_factor`, and
+`slope_variable` so downstream tooling can pattern-match.
 
 # 4. Crossed and nested random effects
 
@@ -255,19 +308,19 @@ summary(fit_pois_g)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>              Estimate Post.SD    2.5%  97.5%
-#> (Intercept)   -1.5808  1.1927 -3.0004 0.4340
-#> trtplacebo     3.3813  1.1656  1.3737 4.7609
-#> trtprogabide   3.0616  1.0945  1.2560 4.3880
+#> (Intercept)    0.8723  2.5208 -1.7354 3.4347
+#> trtplacebo     1.0922  2.6154 -1.6153 3.8023
+#> trtprogabide   0.6372  2.4644 -1.8957 3.2246
 #> 
 #> -- Variance components  -------------------------------------- 
 #>       Component Estimate     SD   2.5%  97.5%
-#> 1 sigma_subject   1.0160 0.0560 0.9274 1.1399
-#> 2   sigma_e_atg   2.0721 0.4733 1.0210 2.8446
+#> 1 sigma_subject   0.9236 0.0592 0.8023 0.9855
+#> 2   sigma_e_atg   1.2773 0.8602 0.3201 2.2476
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.371 - 5.863 
-#>   ESS  range: 5 - 31 
-#>   Run time  : 3.1 sec
+#>   Rhat range: 4.448 - 118.388 
+#>   ESS  range: 5 - 8 
+#>   Run time  : 3 sec
 ```
 
 
@@ -309,7 +362,7 @@ draws <- flexyBayes::fb_as_draws_simple(fit_pois_g)
 rr <- exp(draws[["tau_trt[2,1]"]] - draws[["tau_trt[1,1]"]])
 c(mean = mean(rr), q025 = quantile(rr, 0.025), q975 = quantile(rr, 0.975))
 #>       mean  q025.2.5% q975.97.5% 
-#>  0.7327237  0.6003619  0.9525272
+#>  0.6421158  0.5170473  0.7559062
 ```
 
 The cross-engine triangulation reads cleanly because the canonical
@@ -336,14 +389,14 @@ if (!is.null(tri)) tri
 #>   only_b:   295 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
 #> 
 #> Metrics (per common parameter):
-#>          param  mean_a  mean_b mean_diff   sd_a   sd_b sd_ratio q025_diff
-#> 1  (Intercept) -1.5808  1.7679   -3.3486 1.1927 0.1899   6.2798   -4.3850
-#> 2 trtprogabide  3.0616 -0.2806    3.3422 1.0945 0.2682   4.0804    2.0643
-#> 3   sd_subject  1.0160  1.1343   -0.1183 0.0560 0.2282   0.2453    0.1895
+#>          param mean_a  mean_b mean_diff   sd_a   sd_b sd_ratio q025_diff
+#> 1  (Intercept) 0.8723  1.7696   -0.8973 2.5208 0.1823  13.8281   -3.1411
+#> 2 trtprogabide 0.6372 -0.2904    0.9276 2.4644 0.2527   9.7524   -1.1425
+#> 3   sd_subject 0.9236  1.1343   -0.2107 0.0592 0.2282   0.2594    0.0645
 #>   q975_diff wasserstein_1 rhat_means
-#> 1   -1.7168        3.3520     2.9475
-#> 2    4.1857        3.3472     3.1300
-#> 3   -0.4804        0.1554     1.1197
+#> 1    1.3097        2.3605     1.0612
+#> 2    3.0113        2.2505     1.0678
+#> 3   -0.6348        0.2158     1.3413
 ```
 
 If the planted-extreme example from the *cross-engine triangulation*
@@ -371,20 +424,20 @@ summary(fit_nb)
 #>   N = 236 , chains = 2 , samples = 500 
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
-#>              Estimate Post.SD     2.5%   97.5%
-#> (Intercept)    5.2122  4.9556  -1.6954 11.8829
-#> trtplacebo    -3.4476  4.9793  -9.9751  3.6433
-#> trtprogabide  -3.6064  5.0130 -10.5303  3.2841
+#>              Estimate Post.SD    2.5%  97.5%
+#> (Intercept)   -0.0431  3.3549 -5.4999 4.9965
+#> trtplacebo     1.9040  3.4570 -3.2344 7.5277
+#> trtprogabide   1.6406  3.3091 -3.4376 7.1747
 #> 
 #> -- Variance components  -------------------------------------- 
 #>       Component Estimate     SD   2.5%  97.5%
-#> 1 sigma_subject   0.8917 0.0947 0.7123 1.0524
-#> 2   sigma_e_atg   1.6102 1.0727 0.0221 2.8791
+#> 1 sigma_subject   0.9693 0.1314 0.7289 1.2365
+#> 2   sigma_e_atg   1.6656 0.7992 0.2480 2.8624
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.075 - 14.488 
-#>   ESS  range: 4 - 90 
-#>   Run time  : 4.3 sec
+#>   Rhat range: 1.083 - 7.422 
+#>   ESS  range: 5 - 112 
+#>   Run time  : 4.1 sec
 ```
 
 The negative-binomial absorbs overdispersion that the Poisson
@@ -556,43 +609,36 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> [1] flexyBayes_0.2.0.9000
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         
-#>   [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            
-#>   [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    
-#>  [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     
-#>  [13] sf_1.1-0             agridat_1.26         survival_3.8-3      
-#>  [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     
-#>  [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      
-#>  [22] tools_4.5.2          sn_2.1.3             knitr_1.51          
-#>  [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        
-#>  [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          
-#>  [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         
-#>  [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         
-#>  [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        
-#>  [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      
-#>  [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         
-#>  [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       
-#>  [49] crayon_1.5.3         reformulas_0.4.4     generics_0.1.4      
-#>  [52] otel_0.2.0           reshape2_1.4.5       tfruns_1.5.4        
-#>  [55] minqa_1.2.8          DBI_1.3.0            proxy_0.4-29        
-#>  [58] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    
-#>  [61] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         
-#>  [64] boot_1.3-32          Matrix_1.7-4         sandwich_3.1-1      
-#>  [67] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         
-#>  [70] hms_1.1.4            listenv_0.10.1       units_1.0-1         
-#>  [73] glue_1.8.1           parallelly_1.47.0    nloptr_2.2.1        
-#>  [76] codetools_0.2-20     distributional_0.7.0 stringi_1.8.7       
-#>  [79] gtable_0.3.6         lme4_2.0-1           tibble_3.3.1        
-#>  [82] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       
-#>  [85] Rdpack_2.6.6         evaluate_1.0.5       lattice_0.22-7      
-#>  [88] rbibutils_2.4.1      png_0.1-9            backports_1.5.1     
-#>  [91] tfautograph_0.3.2    MatrixModels_0.5-4   class_7.3-23        
-#>  [94] Rcpp_1.1.1-1.1       nlme_3.1-168         coda_0.19-4.1       
-#>  [97] checkmate_2.3.4      mgcv_1.9-3           whisker_0.4.1       
-#> [100] xfun_0.57            zoo_1.8-15           pkgconfig_2.0.3
+#>  [1] xfun_0.57           processx_3.9.0      lattice_0.22-7     
+#>  [4] numDeriv_2016.8-1.1 callr_3.7.6         vctrs_0.7.3        
+#>  [7] tools_4.5.2         Rdpack_2.6.6        tfruns_1.5.4       
+#> [10] generics_0.1.4      stats4_4.5.2        parallel_4.5.2     
+#> [13] sandwich_3.1-1      proxy_0.4-29        pkgconfig_2.0.3    
+#> [16] Matrix_1.7-4        KernSmooth_2.23-26  lifecycle_1.0.5    
+#> [19] compiler_4.5.2      fmesher_0.7.0       MatrixModels_0.5-4 
+#> [22] progress_1.2.3      mnormt_2.1.2        codetools_0.2-20   
+#> [25] class_7.3-23        pillar_1.11.1       nloptr_2.2.1       
+#> [28] crayon_1.5.3        whisker_0.4.1       MASS_7.3-65        
+#> [31] tfautograph_0.3.2   classInt_0.4-11     greta_0.5.1        
+#> [34] reformulas_0.4.4    abind_1.4-8         boot_1.3-32        
+#> [37] multcomp_1.4-29     nlme_3.1-168        parallelly_1.47.0  
+#> [40] digest_0.6.39       mvtnorm_1.3-6       future_1.70.0      
+#> [43] sf_1.1-0            listenv_0.10.1      splines_4.5.2      
+#> [46] grid_4.5.2          cli_3.6.6           magrittr_2.0.5     
+#> [49] base64enc_0.1-6     survival_3.8-3      TH.data_1.1-5      
+#> [52] e1071_1.7-17        sn_2.1.3            withr_3.0.2        
+#> [55] backports_1.5.1     prettyunits_1.2.0   estimability_1.5.1 
+#> [58] emmeans_2.0.2       globals_0.19.1      otel_0.2.0         
+#> [61] lme4_2.0-1          reticulate_1.45.0   zoo_1.8-15         
+#> [64] png_0.1-9           hms_1.1.4           coda_0.19-4.1      
+#> [67] evaluate_1.0.5      knitr_1.51          rbibutils_2.4.1    
+#> [70] rlang_1.2.0         Rcpp_1.1.1-1.1      xtable_1.8-8       
+#> [73] glue_1.8.1          INLA_25.10.19       DBI_1.3.0          
+#> [76] minqa_1.2.8         jsonlite_2.0.0      R6_2.6.1           
+#> [79] units_1.0-1         tensorflow_2.20.0
 ```
 
 # References

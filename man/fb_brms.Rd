@@ -146,15 +146,20 @@ verbs are explicit alternatives, never silent fallbacks --- the
 grammar choice is made at verb selection time, never inferred
 from the formula shape.
 
-Outside the five-shape corpus, ingest refuses with a structured
+Outside the supported corpus, ingest refuses with a structured
 message naming both the offending construct and the closest
-supported alternative. Refused constructs in v0.2: LHS addition
+supported alternative. The v0.2.6 corpus extends the v0.2.5
+five shapes with uncorrelated random slopes per ADR 0020 --
+\code{(x || g)} and \code{(1 + x || g)} now parse and emit on the greta
+and brms backends. Refused constructs in v0.2.6: LHS addition
 forms (\code{y | trials(n) ~ ...}, \code{y | cens(c) ~ ...}, etc.);
-random slopes (\code{(x | g)}, \code{(x || g)}); smoothers (\code{s()},
-\code{t2()}); Gaussian processes (\code{gp()}); autocorrelation (\code{ar()},
-\code{ma()}, \code{arma()}, \code{cosy()}, \code{car()}); multivariate / hurdle /
-mixture / categorical families. These features are queued for a
-future expansion of the brms ingest layer.
+correlated random slopes (\code{(x | g)} -- raises condition class
+\code{flexybayes_correlated_slope_unsupported} with a v0.3 deferral
+pointer to Stage 5A structured-covariance representation per
+ADR 0025); smoothers (\code{s()}, \code{t2()}); Gaussian processes
+(\code{gp()}); autocorrelation (\code{ar()}, \code{ma()}, \code{arma()}, \code{cosy()},
+\code{car()}); multivariate / hurdle / mixture / categorical
+families.
 }
 \examples{
 \donttest{

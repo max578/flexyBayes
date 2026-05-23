@@ -1,6 +1,6 @@
 # flexyBayes 0.2.6.9000
 
-## Correctness fix -- factor:continuous interaction
+## Correctness fix -- factor:continuous interaction (ADR 0019)
 
 `flexybayes(y ~ x * f, data = ...)` where `f` is a factor and `x`
 is numeric previously emitted the interaction term using a
@@ -37,6 +37,39 @@ three-arbitrator verification test (INLA vs greta vs `lme4::lmer`)
 passes on the host; on hosts where INLA verification cannot
 complete the gate refuses INLA dispatch with a v0.3 deferral
 message rather than silently shipping an unverified translation.
+
+## Feature -- uncorrelated random slopes (x || g) (ADR 0020)
+
+`fb_brms(y ~ x + (x || g), ...)` now parses and emits the
+uncorrelated random-effect form -- in lme4 / brms semantics each
+level of `g` carries an independent intercept deviation AND an
+independent slope deviation, both drawn from their own univariate-
+normal priors (no correlation parameter shared between intercept
+and slope). The explicit `(1 + x || g)` shape is equivalent;
+`(0 + x || g)` suppresses the intercept block, yielding a slope-
+only random effect. The correlated form `(x | g)` continues to
+refuse with a v0.3 deferral message pointing to ADR 0025
+(Stage 5A known-covariance inputs), which will admit the user-
+supplied Cholesky factor that makes the correlated form
+tractable; the refusal raises a typed condition
+(`flexybayes_correlated_slope_unsupported`) carrying
+`grouping_factor`, `slope_variable`, `deferral_target`, and
+`workaround` slots so downstream tooling can pattern-match.
+
+Canonical-name family `sd_<x>_<g>` registered on the greta + brms
+backends -- the brms-side `sd_<g>__<x>` parameter (brms's
+double-underscore Stan convention) maps to the canonical
+`sd_<x>_<g>`. INLA mapping is gated by a three-arbitrator
+verification test (INLA vs greta vs lme4) on a simple fixture
+following the §3.4 verification policy in
+`plan-indexing-bigdata-merged-2026-05-23-v2.md`; until the
+verification artefact records pass, the INLA backend refuses
+`(x || g)` with a v0.3 deferral message naming `backend = "greta"`
+as the workaround. Triangulation between greta and brms on
+`(x || g)` fits agrees on slope-variance posteriors within
+`W_1 <= 0.20 * tau_true` (the loosened envelope per merged-v2
+§5.6 risk 3 -- slope-variance posteriors are intrinsically less
+identified than intercept-variance ones at modest J).
 
 ## Representation benchmarks (Stage 1C per merged-v2 plan section 4.2.3)
 

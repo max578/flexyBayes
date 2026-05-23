@@ -114,6 +114,23 @@
 
   switch(term$type,
     "simple" = , "ide" = , "id" = mk_id(term$var),
+    # ADR 0020 uncorrelated random slope: bind the grouping-factor
+    # ID + level count via the standard mk_id() helper, AND bind the
+    # slope variable as a numeric column the codegen can lift via
+    # as_data().
+    "simple_slope_uncor" = {
+      mk_id(term$var)
+      sv <- term$slope_var
+      if (!is.null(sv) && nzchar(sv)) {
+        if (sv %in% names(data)) {
+          assign(sv, as.numeric(data[[sv]]), envir = ev)
+        } else {
+          stop("Slope variable '", sv, "' not found in data ",
+               "(random-slope term '(", sv, " || ", term$var, ")').",
+               call. = FALSE)
+        }
+      }
+    },
     "vm"     = { mk_id(term$var); mk_mat(term$mat) },
     "ped"    = { mk_id(term$var); mk_mat(term$mat) },
     "fa"     = mk_id(term$var),

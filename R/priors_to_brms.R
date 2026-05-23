@@ -1,11 +1,15 @@
 # priors_to_brms -- flexyBayes fb_prior -> brms prior translation.
 #
 # Stan-passthrough emit on fb_brms(backend = "brms"). The translation
-# follows the eight-row table fixed in design notes (Q2 cross-engine
-# table extended for the Stan-via-brms row). brms-native prior shape:
-# a data.frame built by stacking brms::prior_string() rows, keyed by
-# the brms class / coef / group triple. brms's parser then attaches
-# each row to the matching parameter inside the generated Stan code.
+# follows a ten-row table -- the original Q2 cross-engine table
+# (Intercept normal, b normal, sigma uniform / half_normal / pc,
+# sd half_normal / pc / uniform on the intercept-variance keyed by
+# group) plus ADR 0020's tenth row for the uncorrelated random-slope
+# variance keyed by (class = "sd", coef = "<slope_var>", group =
+# "<grouping_factor>"). brms-native prior shape: a data.frame built
+# by stacking brms::prior_string() rows, keyed by the brms
+# class / coef / group triple. brms's parser then attaches each row
+# to the matching parameter inside the generated Stan code.
 #
 # Two entry points:
 #
@@ -59,6 +63,26 @@
          "(legacy bridge). Got: ",
          paste(class(prior), collapse = "/"), ".", call. = FALSE)
 
+  # ADR 0020: build a lookup of (slope_var, grouping_factor) pairs for
+  # every simple_slope_uncor random term in the IR. The flexyBayes
+  # default-prior expansion synthesises a group name `<slope_var>_<g>`
+  # for the slope-variance hyperparameter so the per-group uniform-on-
+  # SD machinery reaches it; on the brms passthrough path we must
+  # translate that synthesised name back into brms's
+  # (class = "sd", coef = "<slope_var>", group = "<g>") row -- a bare
+  # sd(group = "<slope_var>_<g>") row would not match any Stan-side
+  # parameter and brms would refuse with "priors do not correspond
+  # to any model parameter".
+  slope_lookup <- list()
+  for (t in fb$random_terms %||% list()) {
+    if (identical(t$type, "simple_slope_uncor") &&
+        !is.null(t$slope_var) && nzchar(t$slope_var) &&
+        !is.null(t$var)       && nzchar(t$var)) {
+      syn <- paste0(t$slope_var, "_", t$var)
+      slope_lookup[[syn]] <- list(coef = t$slope_var, group = t$var)
+    }
+  }
+
   specs <- list()
   for (s in prior$specs) {
     # Silently drop sigma specs on families that have no residual
@@ -69,6 +93,15 @@
     # .build_inla_control_family).
     if (identical(s$target$type %||% "", "sigma") &&
         !family_has_sigma) next
+
+    # ADR 0020 slope-variance unwrap (per slope_lookup above).
+    if (identical(s$target$type %||% "", "sd") &&
+        !is.null(s$target$group) &&
+        s$target$group %in% names(slope_lookup)) {
+      pair <- slope_lookup[[s$target$group]]
+      s$target$group <- pair$group
+      s$target$coef  <- pair$coef
+    }
 
     row <- .one_brms_spec(s)
     if (is.null(row)) next
@@ -155,19 +188,24 @@
   # ------------------------------ sd(group) ------------------------------ #
   if (identical(target$type, "sd")) {
     grp <- target$group
+    # ADR 0020 slope-variance row: when the target carries a `coef`
+    # slot, the sd row is keyed on (class = "sd", coef = "<x>",
+    # group = "<g>") rather than the bare intercept-only
+    # (class = "sd", group = "<g>") shape.
+    coef_v <- target$coef %||% NA_character_
     if (identical(spec$family, "uniform")) {
       lo <- as.numeric(spec$args$lower %||% 0)
       hi <- as.numeric(spec$args$upper)
       string <- sprintf("uniform(%s, %s)", .fmt_num(lo), .fmt_num(hi))
       return(list(string = string, class = "sd",
-                  coef = NA_character_, group = grp,
+                  coef = coef_v, group = grp,
                   lb = max(0, lo), ub = hi))
     }
     if (identical(spec$family, "half_normal")) {
       sc_v <- as.numeric(spec$args$scale %||% 1)
       string <- sprintf("normal(0, %s)", .fmt_num(sc_v))
       return(list(string = string, class = "sd",
-                  coef = NA_character_, group = grp,
+                  coef = coef_v, group = grp,
                   lb = 0, ub = NA_real_))
     }
     if (identical(spec$family, "pc")) {
@@ -176,11 +214,14 @@
       rate <- -log(p) / u
       string <- sprintf("exponential(%s)", .fmt_num(rate))
       return(list(string = string, class = "sd",
-                  coef = NA_character_, group = grp,
+                  coef = coef_v, group = grp,
                   lb = 0, ub = NA_real_))
     }
     .brms_unsupported(spec$family,
-                      paste0("sd(group = \"", grp, "\")"))
+                      paste0("sd(group = \"", grp, "\"",
+                             if (!is.na(coef_v))
+                               paste0(", coef = \"", coef_v, "\"") else "",
+                             ")"))
   }
 
   # ------------------------------ cor / smooth / name -------------------- #
@@ -244,10 +285,12 @@
 .brms_unsupported <- function(family, target_label) {
   stop("Stan-passthrough emit does not yet translate `",
        family, "` priors on ", target_label,
-       ". v0.2 supports: ",
+       ". v0.2.6 supports: ",
        "b()/Intercept ~ normal(mean, sd) | student_t(df, scale); ",
        "sigma ~ uniform(lower, upper) | half_normal(scale) | pc(upper, prob); ",
-       "sd(group) ~ uniform | half_normal | pc. ",
+       "sd(group) ~ uniform | half_normal | pc (intercept-variance row); ",
+       "sd(group, coef = <slope>) ~ uniform | half_normal | pc ",
+       "(slope-variance row added per ADR 0020). ",
        "For unsupported priors, pass a brms `prior` object directly ",
        "via `...` (e.g. ",
        "`fb_brms(..., backend = \"brms\", prior = brms::prior(...))` -- ",
@@ -320,11 +363,33 @@
   }
 
   # sd(group) -- one row per named random group.
+  # ADR 0020: simple_slope_uncor adds a 10th row class to the
+  # legacy table -- the slope-variance prior, keyed on
+  # (class = "sd", coef = "<slope_var>", group = "<grouping_factor>").
+  # brms's set_prior() discriminates intercept- and slope-variance
+  # rows on the same grouping factor by the `coef` field; intercept
+  # rows leave `coef` unset (NA / empty), slope rows set it to the
+  # slope variable name. The double-pipe form (x || g) and the
+  # double-pipe + intercept form (1 + x || g) both ship the slope
+  # row; only (1 + x || g) also ships the intercept row.
   for (term in fb$random_terms %||% list()) {
-    if (!is.null(term$type) &&
-        term$type %in% c("simple", "ide", "id")) {
-      grp <- term$var
-      if (!is.null(grp) && nzchar(grp)) {
+    if (is.null(term$type)) next
+    grp <- term$var
+    if (is.null(grp) || !nzchar(grp)) next
+
+    if (term$type %in% c("simple", "ide", "id")) {
+      specs[[length(specs) + 1L]] <- list(
+        string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
+        class  = "sd",
+        coef   = NA_character_, group = grp,
+        lb = 0, ub = NA_real_
+      )
+      next
+    }
+
+    if (identical(term$type, "simple_slope_uncor")) {
+      sv <- term$slope_var
+      if (isTRUE(term$with_intercept)) {
         specs[[length(specs) + 1L]] <- list(
           string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
           class  = "sd",
@@ -332,6 +397,15 @@
           lb = 0, ub = NA_real_
         )
       }
+      if (!is.null(sv) && nzchar(sv)) {
+        specs[[length(specs) + 1L]] <- list(
+          string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
+          class  = "sd",
+          coef   = sv, group = grp,
+          lb = 0, ub = NA_real_
+        )
+      }
+      next
     }
   }
 
@@ -368,12 +442,19 @@
 
   rows <- lapply(specs, function(s) {
     args <- list(prior = s$string, class = s$class)
-    if (!is.na(s$coef  %||% NA_character_) && nzchar(s$coef))
-      args$coef  <- s$coef
+    has_coef <- !is.na(s$coef %||% NA_character_) && nzchar(s$coef)
+    if (has_coef) args$coef  <- s$coef
     if (!is.na(s$group %||% NA_character_) && nzchar(s$group))
       args$group <- s$group
-    if (!is.na(s$lb %||% NA_real_)) args$lb <- s$lb
-    if (!is.na(s$ub %||% NA_real_)) args$ub <- s$ub
+    # ADR 0020: brms refuses `Prior argument 'coef' may not be
+    # specified when using boundaries` -- when a coef-keyed sd row
+    # carries lb/ub the parser rejects the spec. For sd rows the
+    # natural sd >= 0 bound is implicit in brms's Stan emit anyway;
+    # drop the lb/ub when coef is set.
+    if (!has_coef) {
+      if (!is.na(s$lb %||% NA_real_)) args$lb <- s$lb
+      if (!is.na(s$ub %||% NA_real_)) args$ub <- s$ub
+    }
     do.call(brms::prior_string, args)
   })
 

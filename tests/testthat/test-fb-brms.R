@@ -159,17 +159,31 @@ test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
 
 
 # ---------------------------------------------------------------- #
-# (6) Non-corpus refusal: random slope                              #
+# (6) ADR 0020 refusal: correlated random slopes (x | g)            #
 # ---------------------------------------------------------------- #
+#
+# Uncorrelated random slopes (x || g) are now supported per ADR 0020
+# (covered by test-random-slopes-uncor.R). The correlated form
+# (x | g) continues to refuse, but with the new structured
+# `flexybayes_correlated_slope_unsupported` condition carrying
+# precise slots (deferral_target = "v0.3"; workaround = "(x || g)";
+# grouping_factor; slope_variable).
 
-test_that("fb_brms() refuses random slopes with corpus-naming message", {
+test_that("fb_brms() refuses correlated random slopes (x | g) with ADR 0020 structured condition", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
     fb_brms(y ~ x + (x | g1), data = d, verbose = FALSE),
-    error = function(e) conditionMessage(e)
+    error = function(e) e
   )
-  expect_true(grepl("random intercepts", err))
-  expect_true(grepl("random slopes", err, ignore.case = TRUE))
+  expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
+  expect_identical(err$deferral_target, "v0.3")
+  expect_identical(err$workaround, "(x || g)")
+  expect_identical(err$grouping_factor, "g1")
+  expect_identical(err$slope_variable, "x")
+  msg <- conditionMessage(err)
+  expect_true(grepl("Correlated random slopes", msg))
+  expect_true(grepl("v0\\.3", msg))
+  expect_true(grepl("\\(x \\|\\| g\\)", msg))
 })
 
 

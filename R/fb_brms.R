@@ -35,15 +35,20 @@
 #' grammar choice is made at verb selection time, never inferred
 #' from the formula shape.
 #'
-#' Outside the five-shape corpus, ingest refuses with a structured
+#' Outside the supported corpus, ingest refuses with a structured
 #' message naming both the offending construct and the closest
-#' supported alternative. Refused constructs in v0.2: LHS addition
+#' supported alternative. The v0.2.6 corpus extends the v0.2.5
+#' five shapes with uncorrelated random slopes per ADR 0020 --
+#' `(x || g)` and `(1 + x || g)` now parse and emit on the greta
+#' and brms backends. Refused constructs in v0.2.6: LHS addition
 #' forms (`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.);
-#' random slopes (`(x | g)`, `(x || g)`); smoothers (`s()`,
-#' `t2()`); Gaussian processes (`gp()`); autocorrelation (`ar()`,
-#' `ma()`, `arma()`, `cosy()`, `car()`); multivariate / hurdle /
-#' mixture / categorical families. These features are queued for a
-#' future expansion of the brms ingest layer.
+#' correlated random slopes (`(x | g)` -- raises condition class
+#' `flexybayes_correlated_slope_unsupported` with a v0.3 deferral
+#' pointer to Stage 5A structured-covariance representation per
+#' ADR 0025); smoothers (`s()`, `t2()`); Gaussian processes
+#' (`gp()`); autocorrelation (`ar()`, `ma()`, `arma()`, `cosy()`,
+#' `car()`); multivariate / hurdle / mixture / categorical
+#' families.
 #'
 #' @param formula A brms-style two-sided formula. Random intercepts
 #'   are expressed via `(1 | group)` or `(1 || group)`; multiple
@@ -253,12 +258,25 @@ fb_brms <- function(formula,
 
   # ----- 2. Default-uniform prior expansion (ADR 0004 + §1.4) -------
   if (default_prior_active) {
-    grp_names <- vapply(fb$random_terms,
-      function(t) {
-        if (!is.null(t$var) && t$type %in% c("simple", "ide", "id"))
-          t$var else NA_character_
-      }, character(1))
-    grp_names <- grp_names[!is.na(grp_names)]
+    # ADR 0020: simple_slope_uncor contributes BOTH the standard
+    # intercept-variance group name (term$var = the grouping factor)
+    # AND a slope-variance group name (paste0(slope_var, "_", var))
+    # so the existing per-group uniform-on-SD machinery covers the
+    # new slope hyperparameter uniformly.
+    grp_names <- character(0)
+    for (t in fb$random_terms) {
+      if (is.null(t$var)) next
+      if (t$type %in% c("simple", "ide", "id"))
+        grp_names <- c(grp_names, t$var)
+      if (identical(t$type, "simple_slope_uncor")) {
+        if (isTRUE(t$with_intercept))
+          grp_names <- c(grp_names, t$var)
+        if (!is.null(t$slope_var) && nzchar(t$slope_var))
+          grp_names <- c(grp_names,
+                         paste0(t$slope_var, "_", t$var))
+      }
+    }
+    grp_names <- unique(grp_names)
     # AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups
     # also receive the uniform-on-SD default (extends ADR 0004).
     vm_ped_names <- vapply(fb$random_terms,

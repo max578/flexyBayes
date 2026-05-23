@@ -213,12 +213,24 @@ flexybayes <- function(
   )
 
   if (default_prior_active) {
-    grp_names <- vapply(fb$random_terms,
-      function(t) {
-        if (!is.null(t$var) && t$type %in% c("simple", "ide", "id"))
-          t$var else NA_character_
-      }, character(1))
-    grp_names <- grp_names[!is.na(grp_names)]
+    # ADR 0020: simple_slope_uncor contributes BOTH the standard
+    # intercept-variance group name AND a slope-variance group name
+    # (paste0(slope_var, "_", grouping_factor)) so the existing
+    # per-group uniform-on-SD machinery covers both hyperparameters.
+    grp_names <- character(0)
+    for (t in fb$random_terms) {
+      if (is.null(t$var)) next
+      if (t$type %in% c("simple", "ide", "id"))
+        grp_names <- c(grp_names, t$var)
+      if (identical(t$type, "simple_slope_uncor")) {
+        if (isTRUE(t$with_intercept))
+          grp_names <- c(grp_names, t$var)
+        if (!is.null(t$slope_var) && nzchar(t$slope_var))
+          grp_names <- c(grp_names,
+                         paste0(t$slope_var, "_", t$var))
+      }
+    }
+    grp_names <- unique(grp_names)
     # AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups
     # also receive the uniform-on-SD default (extends ADR 0004).
     vm_ped_names <- vapply(fb$random_terms,

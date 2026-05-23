@@ -511,7 +511,26 @@ register_canonical_mapper <- function(backend, mapper) {
     }
     if (startsWith(nm, "sd_")) {
       bare <- sub("^sd_", "", nm)
-      bare <- sub("__Intercept$", "", bare)
+      # brms emits sd_<g>__<x> for uncorrelated random slopes
+      # ((x || g) / (1 + x || g)) and sd_<g>__Intercept for the
+      # corresponding intercept-deviation. ADR 0020 §Decision 3:
+      # canonical name is sd_<x>_<g> for slopes; sd_<g> for the
+      # intercept. The __Intercept rule comes first because it is a
+      # subset of the __<x> rule.
+      if (grepl("__Intercept$", bare)) {
+        bare <- sub("__Intercept$", "", bare)
+        if (nzchar(bare))
+          map[nm] <- paste0("sd_", bare)
+        next
+      }
+      m <- regmatches(bare, regexec("^([^_]+(?:_[^_]+)*?)__(.+)$", bare))[[1]]
+      if (length(m) == 3L && nzchar(m[2L]) && nzchar(m[3L])) {
+        # bare matched <g>__<x>; canonicalise to sd_<x>_<g> per ADR 0020.
+        g_part <- m[2L]
+        x_part <- m[3L]
+        map[nm] <- paste0("sd_", x_part, "_", g_part)
+        next
+      }
       if (nzchar(bare))
         map[nm] <- paste0("sd_", bare)
       next

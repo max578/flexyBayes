@@ -118,18 +118,37 @@ emit_brms <- function(fb,
   iter <- as.integer(warmup) + as.integer(n_samples)
 
   t0 <- proc.time()
+  # ADR 0020: brms warns "It appears as if you have specified an
+  # upper bounded prior on a parameter that has no natural upper
+  # bound. ... please specify argument 'ub' of 'set_prior'" when a
+  # coef-keyed sd row carries a `uniform(0, X)` prior. brms refuses
+  # the same row with an explicit `ub` slot ("Prior argument 'coef'
+  # may not be specified when using boundaries"), so the warning is
+  # structurally unavoidable for ADR 0020's slope-variance row.
+  # The bounded prior expression `uniform(0, X)` is still applied
+  # correctly on the Stan side; the warning is purely informational
+  # and would otherwise leak into every Stan-passthrough fit on
+  # (x || g). Suppress only that exact warning text via
+  # withCallingHandlers; other brms warnings pass through.
   brmsfit <- tryCatch(
-    brms::brm(
-      formula = brms_form,
-      data    = data,
-      family  = brms_family,
-      prior   = brms_prior,
-      chains  = as.integer(chains),
-      iter    = iter,
-      warmup  = as.integer(warmup),
-      silent  = if (isTRUE(verbose)) 0L else 2L,
-      refresh = if (isTRUE(mcmc_verbose)) 200L else 0L,
-      ...
+    withCallingHandlers(
+      brms::brm(
+        formula = brms_form,
+        data    = data,
+        family  = brms_family,
+        prior   = brms_prior,
+        chains  = as.integer(chains),
+        iter    = iter,
+        warmup  = as.integer(warmup),
+        silent  = if (isTRUE(verbose)) 0L else 2L,
+        refresh = if (isTRUE(mcmc_verbose)) 200L else 0L,
+        ...
+      ),
+      warning = function(w) {
+        if (grepl("upper bounded prior on a parameter that has no natural upper bound",
+                  conditionMessage(w), fixed = TRUE))
+          invokeRestart("muffleWarning")
+      }
     ),
     error = function(e)
       stop("brms::brm() failed: ", conditionMessage(e), call. = FALSE)
@@ -208,7 +227,14 @@ emit_brms <- function(fb,
       run_time       = elapsed,
       model_info     = list(
         n_obs    = nrow(data),
-        n_fixed  = ncol(stats::model.matrix(brms_form, data = data)),
+        # ADR 0020: brms_form may carry `(x || g)` which
+        # stats::model.matrix() rejects (`||` requires logical(1)
+        # operands). Compute n_fixed off a fixed-only formula
+        # reconstructed from the IR's fixed_terms slot so the
+        # random-effects block never reaches model.matrix.
+        n_fixed  = ncol(stats::model.matrix(
+          .fb_to_fixed_only_formula(fb), data = data
+        )),
         n_random = length(fb$random_terms),
         n_params = ncol(draws_mat),
         family   = fb$family,
@@ -264,7 +290,8 @@ emit_brms <- function(fb,
   re_terms <- character(0)
   for (term in fb$random_terms) {
     if (is.null(term$type) ||
-        !term$type %in% c("simple", "ide", "id"))
+        !term$type %in% c("simple", "ide", "id",
+                          "simple_slope_uncor"))
       stop("emit_brms() does not yet support random term type \"",
            term$type %||% "<unknown>",
            "\". Re-route via backend = \"greta\".", call. = FALSE)
@@ -272,6 +299,23 @@ emit_brms <- function(fb,
     if (is.null(grp) || !nzchar(grp))
       stop("Random-effect term missing the group variable.",
            call. = FALSE)
+    # ADR 0020: uncorrelated random slope. Round-trip to the brms
+    # double-pipe shape -- (x || g) for the intercept + slope form
+    # (the lme4 / brms-default semantics for the bare slope),
+    # (0 + x || g) for the slope-only form (with explicit
+    # intercept suppression).
+    if (identical(term$type, "simple_slope_uncor")) {
+      sv <- term$slope_var
+      if (is.null(sv) || !nzchar(sv))
+        stop("Uncorrelated random-slope term missing slope_var.",
+             call. = FALSE)
+      re_terms <- c(re_terms, paste0(
+        "(",
+        if (isTRUE(term$with_intercept)) "" else "0 + ",
+        sv, " || ", grp, ")"
+      ))
+      next
+    }
     re_terms <- c(re_terms, paste0("(1 | ", grp, ")"))
   }
 
@@ -279,6 +323,30 @@ emit_brms <- function(fb,
     paste(c(fixed_rhs, re_terms), collapse = " + ") else fixed_rhs
 
   stats::as.formula(paste(response, "~", rhs))
+}
+
+# ADR 0020: build a fixed-only formula from the IR's fixed_terms
+# slot. Used by emit_brms()'s model_info$n_fixed calculation --
+# stats::model.matrix() rejects the lme4 double-pipe `(x || g)`
+# random-effects shorthand (`||` requires logical(1) operands), so
+# we cannot feed the full brms_form into model.matrix(). The
+# fixed-only formula mirrors .fb_to_brms_formula() minus the
+# random-effects block.
+.fb_to_fixed_only_formula <- function(fb) {
+  response <- fb$response
+  fixed_labels <- vapply(fb$fixed_terms, function(t) {
+    if (!is.null(t$label)) t$label
+    else if (!is.null(t$var)) t$var
+    else if (!is.null(t$expr)) deparse(t$expr)
+    else NA_character_
+  }, character(1))
+  fixed_labels <- fixed_labels[!is.na(fixed_labels)]
+
+  fixed_rhs <- if (length(fixed_labels) > 0L)
+    paste(fixed_labels, collapse = " + ") else "1"
+  if (!isTRUE(fb$intercept))
+    fixed_rhs <- paste0(fixed_rhs, " - 1")
+  stats::as.formula(paste(response, "~", fixed_rhs))
 }
 
 # Translate fb's family + link into a brms family. Conventions:
