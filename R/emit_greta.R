@@ -203,7 +203,11 @@ emit_greta <- function(fb,
         # keyed by smooth-term variable name. Empty list when the model
         # has no smooths. predict.flexybayes() reads this slot and
         # re-evaluates the basis on newdata via mgcv::Predict.matrix().
-        smooths = .collect_smooths(random_terms)
+        smooths = .collect_smooths(random_terms),
+        # ADR 0019: record which factor:continuous emit branch fired
+        # (Option C primary or Option D fallback). NULL if no
+        # factor_numeric_interaction term was present.
+        factor_continuous_emit = ctx$factor_continuous_emit
       ),
       call_info      = list(
         fixed          = fixed,

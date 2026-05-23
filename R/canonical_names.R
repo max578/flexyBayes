@@ -244,6 +244,32 @@ register_canonical_mapper <- function(backend, mapper) {
        col = as.integer(m[4]))
 }
 
+# ADR 0019: parse an indexed-slope deviation name like
+# "slope_dev_f_x_raw[2,1]" against the slope_dev_lookup keyed by
+# `<factor>_<continuous>`. Returns NULL when the name does not look
+# like an indexed-slope draw, or when no IR term matches the parsed
+# tag. The raw-vector index `i` maps to factor level `i + 1` because
+# the reference level (level 1) is fixed at zero and absent from the
+# raw parameter vector.
+.parse_slope_dev_raw <- function(nm, lookup) {
+  m <- regmatches(
+    nm,
+    regexec("^slope_dev_(.+)_raw\\[(\\d+),(\\d+)\\]$", nm)
+  )[[1]]
+  if (length(m) < 4L) return(NULL)
+  tag <- m[2]
+  raw_idx <- as.integer(m[3])
+  if (is.null(lookup[[tag]])) return(NULL)
+  lvls <- lookup[[tag]]
+  # raw index i -> factor level i + 1 (treatment-coded; reference
+  # level pinned at zero and absent from the raw vector).
+  level_idx <- raw_idx + 1L
+  level_label <- if (level_idx >= 1L && level_idx <= length(lvls))
+    lvls[level_idx] else as.character(level_idx)
+  list(canonical = paste0("slope_", tag, "[", level_label, "]"),
+       tag = tag, raw_idx = raw_idx, level_label = level_label)
+}
+
 
 # ---------------------------------------------------------------- #
 # v0.2 mapper: greta backend                                        #
@@ -280,6 +306,23 @@ register_canonical_mapper <- function(backend, mapper) {
       if (is.null(lvls)) next
       factor_lookup[[tag]] <- as.character(lvls)
     }
+  }
+
+  # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed slopes.
+  # Build a lookup keyed by `<factor>_<continuous>` carrying the
+  # ordered level vector so the per-level slot
+  # `slope_dev_<f>_<c>_raw[i,1]` -> `slope_<f>_<c>[<level_{i+1}>]`
+  # renaming can run below (note the L-1-vs-L offset: the raw
+  # parameter vector has L-1 entries, one per non-reference level,
+  # so raw index `i` maps to level `i + 1`).
+  slope_dev_lookup <- list()
+  for (t in fixed_terms) {
+    if (!identical(t$type, "factor_numeric_interaction")) next
+    fac <- t$factor; con <- t$continuous
+    if (is.null(fac) || is.null(con)) next
+    lvls <- t$levels %||% NULL
+    if (is.null(lvls)) next
+    slope_dev_lookup[[paste0(fac, "_", con)]] <- as.character(lvls)
   }
 
   # Walk the draw names; map each to canonical where recognized.
@@ -322,6 +365,16 @@ register_canonical_mapper <- function(backend, mapper) {
       lvl <- if (!is.null(lvls) && parsed$level <= length(lvls))
         lvls[parsed$level] else as.character(parsed$level)
       map[nm] <- paste0(tag, lvl)
+      next
+    }
+    # ADR 0019: slope_dev_<fac>_<con>_raw[i,1] -- per-level slope
+    # deviation for a factor:continuous interaction. raw[i] indexes
+    # into the L-1 non-reference levels; canonical is
+    # `slope_<fac>_<con>[<level_{i+1}>]` (skip the reference level
+    # because it is fixed at zero by the indexed-emit construction).
+    slope_parsed <- .parse_slope_dev_raw(nm, slope_dev_lookup)
+    if (!is.null(slope_parsed)) {
+      map[nm] <- slope_parsed$canonical
       next
     }
     # Continuous-slope column (raw term name in fixed_terms).
@@ -426,10 +479,30 @@ register_canonical_mapper <- function(backend, mapper) {
   if (length(draw_names) == 0L)
     return(list(map = character(0), transform = list()))
 
+  # ADR 0019: build a {factor, continuous, levels} lookup for every
+  # factor_numeric_interaction term in the IR so we can map brms's
+  # `b_<fac><level>:<con>` (or `b_<con>:<fac><level>`) parameters
+  # to the canonical `slope_<fac>_<con>[<level>]` slot.
+  fixed_terms_fb <- if (!is.null(fb_terms))
+    fb_terms$fixed_terms %||% list() else list()
+  fni_terms <- Filter(
+    function(t) identical(t$type, "factor_numeric_interaction"),
+    fixed_terms_fb
+  )
+
   map <- character(0)
   for (nm in draw_names) {
     if (identical(nm, "b_Intercept")) {
       map[nm] <- "(Intercept)"; next
+    }
+    # ADR 0019: factor:continuous indexed-slope translation.
+    # brms emits these as `b_<term1>:<term2>` where `<term1>` is
+    # `<fac><level>` for the non-reference level. Try both
+    # (factor-first, continuous-first) orientations.
+    fni_canonical <- .brms_factor_numeric_interaction(nm, fni_terms)
+    if (!is.null(fni_canonical)) {
+      map[nm] <- fni_canonical
+      next
     }
     if (startsWith(nm, "b_")) {
       bare <- sub("^b_", "", nm)
@@ -452,6 +525,39 @@ register_canonical_mapper <- function(backend, mapper) {
   }
 
   list(map = map, transform = list())
+}
+
+# ADR 0019 helper. Translate a brms parameter name like
+# `b_fb:x` or `b_x:fb` (treatment-coded factor:continuous interaction)
+# to the canonical `slope_<fac>_<con>[<level>]` slot. Returns NULL
+# when the name does not match any factor_numeric_interaction term
+# in the IR. Reference-level rows (level == lvls[1]) are absent from
+# brms's draws by design (treatment coding); they never match.
+.brms_factor_numeric_interaction <- function(nm, fni_terms) {
+  if (length(fni_terms) == 0L) return(NULL)
+  if (!startsWith(nm, "b_")) return(NULL)
+  body <- sub("^b_", "", nm)
+  if (!grepl(":", body, fixed = TRUE)) return(NULL)
+  parts <- strsplit(body, ":", fixed = TRUE)[[1L]]
+  if (length(parts) != 2L) return(NULL)
+  for (t in fni_terms) {
+    fac <- t$factor; con <- t$continuous
+    lvls <- t$levels %||% NULL
+    if (is.null(fac) || is.null(con) || is.null(lvls)) next
+    # Try factor-first, then continuous-first.
+    for (orient in list(c(1L, 2L), c(2L, 1L))) {
+      fac_part <- parts[[orient[[1L]]]]
+      con_part <- parts[[orient[[2L]]]]
+      if (!identical(con_part, con)) next
+      if (!startsWith(fac_part, fac)) next
+      lvl <- substr(fac_part, nchar(fac) + 1L, nchar(fac_part))
+      if (!nzchar(lvl)) next
+      if (lvl %in% lvls && !identical(lvl, lvls[[1L]])) {
+        return(paste0("slope_", fac, "_", con, "[", lvl, "]"))
+      }
+    }
+  }
+  NULL
 }
 
 
