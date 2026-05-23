@@ -30,11 +30,50 @@
   }
   if (grepl(":", lbl, fixed = TRUE)) {
     parts <- strsplit(lbl, ":")[[1]]
-    all_factors <- all(vapply(parts, function(p) {
-      p %in% names(data) && (is.factor(data[[p]]) || is.character(data[[p]]))
-    }, logical(1)))
-    if (all_factors)
+    # Per-part classification: factor / continuous / unknown.
+    kinds <- vapply(parts, function(p) {
+      if (!p %in% names(data)) return("unknown")
+      col <- data[[p]]
+      if (is.factor(col) || is.character(col)) "factor" else "continuous"
+    }, character(1))
+
+    # All factors -> factor:factor crossed effect.
+    if (all(kinds == "factor"))
       return(list(type = "factor_interaction", vars = parts, label = lbl))
+
+    # Mixed factor x continuous (ADR 0019, Stage 1A v0.2.6). Treatment-
+    # coded indexed slopes: the reference level's slope is structurally
+    # fixed at zero; the L-1 non-reference levels carry per-level
+    # deviation parameters. v0.2 collapsed this to
+    # `beta * as_data(factor) * as_data(continuous)`, which silently
+    # coerced the factor to its integer codes and produced a posterior
+    # disagreeing with lme4::lmer by > 3 sigma; ADR 0019 closes that
+    # correctness bug. Restricted to two-way mixed terms in v0.2.6
+    # (one factor + one continuous); higher-order combinations stay on
+    # the legacy `interaction` branch pending Stage 1B / v0.3.
+    if (length(parts) == 2L &&
+        sum(kinds == "factor")     == 1L &&
+        sum(kinds == "continuous") == 1L) {
+      fac_idx <- which(kinds == "factor")[[1L]]
+      con_idx <- which(kinds == "continuous")[[1L]]
+      fac_name <- parts[[fac_idx]]
+      con_name <- parts[[con_idx]]
+      # Unsupported-contrast detection. Only the treatment-coded path
+      # is shipped at v0.2.6; helmert / sdif / sum-to-zero / ordered /
+      # user-supplied custom matrices defer to v0.3 representation IR.
+      .stop_if_unsupported_contrast(fac_name, data[[fac_name]])
+      f <- factor(data[[fac_name]])
+      return(list(
+        type     = "factor_numeric_interaction",
+        factor   = fac_name,
+        continuous = con_name,
+        vars     = parts,
+        levels   = levels(f),
+        n_levels = nlevels(f),
+        label    = lbl
+      ))
+    }
+
     return(list(type = "interaction", vars = parts, label = lbl))
   }
   if (lbl %in% names(data)) {
@@ -239,6 +278,12 @@
         term$n_inner <- nlevels(factor(data[[term$inner]]))
       term
     },
+    "factor_numeric_interaction" = {
+      # Term descriptor is fully populated by .classify_fixed_term();
+      # .enrich() is a no-op here (the random-term enrichment branches
+      # do not apply -- this is a fixed term).
+      term
+    },
     "smooth_mgcv" = {
       if (!requireNamespace("mgcv", quietly = TRUE))
         stop("`mgcv` is required for s() smooth terms. ",
@@ -271,4 +316,139 @@
     },
     term
   )
+}
+
+# ---------------------------------------------------------------- #
+# Contrast-detection guard for factor:continuous interactions       #
+# (ADR 0019 §Decision 6).                                           #
+# ---------------------------------------------------------------- #
+#
+# Stage 1A / v0.2.6 ships the treatment-coded indexed-slopes emit
+# only. Other contrast schemes (`contr.helmert`, `contr.sdif`,
+# `contr.sum`, ordered factors, user-supplied custom contrast
+# matrices) defer to the v0.3 representation IR. Raise a structured
+# refusal at ingest time so the user sees a clean message naming the
+# contrast and the deferral target rather than a downstream emit
+# failure.
+.stop_if_unsupported_contrast <- function(factor_name, col) {
+  # Ordered factors -- v0.3 representation IR will carry polynomial
+  # contrasts as a first-class IR class; v0.2.6 refuses.
+  if (is.ordered(col)) {
+    cond <- structure(
+      class   = c("flexybayes_contrast_unsupported",
+                  "flexybayes_unsupported_contrast",
+                  "error", "condition"),
+      list(
+        message = paste0(
+          "ordered factor \"", factor_name,
+          "\" not supported in factor:continuous interaction at v0.2.6 ",
+          "(treatment contrasts only). Polynomial-contrast support for ",
+          "ordered factors is deferred to v0.3 representation IR."),
+        call            = NULL,
+        contrast        = "ordered",
+        factor_name     = factor_name,
+        deferral_target = "v0.3 representation IR"
+      )
+    )
+    stop(cond)
+  }
+  # Custom / non-treatment contrasts -- read the contrasts attribute.
+  # Base R stores either a character(1) function name (when set via
+  # `options(contrasts = ...)` followed by `factor(...)`) or a
+  # numeric L x (L-1) matrix (when set via `contrasts(f) <- ...`).
+  # The named-function path is rare in practice; the matrix path is
+  # the dominant case for users who explicitly opt into helmert /
+  # sdif / sum. Both must refuse.
+  ctr <- attr(col, "contrasts")
+  if (!is.null(ctr)) {
+    ctr_name <- if (is.character(ctr) && length(ctr) == 1L) {
+      ctr
+    } else if (is.matrix(ctr) || is.numeric(ctr)) {
+      .identify_contrast_matrix(ctr, nlevels(factor(col)))
+    } else {
+      "<custom_matrix>"
+    }
+    if (!identical(ctr_name, "contr.treatment")) {
+      cond <- structure(
+        class   = c("flexybayes_contrast_unsupported",
+                    "flexybayes_unsupported_contrast",
+                    "error", "condition"),
+        list(
+          message = paste0(
+            "contrast \"", ctr_name, "\" on factor \"", factor_name,
+            "\" not supported in factor:continuous interaction at ",
+            "v0.2.6 (treatment contrasts only). General contrast ",
+            "support is deferred to v0.3 representation IR."),
+          call            = NULL,
+          contrast        = ctr_name,
+          factor_name     = factor_name,
+          deferral_target = "v0.3 representation IR"
+        )
+      )
+      stop(cond)
+    }
+  }
+  # Session-level default-contrasts trap: if the user set
+  # `options(contrasts = c("contr.helmert", "contr.poly"))` (or any
+  # non-treatment default for unordered factors) and the factor
+  # column has no explicit contrasts attribute, the contrast would
+  # be picked up at model.matrix() time and would silently mismatch
+  # the indexed-emit treatment-coded construction. Refuse at ingest
+  # so the user sees the structured deferral message.
+  opt <- getOption("contrasts")
+  if (!is.null(opt) && length(opt) >= 1L &&
+      !identical(opt[[1L]], "contr.treatment")) {
+    cond <- structure(
+      class   = c("flexybayes_contrast_unsupported",
+                  "flexybayes_unsupported_contrast",
+                  "error", "condition"),
+      list(
+        message = paste0(
+          "session-level default contrast \"", opt[[1L]],
+          "\" applies to unordered factor \"", factor_name,
+          "\" in factor:continuous interaction; v0.2.6 ships only ",
+          "the treatment-coded emit. General contrast support is ",
+          "deferred to v0.3 representation IR. Workaround: ",
+          "`contrasts(", factor_name, ") <- contr.treatment(",
+          "nlevels(", factor_name, "))` on the input data."),
+        call            = NULL,
+        contrast        = opt[[1L]],
+        factor_name     = factor_name,
+        deferral_target = "v0.3 representation IR"
+      )
+    )
+    stop(cond)
+  }
+  invisible(NULL)
+}
+
+# Heuristic: compare a user-set contrast matrix against the
+# canonical contr.{helmert, sum, treatment, sdif, poly} matrices at
+# the same level count. Returns the matching contrast function name
+# (length-1 character) or "<custom_matrix>" when none matches. The
+# comparison ignores dimnames since `contrasts(f) <- contr.*(L)`
+# typically drops them.
+.identify_contrast_matrix <- function(mat, L) {
+  if (!is.matrix(mat)) mat <- as.matrix(mat)
+  mat <- unname(mat)
+  candidates <- list(
+    contr.treatment = function(n) stats::contr.treatment(n),
+    contr.helmert   = function(n) stats::contr.helmert(n),
+    contr.sum       = function(n) stats::contr.sum(n),
+    contr.poly      = function(n) stats::contr.poly(n)
+  )
+  if (requireNamespace("MASS", quietly = TRUE)) {
+    candidates[["contr.sdif"]] <- function(n) MASS::contr.sdif(n)
+  }
+  for (nm in names(candidates)) {
+    ref <- tryCatch(unname(as.matrix(candidates[[nm]](L))),
+                    error = function(e) NULL)
+    if (is.null(ref)) next
+    if (identical(dim(ref), dim(mat)) &&
+        isTRUE(all.equal(ref, mat,
+                          check.attributes = FALSE,
+                          tolerance        = 1e-10)))
+      return(nm)
+  }
+  "<custom_matrix>"
 }
