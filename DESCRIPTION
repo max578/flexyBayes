@@ -68,7 +68,8 @@ Suggests:
     fields,
     Matrix,
     sn,
-    vdiffr
+    vdiffr,
+    withr
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
 Encoding: UTF-8

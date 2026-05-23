@@ -29,3 +29,7 @@
 ^CODE_OF_CONDUCT\.md$
 ^SUPPORT\.md$
 ^API_STABILITY\.md$
+^\.claude$
+^\.claude/.*$
+^flexyBayes\.Rcheck$
+^flexyBayes_.*\.tar\.gz$

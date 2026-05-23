@@ -15,3 +15,15 @@ revdep/
 *.so
 *.dll
 *.icloud
+# Host-local INLA-mapping verification artefacts (ADR 0019 §Decision 5
+# / merged-v2 §3.4). Written by
+# tests/testthat/test-factor-continuous-inla-verification.R when INLA
+# is installed; consumed by
+# .lgm_check_factor_numeric_interaction_inla_verified() to decide
+# whether to accept the INLA emit path for factor:continuous
+# indexed-slope terms. Per-host by design (carries INLA version,
+# timestamp, agreement-table snapshot) -- must not enter shared
+# history. Absence on a fresh checkout is the correct fail-safe:
+# the gate refuses INLA dispatch with a v0.3 deferral message until
+# the verification test has been run.
+inst/extdata/inla-verification/
