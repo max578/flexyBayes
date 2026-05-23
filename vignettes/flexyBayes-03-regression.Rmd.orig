@@ -242,6 +242,50 @@ unstructured noise. Choosing the basis dimension `k` is a trade-off
 penalty must do more work to avoid overfitting. The default `k = 10`
 is a sensible starting point; pass `s(x, k = 15)` to widen.
 
+## 6.1 Predicting on new `x` values
+
+`predict(fit, newdata = ...)` on a smooth fit re-evaluates the
+spline basis on the new `x` positions via `mgcv::PredictMat()` on
+the retained basis object. The basis-coefficient vector comes from
+the posterior-mean of `s_x_raw * sigma_s_x`. The next chunk
+overlays the `flexyBayes` prediction against the `mgcv::predict.gam()`
+reference on a fresh grid that includes a 10% extrapolation margin
+beyond the training range.
+
+```{r smooth-predict-newdata}
+greta_mgcv_ggplot_ok <- isTRUE(greta_ok) && isTRUE(mgcv_ok) &&
+                        isTRUE(ggplot2_ok)
+```
+
+```{r smooth-predict, fig.height = 3.5}
+if (greta_mgcv_ggplot_ok) {
+newx <- data.frame(
+  x = seq(min(sim_dat$x) * 0.9, max(sim_dat$x) * 1.1,
+          length.out = 50L)
+)
+newx$flexyBayes <- predict(fit_smooth, newdata = newx)
+ref <- mgcv::gam(y ~ s(x), data = sim_dat)
+newx$mgcv <- as.numeric(predict(ref, newdata = newx))
+ggplot(newx, aes(x = x)) +
+  geom_line(aes(y = flexyBayes), colour = "firebrick",
+            linewidth = 1) +
+  geom_line(aes(y = mgcv), colour = "steelblue", linetype = "dashed",
+            linewidth = 0.7) +
+  geom_point(data = sim_dat, aes(x = x, y = y), alpha = 0.4,
+             inherit.aes = FALSE) +
+  theme_minimal(base_size = 12) +
+  labs(title = "predict(newdata) -- flexyBayes (firebrick) vs mgcv reference (blue dashed)",
+       x = NULL, y = "y")
+}
+```
+
+The two curves agree on the training range and bend together on the
+extrapolation margin. Before this fix the `flexyBayes` curve was
+silently wrong outside the training range — `stats::model.matrix()`
+cannot re-evaluate the spline basis on new `x` values, so the
+prediction inadvertently used the *training* basis tied to the
+training-data quantile structure.
+
 The legacy ASReml-style spline term `spl(x, type = "ps", df = m)`
 remains supported for backward compatibility with prior code; `s()`
 is the recommended path going forward. Tensor-product smooths
@@ -263,11 +307,14 @@ write `fixed = y ~ x + s(x)`. That fails — smooths belong in the
 levels, R will throw an error or produce an `NA`. Pre-process
 `newdata` to set factor levels explicitly.
 
-**Smooth prediction at new x's.** `predict.flexybayes()` returns
-in-sample fitted values that include the smooth term, but
-out-of-sample prediction at new x positions is deferred (it requires
-re-applying the mgcv basis to the new x's, which needs the stored
-smooth specification).
+**Smooth prediction at new x's.** As of v0.2.5,
+`predict.flexybayes(fit, newdata = ...)` correctly re-evaluates the
+spline basis on the new `x` positions via `mgcv::PredictMat()` on
+the retained basis object. See section 6.1 above for the overlay
+against the `mgcv::predict.gam()` reference. Legacy fits saved
+before v0.2.5 cannot use the new path and receive a structured
+refusal — re-fit on the current package version to enable
+`predict(newdata)`.
 
 # 8. Active prompts
 

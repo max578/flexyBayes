@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 03: Foundational regression: linear models, random effects, and mgcv smooths"
-date: "2026-05-22"
+date: "2026-05-23"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -71,19 +71,19 @@ summary(fit_g)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%   97.5%
-#> (Intercept)  21.6289 26.4074 -11.3612 62.3728
-#> groupctrl   -16.6020 26.3906 -57.0834 16.3462
-#> grouptrt1   -16.9493 26.4335 -57.4186 15.9902
-#> grouptrt2   -16.1072 26.3861 -56.7480 16.8804
+#> (Intercept)  20.7808  5.8311  10.9358 31.2034
+#> groupctrl   -15.7327  5.8360 -26.0708 -5.8788
+#> grouptrt1   -16.1127  5.8285 -26.3799 -6.3268
+#> grouptrt2   -15.2472  5.8212 -25.5022 -5.4452
 #> 
 #> -- Variance components  -------------------------------------- 
 #>     Component Estimate     SD   2.5%  97.5%
-#> 1 sigma_e_atg   0.6701 0.0949 0.5371 0.8819
+#> 1 sigma_e_atg   0.6577 0.0972 0.5201 0.9092
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.101 - 19.913 
-#>   ESS  range: 4 - 144 
-#>   Run time  : 2.1 sec
+#>   Rhat range: 1.024 - 1.295 
+#>   ESS  range: 5 - 112 
+#>   Run time  : 4.6 sec
 ```
 
 The fixed-effect block reports the baseline (control) mean as the
@@ -155,27 +155,27 @@ summary(fit_barley)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>                   Estimate Post.SD     2.5%    97.5%
-#> (Intercept)        24.4600 28.0751 -33.7102  80.6439
-#> genManchuria       18.8639 28.2161 -22.1775  59.2227
-#> genPeatland        26.5448 27.4692 -18.5017  68.8111
-#> genSvansota        15.9327 26.9901 -27.2361  58.3058
-#> genTrebi           42.4826 27.5866  -2.5854  84.5919
-#> genVelvet          23.5312 26.7199 -19.4563  64.0564
-#> envCrookston       58.2330 22.4113   2.2075  92.2927
-#> envDuluth          32.6884 22.1312 -24.5140  68.7768
-#> envGrandRapids     30.9095 22.2161 -27.7113  64.4992
-#> envMorris          55.1669 22.2673  -0.3767  88.8571
-#> envUniversityFarm  42.9562 20.7894 -12.0497  75.1401
-#> envWaseca          85.9275 22.3061  28.8697 120.7911
+#> (Intercept)       117.2311 50.3775  12.7558 200.5538
+#> genManchuria      -22.5297 36.4302 -92.0925  48.8818
+#> genPeatland       -15.4315 36.0613 -82.3459  54.9088
+#> genSvansota       -25.8297 36.2463 -96.7570  43.7630
+#> genTrebi            0.9286 36.2063 -66.7235  71.2548
+#> genVelvet         -18.0659 36.1415 -86.5305  50.2107
+#> envCrookston        7.7535 23.9862 -32.9659  48.8152
+#> envDuluth         -17.9050 23.1978 -58.3629  22.2618
+#> envGrandRapids    -20.5665 23.7488 -61.3877  20.5800
+#> envMorris           4.5015 23.2569 -36.9330  44.6837
+#> envUniversityFarm  -8.1720 22.9149 -49.0034  30.5762
+#> envWaseca          34.7416 23.5467  -7.9484  76.5127
 #> 
 #> -- Variance components  -------------------------------------- 
-#>     Component Estimate     SD   2.5%   97.5%
-#> 1 sigma_e_atg  19.6899 2.3858 16.183 25.9349
+#>     Component Estimate     SD    2.5%   97.5%
+#> 1 sigma_e_atg  19.6328 2.0083 15.9881 23.8185
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.049 - 3.256 
-#>   ESS  range: 7 - 37 
-#>   Run time  : 2.6 sec
+#>   Rhat range: 1.012 - 4.691 
+#>   ESS  range: 3 - 106 
+#>   Run time  : 2.5 sec
 ```
 
 The two factor blocks are reported relative to the (alphabetically
@@ -224,17 +224,17 @@ summary(fit_pool)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 250.3981  6.5601 237.5078 263.0066
-#> Days         10.5908  1.2494   8.1011  13.0405
+#> (Intercept) 250.2426  6.6212 238.0011 263.3437
+#> Days         10.6803  1.2809   8.2486  13.2324
 #> 
 #> -- Variance components  -------------------------------------- 
 #>     Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_e_atg  48.3007 2.2576 44.2526 52.8471
+#> 1 sigma_e_atg  48.0099 2.2815 43.9775 53.0741
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 0.999 - 1.001 
-#>   ESS  range: 332 - 879 
-#>   Run time  : 2.1 sec
+#>   Rhat range: 0.999 - 1.003 
+#>   ESS  range: 399 - 907 
+#>   Run time  : 1.9 sec
 ```
 
 The slope on `Days` is the average per-day increase in reaction
@@ -266,18 +266,18 @@ summary(fit_re)
 #>   N = 180 , chains = 2 , samples = 500 
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
-#>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 238.7482  9.6972 214.4176 258.7966
-#> Days         10.6019  0.7895   9.0022  12.1190
+#>             Estimate Post.SD    2.5%    97.5%
+#> (Intercept) 159.8145 63.3813 50.5927 240.8208
+#> Days         10.7506  0.8290  9.1792  12.4631
 #> 
 #> -- Variance components  -------------------------------------- 
-#>       Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_Subject  42.9197 9.5889 30.1762 65.8699
-#> 2   sigma_e_atg  31.1334 1.7084 28.0711 34.6726
+#>       Component Estimate      SD    2.5%    97.5%
+#> 1 sigma_Subject 123.4530 73.3639 34.8814 267.1262
+#> 2   sigma_e_atg  31.0839  1.7572 27.6828  34.4775
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.008 - 1.878 
-#>   ESS  range: 18 - 688 
+#>   Rhat range: 1.021 - 3.852 
+#>   ESS  range: 6 - 433 
 #>   Run time  : 3.1 sec
 ```
 
@@ -336,17 +336,17 @@ summary(fit_smooth)
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD   2.5%  97.5%
-#> (Intercept)   0.1597  0.0269 0.0994 0.2129
+#> (Intercept)   0.1634  0.0365 0.0905 0.2308
 #> 
 #> -- Variance components  -------------------------------------- 
 #>     Component Estimate     SD   2.5%  97.5%
-#> 1   sigma_s_x   1.3012 0.2679 0.7621 1.5457
-#> 2 sigma_e_atg   0.3696 0.0223 0.3234 0.4216
+#> 1   sigma_s_x   1.0466 0.2126 0.6851 1.4820
+#> 2 sigma_e_atg   0.3635 0.0315 0.3088 0.4396
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.289 - 4.935 
-#>   ESS  range: 26 - 78 
-#>   Run time  : 2.7 sec
+#>   Rhat range: 1.003 - 1.114 
+#>   ESS  range: 34 - 365 
+#>   Run time  : 2.5 sec
 ```
 
 The fixed block has only an intercept; the random block names the
@@ -378,6 +378,54 @@ unstructured noise. Choosing the basis dimension `k` is a trade-off
 penalty must do more work to avoid overfitting. The default `k = 10`
 is a sensible starting point; pass `s(x, k = 15)` to widen.
 
+## 6.1 Predicting on new `x` values
+
+`predict(fit, newdata = ...)` on a smooth fit re-evaluates the
+spline basis on the new `x` positions via `mgcv::PredictMat()` on
+the retained basis object. The basis-coefficient vector comes from
+the posterior-mean of `s_x_raw * sigma_s_x`. The next chunk
+overlays the `flexyBayes` prediction against the `mgcv::predict.gam()`
+reference on a fresh grid that includes a 10% extrapolation margin
+beyond the training range.
+
+
+``` r
+greta_mgcv_ggplot_ok <- isTRUE(greta_ok) && isTRUE(mgcv_ok) &&
+                        isTRUE(ggplot2_ok)
+```
+
+
+``` r
+if (greta_mgcv_ggplot_ok) {
+newx <- data.frame(
+  x = seq(min(sim_dat$x) * 0.9, max(sim_dat$x) * 1.1,
+          length.out = 50L)
+)
+newx$flexyBayes <- predict(fit_smooth, newdata = newx)
+ref <- mgcv::gam(y ~ s(x), data = sim_dat)
+newx$mgcv <- as.numeric(predict(ref, newdata = newx))
+ggplot(newx, aes(x = x)) +
+  geom_line(aes(y = flexyBayes), colour = "firebrick",
+            linewidth = 1) +
+  geom_line(aes(y = mgcv), colour = "steelblue", linetype = "dashed",
+            linewidth = 0.7) +
+  geom_point(data = sim_dat, aes(x = x, y = y), alpha = 0.4,
+             inherit.aes = FALSE) +
+  theme_minimal(base_size = 12) +
+  labs(title = "predict(newdata) -- flexyBayes (firebrick) vs mgcv reference (blue dashed)",
+       x = NULL, y = "y")
+}
+```
+
+![plot of chunk smooth-predict](flexyBayes-03-regression-figs/smooth-predict-1.png)
+
+The two curves agree on the training range and bend together on the
+extrapolation margin. Before this fix the `flexyBayes` curve was
+silently wrong outside the training range — `stats::model.matrix()`
+cannot re-evaluate the spline basis on new `x` values, so the
+prediction inadvertently used the *training* basis tied to the
+training-data quantile structure.
+
 The legacy ASReml-style spline term `spl(x, type = "ps", df = m)`
 remains supported for backward compatibility with prior code; `s()`
 is the recommended path going forward. Tensor-product smooths
@@ -399,11 +447,14 @@ write `fixed = y ~ x + s(x)`. That fails — smooths belong in the
 levels, R will throw an error or produce an `NA`. Pre-process
 `newdata` to set factor levels explicitly.
 
-**Smooth prediction at new x's.** `predict.flexybayes()` returns
-in-sample fitted values that include the smooth term, but
-out-of-sample prediction at new x positions is deferred (it requires
-re-applying the mgcv basis to the new x's, which needs the stored
-smooth specification).
+**Smooth prediction at new x's.** As of v0.2.5,
+`predict.flexybayes(fit, newdata = ...)` correctly re-evaluates the
+spline basis on the new `x` positions via `mgcv::PredictMat()` on
+the retained basis object. See section 6.1 above for the overlay
+against the `mgcv::predict.gam()` reference. Legacy fits saved
+before v0.2.5 cannot use the new path and receive a structured
+refusal — re-fit on the current package version to enable
+`predict(newdata)`.
 
 # 8. Active prompts
 
@@ -439,41 +490,31 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> [1] ggplot2_4.0.3         flexyBayes_0.2.5.9000 testthat_3.3.2       
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         
-#>  [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            
-#>  [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    
-#> [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     
-#> [13] sf_1.1-0             agridat_1.26         survival_3.8-3      
-#> [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     
-#> [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      
-#> [22] tools_4.5.2          sn_2.1.3             knitr_1.51          
-#> [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        
-#> [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          
-#> [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         
-#> [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         
-#> [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        
-#> [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      
-#> [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         
-#> [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       
-#> [49] crayon_1.5.3         generics_0.1.4       otel_0.2.0          
-#> [52] reshape2_1.4.5       tfruns_1.5.4         DBI_1.3.0           
-#> [55] proxy_0.4-29         stringr_1.6.0        splines_4.5.2       
-#> [58] bayesplot_1.15.0     parallel_4.5.2       base64enc_0.1-6     
-#> [61] vctrs_0.7.3          Matrix_1.7-4         sandwich_3.1-1      
-#> [64] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         
-#> [67] hms_1.1.4            listenv_0.10.1       units_1.0-1         
-#> [70] glue_1.8.1           parallelly_1.47.0    codetools_0.2-20    
-#> [73] distributional_0.7.0 stringi_1.8.7        gtable_0.3.6        
-#> [76] tibble_3.3.1         pillar_1.11.1        R6_2.6.1            
-#> [79] fmesher_0.7.0        evaluate_1.0.5       lattice_0.22-7      
-#> [82] png_0.1-9            backports_1.5.1      tfautograph_0.3.2   
-#> [85] MatrixModels_0.5-4   class_7.3-23         Rcpp_1.1.1-1.1      
-#> [88] nlme_3.1-168         coda_0.19-4.1        checkmate_2.3.4     
-#> [91] mgcv_1.9-3           whisker_0.4.1        xfun_0.57           
-#> [94] zoo_1.8-15           pkgconfig_2.0.3
+#>  [1] tidyselect_1.2.1   viridisLite_0.4.3  dplyr_1.2.1        farver_2.1.2      
+#>  [5] tensorflow_2.20.0  S7_0.2.2           fastmap_1.2.0      TH.data_1.1-5     
+#>  [9] digest_0.6.39      estimability_1.5.1 lifecycle_1.0.5    ellipsis_0.3.2    
+#> [13] survival_3.8-3     agridat_1.26       processx_3.9.0     magrittr_2.0.5    
+#> [17] compiler_4.5.2     rlang_1.2.0        progress_1.2.3     tools_4.5.2       
+#> [21] knitr_1.51         prettyunits_1.2.0  labeling_0.4.3     pkgbuild_1.4.8    
+#> [25] reticulate_1.45.0  RColorBrewer_1.1-3 pkgload_1.5.2      multcomp_1.4-29   
+#> [29] abind_1.4-8        withr_3.0.2        purrr_1.2.2        desc_1.4.3        
+#> [33] grid_4.5.2         xtable_1.8-8       future_1.70.0      globals_0.19.1    
+#> [37] emmeans_2.0.2      scales_1.4.0       MASS_7.3-65        dichromat_2.0-0.1 
+#> [41] cli_3.6.6          mvtnorm_1.3-6      crayon_1.5.3       generics_0.1.4    
+#> [45] remotes_2.5.0      otel_0.2.0         rstudioapi_0.18.0  sessioninfo_1.2.3 
+#> [49] tfruns_1.5.4       cachem_1.1.0       splines_4.5.2      parallel_4.5.2    
+#> [53] base64enc_0.1-6    vctrs_0.7.3        devtools_2.4.6     Matrix_1.7-4      
+#> [57] sandwich_3.1-1     jsonlite_2.0.0     greta_0.5.1        callr_3.7.6       
+#> [61] hms_1.1.4          listenv_0.10.1     glue_1.8.1         parallelly_1.47.0 
+#> [65] codetools_0.2-20   gtable_0.3.6       tibble_3.3.1       pillar_1.11.1     
+#> [69] brio_1.1.5         R6_2.6.1           rprojroot_2.1.1    evaluate_1.0.5    
+#> [73] lattice_0.22-7     png_0.1-9          backports_1.5.1    tfautograph_0.3.2 
+#> [77] memoise_2.0.1      Rcpp_1.1.1-1.1     coda_0.19-4.1      nlme_3.1-168      
+#> [81] mgcv_1.9-3         whisker_0.4.1      xfun_0.57          fs_2.1.0          
+#> [85] zoo_1.8-15         usethis_3.2.1      pkgconfig_2.0.3
 ```
 
 # References

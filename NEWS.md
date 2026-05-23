@@ -1,3 +1,58 @@
+# flexyBayes 0.2.5.9000
+
+## Correctness fix -- predict(newdata) on smooths (ADR 0018)
+
+`predict.flexybayes(..., newdata = ...)` on fits containing one or
+more `s()` smooth terms now uses retained `mgcv` `Smooth` objects via
+`mgcv::PredictMat()`, restoring correctness on `newdata` containing
+`x` values inside or near the training range. Previously the basis
+was implicitly re-derived from `newdata` via `stats::model.matrix()`,
+producing correct-by-coincidence values inside the training range
+and silently wrong values near or beyond. The fix retains the
+`mgcv::smoothCon()` output on the IR (internal slot
+`random_terms[[i]]$smooth_obj`) and threads it via
+`extras$parse_info$smooths`. `fb_brms(backend = "brms")` and
+`fb_greta()` are exempt -- both already correct.
+
+A correctness refusal fires on legacy fits saved before this fix:
+re-fit on the current version to enable `predict(newdata)`.
+
+## Code-size fix -- smooth emit literal-matrix storage
+
+The `greta` emit path for `s()` smooths no longer inlines the n-row
+basis matrix as a literal in the generated code. The basis is bound
+into the model environment as `B_s_<varname>` and the emitted code
+references `as_data(B_s_<varname>)` instead.
+`nchar(return_code(fit))` for `s(x)` at `n = 10000` dropped from
+~10 MB to under 10 kB.
+
+## Gate truth = emit truth (ADR 0017)
+
+`lgm_gate(fb) == accept` is now a sufficient condition for the
+INLA emit path to succeed structurally. Three new gate rules
+(`fixed_term_type_inla`, `random_term_type_inla`,
+`rcov_term_type_inla`) fold the prior emit-time refusal sites into
+`lgm_gate()` so users see refusals before the INLA machinery is
+invoked. `backend = "auto"` no longer carries a separate emit-time
+fall-back path; dispatch trace's auto-non-LGM path is uniformly
+`"auto_lgm_refuse"`.
+
+## Visual-regression test tier upgraded (AMBITION_STAGE §1.1)
+
+The `vdiffr` SVG-snapshot tests in `test-plot-vdiffr.R` (which had
+been skipped unconditionally due to MCMC-float-drift fragility) are
+replaced with numerical snapshots on the plotted data structure.
+Equivalent coverage for "did the plot get built correctly" without
+the SVG-diff fragility.
+
+## Structured-cov default priors -- vm() + ped() now uniform-on-SD
+
+`.default_uniform_prior()` (extending ADR 0004) now fires on `vm()`
+and `ped()` random-term inputs, closing the documented inconsistency
+where `simple`/`ide`/`id` RE SDs defaulted to uniform-on-SD while
+`vm`/`ped` fell back to legacy lognormal. The other structured forms
+(`at`, `us`, `fa`, `ar1`) remain on the legacy default for now.
+
 # flexyBayes 0.2.0 (development)
 
 ## Four-verb API
