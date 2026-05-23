@@ -1,4 +1,31 @@
-# flexyBayes 0.2.6.9000
+# flexyBayes 0.3.0.9000
+
+## Stage 3A foundation -- exact Gaussian aggregation via sufficient statistics
+
+Internal `.fb_aggregate_gaussian()` collapses a per-row Gaussian-identity
+mixed model into one row per cell, where a cell is the maximal subset of
+observations sharing the same linear-predictor value. Three sufficient
+statistics per cell (`n_k`, `S1_k = sum(y)`, `S2_k = sum(y^2)`) carry
+all the information the Gaussian-identity log-likelihood needs.
+
+The implementation is foundation-only at this release: the algebraic
+correctness gate landed, the backend emit path is not yet wired. A
+property-based test draws twenty random in-scope intermediate
+representations across three N scales (100, 500, 2000) with random
+coefficients and confirms that the aggregated log-likelihood matches the
+raw per-row form to relative error below `1e-12` in every case. The
+biased cell-mean shortcut is exposed only so the same test can confirm
+a regression would be caught.
+
+The scope envelope refuses (typed condition
+`flexybayes_aggregate_out_of_scope`) on: non-Gaussian family,
+non-identity link, smooth fixed-effect term, or any random slope --
+all of which break the cell-constant linear predictor.
+
+Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
+the greta / INLA aggregated emit path and the `$exactness` slot.
+
+# flexyBayes 0.3.0
 
 ## Stage 2 design-memory preflight
 
@@ -35,6 +62,8 @@ The `aggregated_likelihood_candidate` flag on each per-term entry is
 a forward-looking promise to the gaussian-identity aggregated
 backend path; the flag has no runtime effect at v0.3.0 (no
 aggregation runs yet) but is consumed by later stages.
+
+# flexyBayes 0.2.6
 
 ## Correctness fix -- factor:continuous interaction (ADR 0019)
 

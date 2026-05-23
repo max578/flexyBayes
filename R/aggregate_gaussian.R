@@ -65,7 +65,8 @@
   # random intercept.
   .assert_aggregate_in_scope(fb_ir)
 
-  data <- fb_dataset$data   # data.table (in-place if user gave one)
+  data <- fb_dataset$data   # data.table; always a wrapper-owned copy
+                            # (see .fb_dataset() header).
   response <- fb_ir$response
   if (!response %in% names(data))
     stop("Response variable '", response, "' not found in dataset.",

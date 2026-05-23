@@ -1,6 +1,6 @@
 # API stability — flexyBayes
 
-`flexyBayes` is in the **0.2.x** series. Every public export carries a
+`flexyBayes` is in the **0.3.x** series. Every public export carries a
 `lifecycle::badge("experimental")`. The stability guarantees below are
 therefore deliberately weaker than they will be at v1.0.
 
@@ -10,11 +10,11 @@ therefore deliberately weaker than they will be at v1.0.
 |---|---|
 | **stable** | Behaviour and signature frozen across the 1.x series; breaking changes ride a major version bump and a deprecation cycle. *No exports are stable yet.* |
 | **maturing** | Behaviour and signature unlikely to change in 0.x; minor signature additions are non-breaking. |
-| **experimental** | Behaviour and signature may change in any 0.x release. Bug fixes and additions never break, but renamings, default-value changes, and shape changes are allowed with a `lifecycle::deprecate_warn()` cycle of at least one minor release. **All v0.2.x exports.** |
+| **experimental** | Behaviour and signature may change in any 0.x release. Bug fixes and additions never break, but renamings, default-value changes, and shape changes are allowed with a `lifecycle::deprecate_warn()` cycle of at least one minor release. **All v0.3.x exports.** |
 | **deprecated** | Function still callable; emits `lifecycle::deprecate_warn()`. Removal scheduled per `NEWS.md`. |
 | **superseded** | Function still callable, no warning, but a newer entry point is preferred. |
 
-## Per-export stability surface (v0.2.x)
+## Per-export stability surface (v0.3.x)
 
 The four-verb spine plus its companion diagnostics:
 
@@ -24,10 +24,10 @@ The four-verb spine plus its companion diagnostics:
 | `fb_brms()` | experimental | brms / lme4-style entry. `backend = c("greta", "inla", "brms", "auto")`; `"brms"` is the Stan passthrough via `brms::brm()`. `"auto"` never routes to Stan (Decision 8 in ADR 0015). |
 | `fb_greta()` | experimental | Expert direct-greta entry. Accepts a user-built greta model; `prior` is declaration-only (the user's graph is not re-priored). |
 | `fb()` | experimental | Literal alias for `flexybayes()`; documented but not promoted. |
-| `triangulate()` | experimental | Pairwise cross-engine posterior comparison. Metric set fixed for 0.2.x (Wasserstein-1, R-hat-on-means, tail drift, SD ratio, mean difference). Additions are non-breaking; metric removals or renamings ride a deprecation cycle. |
+| `triangulate()` | experimental | Pairwise cross-engine posterior comparison. Metric set fixed for 0.3.x (Wasserstein-1, R-hat-on-means, tail drift, SD ratio, mean difference). Additions are non-breaking; metric removals or renamings ride a deprecation cycle. |
 | `fb_prior()` | experimental | PC-canonical hybrid prior DSL on the SD scale. Supported targets: `sigma`, `sd(group)`, `b(name)`, `cor(group)`, `smooth(var)`. Supported families: `pc`, `normal`, `student_t`, `half_normal`, `half_cauchy`, `cauchy`, `gamma`, `exponential`, `lkj`, `uniform`. |
 | `prior_summary()` | experimental | S3 generic returning the resolved-prior view for a fit. Methods registered for `flexybayes`, `flexybayes_inla`, `flexybayes_brms`, and `flexybayes_direct_greta`. |
-| `backend_decision()` | experimental | Returns the captured dispatch trace (`backend`, `path`, `gate_checks`, `reason`). Shape stable across 0.2.x. |
+| `backend_decision()` | experimental | Returns the captured dispatch trace (`backend`, `path`, `gate_checks`, `reason`). Shape stable across 0.3.x. |
 | `canonical_names()` | experimental | S3 generic returning the canonical-name registry view for a fit. Methods registered for all four fit subclasses. |
 | `proceed()`, `cat_code()` | experimental | Review-code workflow companions for `review_code = TRUE` fits. |
 | `fb_as_draws_simple()` | experimental | S3 generic; methods for all four fit subclasses. Returns a named list of named draw vectors. |
@@ -35,7 +35,32 @@ The four-verb spine plus its companion diagnostics:
 | `recover_data.flexybayes()`, `emm_basis.flexybayes()` | experimental | emmeans-compliant; signatures dictated by the emmeans S3 contract. |
 | `print.lgm_refusal()` | experimental | Internal S3 method, registered for dispatch only; output format may evolve when ADR 0017 lands (refusal sites consolidated into `lgm_gate()`). |
 
-## Default-value contract (v0.2.x)
+## Internal-but-S3-visible diagnostics
+
+A small set of internal constructors -- `.fb_dataset()`, `.fb_preflight()`,
+`.fb_aggregate_gaussian()` -- are not exported, but their S3 `print` /
+`format` methods are registered for dispatch on diagnostic output
+(refusal messages, `review_code` summaries, interactive inspection at
+the console). Because the methods are registered via the S3 mechanism,
+`R CMD check` requires generated `.Rd` entries; those entries are
+visible from `?print.fb_preflight` and similar.
+
+Stability promise for these methods through 0.3.x:
+
+- The methods exist and dispatch correctly on instances of the internal
+  classes.
+- The output format -- column ordering, whitespace, exact wording --
+  is **internal-grade** and may change without a deprecation cycle.
+- Programmatic use is not supported: parse the structured slot fields
+  on the underlying object (`$per_term_estimate`, `$sufficient_stats`,
+  `$dictionaries`, etc.) rather than the printed string.
+
+The constructor functions themselves remain internal. Stable export is
+gated on at least two downstream workflows (Stage 3A aggregation in
+v0.3.2; Stage 3B chunked predict in v0.3.3) reaching the contract
+stability bar.
+
+## Default-value contract (v0.3.x)
 
 The current prior contract on the auto-default path — that is, when
 neither a user `fb_prior()` nor a legacy `prior_vc_sd` scalar is
@@ -83,9 +108,9 @@ When an experimental export is renamed, restructured, or removed:
 For a default-value change, the old default remains available behind
 an explicit argument for at least the entire 0.x series.
 
-## Compatibility commitments through 0.2.x
+## Compatibility commitments through 0.3.x
 
-Stable across the 0.2.x patch line:
+Stable across the 0.3.x patch line:
 
 - The four fit subclasses' externally-visible top-level structure
   (`$glm`, plus the backend-specific slot: `$greta`, `$inla`, or
@@ -104,10 +129,10 @@ Stable across the 0.2.x patch line:
 
 | Change class | Where it can land |
 |---|---|
-| New parameter with default value | any patch (0.2.0.9001) |
+| New parameter with default value | any patch (0.3.0.9001) |
 | New behaviour behind opt-in argument | any patch |
 | Bug fix that changes numerical output within tolerance | any patch — flagged in `NEWS.md` |
-| New exported function | minor (0.3.0) |
+| New exported function | minor (0.4.0) |
 | Renamed export with deprecation cycle | minor |
 | Removed export (post-deprecation cycle) | minor |
 | Class-structure change | minor |
@@ -115,7 +140,7 @@ Stable across the 0.2.x patch line:
 
 ## Pinning
 
-Production users who need stability should pin to a specific 0.2.x
+Production users who need stability should pin to a specific 0.3.x
 patch via `renv::snapshot()` until v1.0 lands.
 
 ## Roadmap to v1.0
