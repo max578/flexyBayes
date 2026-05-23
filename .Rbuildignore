@@ -33,3 +33,4 @@
 ^\.claude/.*$
 ^flexyBayes\.Rcheck$
 ^flexyBayes_.*\.tar\.gz$
+^tools$
