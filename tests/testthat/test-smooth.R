@@ -65,7 +65,7 @@ test_that(".enrich() errors politely when s() variable is missing from data", {
 # Code generation through emit_greta                                #
 # ---------------------------------------------------------------- #
 
-test_that("emit_greta emits a literal basis + random-effect block for s(x)", {
+test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
   skip_if_no_greta(); skip_if_no_mgcv()
   d <- mk_smooth_data()
   options(flexyBayes._default_prior_note_emitted = TRUE)
@@ -74,7 +74,12 @@ test_that("emit_greta emits a literal basis + random-effect block for s(x)", {
     data        = d, prior_vc_sd = 1,
     verbose     = FALSE, return_code = TRUE
   )
-  expect_match(code, "B_s_x <- matrix\\(c\\(")
+  # ADR 0018 / merged-v2 §4.1: the basis matrix is bound into the
+  # model env as B_s_x; the emitted code references it via
+  # `as_data(B_s_x)` rather than inlining the n x k literal. The
+  # B_s_x literal expression is gone from the code surface.
+  expect_no_match(code, "B_s_x <- matrix\\(c\\(")
+  expect_match(code, "B_g_s_x <- as_data\\(B_s_x\\)")
   expect_match(code, "sigma_s_x <- greta::lognormal\\(0, 1\\)")
   expect_match(code, "s_x_raw <- normal\\(0, 1, dim = ")
   expect_match(code, "f_s_x <- B_g_s_x %\\*% \\(s_x_raw \\* sigma_s_x\\)")
