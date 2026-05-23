@@ -329,8 +329,12 @@
 # $var_n; (2) the dataset's frozen dictionary length; (3) NA which
 # escalates to a conservative ceiling for the binding-term decision.
 .preflight_term_level_count <- function(term, fb_dataset) {
-  if (!is.null(term$var_n) && !is.na(term$var_n))
-    return(as.integer(term$var_n))
+  # Random-term IR carries $var_n; fixed-factor IR carries $n_levels;
+  # the asreml ingest occasionally uses $K. Try each in order.
+  for (slot in c("var_n", "n_levels", "K")) {
+    v <- term[[slot]]
+    if (!is.null(v) && !is.na(v)) return(as.integer(v))
+  }
   if (!is.null(term$var)) {
     k <- .fb_dataset_levels(fb_dataset, as.character(term$var))
     if (!is.na(k)) return(as.integer(k))
