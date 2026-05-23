@@ -139,11 +139,14 @@
         ctx
       },
 
-      # GBLUP: vm(geno, G)
+      # GBLUP: vm(geno, G). AMBITION_STAGE.md §1.4: sigma routes via
+      # .sigma_decl() so the uniform-on-SD default (and any per-group
+      # uniform_per_vc / pc_per_vc spec) applies; legacy lognormal is
+      # the fallback when no per-group spec is set.
       "vm" = {
         tag <- term$var; mat <- term$mat
         ctx <- .add(ctx, "L_G_", tag, " <- t(chol(", mat, "))")
-        ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
+        ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- as_data(L_G_", tag,
                     ") %*% (z_", tag, " * sigma_", tag, ")")
@@ -152,11 +155,12 @@
         ctx
       },
 
-      # Animal model: ped(animal, A)
+      # Animal model: ped(animal, A). AMBITION_STAGE.md §1.4: same as
+      # vm() above -- sigma routes via .sigma_decl() for uniform-on-SD.
       "ped" = {
         tag <- term$var; mat <- term$mat
         ctx <- .add(ctx, "L_A_", tag, " <- t(chol(", mat, "))")
-        ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
+        ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- as_data(L_A_", tag,
                     ") %*% (z_", tag, " * sigma_", tag, ")")
@@ -305,26 +309,41 @@
 
       # mgcv-style univariate smooth: s(x[, k = ..., bs = ...]) (ADR
       # 0004 D3). The basis matrix `term$X` was built at parse time
-      # via mgcv::smoothCon(); emitted here as a literal n x k data
-      # block followed by a random-effect layer with sigma drawn
-      # from the priors-aware .sigma_decl(). Keying by the variable
-      # name lets fb_prior(smooth("x") ~ ...) target this smooth.
+      # via mgcv::smoothCon(); under ADR 0018 it is bound into the
+      # evaluation environment as `B_s_<vname>` and the emitted code
+      # references it via `as_data()` -- the prior pattern (literal
+      # n x k matrix(c(...), ...) block) inlined the basis into the
+      # generated code, ballooning `nchar(return_code(fit))` to ~10 MB
+      # at n = 10000. Reference-by-binding keeps the code under ~10
+      # kB regardless of n. Keying by the variable name lets
+      # fb_prior(smooth("x") ~ ...) target this smooth.
       "smooth_mgcv" = {
         vname <- term$var
         tag   <- paste0("s_", vname)
-        X     <- term$X
-        vals  <- paste(format(as.numeric(X), digits = 17,
-                              scientific = FALSE, trim = TRUE),
-                       collapse = ", ")
-        ctx <- .add(ctx, "B_", tag, " <- matrix(c(", vals, "), nrow = ",
-                    nrow(X), ", ncol = ", term$k, ")")
+        # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-1: bind the
+        # basis matrix into the model evaluation environment so the
+        # generated greta code can reference it by name.
+        assign(paste0("B_", tag), term$X, envir = ctx$env)
+        # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-2: replace the
+        # literal-matrix emission with a bare `as_data(B_s_<vname>)`
+        # reference -- the matrix is already in the env from the
+        # assign() above; we just lift it into greta.
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), vname))
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ",
                     term$k, ")")
         ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
                     "_raw * sigma_", tag, ")")
-        ctx <- .add_param(ctx, paste0("sigma_", tag))
+        # ADR 0018: monitor the basis-coefficient parameter `s_<v>_raw`
+        # in addition to its scale `sigma_s_<v>`. predict.flexybayes()
+        # needs the posterior-mean basis-coefficient vector
+        # (raw[k] * sigma) to evaluate the smooth on newdata via
+        # mgcv::PredictMat(). Without monitoring `s_<v>_raw` the
+        # draws matrix only carries sigma, and predict() falls back
+        # to a flat-zero smooth contribution -- the silent-wrong
+        # path ADR 0018 closes.
+        ctx <- .add_param(ctx, paste0("sigma_", tag),
+                          paste0(tag, "_raw"))
         ctx <- .add_pred(ctx, paste0("f_", tag))
         ctx
       },
