@@ -2,20 +2,23 @@
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package is currently a 0.2.x development build (`0.2.0.9000`).
+The package is currently a 0.3.x development build (`0.3.0.9000`).
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
-URL declared in `DESCRIPTION` is forward-pointing and 404s today — see
-**NOTE 1** below. The local check run is otherwise clean.
+URL declared in `DESCRIPTION` is the agreed forward destination and
+404s today — see **NOTE 1** below. The local check run is otherwise
+clean.
 
 ## Test environments
 
 - local macOS Tahoe 26.3.1 (Apple Silicon), R 4.5.2 — `R CMD check
-  --as-cran`, 2-NOTE structural baseline (NOTE 1 + NOTE 2 below);
-  one additional environmental NOTE (NOTE 3) fires when the check
-  host cannot reach a network time source. Net `Status:` on the
-  current dev machine is `2 NOTEs` when networked / `3 NOTEs`
-  offline.
+  --as-cran`, 1-NOTE structural baseline (NOTE 1 below); one
+  additional environmental NOTE (NOTE 2) fires when the local HTML
+  Tidy binary is older than the version `R CMD check` accepts, and a
+  third environmental NOTE (NOTE 3) fires when the check host cannot
+  reach a network time source. Net `Status:` on the current dev
+  machine is `1 NOTE` when networked + recent-Tidy; up to `3 NOTEs`
+  on a stale-Tidy, offline host.
 - GitHub Actions matrix (committed locally — `.github/workflows/`;
   activates on first push after the D8 collective decision):
   ubuntu-latest × {R-devel, R-release, R-oldrel-1} plus R-release ×
@@ -31,7 +34,7 @@ URL declared in `DESCRIPTION` is forward-pointing and 404s today — see
 ## R CMD check results — itemised per NOTE
 
 ```
-Status: 2 NOTEs
+Status: 1 NOTE
 ```
 
 **NOTE 1 — `checking CRAN incoming feasibility`.**
@@ -40,9 +43,10 @@ This NOTE carries four sub-items:
 
 1. *New submission.* Intrinsic to first submission; resolves once
    CRAN's incoming checks accept the upload.
-2. *Version contains large components (0.2.0.9000).* Development-tag
+2. *Version contains large components (0.3.0.9000).* Development-tag
    artefact (`.9000` is the dev marker per the R-pkgs convention);
-   disappears at the public-release version bump to `0.2.0`.
+   disappears at the public-release version bump to `0.3.1` (or the
+   next scheduled release tag).
 3. *Suggests or Enhances not in mainstream repositories: greta, INLA.*
    `greta` lives on CRAN as of 0.5.x; this sub-NOTE fires when CRAN's
    incoming-feasibility check cannot resolve `greta` against its
@@ -55,14 +59,18 @@ This NOTE carries four sub-items:
    `https://github.com/AAGI-AUS/flexyBayes` and
    `https://github.com/AAGI-AUS/flexyBayes/issues`, both returning
    HTTP 404. **Known pending.** The local-only rename from
-   `bayesreml` to `flexyBayes` was completed 2026-04-27; the
-   matching upstream rename is gated on the AAGI-AUS collective
-   conversation (project decision **D8**). The package URL is
-   forward-pointing on purpose so a single edit at the moment of
-   collective approval lands the resolution. This sub-NOTE will
-   disappear once the upstream rename ships.
+   `bayesreml` to `flexyBayes` was completed 2026-04-27; the matching
+   upstream repository rename is gated on the AAGI-AUS collective
+   conversation (project decision **D8**). The URL declared in
+   `DESCRIPTION` is the *agreed forward destination* —
+   `AAGI-AUS/flexyBayes` is where the package will live once the
+   upstream rename ships; the URL is forward-pointing on purpose so a
+   single edit at the moment of collective approval is unnecessary.
+   This sub-NOTE will resolve once the upstream rename ships. This
+   sub-item may or may not fire on a given check host depending on
+   the network-reachability check's caching behaviour.
 
-**NOTE 2 — `checking HTML version of manual`.**
+**NOTE 2 (environmental) — `checking HTML version of manual`.**
 
 ```
 Skipping checking HTML validation: 'tidy' doesn't look like recent
@@ -71,7 +79,8 @@ enough HTML Tidy.
 
 Environmental: the local HTML Tidy binary on macOS Tahoe is older
 than the version `R CMD check` is happy with. CRAN's check farm runs
-a current Tidy, so this NOTE does not appear on CRAN itself.
+a current Tidy, so this NOTE does not appear on CRAN itself. Does
+not fire on the current dev machine when a recent Tidy is on PATH.
 
 **NOTE 3 (environmental, only when offline) — `checking for future file timestamps`.**
 

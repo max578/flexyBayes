@@ -32,7 +32,7 @@ block below is updated alongside each release.
 | Primary maintainer | Max Moldovan | Adelaide University; contact via package author email. |
 | Bus factor | Pending AAGI-AUS collective decision | Will be set jointly with D5 / D8 / D10. |
 | Weekly maintenance hours | Pending AAGI-AUS collective decision | Honest median across recent quarters will be reported once measured. |
-| Issue response SLA | Pending AAGI-AUS collective decision | No SLA committed under the development build (`0.2.0.9000`). |
+| Issue response SLA | Pending AAGI-AUS collective decision | No SLA committed under the development build (`0.3.0.9000`). |
 | Critical security SLA | 7 days | See [`SECURITY.md`](SECURITY.md). |
 | Abandonment protocol | Pending AAGI-AUS collective decision; default fallback = AAGI-AUS institutional handover | Concrete handover / archive plan ratified with D5 / D8. |
 
