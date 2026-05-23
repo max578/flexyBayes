@@ -43,6 +43,29 @@
     .gretaR_dormant_refusal(call = the_call)
   }
 
+  # Stage 2 MVP design-memory preflight (ADR 0021). Runs only above
+  # the 1e5-row threshold so the v0.2 user surface is unchanged at
+  # small scales -- the existing test suite never trips this branch.
+  # Above the threshold, .fb_preflight() reads only fb_dataset
+  # metadata (n_rows, dictionaries, col_types) and refuses upstream
+  # with a structured error if any term's design-memory estimate
+  # exceeds the active ceiling. The refusal short-circuits dispatch
+  # before any backend code runs.
+  preflight_threshold <- 1e5L
+  if (isTRUE(!is.null(fb$data_summary$n) &&
+             fb$data_summary$n >= preflight_threshold)) {
+    # Optional global ceiling override -- lets the user set a stricter
+    # cap than 0.8 x RAM (e.g. on a shared host) without passing an
+    # argument through every dispatch entry. NULL falls back to the
+    # default RAM-probe resolution inside .fb_preflight().
+    pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
+    pf_dataset <- .fb_dataset(data)
+    pf_result  <- .fb_preflight(fb, pf_dataset,
+                                 memory_ceiling_gb = pf_ceiling_gb)
+    if (inherits(pf_result$refusal, "fb_preflight_refusal"))
+      .stop_preflight_refusal(pf_result$refusal, call = the_call)
+  }
+
   # Stan passthrough via brms. Opt-in only -- backend = "auto" never
   # routes to Stan because brms's first-call compile latency (30-60s)
   # would silently break the auto-dispatch transparent-fast-path
@@ -218,4 +241,30 @@
     fit$extras$fb_terms <- fb
   }
   fit
+}
+
+
+# Stage 2 MVP -- raise a typed preflight refusal as a structured
+# condition. The custom class `flexybayes_preflight_refusal` carries
+# the refusal object verbatim so downstream tooling can pattern-match
+# on the slots without parsing free text.
+.stop_preflight_refusal <- function(refusal, call) {
+  msg <- paste(utils::capture.output(print(refusal)), collapse = "\n")
+  cond <- structure(
+    class = c("flexybayes_preflight_refusal", "error", "condition"),
+    list(
+      message       = paste0(
+        "flexyBayes preflight refused: the design exceeds the ",
+        "active memory ceiling. The dispatch was short-circuited ",
+        "before any backend code ran.\n",
+        msg
+      ),
+      call          = call,
+      refusal       = refusal,
+      reason_code   = refusal$reason_code,
+      binding_term  = refusal$binding_term,
+      ceiling_bytes = refusal$ceiling_bytes
+    )
+  )
+  stop(cond)
 }
