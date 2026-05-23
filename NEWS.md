@@ -1,5 +1,20 @@
 # flexyBayes 0.2.5.9000
 
+## Representation benchmarks (Stage 1C per merged-v2 plan section 4.2.3)
+
+The benchmark harness gains three new rows per term class:
+`generated_code_size_bytes`, `pre_fit_object_size_bytes`, and
+`code_generation_time_sec`. Snapshot tests assert that the greta
+fit-time codegen path does not call `model.matrix()` for supported
+indexed term classes -- the indexed-emit path replaces the dense
+matrix at any `n`, so generated code size stays nearly constant in
+`n`.
+
+Benchmark filename rename: `tools/benchmark_flexyBayes_0.2.5.R` ->
+`tools/benchmark_flexyBayes.R` (version stamp dropped; the harness
+runs against whichever version is installed, and names its output
+directory accordingly at run time).
+
 ## Correctness fix -- predict(newdata) on smooths (ADR 0018)
 
 `predict.flexybayes(..., newdata = ...)` on fits containing one or
