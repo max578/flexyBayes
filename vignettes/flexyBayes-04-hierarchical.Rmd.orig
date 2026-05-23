@@ -133,6 +133,51 @@ unstructured covariance, written as
 asreml DSL. It is one of the constructions covered in the
 *structured covariance* vignette.
 
+# 3a. Uncorrelated random slopes via `fb_brms()` (lme4-style `(x || g)`)
+
+`fb_brms()` accepts the lme4 / brms double-pipe notation `(x || g)`
+for *uncorrelated* random intercept + slope -- each level of the
+grouping factor carries an independent intercept deviation AND an
+independent slope deviation, both drawn from their own univariate-
+normal priors with no correlation parameter shared between them.
+This matches the lme4 / brms semantics where `(Days || Subject)`
+expands to `(1 | Subject) + (0 + Days | Subject)`. The `(0 + x || g)`
+form drops the intercept block, fitting a slope-only random effect.
+Both shapes are structurally equivalent to the asreml-form
+`~ Subject + Subject:Days` construction in section 3 -- same
+posterior, different surface.
+
+```{r ris-uncor-fit, eval=greta_ok}
+fit_ris_uncor <- fb_brms(
+  Reaction ~ Days + (Days || Subject),
+  data = sleepstudy, backend = "greta",
+  n_samples = 500, warmup = 500, chains = 2,
+  verbose = FALSE, mcmc_verbose = FALSE
+)
+summary(fit_ris_uncor)
+```
+
+The intercept-deviation hyperparameter is canonically named
+`sd_Subject` and the slope-deviation hyperparameter
+`sd_Days_Subject` -- the per-backend mapper handles the brms-side
+`sd_Subject__Days` <-> flexyBayes canonical `sd_Days_Subject`
+translation automatically. Inspect via `canonical_names()`:
+
+```{r ris-uncor-canon, eval=greta_ok}
+canonical_names(fit_ris_uncor)$map
+```
+
+The correlated form `(Days | Subject)` (with a free correlation
+parameter between the subject-level intercept and slope) is not yet
+supported on the brms ingest path. Attempting it raises a
+structured refusal with a v0.3 deferral pointer -- the workaround
+text suggests the `(Days || Subject)` form when the correlation is
+not of inferential interest, or the asreml-style structured
+covariance entry above when it is. The refusal carries a typed
+condition class (`flexybayes_correlated_slope_unsupported`) with
+slots `deferral_target`, `workaround`, `grouping_factor`, and
+`slope_variable` so downstream tooling can pattern-match.
+
 # 4. Crossed and nested random effects
 
 Two cluster variables that *cross* — every level of one is observed
