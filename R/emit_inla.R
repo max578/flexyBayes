@@ -168,8 +168,18 @@ emit_inla <- function(fb,
       "interaction"        = paste(term$vars, collapse = ":"),
       "factor_interaction" = paste(term$vars, collapse = ":"),
       "expression"         = term$label,
-      stop("emit_inla() does not support fixed term type \"",
-           term$type, "\". Use backend = \"greta\".",
+      # ADR 0017: this stop() is an internal contract-violation
+      # assertion. Under the new gate, .lgm_check_fixed_term_inla_support()
+      # refuses any fixed term type outside the allowlist before
+      # we reach here. A fired assertion means the gate and the
+      # emit are out of sync -- a flexyBayes-side bug, not a
+      # user-facing refusal.
+      stop("lgm_gate broken contract: fixed term type \"",
+           term$type, "\" reached emit_inla() despite a passing ",
+           "gate. This is a flexyBayes internal bug -- the gate's ",
+           ".lgm_check_fixed_term_inla_support() allowlist is out ",
+           "of sync with .build_inla_formula()'s switch(). Please ",
+           "file an issue.",
            call. = FALSE)
     )
     rhs_terms <- c(rhs_terms, contrib)
@@ -192,8 +202,15 @@ emit_inla <- function(fb,
       "ide"    = ,
       "id"     = "iid",
       "spline" = "rw2",
-      stop("emit_inla() v0.1 does not support random term type \"",
-           term$type, "\". Re-route via backend = \"greta\".",
+      # ADR 0017: internal contract-violation assertion. See the
+      # fixed-term site above for the rationale; the gate's
+      # .lgm_check_random_term_inla_support() owns this guard.
+      stop("lgm_gate broken contract: random term type \"",
+           term$type, "\" reached emit_inla() despite a passing ",
+           "gate. This is a flexyBayes internal bug -- the gate's ",
+           ".lgm_check_random_term_inla_support() allowlist is ",
+           "out of sync with .build_inla_formula()'s switch(). ",
+           "Please file an issue.",
            call. = FALSE)
     )
     hyper_str <- .inla_hyper_arg(hyper_ctrl[[key]])
@@ -206,9 +223,15 @@ emit_inla <- function(fb,
   # Heterogeneous residual / structured rcov
   for (term in fb$rcov_terms) {
     if (term$type != "units")
-      stop("emit_inla() v0.1 does not support rcov term type \"",
-           term$type, "\". INLA folds residual variance into the ",
-           "likelihood; structured rcov refits via backend = \"greta\".",
+      # ADR 0017: internal contract-violation assertion. See the
+      # fixed-term site above for the rationale; the gate's
+      # .lgm_check_rcov_term_inla_support() owns this guard.
+      stop("lgm_gate broken contract: rcov term type \"",
+           term$type, "\" reached emit_inla() despite a passing ",
+           "gate. This is a flexyBayes internal bug -- the gate's ",
+           ".lgm_check_rcov_term_inla_support() allowlist is out ",
+           "of sync with .build_inla_formula()'s rcov guard. ",
+           "Please file an issue.",
            call. = FALSE)
   }
 

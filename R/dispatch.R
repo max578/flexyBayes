@@ -136,59 +136,42 @@
       if (backend == "inla" ||
           (backend == "auto" &&
            requireNamespace("INLA", quietly = TRUE))) {
-        emit_attempt <- tryCatch(
-          emit_inla(
-            fb        = gated,
-            data      = data,
-            verbose   = verbose,
-            return_code = return_code,
-            the_call  = the_call,
-            fixed     = fixed,
-            random    = random,
-            rcov      = rcov,
-            family    = family,
-            link      = link,
-            data_name = data_name
-          ),
-          error = function(e) structure(
-            list(.emit_failed = TRUE,
-                 .emit_error = conditionMessage(e)),
-            class = "emit_inla_failure"
-          )
+        # ADR 0017: with the gate folded around emit_inla()'s
+        # structural refusals, lgm_gate(fb) == accept is a
+        # sufficient condition for .build_inla_formula(gated) to
+        # succeed structurally. We therefore no longer wrap the
+        # emit_inla() call in a tryCatch / emit_inla_failure
+        # fall-back: any error from this point is either (a) the
+        # internal contract-violation assertion (gate / emit
+        # drift bug -- a flexyBayes-side error that must surface,
+        # not silently fall back to greta), or (b) an INLA-side
+        # numerical / runtime failure independent of structural
+        # feasibility (also surfaces directly so the user sees
+        # the true diagnostic instead of a silent greta fit).
+        fit <- emit_inla(
+          fb        = gated,
+          data      = data,
+          verbose   = verbose,
+          return_code = return_code,
+          the_call  = the_call,
+          fixed     = fixed,
+          random    = random,
+          rcov      = rcov,
+          family    = family,
+          link      = link,
+          data_name = data_name
         )
-
-        if (inherits(emit_attempt, "emit_inla_failure")) {
-          if (backend == "inla")
-            stop("backend = \"inla\": emit_inla() refused this ",
-                 "model: ", emit_attempt$.emit_error, call. = FALSE)
-          if (!isTRUE(getOption(
-                "flexyBayes.silence_auto_fallback_note", FALSE)))
-            message("backend = \"auto\": lgm_gate() accepted but ",
-                    "emit_inla() refused at emit time (",
-                    sub("\\..*$", "", emit_attempt$.emit_error),
-                    "); falling back to greta.")
-          decision <- list(
-            backend     = "greta",
-            path        = "auto_inla_emit_refuse",
+        if (return_code) return(fit)
+        if (!is.null(fit$extras)) {
+          fit$extras$backend_decision <- list(
+            backend     = "inla",
+            path        = if (backend == "auto") "auto_accept" else "explicit_inla_accept",
             gate_checks = gated$capabilities,
-            reason      = paste0("lgm_gate() accepted; emit_inla() ",
-                                 "refused at emit time; auto fell ",
-                                 "back to greta.")
+            reason      = "lgm_gate() accepted; INLA dispatch."
           )
-        } else {
-          fit <- emit_attempt
-          if (return_code) return(fit)
-          if (!is.null(fit$extras)) {
-            fit$extras$backend_decision <- list(
-              backend     = "inla",
-              path        = if (backend == "auto") "auto_accept" else "explicit_inla_accept",
-              gate_checks = gated$capabilities,
-              reason      = "lgm_gate() accepted; INLA dispatch."
-            )
-            fit$extras$fb_terms <- gated
-          }
-          return(fit)
+          fit$extras$fb_terms <- gated
         }
+        return(fit)
       }
     }
   } else {

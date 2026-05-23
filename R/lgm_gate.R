@@ -6,11 +6,16 @@
 # the model is feasible for INLA (Integrated Nested Laplace
 # Approximations) dispatch.
 #
-# v0.1 implements 6 of the 7 checks (the structural-first set).
-# Check 7 -- the post-fit numerical-confirm gate -- is stubbed for
-# v0.1; it lands alongside emit_inla() (deliverable 5+) where it
-# can inspect mode.status, mlik finiteness, hyperpar boundary
-# proximity, and posterior skewness.
+# v0.2.5 implements 9 of the 10 checks (the structural-first set):
+# the original six (family, predictor, distributional, re_prior,
+# latent_class, hyperparam_budget) plus three INLA-emit-support
+# checks (fixed_term_type_inla, random_term_type_inla,
+# rcov_term_type_inla) added under ADR 0017 to fold emit_inla()
+# structural refusals into the gate. Check 10 -- the post-fit
+# numerical-confirm gate -- is stubbed; it lands alongside
+# emit_inla()'s numerical-confirm pass where it can inspect
+# mode.status, mlik finiteness, hyperpar boundary proximity, and
+# posterior skewness.
 #
 # Twin objectives: low false-negative rate (don't refuse INLA-
 # feasible models) and zero silent failure (don't accept models
@@ -63,14 +68,16 @@ lgm_gate <- function(fb,
          call. = FALSE)
 
   checks <- list(
-    .lgm_check_family(fb),              # check 1
-    .lgm_check_predictor(fb),           # check 2
-    .lgm_check_distributional(fb),      # check 3
-    .lgm_check_re_prior(fb),            # check 4
-    .lgm_check_latent_class(fb),        # check 5
-    .lgm_check_hyperparam_budget(fb)    # check 6
-    # check 7 (numerical-confirm) is post-fit -- see emit_inla
-    # (deliverable 5+).
+    .lgm_check_family(fb),                       # check 1
+    .lgm_check_predictor(fb),                    # check 2
+    .lgm_check_distributional(fb),               # check 3
+    .lgm_check_re_prior(fb),                     # check 4
+    .lgm_check_latent_class(fb),                 # check 5
+    .lgm_check_hyperparam_budget(fb),            # check 6
+    .lgm_check_fixed_term_inla_support(fb),      # check 7 (ADR 0017)
+    .lgm_check_random_term_inla_support(fb),    # check 8 (ADR 0017)
+    .lgm_check_rcov_term_inla_support(fb)       # check 9 (ADR 0017)
+    # check 10 (numerical-confirm) is post-fit -- see emit_inla.
   )
 
   failures <- Filter(function(r) !isTRUE(r$pass), checks)
@@ -458,4 +465,183 @@ print.lgm_refusal <- function(x, ...) {
   }
 
   fam_hypers + re_hypers + rcov_hypers
+}
+
+# ---------------------------------------------------------------- #
+# Checks 7-9 -- INLA emit-support allowlists                       #
+# ---------------------------------------------------------------- #
+#
+# Added under ADR 0017 ("Gate truth = emit truth"). Each check
+# mirrors the corresponding switch() default in
+# `.build_inla_formula()` (R/emit_inla.R) and refuses at the gate
+# what emit_inla would refuse at emit time. After this ADR lands,
+# `lgm_gate(fb) == accept` is a sufficient condition for
+# `.build_inla_formula(gated)` to succeed structurally; the
+# emit-side `stop()`s become internal contract-violation
+# assertions.
+#
+# Allowlists are maintained as flat character vectors next to the
+# checks so the gate's source-of-truth is co-located with the
+# refusal text. Adding a new IR term type in the codegen layer
+# requires updating both the emit switch() and the corresponding
+# allowlist here.
+
+# Allowlist: fixed-term types that emit_inla()'s fixed-effect
+# switch() accepts. Anything else is refused at the gate with the
+# offending type named.
+.inla_fixed_term_type_allowlist <- function() {
+  c("factor", "continuous", "interaction",
+    "factor_interaction", "expression")
+}
+
+# Allowlist: random-term types that emit_inla()'s random-effect
+# switch() accepts. The refused set (vm/ped/at/us/fa/ar1 +
+# variants) maps to greta's broader formula path; the refusal
+# text names the structured-covariance class.
+.inla_random_term_type_allowlist <- function() {
+  c("simple", "ide", "id", "spline")
+}
+
+# Allowlist: rcov-term types that emit_inla()'s rcov-term guard
+# accepts. INLA folds residual variance into the likelihood and
+# does not represent structured-rcov forms; those refit via greta.
+.inla_rcov_term_type_allowlist <- function() {
+  c("units")
+}
+
+# Human-readable label for a structured-covariance random-term
+# type, used in the refusal diagnostic so the user sees the
+# semantic class (e.g., "variance-matrix / GBLUP") not just the
+# bare type string.
+.inla_random_term_class_label <- function(term_type) {
+  switch(term_type,
+    "vm"           = "variance-matrix (e.g., GBLUP / kinship-driven random effect)",
+    "ped"          = "pedigree-based (numerator relationship matrix)",
+    "at"           = "heterogeneous variance by factor level",
+    "at_simple"    = "heterogeneous variance by simple factor",
+    "us"           = "unstructured covariance",
+    "fa"           = "factor-analytic",
+    "fa_gxe"       = "factor-analytic G\u00d7E",
+    "us_gxe"       = "unstructured G\u00d7E",
+    "ar1"          = "autoregressive lag-1",
+    "ar1_spatial"  = "AR1 spatial",
+    "polynomial"   = "polynomial random effect",
+    paste0("random term type \"", term_type, "\"")
+  )
+}
+
+# Human-readable label for a structured-rcov term type.
+.inla_rcov_term_class_label <- function(term_type) {
+  switch(term_type,
+    "at_units"  = "heterogeneous residual by factor",
+    "dsum"      = "diagonal heterogeneous residual",
+    "ar1_units" = "AR1 residual",
+    paste0("rcov term type \"", term_type, "\"")
+  )
+}
+
+# Check 7 -- Fixed-term type allowlist for the INLA emit path.
+#
+# emit_inla()'s fixed-effect switch() recognises factor /
+# continuous / interaction / factor_interaction / expression.
+# Anything else falls through to a stop(); under ADR 0017 we
+# catch that at the gate instead. In v0.2 the codegen does not
+# produce out-of-allowlist fixed-term types; this check is
+# defensive against codegen drift.
+.lgm_check_fixed_term_inla_support <- function(fb) {
+  allowed <- .inla_fixed_term_type_allowlist()
+  bad <- character(0)
+  for (term in fb$fixed_terms) {
+    if (!is.character(term$type) || !(term$type %in% allowed))
+      bad <- c(bad, as.character(term$type))
+  }
+  if (length(bad))
+    return(.lgm_fail(
+      "fixed_term_type_inla",
+      paste0("fixed term type \"", bad[[1L]],
+             "\" is outside the INLA emit allowlist. ",
+             "Re-route via backend = \"greta\" (broader formula path) ",
+             "or backend = \"brms\" (Stan passthrough)."),
+      diagnostic = paste0("fb$fixed_terms type(s): ",
+                           paste(unique(bad), collapse = ", "),
+                           "; allowed: ",
+                           paste(allowed, collapse = ", "))
+    ))
+  .lgm_pass("fixed_term_type_inla")
+}
+
+# Check 8 -- Random-term type allowlist for the INLA emit path.
+#
+# emit_inla()'s random-effect switch() recognises simple / ide /
+# id (mapped to INLA "iid") and spline (mapped to INLA "rw2").
+# Structured-covariance forms (vm / ped / at / us / fa / ar1 and
+# variants) are not currently translatable to an INLA f() call
+# without an SPDE / kronecker / spde2 expansion that the v0.2
+# emit does not produce. These re-route to greta; the refusal
+# names the structured-cov class.
+.lgm_check_random_term_inla_support <- function(fb) {
+  allowed <- .inla_random_term_type_allowlist()
+  bad     <- character(0)
+  labels  <- character(0)
+  for (term in fb$random_terms) {
+    if (!is.character(term$type) || !(term$type %in% allowed)) {
+      bad    <- c(bad, as.character(term$type))
+      labels <- c(labels, .inla_random_term_class_label(term$type))
+    }
+  }
+  if (length(bad)) {
+    first_type  <- bad[[1L]]
+    first_label <- labels[[1L]]
+    return(.lgm_fail(
+      "random_term_type_inla",
+      paste0("random term type \"", first_type,
+             "\" (", first_label, ") is outside the INLA emit ",
+             "allowlist. INLA's f() machinery does not currently ",
+             "represent this structured-covariance class without ",
+             "an SPDE / kronecker expansion that the v0.2 emit ",
+             "does not produce. Re-route via backend = \"greta\"."),
+      diagnostic = paste0("fb$random_terms type(s): ",
+                           paste(unique(bad), collapse = ", "),
+                           "; allowed: ",
+                           paste(allowed, collapse = ", "))
+    ))
+  }
+  .lgm_pass("random_term_type_inla")
+}
+
+# Check 9 -- Rcov-term type allowlist for the INLA emit path.
+#
+# INLA folds residual variance into the likelihood and does not
+# expose a separate residual-structure surface. Only `units`
+# (homogeneous residual) passes; everything else (at_units / dsum
+# / ar1_units) refits via greta where the residual structure can
+# be represented explicitly. Refusal names the structured-rcov
+# case.
+.lgm_check_rcov_term_inla_support <- function(fb) {
+  allowed <- .inla_rcov_term_type_allowlist()
+  bad     <- character(0)
+  labels  <- character(0)
+  for (term in fb$rcov_terms) {
+    if (!is.character(term$type) || !(term$type %in% allowed)) {
+      bad    <- c(bad, as.character(term$type))
+      labels <- c(labels, .inla_rcov_term_class_label(term$type))
+    }
+  }
+  if (length(bad)) {
+    first_type  <- bad[[1L]]
+    first_label <- labels[[1L]]
+    return(.lgm_fail(
+      "rcov_term_type_inla",
+      paste0("rcov term type \"", first_type,
+             "\" (", first_label, ") is outside the INLA emit ",
+             "allowlist. INLA folds residual variance into the ",
+             "likelihood; structured-rcov forms refit via ",
+             "backend = \"greta\"."),
+      diagnostic = paste0("fb$rcov_terms type(s): ",
+                           paste(unique(bad), collapse = ", "),
+                           "; allowed: ",
+                           paste(allowed, collapse = ", "))
+    ))
+  }
+  .lgm_pass("rcov_term_type_inla")
 }
