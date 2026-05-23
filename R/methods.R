@@ -261,18 +261,105 @@ predict.flexybayes <- function(object, newdata = NULL,
     return(pred)
   }
 
-  # For new data, use the model matrix approach with posterior means
-  tryCatch({
-    mm <- model.matrix(object$glm$formula, data = newdata)
-    beta <- coef(object)
+  # ADR 0018: smooth-aware prediction on newdata. The smooth terms
+  # live on the IR's random_terms slot (asreml-style fits put s() in
+  # `random`, not in the fixed formula). The truth source is the
+  # IR's parse_info$random list plus the parse_info$smooths slot
+  # populated at codegen time. If the IR carries smooth_mgcv random
+  # terms but the smooths slot is empty/missing (legacy fits saved
+  # before ADR 0018), refuse cleanly. If the smooths slot is
+  # populated, use mgcv::PredictMat() per smooth and column-bind to
+  # the linear-only design matrix.
+  fixed_formula <- object$glm$formula
+  random_terms  <- object$extras$parse_info$random
+  smooths_slot  <- object$extras$parse_info$smooths
+  has_smooth_in_ir <- !is.null(random_terms) &&
+    any(vapply(random_terms,
+               function(t) !is.null(t$type) && t$type == "smooth_mgcv",
+               logical(1)))
 
-    # Match columns
-    common <- intersect(colnames(mm), names(beta))
-    if (length(common) == 0) {
-      warning("No matching coefficients for newdata prediction.")
-      pred <- rep(NA_real_, nrow(newdata))
+  if (has_smooth_in_ir &&
+      (is.null(smooths_slot) || length(smooths_slot) == 0L))
+    stop("predict.flexybayes(): the fit was produced before smooth-",
+         "basis retention shipped (or via fb_greta() where smooth ",
+         "basis is user-managed). Refusing to use stats::model.matrix() ",
+         "on smooth terms -- it would produce silently wrong ",
+         "predictions on newdata. Re-fit via flexybayes() / fb_brms() ",
+         "on the current package version to enable predict() with ",
+         "newdata.", call. = FALSE)
+
+  tryCatch({
+    if (has_smooth_in_ir && length(smooths_slot) > 0L) {
+      # Linear-only model matrix (s() terms stripped from rhs). The
+      # smooth terms in asreml-style fits live on the random formula,
+      # not on the fixed formula, so the fixed formula is already
+      # linear-only. We use the rhs-only variant of model.matrix so
+      # newdata does not need to carry the response variable.
+      X_linear <- stats::model.matrix(
+        stats::delete.response(
+          stats::terms(.linear_formula(fixed_formula))),
+        data = newdata
+      )
+      beta <- coef(object)
+      common <- intersect(colnames(X_linear), names(beta))
+      lin_part <- if (length(common) > 0L)
+        as.numeric(X_linear[, common, drop = FALSE] %*% beta[common])
+      else rep(0, nrow(newdata))
+
+      # Per-smooth basis on newdata via mgcv's reference implementation
+      # plus per-smooth posterior-mean basis coefficients from the
+      # draws matrix. The draws columns for s(x) are named
+      # `s_x_raw[i]` (scaled by `sigma_s_x` in the codegen via
+      # `f_s_x <- B_g_s_x %*% (s_x_raw * sigma_s_x)`). We compute the
+      # posterior-mean of the *product* (basis-coefficient vector)
+      # which matches the codegen contract on the linear predictor.
+      draws_mat <- do.call(rbind,
+        lapply(object$greta$draws, as.matrix))
+      smooth_part <- rep(0, nrow(newdata))
+      for (v in names(smooths_slot)) {
+        sm <- smooths_slot[[v]]
+        # Basis at newdata.
+        Bnew <- mgcv::PredictMat(sm, data = newdata)
+        # Posterior-mean basis-coefficient vector. Match the codegen
+        # naming: `s_<v>_raw[1]` ... `s_<v>_raw[k]` and `sigma_s_<v>`.
+        raw_pat   <- paste0("^s_", v, "_raw(\\[|$)")
+        raw_cols  <- grep(raw_pat, colnames(draws_mat), value = TRUE)
+        sigma_col <- paste0("sigma_s_", v)
+        if (length(raw_cols) == 0L || !sigma_col %in% colnames(draws_mat))
+          next
+        # Each draw: raw[k] * sigma -> per-draw basis-coef vector;
+        # average over draws -> posterior-mean basis-coef vector.
+        raw_draws   <- draws_mat[, raw_cols, drop = FALSE]
+        sigma_draws <- draws_mat[, sigma_col]
+        coef_draws  <- sweep(raw_draws, 1L, sigma_draws, `*`)
+        coef_mean   <- colMeans(coef_draws)
+        # The basis from PredictMat is k columns (the absorbed-cons
+        # basis matches the training-time basis dim).
+        if (ncol(Bnew) != length(coef_mean)) next
+        smooth_part <- smooth_part + as.numeric(Bnew %*% coef_mean)
+      }
+      pred <- lin_part + smooth_part
+      # `mm` carried forward to the se.fit branch below; for the
+      # smooth path we set it to the linear part only (se.fit not
+      # computed on smooths in this iteration).
+      mm <- X_linear
     } else {
-      pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
+      # rhs-only model matrix so newdata does not need to carry the
+      # response variable (the prior path required `y` in newdata,
+      # which was unnecessarily restrictive).
+      mm <- stats::model.matrix(
+        stats::delete.response(stats::terms(fixed_formula)),
+        data = newdata
+      )
+      beta <- coef(object)
+
+      common <- intersect(colnames(mm), names(beta))
+      if (length(common) == 0) {
+        warning("No matching coefficients for newdata prediction.")
+        pred <- rep(NA_real_, nrow(newdata))
+      } else {
+        pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
+      }
     }
 
     if (type == "response") {
@@ -288,22 +375,67 @@ predict.flexybayes <- function(object, newdata = NULL,
 
     if (se.fit) {
       V <- vcov(object)
-      if (length(common) > 0 && nrow(V) > 0) {
-        se <- sqrt(rowSums(
-          (mm[, common, drop = FALSE] %*% V[common, common]) *
-           mm[, common, drop = FALSE]
-        ))
-      } else {
+      if (has_smooth_in_ir && length(smooths_slot) > 0L) {
+        # Smooth-path se.fit not computed -- the smooth-basis vcov is
+        # not yet on the IR (only the fixed-effect vcov is). Return NA
+        # rather than a wrong number; v0.3 candidate.
         se <- rep(NA_real_, nrow(newdata))
+      } else {
+        common <- intersect(colnames(mm), names(beta))
+        if (length(common) > 0 && nrow(V) > 0) {
+          se <- sqrt(rowSums(
+            (mm[, common, drop = FALSE] %*% V[common, common]) *
+             mm[, common, drop = FALSE]
+          ))
+        } else {
+          se <- rep(NA_real_, nrow(newdata))
+        }
       }
       return(list(fit = pred, se.fit = se))
     }
 
     pred
   }, error = function(e) {
-    warning("Prediction with newdata failed: ", conditionMessage(e))
+    # ADR 0018: the legacy-fit correctness refusal above is a
+    # deliberate stop() with a structured message; re-raise it
+    # rather than swallow into a warning + NA vector.
+    msg <- conditionMessage(e)
+    if (grepl("smooth-basis retention", msg, fixed = TRUE))
+      stop(msg, call. = FALSE)
+    warning("Prediction with newdata failed: ", msg)
     rep(NA_real_, nrow(newdata))
   })
+}
+
+# ADR 0018 internal helper: TRUE when the rhs of `f` contains at
+# least one s() smooth specification. Used by predict.flexybayes()
+# to drive the smooth-aware branch + the legacy-fit refusal.
+.formula_has_smooth <- function(f) {
+  if (!inherits(f, "formula")) return(FALSE)
+  rhs <- f[[length(f)]]
+  any(grepl("\\bs\\(", deparse(rhs)))
+}
+
+# ADR 0018 internal helper: strip s() terms from the rhs of `f` and
+# return the linear-only formula. Preserves the lhs, the intercept
+# convention, and any non-s() terms (factor / continuous /
+# interaction / I() expressions). Used by predict.flexybayes() to
+# build the linear-only design matrix before column-binding the
+# per-smooth basis from mgcv::PredictMat().
+.linear_formula <- function(f) {
+  if (!inherits(f, "formula")) return(f)
+  tt <- stats::terms(f)
+  labs <- attr(tt, "term.labels")
+  keep <- !grepl("^s\\(", labs)
+  # Preserve intercept presence (attr(tt, "intercept") is 0 or 1).
+  intercept_str <- if (isTRUE(attr(tt, "intercept") == 1)) "1" else "0"
+  rhs_terms <- c(intercept_str, labs[keep])
+  rhs <- paste(rhs_terms, collapse = " + ")
+  lhs <- if (length(f) == 3L) deparse(f[[2]]) else NULL
+  stats::as.formula(
+    if (!is.null(lhs)) paste(lhs, "~", rhs) else paste("~", rhs),
+    env = environment(f)
+  )
 }
 
 #' Log-likelihood (approximate)

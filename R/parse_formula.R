@@ -259,6 +259,14 @@
       term$X            <- sm_obj$X
       term$k            <- ncol(sm_obj$X)
       term$smooth_label <- sm_obj$label
+      # ADR 0018: retain the constructed mgcv Smooth object on the IR.
+      # predict.flexybayes(newdata = ...) re-evaluates the basis via
+      # mgcv::Predict.matrix(<smooth_obj>, newdata) -- the only correct
+      # way to reproduce the training-time knot placement / quantile
+      # structure on new data. Without this slot the predict path falls
+      # back to stats::model.matrix() which silently produces wrong
+      # predictions near or beyond the training range.
+      term$smooth_obj   <- sm_obj
       term
     },
     term

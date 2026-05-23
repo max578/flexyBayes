@@ -90,7 +90,15 @@ emit_greta <- function(fb,
     prior_vc       = prior_vc_sd,
     prior_fx       = prior_fixed_sd,
     pc_per_vc      = pc_per_vc,
-    uniform_per_vc = uniform_per_vc
+    uniform_per_vc = uniform_per_vc,
+    # ADR 0018: codegen for s() smooths binds the basis matrix into
+    # this environment as B_s_<vname>; emit_greta evaluates the
+    # generated code against `ev` (which is `ctx$env` here) so the
+    # bound name is in scope. Other code-paths that build a ctx
+    # without an env (notably return_code = TRUE branches that never
+    # eval) must still work -- the assign() below is harmless on a
+    # throw-away env.
+    env            = ev
   )
 
   ctx <- .code_fixed(ctx, fixed_info)
@@ -187,10 +195,15 @@ emit_greta <- function(fb,
       code           = code_str,
       param_names    = unique(ctx$params),
       parse_info     = list(
-        fixed  = fixed_info,
-        random = random_terms,
-        rcov   = rcov_terms,
-        family = fam_link
+        fixed   = fixed_info,
+        random  = random_terms,
+        rcov    = rcov_terms,
+        family  = fam_link,
+        # ADR 0018: collect non-NULL smooth_obj slots into a named list
+        # keyed by smooth-term variable name. Empty list when the model
+        # has no smooths. predict.flexybayes() reads this slot and
+        # re-evaluates the basis on newdata via mgcv::Predict.matrix().
+        smooths = .collect_smooths(random_terms)
       ),
       call_info      = list(
         fixed          = fixed,
@@ -230,4 +243,22 @@ emit_greta <- function(fb,
   )
 
   invisible(result)
+}
+
+# ADR 0018: collect non-NULL `smooth_obj` slots from the IR's
+# random_terms list into a named list keyed by the smooth-term
+# variable name (e.g., `s(x)` -> `smooths[["x"]] <- <Smooth>`).
+# Returns an empty named list when no smooths are present, so the
+# downstream `parse_info$smooths` slot has a uniform shape.
+# Internal helper; also reused by emit_inla() for the IR slot.
+.collect_smooths <- function(random_terms) {
+  out <- list()
+  if (length(random_terms) == 0L) return(out)
+  for (t in random_terms) {
+    if (!is.null(t$smooth_obj)) {
+      key <- t$var %||% t$smooth_label %||% paste0("s_", length(out) + 1L)
+      out[[key]] <- t$smooth_obj
+    }
+  }
+  out
 }

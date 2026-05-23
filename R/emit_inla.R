@@ -141,6 +141,15 @@ emit_inla <- function(fb,
           family    = family,
           link      = link
         ),
+        # ADR 0018: thread the IR's smooth-objects slot through to the
+        # extras so predict() on the INLA path can also use
+        # mgcv::Predict.matrix() when smooths are present. The INLA
+        # backend itself does not currently fit s() smooths via mgcv
+        # (it uses INLA's own rw2 path), so this slot will normally be
+        # an empty list; threaded for shape uniformity with emit_greta.
+        parse_info = list(
+          smooths = .collect_smooths(fb$random_terms)
+        ),
         run_time  = elapsed,
         the_call  = the_call,
         formula   = inla_form
