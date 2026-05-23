@@ -153,12 +153,13 @@ test_that("backend = 'auto' on a non-LGM model falls back to greta with trace", 
   )
   bd <- backend_decision(fit)
   expect_identical(bd$backend, "greta")
-  # Two valid fallback paths: gate-level refusal or emit-level refusal.
-  # at(env):units triggers the emit-level path because lgm_gate's v0.1
-  # check set does not catch the rcov-structured-cov refusal.
-  expect_true(bd$path %in% c("auto_lgm_refuse", "auto_inla_emit_refuse"))
+  # ADR 0017: the gate's .lgm_check_rcov_term_inla_support() now
+  # catches at(env):units at gate time, so the only valid fall-back
+  # path is auto_lgm_refuse. The pre-ADR-0017 emit-level path
+  # ("auto_inla_emit_refuse") is architecturally unreachable.
+  expect_identical(bd$path, "auto_lgm_refuse")
   expect_true(!is.null(bd$gate_checks))
-  expect_true(any(grepl("lgm_gate\\(\\) refused|emit_inla\\(\\) refused", msgs)))
+  expect_true(any(grepl("lgm_gate\\(\\) refused", msgs)))
 })
 
 

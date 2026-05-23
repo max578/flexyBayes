@@ -49,15 +49,85 @@ test_that(".build_inla_formula() builds intercept + fixed + simple RE", {
   expect_match(fstr, 'f\\(g, model = "iid"\\)')
 })
 
-test_that(".build_inla_formula() refuses unsupported random term type", {
-  d  <- mk_inla_data()
-  fb <- mk_fb_for_inla(d, random_terms = list(list(type = "fa_gxe",
-                                                    outer = "env",
-                                                    inner = "geno",
-                                                    k = 2L)))
+# ADR 0017: .build_inla_formula()'s switch() defaults are now
+# internal contract-violation assertions, not user-facing
+# refusals. The gate (.lgm_check_random_term_inla_support()) owns
+# the user-facing refusal. The assertion fires only when the gate
+# is bypassed via the two-key override (force = "inla" +
+# acknowledge_silent_bias_risk = TRUE) on a structurally-
+# incompatible IR -- i.e., the path that a forced-INLA fit on a
+# truly incompatible model takes. The assertion message names
+# the gate / emit drift explicitly so a triggered assertion is
+# immediately recognisable as a flexyBayes-side bug.
+
+test_that(".build_inla_formula() fires the gate-broken-contract assertion on an unsupported random term type when the gate is bypassed", {
+  fb_raw <- flexyBayes:::new_fb_terms(
+    response     = "y",
+    family       = "gaussian",
+    link         = "identity",
+    fixed_terms  = list(list(type = "continuous", var = "x")),
+    random_terms = list(list(type = "fa_gxe", outer = "env",
+                              inner = "geno", k = 2L)),
+    rcov_terms   = list(list(type = "units")),
+    source       = "asreml"
+  )
+  forced <- flexyBayes:::lgm_gate(
+    fb_raw,
+    force                        = "inla",
+    acknowledge_silent_bias_risk = TRUE,
+    reason                       = "ADR 0017 internal-assertion test"
+  )
+  expect_s3_class(forced, "fb_terms")
+  expect_true("lgm_force_overridden" %in% forced$capabilities)
   expect_error(
-    flexyBayes:::.build_inla_formula(fb),
-    "does not support random term type \"fa_gxe\""
+    flexyBayes:::.build_inla_formula(forced),
+    "lgm_gate broken contract"
+  )
+})
+
+test_that(".build_inla_formula() fires the gate-broken-contract assertion on an unsupported fixed term type when the gate is bypassed", {
+  fb_raw <- flexyBayes:::new_fb_terms(
+    response     = "y",
+    family       = "gaussian",
+    link         = "identity",
+    fixed_terms  = list(list(type = "non_linear", expr = "a*exp(-b*x)")),
+    random_terms = list(),
+    rcov_terms   = list(list(type = "units")),
+    source       = "asreml"
+  )
+  forced <- flexyBayes:::lgm_gate(
+    fb_raw,
+    force                        = "inla",
+    acknowledge_silent_bias_risk = TRUE,
+    reason                       = "ADR 0017 internal-assertion test"
+  )
+  expect_s3_class(forced, "fb_terms")
+  expect_error(
+    flexyBayes:::.build_inla_formula(forced),
+    "lgm_gate broken contract.*fixed term type"
+  )
+})
+
+test_that(".build_inla_formula() fires the gate-broken-contract assertion on an unsupported rcov term type when the gate is bypassed", {
+  fb_raw <- flexyBayes:::new_fb_terms(
+    response     = "y",
+    family       = "gaussian",
+    link         = "identity",
+    fixed_terms  = list(list(type = "continuous", var = "x")),
+    random_terms = list(),
+    rcov_terms   = list(list(type = "at_units", var = "env")),
+    source       = "asreml"
+  )
+  forced <- flexyBayes:::lgm_gate(
+    fb_raw,
+    force                        = "inla",
+    acknowledge_silent_bias_risk = TRUE,
+    reason                       = "ADR 0017 internal-assertion test"
+  )
+  expect_s3_class(forced, "fb_terms")
+  expect_error(
+    flexyBayes:::.build_inla_formula(forced),
+    "lgm_gate broken contract.*rcov term type"
   )
 })
 

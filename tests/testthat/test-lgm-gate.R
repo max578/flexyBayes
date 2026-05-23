@@ -204,6 +204,142 @@ test_that(".lgm_count_hyperparams() handles us_gxe via n*(n+1)/2", {
 })
 
 # ---------------------------------------------------------------- #
+# Checks 7-9 — INLA emit-support allowlists (ADR 0017)             #
+# ---------------------------------------------------------------- #
+
+# Positive cases: each new check passes on its allowlist.
+
+test_that(".lgm_check_fixed_term_inla_support() passes the allowlist", {
+  fb <- mk_fb(
+    fixed_terms = list(
+      list(type = "factor",             var  = "env"),
+      list(type = "continuous",         var  = "x"),
+      list(type = "interaction",        vars = c("a", "b")),
+      list(type = "factor_interaction", vars = c("g", "e")),
+      list(type = "expression",         label = "I(x^2)")
+    )
+  )
+  r <- flexyBayes:::.lgm_check_fixed_term_inla_support(fb)
+  expect_true(r$pass)
+  expect_identical(r$rule_id, "fixed_term_type_inla")
+  expect_null(r$reason)
+})
+
+test_that(".lgm_check_random_term_inla_support() passes the allowlist", {
+  fb <- mk_fb(
+    random_terms = list(
+      list(type = "simple", var = "geno"),
+      list(type = "ide",    var = "site"),
+      list(type = "id",     var = "block"),
+      list(type = "spline", var = "x")
+    )
+  )
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_true(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_null(r$reason)
+})
+
+test_that(".lgm_check_rcov_term_inla_support() passes the allowlist", {
+  fb <- mk_fb(rcov_terms = list(list(type = "units")))
+  r  <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
+  expect_true(r$pass)
+  expect_identical(r$rule_id, "rcov_term_type_inla")
+  expect_null(r$reason)
+})
+
+# Negative cases: each structured-covariance random-term class
+# triggers the random_term_type_inla rule with the class label in
+# the diagnostic. Six classes covered: vm / ped / at / us / fa /
+# ar1 — the asreml-style structured-covariance vocabulary.
+
+test_that(".lgm_check_random_term_inla_support() refuses vm (GBLUP / kinship)", {
+  fb <- mk_fb(random_terms = list(list(type = "vm", var = "geno")))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"vm\"")
+  expect_match(r$reason, "variance-matrix")
+  expect_match(r$reason, "backend = \"greta\"")
+})
+
+test_that(".lgm_check_random_term_inla_support() refuses ped (pedigree)", {
+  fb <- mk_fb(random_terms = list(list(type = "ped", var = "anim")))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"ped\"")
+  expect_match(r$reason, "pedigree")
+})
+
+test_that(".lgm_check_random_term_inla_support() refuses at (heterogeneous)", {
+  fb <- mk_fb(random_terms = list(list(type = "at", var = "env")))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"at\"")
+  expect_match(r$reason, "heterogeneous")
+})
+
+test_that(".lgm_check_random_term_inla_support() refuses us (unstructured)", {
+  fb <- mk_fb(random_terms = list(list(type = "us", var = "env")))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"us\"")
+  expect_match(r$reason, "unstructured")
+})
+
+test_that(".lgm_check_random_term_inla_support() refuses fa (factor-analytic)", {
+  fb <- mk_fb(random_terms = list(list(type = "fa", var = "geno", k = 2L)))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"fa\"")
+  expect_match(r$reason, "factor-analytic")
+})
+
+test_that(".lgm_check_random_term_inla_support() refuses ar1 (autoregressive)", {
+  fb <- mk_fb(random_terms = list(list(type = "ar1", var = "time")))
+  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "random_term_type_inla")
+  expect_match(r$reason, "\"ar1\"")
+  expect_match(r$reason, "autoregressive lag-1")
+})
+
+# Rcov negative case: at_units triggers rcov_term_type_inla.
+
+test_that(".lgm_check_rcov_term_inla_support() refuses at_units (heterogeneous residual)", {
+  fb <- mk_fb(rcov_terms = list(list(type = "at_units", var = "env")))
+  r  <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
+  expect_false(r$pass)
+  expect_identical(r$rule_id, "rcov_term_type_inla")
+  expect_match(r$reason, "\"at_units\"")
+  expect_match(r$reason, "heterogeneous residual")
+})
+
+# Integration: lgm_gate() routes a structured-cov refusal through
+# the new rule and the print method surfaces the new rule_id.
+
+test_that("lgm_gate() refuses a vm random term via random_term_type_inla", {
+  fb  <- mk_fb(random_terms = list(list(type = "vm", var = "geno")))
+  out <- flexyBayes:::lgm_gate(fb)
+  expect_s3_class(out, "lgm_refusal")
+  expect_identical(out$primary_rule, "random_term_type_inla")
+  text <- capture.output(print(out))
+  expect_true(any(grepl("\\[random_term_type_inla\\]", text)))
+  expect_true(any(grepl("variance-matrix",               text)))
+})
+
+test_that("lgm_gate() refuses an at_units rcov term via rcov_term_type_inla", {
+  fb  <- mk_fb(rcov_terms = list(list(type = "at_units", var = "env")))
+  out <- flexyBayes:::lgm_gate(fb)
+  expect_s3_class(out, "lgm_refusal")
+  expect_identical(out$primary_rule, "rcov_term_type_inla")
+})
+
+# ---------------------------------------------------------------- #
 # Integration — lgm_gate                                           #
 # ---------------------------------------------------------------- #
 
