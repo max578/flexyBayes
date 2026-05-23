@@ -499,7 +499,15 @@ print.lgm_refusal <- function(x, ...) {
 # variants) maps to greta's broader formula path; the refusal
 # text names the structured-covariance class.
 .inla_random_term_type_allowlist <- function() {
-  c("simple", "ide", "id", "spline")
+  # ADR 0020 §Decision 5: "simple_slope_uncor" enters the allowlist
+  # conditionally -- the gate accepts so dispatch routes to emit_inla,
+  # but emit_inla itself consults the verification artefact at
+  # inst/extdata/inla-verification/simple_slope_uncor.rds and refuses
+  # with a v0.3 deferral message if the §3.4 three-arbitrator test
+  # has not passed. This keeps the gate truth = emit truth invariant
+  # (ADR 0017): accept here means "INLA dispatch is attempted"; emit
+  # refusal is structurally distinguishable from gate refusal.
+  c("simple", "ide", "id", "spline", "simple_slope_uncor")
 }
 
 # Allowlist: rcov-term types that emit_inla()'s rcov-term guard

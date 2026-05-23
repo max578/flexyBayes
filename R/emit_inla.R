@@ -58,6 +58,18 @@ emit_inla <- function(fb,
          "    dep = TRUE)",
          call. = FALSE)
 
+  # ADR 0020 §Decision 5 INLA verification gate. simple_slope_uncor
+  # passes lgm_gate (the allowlist includes it) so dispatch routes
+  # here, but the INLA mapping for (x || g) is registered only when
+  # the three-arbitrator verification test on a simple fixture has
+  # passed and the artefact at
+  # inst/extdata/inla-verification/simple_slope_uncor.rds records
+  # pass = TRUE. Until then, refuse explicitly with a v0.3 deferral
+  # message naming the workaround (backend = "greta"). This is the
+  # §3.4 "no silent translation of an unverified mapping" policy.
+  if (.has_simple_slope_uncor(fb))
+    .check_inla_verification_simple_slope_uncor()
+
   # Build INLA formula and family. priors_to_inla() returns a list
   # keyed by group / smoother var ("sigma" for residual). We thread
   # the per-term entries into f(..., hyper = list(prec = ...)) and
@@ -199,6 +211,34 @@ emit_inla <- function(fb,
   # splice it in as `hyper = list(prec = list(prior = ..., param = ...))`
   # so the user's prior actually reaches INLA.
   for (term in fb$random_terms) {
+    # ADR 0020 §Decision 5: uncorrelated random slope `(x || g)`
+    # maps to two independent IID hyperparameter slots --
+    #   f(<g>, model = "iid") + f(<g>_for_slope, <x>, model = "iid")
+    # `<g>_for_slope` is a fresh INLA index keyed off the same
+    # grouping factor so the two precisions remain independent
+    # (INLA aggregates two `f()` calls under the same name).
+    # Only reachable when the §3.4 verification artefact records
+    # pass = TRUE -- the emit_inla() entry refuses upfront otherwise.
+    if (identical(term$type, "simple_slope_uncor")) {
+      sv     <- term$slope_var
+      gtag   <- term$var
+      gslope <- paste0(gtag, "_for_slope_", sv)
+      int_key   <- gtag
+      slope_key <- paste0(sv, "_", gtag)
+      if (isTRUE(term$with_intercept)) {
+        hyper_int <- .inla_hyper_arg(hyper_ctrl[[int_key]])
+        rhs_terms <- c(rhs_terms, paste0(
+          "f(", gtag, ", model = \"iid\"",
+          if (nzchar(hyper_int)) paste0(", ", hyper_int) else "",
+          ")"))
+      }
+      hyper_slope <- .inla_hyper_arg(hyper_ctrl[[slope_key]])
+      rhs_terms <- c(rhs_terms, paste0(
+        "f(", gslope, ", ", sv, ", model = \"iid\"",
+        if (nzchar(hyper_slope)) paste0(", ", hyper_slope) else "",
+        ")"))
+      next
+    }
     key <- switch(term$type,
       "simple" = ,
       "ide"    = ,
@@ -333,6 +373,79 @@ emit_inla <- function(fb,
   }
 
   list(pass = pass, reasons = reasons)
+}
+
+# ---------------------------------------------------------------- #
+# ADR 0020 §Decision 5 -- INLA verification gate for (x || g)      #
+# ---------------------------------------------------------------- #
+
+# Predicate: is any random term in the IR an uncorrelated random
+# slope? Drives the per-fit verification check at the top of
+# emit_inla().
+.has_simple_slope_uncor <- function(fb) {
+  if (is.null(fb$random_terms) || length(fb$random_terms) == 0L)
+    return(FALSE)
+  for (term in fb$random_terms) {
+    if (identical(term$type, "simple_slope_uncor")) return(TRUE)
+  }
+  FALSE
+}
+
+# Consult the §3.4 three-arbitrator verification artefact for the
+# (x || g) INLA mapping. The artefact is an .rds at
+# inst/extdata/inla-verification/simple_slope_uncor.rds carrying at
+# minimum a `pass` slot (logical). If the file does not exist, or
+# pass = FALSE, refuse the fit with a v0.3 deferral message naming
+# backend = "greta" as the workaround. The refusal raises a structured
+# condition of class flexybayes_inla_simple_slope_uncor_deferred so
+# downstream tooling can pattern-match.
+.check_inla_verification_simple_slope_uncor <- function() {
+  artefact_path <- system.file(
+    "extdata", "inla-verification", "simple_slope_uncor.rds",
+    package = "flexyBayes"
+  )
+  pass <- FALSE
+  if (nzchar(artefact_path) && file.exists(artefact_path)) {
+    art <- tryCatch(readRDS(artefact_path),
+                    error = function(e) NULL)
+    if (is.list(art) && isTRUE(art$pass)) pass <- TRUE
+  }
+  if (isTRUE(pass)) return(invisible(TRUE))
+
+  msg <- paste0(
+    "INLA mapping for uncorrelated random slopes (x || g) is ",
+    "deferred to v0.3.\n",
+    "Per ADR 0020 \u00a7Decision 5, the INLA mapper is registered ",
+    "only when the\nthree-arbitrator verification test (INLA vs ",
+    "greta vs lme4 on a simple fixture\nat J = 20 groups) passes ",
+    "within the Wasserstein-1 \u2264 0.20 * tau_true\n",
+    "tolerance on both sd_<g> and sd_<x>_<g>. The verification ",
+    "artefact at\n",
+    "inst/extdata/inla-verification/simple_slope_uncor.rds is ",
+    "either absent\n",
+    "or records pass = FALSE for the current install.\n\n",
+    "Workaround: re-route to the greta backend, which fits the ",
+    "(x || g) form\n",
+    "natively per ADR 0020 \u00a7Decision 1. For example:\n",
+    "  fit <- flexybayes(y ~ x + (x || g), data = d, ",
+    "backend = \"greta\")\n",
+    "  fit <- fb_brms   (y ~ x + (x || g), data = d, ",
+    "backend = \"greta\")\n\n",
+    "This refusal is mandatory under \u00a73.4 of plan-indexing-",
+    "bigdata-merged-2026-05-23-v2.md: \"no silent translation of an ",
+    "unverified mapping ships\"."
+  )
+  cond <- structure(
+    class = c("flexybayes_inla_simple_slope_uncor_deferred",
+              "error", "condition"),
+    list(
+      message         = msg,
+      call            = NULL,
+      deferral_target = "v0.3",
+      workaround      = "backend = \"greta\""
+    )
+  )
+  stop(cond)
 }
 
 # ---------------------------------------------------------------- #

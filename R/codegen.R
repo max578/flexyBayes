@@ -139,6 +139,47 @@
         ctx
       },
 
+      # ADR 0020: uncorrelated random slope (x || g) or (1 + x || g).
+      # Two independent indexed components -- intercept deviation
+      # (optional, only when with_intercept = TRUE for the 1 + x || g
+      # form) and slope deviation -- each with its own variance
+      # hyperparameter and its own length-J latent vector. No
+      # correlation parameter; (x | g) refuses upstream with the
+      # ADR 0020 structured deferral. The slope-variance
+      # hyperparameter is named sigma_<x>_<g> so the existing
+      # sigma_<group> -> sd_<group> greta canonical-name rule
+      # produces canonical sd_<x>_<g> automatically.
+      "simple_slope_uncor" = {
+        gtag  <- term$var
+        sv    <- term$slope_var
+        slope_tag <- paste0(sv, "_", gtag)
+        if (isTRUE(term$with_intercept)) {
+          # Intercept-deviation block: identical shape to the
+          # "simple" branch above; sigma_<g> routes via
+          # .sigma_decl() so the uniform-on-SD default applies.
+          ctx <- .add(ctx, .sigma_decl(ctx,
+            paste0("sigma_", gtag), gtag))
+          ctx <- .add(ctx, gtag, "_raw <- normal(0, 1, dim = n_",
+                      gtag, ")")
+          ctx <- .add(ctx, "u_", gtag, " <- ", gtag, "_raw * sigma_",
+                      gtag)
+          ctx <- .add_param(ctx, paste0("sigma_", gtag))
+          ctx <- .add_pred(ctx, paste0("u_", gtag, "[", gtag, "_id]"))
+        }
+        # Slope-deviation block: identical shape, indexed by the
+        # same grouping factor, multiplied by the slope variable.
+        ctx <- .add(ctx, .sigma_decl(ctx,
+          paste0("sigma_", slope_tag), slope_tag))
+        ctx <- .add(ctx, slope_tag, "_raw <- normal(0, 1, dim = n_",
+                    gtag, ")")
+        ctx <- .add(ctx, "u_", slope_tag, " <- ", slope_tag,
+                    "_raw * sigma_", slope_tag)
+        ctx <- .add_param(ctx, paste0("sigma_", slope_tag))
+        ctx <- .add_pred(ctx, paste0("as_data(", sv, ") * u_",
+                                     slope_tag, "[", gtag, "_id]"))
+        ctx
+      },
+
       # GBLUP: vm(geno, G). AMBITION_STAGE.md §1.4: sigma routes via
       # .sigma_decl() so the uniform-on-SD default (and any per-group
       # uniform_per_vc / pc_per_vc spec) applies; legacy lognormal is
