@@ -263,17 +263,34 @@
 # condition. The custom class `flexybayes_preflight_refusal` carries
 # the refusal object verbatim so downstream tooling can pattern-match
 # on the slots without parsing free text.
+#
+# Audit P1.3 (2026-05-24): the headline is branched on
+# refusal$reason_code so that an unknown-representation refusal does
+# not falsely suggest raising the memory ceiling. The detailed body
+# already prints correctly via print.fb_preflight_refusal().
 .stop_preflight_refusal <- function(refusal, call) {
   msg <- paste(utils::capture.output(print(refusal)), collapse = "\n")
+  headline <- switch(
+    refusal$reason_code,
+    design_memory_exceeds_ceiling =
+      paste0("flexyBayes preflight refused: the design exceeds the ",
+             "active memory ceiling. The dispatch was short-circuited ",
+             "before any backend code ran."),
+    representation_unknown_for_preflight =
+      paste0("flexyBayes preflight refused: the design representation ",
+             "is not characterised by the preflight estimator. The ",
+             "dispatch was short-circuited before any backend code ",
+             "ran -- raising the memory ceiling will not help."),
+    # default: neutral wording carrying the reason code so any future
+    # refusal class lands honestly even before its headline is added.
+    paste0("flexyBayes preflight refused (reason_code = ",
+           refusal$reason_code, "). The dispatch was short-circuited ",
+           "before any backend code ran.")
+  )
   cond <- structure(
     class = c("flexybayes_preflight_refusal", "error", "condition"),
     list(
-      message       = paste0(
-        "flexyBayes preflight refused: the design exceeds the ",
-        "active memory ceiling. The dispatch was short-circuited ",
-        "before any backend code ran.\n",
-        msg
-      ),
+      message       = paste0(headline, "\n", msg),
       call          = call,
       refusal       = refusal,
       reason_code   = refusal$reason_code,

@@ -723,3 +723,59 @@ test_that("print.fb_preflight_refusal: NA bytes render cleanly", {
   # No override-suggest line on unknown_for_preflight.
   expect_false(any(grepl("override:", out, fixed = TRUE)))
 })
+
+
+# ---------------------------------------------------------------- #
+# Audit P1.3 (2026-05-24): .stop_preflight_refusal() must branch   #
+# its headline on refusal$reason_code so that an unknown-          #
+# representation refusal does NOT falsely advertise a memory-      #
+# ceiling excess (raising the ceiling cannot help) and does NOT    #
+# suggest a ceiling override. The detailed body via                #
+# print.fb_preflight_refusal() is exercised separately above.      #
+# ---------------------------------------------------------------- #
+
+test_that("dispatch refusal headline branches on reason_code", {
+  ref_mem <- structure(
+    list(reason_code   = "design_memory_exceeds_ceiling",
+         binding_term  = "(1 | g)",
+         binding_bytes = 2 * 1024^3,
+         total_bytes   = 2 * 1024^3,
+         ceiling_bytes = 1 * 1024^3,
+         n_rows        = 1e6L),
+    class = c("fb_preflight_refusal", "list")
+  )
+  ref_unk <- structure(
+    list(reason_code   = "representation_unknown_for_preflight",
+         binding_term  = "exotic(x)",
+         binding_bytes = NA_real_,
+         total_bytes   = NA_real_,
+         ceiling_bytes = 8 * 1024^3,
+         n_rows        = 1e6L),
+    class = c("fb_preflight_refusal", "list")
+  )
+
+  err_mem <- tryCatch(
+    flexyBayes:::.stop_preflight_refusal(ref_mem, call = NULL),
+    flexybayes_preflight_refusal = function(c) c
+  )
+  err_unk <- tryCatch(
+    flexyBayes:::.stop_preflight_refusal(ref_unk, call = NULL),
+    flexybayes_preflight_refusal = function(c) c
+  )
+
+  expect_s3_class(err_mem, "flexybayes_preflight_refusal")
+  expect_s3_class(err_unk, "flexybayes_preflight_refusal")
+
+  # design_memory_exceeds_ceiling: headline mentions the ceiling.
+  expect_true(grepl("exceeds the active memory ceiling",
+                    conditionMessage(err_mem), fixed = TRUE))
+
+  # representation_unknown_for_preflight: headline must NOT mention
+  # ceiling excess, and must NOT suggest raising the ceiling.
+  expect_false(grepl("exceeds the active memory ceiling",
+                     conditionMessage(err_unk), fixed = TRUE))
+  expect_true(grepl("representation is not characterised",
+                    conditionMessage(err_unk), fixed = TRUE))
+  expect_true(grepl("raising the memory ceiling will not help",
+                    conditionMessage(err_unk), fixed = TRUE))
+})

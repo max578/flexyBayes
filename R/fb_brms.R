@@ -183,6 +183,14 @@ fb_brms <- function(formula,
   if (missing(data) || !is.data.frame(data))
     stop("`data` must be a data.frame.", call. = FALSE)
 
+  # Resolve session-level review-mode default BEFORE the unsupported-
+  # backend guard, otherwise options(flexyBayes.review_code_default =
+  # TRUE) would slip past the refusal on backend = "inla" / "auto"
+  # (audit P1.1, 2026-05-24). Argument at call time wins.
+  if (missing(review_code))
+    review_code <- isTRUE(getOption("flexyBayes.review_code_default",
+                                    FALSE))
+
   if (isTRUE(review_code) && !backend %in% c("greta", "brms"))
     stop("`review_code = TRUE` is currently supported with ",
          "backend = \"greta\" (greta code via the codegen path) ",
@@ -192,10 +200,6 @@ fb_brms <- function(formula,
          "code slot, deferred to a future release. Pass ",
          "backend = \"greta\" or backend = \"brms\", or drop ",
          "review_code.", call. = FALSE)
-
-  if (missing(review_code))
-    review_code <- isTRUE(getOption("flexyBayes.review_code_default",
-                                    FALSE))
 
   if (isTRUE(review_code) && isTRUE(return_code))
     stop("`return_code` and `review_code` are mutually exclusive. ",

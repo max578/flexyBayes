@@ -159,6 +159,14 @@ flexybayes <- function(
   # "auto" we only require greta if the gate refuses (or INLA is
   # unavailable) and we fall through to the greta emit.
 
+  # Resolve session-level review-mode default BEFORE the unsupported-
+  # backend guard, otherwise options(flexyBayes.review_code_default =
+  # TRUE) would slip past the refusal on backend = "inla" / "auto"
+  # (audit P1.1, 2026-05-24). Argument at call time wins.
+  if (missing(review_code))
+    review_code <- isTRUE(getOption("flexyBayes.review_code_default",
+                                    FALSE))
+
   # review_code = TRUE is currently scoped to the greta-emit path
   # (ADR 0011). Under backend = "inla" / "auto" with INLA accepted,
   # review_code is deferred to a future ADR -- the deferred-execution
@@ -173,11 +181,6 @@ flexybayes <- function(
          "slot, queued for a subsequent release. Pass ",
          "backend = \"greta\" or drop review_code.",
          call. = FALSE)
-
-  # Session-level review-mode default. Argument at call time wins.
-  if (missing(review_code))
-    review_code <- isTRUE(getOption("flexyBayes.review_code_default",
-                                    FALSE))
 
   if (isTRUE(review_code) && isTRUE(return_code))
     stop("`return_code` and `review_code` are mutually exclusive. ",
