@@ -779,3 +779,171 @@ test_that("dispatch refusal headline branches on reason_code", {
   expect_true(grepl("raising the memory ceiling will not help",
                     conditionMessage(err_unk), fixed = TRUE))
 })
+
+
+# ---------------------------------------------------------------- #
+# Audit P1.4 (2026-05-24): structured-covariance preflight split   #
+# -- known-indexed forms (vm, ped, ar1, ar1_spatial) keep the      #
+# tested indexed heuristic; every other structured-cov form        #
+# (at, us, fa, at_simple, us_gxe, fa_gxe, vm_gxe, ...) routes to   #
+# representation_unknown_for_preflight rather than silently        #
+# under-estimating at large N. The .preflight_term_level_count()   #
+# fallback that previously returned `1L` was removed; NA level     #
+# count escalates every consumer branch to unknown_representation. #
+# ---------------------------------------------------------------- #
+
+test_that("vm() with resolvable k uses the indexed_structured_known estimator", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", g = "factor"),
+    dictionaries = list(g = letters[1:10])
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 1000L,
+    random_terms = list(list(type = "vm", var = "g", var_n = 10L,
+                              mat = "G"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_null(pf$refusal)
+  entry <- pf$per_term_estimate[[1]]
+  expect_identical(entry$representation_class,
+                   "indexed_structured_known")
+  expect_false(isTRUE(entry$unknown_representation))
+  expect_false(is.na(entry$design_memory_bytes))
+})
+
+test_that("ped() with resolvable k uses the indexed_structured_known estimator", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 500L,
+    col_types = list(y = "double", anim = "factor"),
+    dictionaries = list(anim = as.character(1:50))
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 500L,
+    random_terms = list(list(type = "ped", var = "anim",
+                              var_n = 50L))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_null(pf$refusal)
+  entry <- pf$per_term_estimate[[1]]
+  expect_identical(entry$representation_class,
+                   "indexed_structured_known")
+})
+
+test_that("vm() with NA k escalates to representation_unknown", {
+  # Metadata-only dataset without a dictionary for the grouping
+  # factor -- the level count is unresolvable.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", g = "factor"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 1000L,
+    random_terms = list(list(type = "vm", var = "g"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("at() routes to representation_unknown regardless of k", {
+  # at() is a known dense-matrix structured-cov form that the
+  # indexed heuristic under-estimates. Per P1.4 it routes to
+  # representation_unknown_for_preflight pending a term-specific
+  # estimator.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", env = "factor"),
+    dictionaries = list(env = letters[1:10])
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 1000L,
+    random_terms = list(list(type = "at", var = "env",
+                              var_n = 10L))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("us() routes to representation_unknown regardless of k", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", env = "factor"),
+    dictionaries = list(env = letters[1:10])
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 1000L,
+    random_terms = list(list(type = "us", var = "env",
+                              var_n = 10L))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("fa() routes to representation_unknown regardless of k", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 2000L,
+    col_types = list(y = "double", geno = "factor"),
+    dictionaries = list(geno = as.character(1:100))
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 2000L,
+    random_terms = list(list(type = "fa", var = "geno",
+                              var_n = 100L, k = 2L))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("random intercept with NA k escalates to representation_unknown", {
+  # Audit P1.4 (2026-05-24): the previous `1L` fallback masked
+  # this case; the random-intercept branch now treats NA k as
+  # the signal to refuse via representation_unknown.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 5000L,
+    col_types = list(y = "double", g = "factor"),
+    dictionaries = list()    # no dictionary; level count unknown
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 5000L,
+    random_terms = list(list(type = "simple", var = "g"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("factor fixed term with NA k escalates to representation_unknown", {
+  # Mirror of the random-intercept regression for the fixed-factor
+  # branch -- the dummy-block size depends on k - 1.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 5000L,
+    col_types = list(y = "double", f = "factor"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows      = 5000L,
+    fixed_terms = list(list(type = "factor", var = "f"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})

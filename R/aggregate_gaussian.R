@@ -198,25 +198,41 @@
   # Smooths break cell-constant mu (basis is observation-row-specific).
   for (t in fb_ir$fixed_terms) {
     ttype <- if (!is.null(t$type)) t$type else "expression"
-    if (ttype %in% c("smooth", "s", "t2"))
+    if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv", "spline"))
       .stop_aggregate_out_of_scope(
-        reason_code = "smooth_in_scope",
+        reason_code = "smooth_term_not_aggregatable",
         detail      = paste0("smooth fixed-effect term '",
                               if (!is.null(t$var)) t$var else "?",
                               "' breaks the cell-constant mu property.")
       )
   }
 
-  # Random-effect term scope: random intercept only. Random slopes
-  # (correlated or uncorrelated) break cell-constant mu.
+  # Random-effect term scope: random intercept only. Audit P2.8
+  # (2026-05-24): the previous catch-all `random_slope_in_scope`
+  # conflated three distinct out-of-scope shapes; split into a
+  # taxonomy that names what actually breaks aggregation:
+  #   - smooth_term_not_aggregatable    (smooth / spline on random side)
+  #   - random_slope_not_aggregatable   (correlated / uncorrelated slope)
+  #   - structured_random_not_aggregatable (vm, ped, at, us, fa, ar1, ...)
   for (t in fb_ir$random_terms) {
     rtype <- if (!is.null(t$type)) t$type else "simple"
-    if (!identical(rtype, "simple"))
-      .stop_aggregate_out_of_scope(
-        reason_code = "random_slope_in_scope",
-        detail      = paste0("random-effect term type = '", rtype,
-                              "' breaks the cell-constant mu property.")
-      )
+    if (identical(rtype, "simple")) next
+
+    reason <- if (rtype %in% c("smooth", "s", "t2", "smooth_mgcv",
+                                "spline")) {
+      "smooth_term_not_aggregatable"
+    } else if (rtype %in% c("simple_slope_uncor", "slope",
+                              "random_slope")) {
+      "random_slope_not_aggregatable"
+    } else {
+      "structured_random_not_aggregatable"
+    }
+
+    .stop_aggregate_out_of_scope(
+      reason_code = reason,
+      detail      = paste0("random-effect term type = '", rtype,
+                            "' breaks the cell-constant mu property.")
+    )
   }
 
   invisible(TRUE)
