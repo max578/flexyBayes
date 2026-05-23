@@ -51,6 +51,30 @@
       f     <- factor(combo)
       assign(paste0(tag, "_id"), as.integer(f), envir = ev)
       assign(paste0("n_", tag),  nlevels(f),    envir = ev)
+    } else if (term$type == "factor_numeric_interaction") {
+      # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed
+      # slopes. The codegen emits `slope_dev_<fac>_<con>[<fac>_id]`
+      # so we need <fac>_id, n_<fac>, and the continuous data column.
+      # For the Option D fallback (per-observation padded lookup) we
+      # also pre-compute `is_ref_obs` (the reference-row mask) and
+      # `shifted_idx` (the reference rows map to slot 1 but are
+      # masked out before the multiply -- see codegen.R for the math).
+      fac <- term$factor; con <- term$continuous
+      tag <- paste0(fac, "_", con)
+      f   <- factor(data[[fac]])
+      f_id <- as.integer(f)
+      assign(paste0(fac, "_id"), f_id, envir = ev)
+      assign(paste0("n_", fac),  nlevels(f), envir = ev)
+      if (con %in% names(data))
+        assign(con, as.numeric(data[[con]]), envir = ev)
+      # Option D scratch vectors -- harmless under Option C since
+      # they live in the env but are never referenced. Computed
+      # unconditionally so toggling `flexyBayes.force_option_d` at
+      # fit time does not require re-running setup_env().
+      assign(paste0(tag, "_is_ref_obs"),
+             as.integer(f_id == 1L),         envir = ev)
+      assign(paste0(tag, "_shifted_idx"),
+             as.integer(pmax(f_id - 1L, 1L)), envir = ev)
     }
   }
 

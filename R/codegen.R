@@ -100,6 +100,70 @@
           paste0("beta_", tag, " * as_data(", v1, ") * as_data(", v2, ")"))
         ctx
       },
+      # ADR 0019 (Stage 1A, v0.2.6) -- treatment-coded indexed slopes
+      # for factor x continuous interactions. For an L-level factor `f`
+      # crossed with continuous `x`, the reference-level slope is
+      # absorbed into the main-effect coefficient `beta_<x>`; the L-1
+      # non-reference levels each carry a slope deviation. The per-
+      # observation contribution is `as_data(x) * slope_dev[f_id]`
+      # where slope_dev[1] = 0 by construction.
+      #
+      # Option C (primary): greta-native concatenation via greta::c()
+      # of zeros(1) + raw deviations. greta::c() on greta_array objects
+      # has been supported since greta 0.4.0; the resulting length-L
+      # vector indexes by `f_id` as usual.
+      #
+      # Option D (fallback, gated on
+      # options("flexyBayes.force_option_d" = TRUE)): per-observation
+      # lookup-vector padding. Used when greta's c() proves brittle on
+      # the pinned greta 0.5.1. The mask `(1 - is_ref_obs)` zeroes the
+      # reference-level contribution; setup_env() pre-computes
+      # `<f>_<x>_shifted_idx` and `<f>_<x>_is_ref_obs`.
+      #
+      # The chosen path is recorded on the dispatch trace via
+      # ctx$factor_continuous_emit so downstream tooling can audit.
+      "factor_numeric_interaction" = {
+        fac <- term$factor; con <- term$continuous
+        tag <- paste0(fac, "_", con)
+        use_option_d <- isTRUE(getOption(
+          "flexyBayes.force_option_d", FALSE))
+        # Track which emit path fired so it can be threaded into
+        # parse_info$factor_continuous_emit downstream.
+        ctx$factor_continuous_emit <- if (use_option_d)
+          "option_d" else "option_c"
+
+        if (!use_option_d) {
+          # Option C: c(zeros(1), raw deviations). The bare `c()` call
+          # dispatches via greta's S3 method `c.greta_array` (registered
+          # in the greta namespace) -- the qualified form
+          # `greta::c(...)` fails because `c` is not exported from the
+          # greta namespace (only the S3 method is registered).
+          ctx <- .add(ctx,
+            "slope_dev_", tag, "_raw <- normal(0, ", psd,
+            ", dim = n_", fac, " - 1L)")
+          ctx <- .add(ctx,
+            "slope_dev_", tag, " <- c(zeros(1), ",
+            "slope_dev_", tag, "_raw)")
+          ctx <- .add_param(ctx, paste0("slope_dev_", tag, "_raw"))
+          ctx <- .add_pred(ctx,
+            paste0("as_data(", con, ") * slope_dev_", tag,
+                   "[", fac, "_id]"))
+        } else {
+          # Option D: per-observation lookup with reference-row mask.
+          ctx <- .add(ctx,
+            "slope_dev_", tag, "_raw <- normal(0, ", psd,
+            ", dim = n_", fac, " - 1L)")
+          ctx <- .add(ctx,
+            "slope_dev_", tag, "_per_obs <- (1 - as_data(",
+            tag, "_is_ref_obs)) * slope_dev_", tag, "_raw[",
+            "as_data(", tag, "_shifted_idx)]")
+          ctx <- .add_param(ctx, paste0("slope_dev_", tag, "_raw"))
+          ctx <- .add_pred(ctx,
+            paste0("as_data(", con, ") * slope_dev_", tag,
+                   "_per_obs"))
+        }
+        ctx
+      },
       "expression" = {
         raw_lbl  <- term$label
         tag      <- gsub("[^A-Za-z0-9_]", "_", raw_lbl)
