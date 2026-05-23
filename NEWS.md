@@ -1,3 +1,43 @@
+# flexyBayes 0.2.6.9000
+
+## Correctness fix -- factor:continuous interaction
+
+`flexybayes(y ~ x * f, data = ...)` where `f` is a factor and `x`
+is numeric previously emitted the interaction term using a
+coefficient broadcast that did not match base R's treatment-coded
+model matrix -- producing posterior estimates that disagreed with
+`lme4::lmer` by more than three standard deviations on simulated
+data. The fix emits the interaction as a treatment-coded indexed
+slope: the reference level's slope is fixed to zero; the L-1 non-
+reference levels carry their own slope deviations sampled from the
+prior, indexed back to the observation vector via the factor's
+level codes. Posterior estimates now match `lme4::lmer` within MCMC
+tolerance and the linear-predictor equality
+`eta_flexybayes == model.matrix(~ f * x) %*% beta` holds at
+tolerance `1e-10` for any compatible coefficient vector.
+
+The new term class `factor_numeric_interaction` registers the
+canonical-name family `slope_<f>_<x>[<level>]` per non-reference
+level for both the greta and brms backends. The dispatch trace
+records which emit branch fired via
+`fit$extras$parse_info$factor_continuous_emit` (`"option_c"` for
+the greta-native concatenation idiom; `"option_d"` for the per-
+observation lookup-vector fallback gated on
+`options(flexyBayes.force_option_d = TRUE)`).
+
+Unsupported contrast types (`contr.helmert`, `contr.sdif`,
+`contr.sum`, ordered factors, user-supplied custom contrast
+matrices) refuse at ingest with a structured
+`flexybayes_contrast_unsupported` condition carrying `contrast`,
+`factor_name`, and `deferral_target` slots; the message points at
+the v0.3 representation IR for general contrast support.
+
+The INLA mapper for the new term class registers only after a
+three-arbitrator verification test (INLA vs greta vs `lme4::lmer`)
+passes on the host; on hosts where INLA verification cannot
+complete the gate refuses INLA dispatch with a v0.3 deferral
+message rather than silently shipping an unverified translation.
+
 # flexyBayes 0.2.5.9000
 
 ## Correctness fix -- predict(newdata) on smooths (ADR 0018)
