@@ -73,7 +73,8 @@ supplied:
 | Residual `sigma` (log link) | `uniform(0, 5 * sd(log(y + 0.5)))` | Gelman 2006 |
 | Residual `sigma` (logit link) | `uniform(0, 5)` | Gelman 2006 |
 | `sd(group)` for `simple` / `ide` / `id` random terms | `uniform(0, U)` with `U` set as above by family | Gelman 2006 |
-| `sd(group)` for structured-cov terms (`vm`, `ped`, `at`, `us`, `fa`, `ar1`) | legacy `lognormal(0, prior_vc_sd)` (per-form uniform default scheduled for v0.2.5) | flexyBayes legacy |
+| `sd(group)` for `vm()`, `ped()` structured-cov terms | `uniform(0, U)` with `U` set by family (matches the random-intercept default; routes via `.sigma_decl()`) | Gelman 2006 |
+| `sd(group)` for `at()`, `us()`, `fa()`, `ar1()`, `spl()` structured-cov terms | legacy `lognormal(0, prior_vc_sd)` — per-form uniform default deferred to a future minor release | flexyBayes legacy |
 | Fixed-effect coefficients (intercept, slopes, factor contrasts, `I()` expressions) | `normal(0, prior_fixed_sd)` with `prior_fixed_sd = 100` | Gelman 2006 |
 
 The PC prior remains a first-class explicit option via

@@ -67,7 +67,7 @@
     if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv", "spline")) {
       # Smooth basis is observation-row-specific; breaks cell-constant
       # linear predictor.
-      reason_codes <- c(reason_codes, "smooth_in_scope")
+      reason_codes <- c(reason_codes, "smooth_term_not_aggregatable")
 
     } else if (ttype %in% c("numeric", "continuous", "I", "expression",
                              "interaction", "polynomial")) {
@@ -106,6 +106,12 @@
   }
 
   # ---- Random-effect term scope ---- #
+  # Audit P2.8 (2026-05-24): the previous catch-all
+  # `random_slope_in_scope` conflated random-slope and structured-
+  # covariance shapes; split into a taxonomy that names what
+  # actually breaks aggregation. Aligned with
+  # .assert_aggregate_in_scope() so the same model produces the
+  # same reason_code across both eligibility paths.
   for (t in fb_ir$random_terms) {
     rtype <- if (!is.null(t$type)) t$type else "simple"
     if (identical(rtype, "simple")) {
@@ -113,12 +119,18 @@
       L   <- .agg_plan_factor_level_count(t, fb_dataset)
       cell_key_contribs[[length(cell_key_contribs) + 1L]] <-
         list(label = lbl, vars = as.character(t$var), K = L)
-    } else if (rtype %in% c("smooth_mgcv", "smooth", "s", "t2", "spline")) {
-      reason_codes <- c(reason_codes, "smooth_in_scope")
+    } else if (rtype %in% c("smooth_mgcv", "smooth", "s", "t2",
+                             "spline")) {
+      reason_codes <- c(reason_codes, "smooth_term_not_aggregatable")
+    } else if (rtype %in% c("simple_slope_uncor", "slope",
+                             "random_slope")) {
+      reason_codes <- c(reason_codes, "random_slope_not_aggregatable")
     } else {
-      # Random slopes (correlated or uncorrelated) and structured-
-      # covariance terms break the cell-constant linear predictor.
-      reason_codes <- c(reason_codes, "random_slope_in_scope")
+      # Structured-covariance terms (vm, ped, at, us, fa, ar1, ...):
+      # the latent block is non-cell-constant; aggregation closure
+      # does not hold.
+      reason_codes <- c(reason_codes,
+                         "structured_random_not_aggregatable")
     }
   }
 
@@ -141,7 +153,7 @@
   if (any_data_dependent_cell) {
     return(.new_fb_aggregation_plan(
       eligible                  = FALSE,
-      reason_codes              = "compression_data_dependent",
+      reason_codes              = "continuous_cell_key_data_dependent",
       cell_key_terms            = cell_key_contribs,
       requires_materialisation  = TRUE,
       K_est                     = NA_integer_,

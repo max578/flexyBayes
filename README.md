@@ -126,7 +126,7 @@ cases.
 | `backend_decision(fit)` | The captured dispatch trace: backend, path, `lgm_gate` checks, reason. |
 | `prior_summary(fit)` | The resolved prior — auto-default (bounded uniform on SD per Gelman 2006), user-supplied `fb_prior()`, or legacy scalar bridge. |
 | `canonical_names(fit)` | The backend-native ↔ canonical-name table with per-row scale transforms. |
-| `review_code = TRUE` on `flexybayes()` / `fb_brms()` / `fb_greta()` | Inspect-before-fit workflow; `cat_code(rev)` prints the generated backend code; `proceed(rev)` advances into the fit. |
+| `review_code = TRUE` on `flexybayes()` / `fb_brms()` | Inspect-before-fit workflow; `cat_code(rev)` prints the generated backend code; `proceed(rev)` advances into the fit. Supported on the formula-entry verbs only. `fb_greta()` raises a documented refusal: the user's model is already greta-side, so there is no flexyBayes-generated code string to inspect (model-graph pretty-printer reserved for a future release). |
 
 ## Output structure
 

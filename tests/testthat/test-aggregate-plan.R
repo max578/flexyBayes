@@ -99,7 +99,7 @@ test_that("out of scope: smooth (s(x)) fixed term", {
   )
   plan <- .fb_aggregation_plan(fb, ds)
   expect_false(plan$eligible)
-  expect_true("smooth_in_scope" %in% plan$reason_codes)
+  expect_true("smooth_term_not_aggregatable" %in% plan$reason_codes)
 })
 
 test_that("out of scope: uncorrelated random slope (x || g)", {
@@ -112,7 +112,23 @@ test_that("out of scope: uncorrelated random slope (x || g)", {
   fb <- fb_from_brms(y ~ (x || g), data = df)
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
   expect_false(plan$eligible)
-  expect_true("random_slope_in_scope" %in% plan$reason_codes)
+  expect_true("random_slope_not_aggregatable" %in% plan$reason_codes)
+})
+
+test_that("out of scope: structured-covariance random term (audit P2.8)", {
+  fb <- .test_make_plan_ir(
+    n            = 100L,
+    random_terms = list(list(type = "vm", var = "g", var_n = 10L))
+  )
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 100L,
+    col_types = list(y = "double", g = "factor"),
+    dictionaries = list(g = letters[1:10])
+  )
+  plan <- .fb_aggregation_plan(fb, ds)
+  expect_false(plan$eligible)
+  expect_true("structured_random_not_aggregatable" %in%
+                plan$reason_codes)
 })
 
 
@@ -131,7 +147,8 @@ test_that("data-dependent: numeric fixed term forces requires_materialisation", 
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
 
   expect_false(plan$eligible)
-  expect_identical(plan$reason_codes, "compression_data_dependent")
+  expect_identical(plan$reason_codes,
+                   "continuous_cell_key_data_dependent")
   expect_true(plan$requires_materialisation)
   expect_true(is.na(plan$K_est))
 })
@@ -233,9 +250,12 @@ test_that("print.fb_aggregation_plan: NA fields render cleanly", {
   plan <- .fb_aggregation_plan(fb, ds)
 
   out <- capture.output(print(plan))
-  expect_true(any(grepl("eligible = FALSE",   out, fixed = TRUE)))
-  expect_true(any(grepl("smooth_in_scope",    out, fixed = TRUE)))
-  expect_true(any(grepl("K_est = NA",         out, fixed = TRUE)))
+  expect_true(any(grepl("eligible = FALSE",                out,
+                        fixed = TRUE)))
+  expect_true(any(grepl("smooth_term_not_aggregatable",    out,
+                        fixed = TRUE)))
+  expect_true(any(grepl("K_est = NA",                      out,
+                        fixed = TRUE)))
   expect_true(any(grepl("compression_est = NA",
                         out, fixed = TRUE)))
 })

@@ -265,8 +265,22 @@
   }
 
   # Factor fixed term -- integer index + (k-1) beta dummy contrasts.
+  # Per audit P1.4 (2026-05-24): NA level count escalates to
+  # representation_unknown rather than silently sizing the dummy
+  # block at 0 -- the count is the binding factor for the dummy
+  # vector size.
   if (ttype %in% c("factor", "categorical")) {
     k <- .preflight_term_level_count(term, fb_dataset)
+    if (is.na(k)) {
+      return(.preflight_entry(
+        label                            = label,
+        design_memory_bytes              = NA_real_,
+        representation_class             = "unknown",
+        aggregated_likelihood_candidate  = FALSE,
+        term_kind                        = "fixed_factor",
+        unknown_representation           = TRUE
+      ))
+    }
     n_dummies <- max(k - 1L, 0L)
     bytes <- 4 * n_rows +          # integer index column
              8 * n_dummies +        # dummy-contrast beta vector
@@ -321,9 +335,20 @@
   # Factor:continuous interaction -- treatment-coded indexed slope
   # (ADR 0019). Representation: factor index column + continuous
   # column + (L - 1) per-level slope coefficients (reference level's
-  # slope fixed to zero so no coefficient slot).
+  # slope fixed to zero so no coefficient slot). Per audit P1.4
+  # (2026-05-24), NA level count escalates to representation_unknown.
   if (identical(ttype, "factor_numeric_interaction")) {
     L <- .preflight_term_level_count(term, fb_dataset)
+    if (is.na(L)) {
+      return(.preflight_entry(
+        label                            = label,
+        design_memory_bytes              = NA_real_,
+        representation_class             = "unknown",
+        aggregated_likelihood_candidate  = FALSE,
+        term_kind                        = "fixed_factor_numeric_interaction",
+        unknown_representation           = TRUE
+      ))
+    }
     bytes <- 4 * n_rows +
              8 * n_rows +
              8 * max(L - 1L, 0L) +
@@ -417,7 +442,20 @@
   k     <- .preflight_term_level_count(term, fb_dataset)
 
   # (1 | g) -- random intercept. Integer index + k-vector of u's.
+  # Per audit P1.4 (2026-05-24), NA level count escalates to
+  # representation_unknown rather than silently sizing the latent
+  # vector at 0 -- the group cardinality drives the latent block.
   if (identical(rtype, "simple")) {
+    if (is.na(k)) {
+      return(.preflight_entry(
+        label                            = label,
+        design_memory_bytes              = NA_real_,
+        representation_class             = "unknown",
+        aggregated_likelihood_candidate  = FALSE,
+        term_kind                        = "random_intercept",
+        unknown_representation           = TRUE
+      ))
+    }
     bytes <- 4 * n_rows +          # group index column
              8 * k +                # latent random-effect vector
              .FB_PREFLIGHT_TERM_OVERHEAD
@@ -432,8 +470,19 @@
 
   # (x || g) / (1 + x || g) / (0 + x || g) -- uncorrelated slope.
   # Integer index + slope variable column + k-vector of slope (and,
-  # if with_intercept, another k-vector of intercept).
+  # if with_intercept, another k-vector of intercept). Per audit P1.4
+  # (2026-05-24), NA level count escalates to representation_unknown.
   if (identical(rtype, "simple_slope_uncor")) {
+    if (is.na(k)) {
+      return(.preflight_entry(
+        label                            = label,
+        design_memory_bytes              = NA_real_,
+        representation_class             = "unknown",
+        aggregated_likelihood_candidate  = FALSE,
+        term_kind                        = "random_slope",
+        unknown_representation           = TRUE
+      ))
+    }
     with_int <- isTRUE(term$with_intercept)
     bytes <- 4 * n_rows +                           # group index
              8 * n_rows +                            # slope variable column
@@ -502,18 +551,42 @@
     ))
   }
 
-  # Structured-covariance random terms (vm, ped, fa, us, at, ar1,
-  # ar2, cor, str, at_units, fa_gxe, us_gxe, at_simple, ar1_spatial,
-  # vm_gxe, nested, combo, polynomial, ...). Each is a supported
-  # model class in flexyBayes, but the design representation differs
-  # per term and the IR does not carry a single field that captures
-  # it. The estimate below is an indexed-representation heuristic
-  # (one int index column + slope variable column + 2 * k latent
-  # coefficients) that captures the order of magnitude for indexed
-  # forms but can under-estimate large structured covariance blocks
-  # (e.g. us(k) at large k). For production fits at large N with
-  # structured covariance, set `memory_ceiling_gb` explicitly rather
-  # than relying on the default.
+  # Structured-covariance random terms. Per audit P1.4 (2026-05-24)
+  # this branch is split into two categories:
+  #
+  #   (a) Known indexed representations with a tested estimator
+  #       shape (vm, ped, ar1, ar1_spatial): a k-length latent vector
+  #       plus an integer row index. The heuristic below sizes these
+  #       at 4N (index) + 8N (slope-variable column, conservative
+  #       carry-over) + 16k (latent + bookkeeping) + overhead.
+  #
+  #   (b) Known dense / Cholesky / factor-analysis matrix
+  #       representations that the indexed heuristic under-estimates
+  #       (at, us, fa, at_simple, at_units, us_gxe, fa_gxe, vm_gxe,
+  #       nested, combo) -- routed to unknown_representation = TRUE
+  #       rather than silently under-estimating at large N. A
+  #       term-specific estimator can be added per class without
+  #       changing the dispatch shape (extend KNOWN_INDEXED below
+  #       once a per-class estimator and its test ship together).
+  #
+  # Either category escalates to unknown_representation when the
+  # level count cannot be resolved from the IR or the dataset
+  # wrapper's dictionaries (k = NA_integer_) -- the level count is
+  # the binding factor for the latent vector size, so refusing
+  # cleanly beats guessing.
+  KNOWN_INDEXED <- c("vm", "ped", "ar1", "ar1_spatial")
+
+  if (is.na(k) || !rtype %in% KNOWN_INDEXED) {
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = NA_real_,
+      representation_class             = "unknown",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "random_structured",
+      unknown_representation           = TRUE
+    ))
+  }
+
   bytes <- 4 * n_rows +
            8 * n_rows +
            16 * k +
@@ -521,7 +594,7 @@
   .preflight_entry(
     label                            = label,
     design_memory_bytes              = bytes,
-    representation_class             = "indexed_structured_estimate",
+    representation_class             = "indexed_structured_known",
     aggregated_likelihood_candidate  = FALSE,
     term_kind                        = "random_structured"
   )
@@ -608,8 +681,16 @@
 }
 
 # Level-count lookup. Reads in priority order: (1) the IR's cached
-# $var_n; (2) the dataset's frozen dictionary length; (3) NA which
-# escalates to a conservative ceiling for the binding-term decision.
+# $var_n; (2) the dataset's frozen dictionary length; (3) NA_integer_
+# when neither source can resolve the count.
+#
+# Per audit P1.4 (2026-05-24) the previous `1L` fallback was removed:
+# it was labelled "conservative" but is actually the smallest latent
+# block, which silently under-estimates the design memory whenever
+# the level count is genuinely unresolvable. The structured-cov
+# branch in .preflight_random_term() (and any future estimator that
+# depends on `k`) treats NA_integer_ as the signal to escalate to a
+# `representation_unknown_for_preflight` refusal at the top level.
 .preflight_term_level_count <- function(term, fb_dataset) {
   # Random-term IR carries $var_n; fixed-factor IR carries $n_levels;
   # the asreml ingest occasionally uses $K. Try each in order.
@@ -621,9 +702,7 @@
     k <- .fb_dataset_levels(fb_dataset, as.character(term$var))
     if (!is.na(k)) return(as.integer(k))
   }
-  # Conservative fallback: assume a single level (yields the smallest
-  # latent block, but the term still dominates via the index column).
-  1L
+  NA_integer_
 }
 
 

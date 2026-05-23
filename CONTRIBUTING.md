@@ -33,6 +33,22 @@ devtools::test()
 devtools::check()
 ```
 
+For release-grade checks, **build the tarball first and check the
+tarball** rather than running `R CMD check` against the source
+directory:
+
+```sh
+R CMD build flexyBayes
+R CMD check --as-cran --no-manual flexyBayes_*.tar.gz
+```
+
+`R CMD check` against the raw source directory fails immediately
+with `Required fields missing or empty: 'Author' 'Maintainer'`. The
+`Author` / `Maintainer` fields are materialised from `Authors@R` by
+`R CMD build`; this is the canonical check path for the project.
+`devtools::check()` calls `R CMD build` internally, so the R-side
+workflow is unaffected.
+
 The package depends on `greta` (default MCMC backend) and `INLA`
 (Laplace backend). `greta` requires a working Python + TensorFlow
 install — see `greta::install_greta_deps()`. `INLA` is hosted at

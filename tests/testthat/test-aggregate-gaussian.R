@@ -235,7 +235,7 @@ test_that("refusal: smooth fixed term", {
   err <- tryCatch(.fb_aggregate_gaussian(fb, ds),
                   flexybayes_aggregate_out_of_scope = function(c) c)
   expect_s3_class(err, "flexybayes_aggregate_out_of_scope")
-  expect_identical(err$reason_code, "smooth_in_scope")
+  expect_identical(err$reason_code, "smooth_term_not_aggregatable")
 })
 
 test_that("refusal: uncorrelated random slope (x || g)", {
@@ -251,7 +251,22 @@ test_that("refusal: uncorrelated random slope (x || g)", {
   err <- tryCatch(.fb_aggregate_gaussian(fb, ds),
                   flexybayes_aggregate_out_of_scope = function(c) c)
   expect_s3_class(err, "flexybayes_aggregate_out_of_scope")
-  expect_identical(err$reason_code, "random_slope_in_scope")
+  expect_identical(err$reason_code, "random_slope_not_aggregatable")
+})
+
+test_that("refusal: structured-covariance random term (audit P2.8)", {
+  fb <- .test_make_aggregate_ir(
+    random_terms = list(list(type = "vm", var = "geno", var_n = 50L))
+  )
+  df <- data.frame(y = rnorm(50L),
+                   geno = factor(rep(letters[1:5], 10L)))
+  ds <- .fb_dataset(df)
+
+  err <- tryCatch(.fb_aggregate_gaussian(fb, ds),
+                  flexybayes_aggregate_out_of_scope = function(c) c)
+  expect_s3_class(err, "flexybayes_aggregate_out_of_scope")
+  expect_identical(err$reason_code,
+                   "structured_random_not_aggregatable")
 })
 
 test_that("refusal: metadata-only dataset (no y to sum)", {
