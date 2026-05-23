@@ -293,6 +293,14 @@ flexybayes <- function(
     if (length(known_matrices))   the_call_proceed$known_matrices <- known_matrices
     if (!is.null(prior))          the_call_proceed$prior          <- prior
 
+    # Stage 2 MVP -- run preflight upstream of the code emit so the
+    # review token carries the design-memory summary and a refusal
+    # short-circuits before any code generation happens. Below the
+    # 1e5-row threshold .maybe_preflight() returns NULL and the
+    # review object's $preflight slot stays NULL (v0.2 behaviour).
+    review_preflight <- .maybe_preflight(fb = fb, data = data,
+                                          the_call = the_call)
+
     review_code_str <- emit_greta(
       fb             = fb,
       data           = data,
@@ -323,6 +331,7 @@ flexybayes <- function(
       data_name    = data_name,
       call         = the_call,
       seed         = seed_snapshot,
+      preflight    = review_preflight,
       proceed_args = list(
         fb             = fb,
         data           = data,

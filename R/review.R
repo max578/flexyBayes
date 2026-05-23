@@ -33,7 +33,8 @@
                                    data_name,
                                    call,
                                    seed,
-                                   proceed_args) {
+                                   proceed_args,
+                                   preflight = NULL) {
   if (!is.character(code) || length(code) != 1L)
     stop("`code` must be a length-1 character string.", call. = FALSE)
   if (!is.character(backend) || length(backend) != 1L ||
@@ -44,6 +45,9 @@
     stop("`ir` must be an `fb_terms` object.", call. = FALSE)
   if (!is.list(proceed_args))
     stop("`proceed_args` must be a list of backend arguments.",
+         call. = FALSE)
+  if (!is.null(preflight) && !inherits(preflight, "fb_preflight"))
+    stop("`preflight` must be NULL or an `<fb_preflight>` object.",
          call. = FALSE)
 
   env <- new.env(parent = emptyenv())
@@ -57,6 +61,7 @@
   env$proceed_args <- proceed_args
   env$proceeded    <- FALSE
   env$fit          <- NULL
+  env$preflight    <- preflight   # Stage 2 MVP -- NULL below 1e5 rows
   class(env)       <- c("flexybayes_review", "environment")
   env
 }
@@ -87,6 +92,30 @@ print.flexybayes_review <- function(x, ...) {
     "<flexybayes_review> backend=%s  n=%d  fixed=%d  random=%d\n",
     x$backend, n_obs, n_fix, n_rand
   ))
+
+  # Stage 2 MVP -- show the preflight summary above the cat_code()
+  # prompt when the IR carries n_rows >= 1e5 (the threshold the
+  # dispatch / review-entry preflight call gates on).
+  if (inherits(x$preflight, "fb_preflight")) {
+    cat("\nPreflight summary:\n")
+    fmt_bytes <- function(b) format(round(b), big.mark = " ",
+                                     scientific = FALSE)
+    for (nm in names(x$preflight$per_term_estimate)) {
+      e <- x$preflight$per_term_estimate[[nm]]
+      cat(sprintf(
+        "  %-28s  %14s B  %-26s\n",
+        nm, fmt_bytes(e$design_memory_bytes),
+        e$representation_class
+      ))
+    }
+    cat(sprintf(
+      "  total = %s B   ceiling = %s B   (accepted)\n",
+      fmt_bytes(x$preflight$total_estimate_bytes),
+      fmt_bytes(x$preflight$ceiling_bytes)
+    ))
+    cat("\n")
+  }
+
   if (isTRUE(x$proceeded)) {
     cat("--- already proceeded; see x$fit\n")
   } else {

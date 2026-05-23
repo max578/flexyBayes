@@ -51,20 +51,7 @@
   # with a structured error if any term's design-memory estimate
   # exceeds the active ceiling. The refusal short-circuits dispatch
   # before any backend code runs.
-  preflight_threshold <- 1e5L
-  if (isTRUE(!is.null(fb$data_summary$n) &&
-             fb$data_summary$n >= preflight_threshold)) {
-    # Optional global ceiling override -- lets the user set a stricter
-    # cap than 0.8 x RAM (e.g. on a shared host) without passing an
-    # argument through every dispatch entry. NULL falls back to the
-    # default RAM-probe resolution inside .fb_preflight().
-    pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
-    pf_dataset <- .fb_dataset(data)
-    pf_result  <- .fb_preflight(fb, pf_dataset,
-                                 memory_ceiling_gb = pf_ceiling_gb)
-    if (inherits(pf_result$refusal, "fb_preflight_refusal"))
-      .stop_preflight_refusal(pf_result$refusal, call = the_call)
-  }
+  .maybe_preflight(fb = fb, data = data, the_call = the_call)
 
   # Stan passthrough via brms. Opt-in only -- backend = "auto" never
   # routes to Stan because brms's first-call compile latency (30-60s)
@@ -241,6 +228,32 @@
     fit$extras$fb_terms <- fb
   }
   fit
+}
+
+
+# Stage 2 MVP -- shared preflight call. Runs IFF the IR carries
+# n_rows >= 1e5; below that threshold the v0.2 user surface is
+# unchanged. Returns the <fb_preflight> result (or NULL when below
+# the threshold); on refusal raises the typed condition via
+# .stop_preflight_refusal(). Used by both .dispatch_backend()'s
+# entry block and the review_code branches in flexybayes() /
+# fb_brms() so the gate fires identically across both paths.
+.maybe_preflight <- function(fb, data, the_call,
+                              threshold = 1e5L) {
+  if (!isTRUE(!is.null(fb$data_summary$n) &&
+              fb$data_summary$n >= threshold))
+    return(NULL)
+  # Optional global ceiling override -- lets the user set a stricter
+  # cap than 0.8 x RAM (e.g. on a shared host) without passing an
+  # argument through every dispatch entry. NULL falls back to the
+  # default RAM-probe resolution inside .fb_preflight().
+  pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
+  pf_dataset <- .fb_dataset(data)
+  pf_result  <- .fb_preflight(fb, pf_dataset,
+                               memory_ceiling_gb = pf_ceiling_gb)
+  if (inherits(pf_result$refusal, "fb_preflight_refusal"))
+    .stop_preflight_refusal(pf_result$refusal, call = the_call)
+  pf_result
 }
 
 

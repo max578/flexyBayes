@@ -334,6 +334,12 @@ fb_brms <- function(formula,
     if (length(known_matrices)) the_call_proceed$known_matrices <- known_matrices
     if (!is.null(prior))        the_call_proceed$prior          <- prior
 
+    # Stage 2 MVP -- preflight upstream of the code emit; refusal
+    # short-circuits before any backend touches data. NULL below
+    # the 1e5-row threshold.
+    review_preflight <- .maybe_preflight(fb = fb, data = data,
+                                          the_call = the_call)
+
     review_code_str <- if (review_emit_backend == "brms") {
       emit_brms(
         fb             = fb,
@@ -389,6 +395,7 @@ fb_brms <- function(formula,
       data_name    = data_name,
       call         = the_call,
       seed         = seed_snapshot,
+      preflight    = review_preflight,
       proceed_args = list(
         fb             = fb,
         data           = data,
