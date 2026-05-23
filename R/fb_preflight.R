@@ -154,12 +154,23 @@
     }
   }
 
+  # Stage 3A model-level aggregation plan (audit P1.5, 2026-05-23).
+  # Informational at v0.3.0.9000 -- the per-term
+  # `aggregated_likelihood_candidate` flag remains the dispatcher
+  # contract through v0.3.1. The plan supersedes per-term flags as the
+  # dispatch input in v0.3.2 when the aggregated emit path lands.
+  agg_plan <- tryCatch(
+    .fb_aggregation_plan(fb_ir, fb_dataset),
+    error = function(e) NULL
+  )
+
   structure(
     list(
       per_term_estimate    = per_term,
       total_estimate_bytes = total,
       ceiling_bytes        = ceiling_bytes,
       n_rows               = n_rows,
+      aggregation_plan     = agg_plan,
       refusal              = refusal
     ),
     class = c("fb_preflight", "list")
@@ -723,11 +734,15 @@
 #' @keywords internal
 #' @export
 print.fb_preflight <- function(x, ...) {
+  fmt_n <- function(b) {
+    if (is.na(b)) "NA"
+    else format(round(b), big.mark = " ", scientific = FALSE)
+  }
   cat(sprintf(
     "<fb_preflight> n_rows = %s; total = %s bytes; ceiling = %s bytes\n",
-    format(x$n_rows,                   big.mark = " ", scientific = FALSE),
-    format(round(x$total_estimate_bytes), big.mark = " ", scientific = FALSE),
-    format(round(x$ceiling_bytes),       big.mark = " ", scientific = FALSE)
+    format(x$n_rows, big.mark = " ", scientific = FALSE),
+    fmt_n(x$total_estimate_bytes),
+    fmt_n(x$ceiling_bytes)
   ))
   if (length(x$per_term_estimate)) {
     cat("  per-term:\n")
@@ -736,12 +751,22 @@ print.fb_preflight <- function(x, ...) {
       cat(sprintf(
         "    %-28s  %14s B  %-26s  agg_candidate=%s\n",
         nm,
-        format(round(e$design_memory_bytes), big.mark = " ",
-               scientific = FALSE),
+        fmt_n(e$design_memory_bytes),
         e$representation_class,
         e$aggregated_likelihood_candidate
       ))
     }
+  }
+  if (!is.null(x$aggregation_plan)) {
+    cat(sprintf(
+      "  aggregation: eligible=%s; K_est=%s; compression_est=%s\n",
+      x$aggregation_plan$eligible,
+      if (is.na(x$aggregation_plan$K_est)) "NA"
+      else format(x$aggregation_plan$K_est, big.mark = " ",
+                  scientific = FALSE),
+      if (is.na(x$aggregation_plan$compression_est)) "NA"
+      else sprintf("%.3f", x$aggregation_plan$compression_est)
+    ))
   }
   if (!is.null(x$refusal)) {
     cat("\n")

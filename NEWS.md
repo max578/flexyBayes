@@ -25,6 +25,39 @@ all of which break the cell-constant linear predictor.
 Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
 the greta / INLA aggregated emit path and the `$exactness` slot.
 
+## Stage 3A foundation -- memory shape correction + model-level plan
+
+Two follow-up changes to the Stage 3A foundation surfaced by the
+2026-05-23 audit:
+
+- `<fb_aggregated>$design_matrix` (the full `N x p` per-row design
+  matrix) is replaced by `$cell_design` (the `K x p` per-cell form).
+  The aggregated emit path only needs the per-cell linear predictor;
+  carrying the per-row matrix defeated the compression contract at
+  large `N` and was not an implementation shape compatible with the
+  10M-100M-row roadmap. Per-row equivalence verification (the
+  bit-exact log-likelihood gate) now rebuilds the per-row design
+  locally via `stats::model.matrix()`.
+
+- New internal `.fb_aggregation_plan()` returning a model-level
+  `<fb_aggregation_plan>` with seven slots: `eligible`,
+  `reason_codes`, `cell_key_terms`, `requires_materialisation`,
+  `K_est`, `N`, `compression_est`. The plan reads only IR + dataset
+  metadata; no design materialised. `.fb_preflight()` attaches the
+  plan to its result for diagnostic visibility. The plan is
+  informational at v0.3.0.9000: the per-term
+  `aggregated_likelihood_candidate` flag remains the dispatcher
+  contract through v0.3.1. In v0.3.2 the plan supersedes per-term
+  flags as the dispatch input when the aggregated emit path lands.
+
+  Productivity threshold: `K_est / N <= 0.5` (at least 2:1 compression
+  expected from metadata). Below the threshold the plan reports
+  `eligible = TRUE`; above it reports
+  `reason_codes = "compression_unproductive"`. Continuous fixed
+  terms make the cell count data-dependent (cannot estimate from
+  metadata) and the plan reports
+  `reason_codes = "compression_data_dependent"`.
+
 ## Preflight hardening -- smooth/spline estimators + unknown-term refusal
 
 The Stage 2 preflight layer now characterises every term class the

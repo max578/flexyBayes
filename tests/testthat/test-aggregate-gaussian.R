@@ -64,16 +64,18 @@ test_that("bit-exact log-lik equivalence: balanced y ~ f + (1|g)", {
   fb <- fb_from_brms(y ~ f + (1 | g), data = df)
   agg <- .fb_aggregate_gaussian(fb, .fb_dataset(df))
 
-  X <- agg$design_matrix
-  beta <- rnorm(ncol(X))
+  # Per-row design matrix rebuilt locally for the equivalence check
+  # (audit P1.4 -- the aggregator no longer carries the N x p form).
+  X_row <- stats::model.matrix(~ f, data = df)
+  beta <- rnorm(ncol(X_row))
   u <- setNames(rnorm(J, sd = 0.5), levels(df$g))
   sigma <- 0.8
 
-  mu_raw <- as.vector(X %*% beta) + u[as.character(df$g)]
+  mu_raw <- as.vector(X_row %*% beta) + u[as.character(df$g)]
   ll_raw <- .gaussian_loglik_raw(df$y, mu_raw, sigma)
 
+  X_cells <- agg$cell_design
   ss <- agg$sufficient_stats
-  X_cells <- as.matrix(ss[, agg$fixed_cols, with = FALSE])
   mu_cells <- as.vector(X_cells %*% beta) +
               u[as.character(ss$g)]
   ll_agg <- .gaussian_loglik_aggregated(
@@ -102,16 +104,16 @@ test_that("property-based: 20 random in-scope IRs all hit bit-exact equivalence"
     fb <- fb_from_brms(y ~ f + (1 | g), data = df)
     agg <- .fb_aggregate_gaussian(fb, .fb_dataset(df))
 
-    X <- agg$design_matrix
-    beta <- rnorm(ncol(X))
+    X_row <- stats::model.matrix(~ f, data = df)
+    beta <- rnorm(ncol(X_row))
     u <- setNames(rnorm(J, sd = 0.5), levels(df$g))
     sigma <- runif(1L, 0.3, 1.5)
 
-    mu_raw <- as.vector(X %*% beta) + u[as.character(df$g)]
+    mu_raw <- as.vector(X_row %*% beta) + u[as.character(df$g)]
     ll_raw <- .gaussian_loglik_raw(df$y, mu_raw, sigma)
 
+    X_cells <- agg$cell_design
     ss <- agg$sufficient_stats
-    X_cells <- as.matrix(ss[, agg$fixed_cols, with = FALSE])
     mu_cells <- as.vector(X_cells %*% beta) +
                 u[as.character(ss$g)]
     ll_agg <- .gaussian_loglik_aggregated(
@@ -143,16 +145,16 @@ test_that("cell-mean shortcut produces a DIFFERENT log-lik", {
   fb <- fb_from_brms(y ~ f + (1 | g), data = df)
   agg <- .fb_aggregate_gaussian(fb, .fb_dataset(df))
 
-  X <- agg$design_matrix
-  beta <- rnorm(ncol(X))
+  X_row <- stats::model.matrix(~ f, data = df)
+  beta <- rnorm(ncol(X_row))
   u <- setNames(rnorm(J, sd = 0.5), levels(df$g))
   sigma <- 0.7
 
-  mu_raw <- as.vector(X %*% beta) + u[as.character(df$g)]
+  mu_raw <- as.vector(X_row %*% beta) + u[as.character(df$g)]
   ll_raw <- .gaussian_loglik_raw(df$y, mu_raw, sigma)
 
+  X_cells <- agg$cell_design
   ss <- agg$sufficient_stats
-  X_cells <- as.matrix(ss[, agg$fixed_cols, with = FALSE])
   mu_cells <- as.vector(X_cells %*% beta) +
               u[as.character(ss$g)]
   ll_cm <- .gaussian_loglik_cellmean(

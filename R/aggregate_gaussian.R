@@ -30,7 +30,16 @@
 
 
 # Top-level aggregator. Returns an <fb_aggregated> S3 list:
-#   $design_matrix   N x p fixed-effects design matrix
+#   $cell_design     K x p cell-level fixed-effects design matrix.
+#                    One row per cell carrying the unique fixed-effect
+#                    column values for that cell. Audit P1.4 (2026-
+#                    05-23): the v0.3.0.9000 foundation stored the full
+#                    N x p design matrix; this defeated compression at
+#                    large N and was not implementation-shape for the
+#                    10M-100M-row roadmap. The cell-level form contains
+#                    the same information for the aggregated emit path
+#                    (the per-cell linear predictor) at a fraction of
+#                    the memory cost.
 #   $sufficient_stats data.table with cols: cell_id (integer), n_k,
 #                     S1_k, S2_k, plus the cell-key columns
 #   $cell_key_cols   character vector: the columns that define a cell
@@ -41,6 +50,10 @@
 #   $N              integer total observations (sum of n_k)
 #   $compression    K / N ratio (smaller is better; 1.0 = no compression)
 #   $response       response variable name (string)
+#
+# Per-row equivalence verification (the bit-exact log-lik gate)
+# rebuilds the per-row design matrix from the underlying data via
+# stats::model.matrix(); the aggregator no longer carries it.
 #
 # Refuses (typed condition `flexybayes_aggregate_out_of_scope`) when:
 #   - family != gaussian (link identity)
@@ -135,9 +148,15 @@
     agg, c("cell_id", key_cols, "n_k", "S1_k", "S2_k")
   )
 
+  # Extract the cell-level design matrix (K x p) from the aggregated
+  # data.table. The full N x p `X` matrix is no longer carried on the
+  # returned object -- it goes out of scope on function return.
+  cell_design <- as.matrix(agg[, fixed_cols, with = FALSE])
+  colnames(cell_design) <- fixed_cols
+
   structure(
     list(
-      design_matrix    = X,
+      cell_design      = cell_design,
       sufficient_stats = agg,
       cell_key_cols    = key_cols,
       fixed_cols       = fixed_cols,

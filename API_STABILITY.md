@@ -38,8 +38,9 @@ The four-verb spine plus its companion diagnostics:
 ## Internal-but-S3-visible diagnostics
 
 A small set of internal constructors -- `.fb_dataset()`, `.fb_preflight()`,
-`.fb_aggregate_gaussian()` -- are not exported, but their S3 `print` /
-`format` methods are registered for dispatch on diagnostic output
+`.fb_aggregate_gaussian()`, `.fb_aggregation_plan()` -- are not exported,
+but their S3 `print` / `format` methods are registered for dispatch on
+diagnostic output
 (refusal messages, `review_code` summaries, interactive inspection at
 the console). Because the methods are registered via the S3 mechanism,
 `R CMD check` requires generated `.Rd` entries; those entries are
