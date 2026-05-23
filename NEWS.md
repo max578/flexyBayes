@@ -1,5 +1,41 @@
 # flexyBayes 0.2.6.9000
 
+## Stage 2 design-memory preflight
+
+flexyBayes now estimates the design-representation memory of a model
+upstream of the backend dispatch and refuses with a structured
+diagnostic when the estimate exceeds an active ceiling. The aim is to
+replace the v0.2 silent-allocation antipattern (`Error: cannot
+allocate vector of size 3.2 Gb` from `model.matrix()` mid-fit) with an
+explicit, per-term refusal that names the binding term and a numeric
+override.
+
+The default ceiling is 80% of system RAM, probed via `benchmarkme` or
+`memuse` when either is installed; otherwise an 8 GiB fallback applies.
+Users can set a stricter cap via the global option
+`flexyBayes.preflight_ceiling_gb` (e.g. on shared hosts where the full
+RAM should not be claimed for a single fit).
+
+The check runs only on fits with `n_rows >= 1e5` so the v0.2 user
+surface is unchanged at small scales. On larger fits the check reads
+only `n_rows`, factor-level counts, and column types -- no row-wise
+data scan -- so the runtime is `O(terms)` regardless of `n_rows`.
+A 1e8-row metadata-only check completes in milliseconds on the
+development laptop.
+
+The refusal is a typed condition `flexybayes_preflight_refusal`
+carrying the binding term name, its byte estimate, the active
+ceiling, and a suggested override. On `flexybayes(..., review_code
+= TRUE)` and `fb_brms(..., review_code = TRUE)` the resulting
+`<flexybayes_review>` token now carries a `$preflight` slot; the
+preflight summary appears in `print(rev)` above the `cat_code()`
+prompt.
+
+The `aggregated_likelihood_candidate` flag on each per-term entry is
+a forward-looking promise to the gaussian-identity aggregated
+backend path; the flag has no runtime effect at v0.3.0 (no
+aggregation runs yet) but is consumed by later stages.
+
 ## Correctness fix -- factor:continuous interaction (ADR 0019)
 
 `flexybayes(y ~ x * f, data = ...)` where `f` is a factor and `x`

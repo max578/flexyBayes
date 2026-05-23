@@ -41,6 +41,8 @@ Suggests:
     greta (>= 0.4.0),
     brms,
     INLA,
+    benchmarkme,
+    memuse,
     generics,
     bayesplot,
     posterior,

@@ -286,23 +286,24 @@ test_that("default ceiling resolves to a positive byte count", {
 })
 
 test_that("ceiling fallback returns 8 GiB when probes return NA", {
-  # Use unloadNamespace to simulate the no-probe environment if both
-  # packages happen to be installed; safe-skip otherwise.
-  with_mock <- function() {
-    stub_fn <- function(...) NA_real_
-    assignInNamespace(".fb_probe_system_ram", stub_fn,
-                      ns = "flexyBayes")
-    on.exit({
-      # Restore the original probe by re-sourcing the file via load_all
-      suppressMessages(devtools::load_all())
-    }, add = TRUE)
-    df <- data.frame(y = rnorm(50), x = rnorm(50))
-    fb <- fb_from_brms(y ~ x, data = df)
-    pf <- .fb_preflight(fb, .fb_dataset(df))
-    expect_identical(pf$ceiling_bytes, 8 * 1024^3)
-  }
-  # Wrap in a tryCatch so the test infrastructure rollback always runs
-  withCallingHandlers(with_mock(), error = function(e) message(e))
+  # Stub the RAM probe to simulate the no-probe environment. Save
+  # the original via getFromNamespace() and restore via on.exit so
+  # the test does not leak across to the rest of the suite.
+  ns       <- asNamespace("flexyBayes")
+  original <- get(".fb_probe_system_ram", envir = ns,
+                  inherits = FALSE)
+  stub_fn  <- function(...) NA_real_
+  assignInNamespace(".fb_probe_system_ram", stub_fn, ns = "flexyBayes")
+  on.exit(
+    assignInNamespace(".fb_probe_system_ram", original,
+                      ns = "flexyBayes"),
+    add = TRUE
+  )
+
+  df <- data.frame(y = rnorm(50), x = rnorm(50))
+  fb <- fb_from_brms(y ~ x, data = df)
+  pf <- .fb_preflight(fb, .fb_dataset(df))
+  expect_identical(pf$ceiling_bytes, 8 * 1024^3)
 })
 
 
@@ -361,4 +362,61 @@ test_that(".fb_preflight is internal -- no exported binding", {
   expect_false("fb_preflight"         %in% exp)
   expect_false(".fb_preflight_refusal" %in% exp)
   expect_true(exists(".fb_preflight", envir = ns, inherits = FALSE))
+})
+
+
+# ---------------------------------------------------------------- #
+# fb_from_brms(data = NULL, carry_n_rows) + dataset round-trip      #
+# ---------------------------------------------------------------- #
+
+test_that("fb_from_brms(data = NULL, carry_n_rows): metadata-only IR shape", {
+  fb <- fb_from_brms(y ~ x + (1 | g), data = NULL, carry_n_rows = 1e7)
+
+  expect_s3_class(fb, "fb_terms")
+  expect_identical(fb$source, "brms_metadata_only")
+  expect_identical(fb$data_summary$n, 10000000L)
+  # Random-term level cache stripped -- preflight will read from
+  # <fb_dataset>$dictionaries.
+  expect_true(is.na(fb$random_terms[[1L]]$var_n))
+  expect_null(fb$random_terms[[1L]]$var_levels)
+})
+
+test_that("fb_from_brms(data = NULL) without carry_n_rows refuses", {
+  expect_error(fb_from_brms(y ~ x, data = NULL),
+               regexp = "carry_n_rows")
+  expect_error(
+    fb_from_brms(y ~ x, data = NULL, carry_n_rows = -10),
+    regexp = "positive numeric"
+  )
+})
+
+test_that("fb_from_brms(data, carry_n_rows): override path preserves real var_n", {
+  df <- data.frame(y = rnorm(10), x = rnorm(10),
+                   g = factor(letters[1:10]))
+  fb <- fb_from_brms(y ~ x + (1 | g), data = df, carry_n_rows = 5e6)
+
+  expect_identical(fb$source, "brms")
+  expect_identical(fb$data_summary$n, 5000000L)
+  # Real var_n from the placeholder data is preserved -- it is the
+  # caller's responsibility to ensure dictionaries on the <fb_dataset>
+  # match the actual large-scale workflow when they override n.
+  expect_identical(fb$random_terms[[1L]]$var_n, 10L)
+})
+
+test_that("carry_n_rows round-trip: metadata-only IR + dataset -> preflight runs", {
+  fb <- fb_from_brms(y ~ x + (1 | g), data = NULL, carry_n_rows = 1e7)
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1e7,
+    col_types = list(y = "double", x = "double", g = "factor"),
+    dictionaries = list(g = as.character(seq_len(1e5)))
+  )
+  pf <- .fb_preflight(fb, ds, memory_ceiling_gb = 16)
+
+  expect_null(pf$refusal)
+  expect_identical(pf$n_rows, 1e7)
+  # (1 | g) estimate uses the dictionary's 1e5 level count plus the
+  # 4 * 1e7 integer index column. Sanity-check the order of magnitude.
+  re_bytes <- pf$per_term_estimate[["(1 | g)"]]$design_memory_bytes
+  expect_gte(re_bytes, 4e7)
+  expect_lte(re_bytes, 4.2e7)
 })

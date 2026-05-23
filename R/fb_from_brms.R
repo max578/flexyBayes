@@ -71,6 +71,7 @@ fb_from_brms <- function(formula,
                          weights        = NULL,
                          prior_fixed_sd = 100,
                          prior_vc_sd    = 1,
+                         carry_n_rows   = NULL,
                          ...) {
 
   if (inherits(formula, "brmsformula")) {
@@ -86,6 +87,59 @@ fb_from_brms <- function(formula,
   if (length(formula) < 3L)
     stop("`formula` must be two-sided: response ~ predictors.",
          call. = FALSE)
+
+  # Stage 2 MVP metadata-only path: data = NULL + carry_n_rows lets
+  # the caller build an IR for stress-testing the preflight layer
+  # without materialising N rows of data. The formula's free variables
+  # are realised as a one-row placeholder data.frame (all numeric);
+  # random-term level counts are stripped from the IR so .fb_preflight()
+  # reads them from the <fb_dataset>'s dictionaries instead.
+  if (is.null(data)) {
+    if (is.null(carry_n_rows))
+      stop("`data` is NULL but `carry_n_rows` was not supplied. ",
+           "Pass `carry_n_rows = N` for the metadata-only IR path ",
+           "(Stage 2 MVP / v0.3.0), or pass a real data.frame.",
+           call. = FALSE)
+    if (!is.numeric(carry_n_rows) || length(carry_n_rows) != 1L ||
+        carry_n_rows < 1)
+      stop("`carry_n_rows` must be a positive numeric scalar; got: ",
+           deparse(carry_n_rows), call. = FALSE)
+    data <- .fb_from_brms_placeholder_data(formula)
+    fb <- fb_from_brms(
+      formula        = formula,
+      data           = data,
+      family         = family,
+      link           = link,
+      prior          = prior,
+      weights        = NULL,    # weights cannot be metadata-only
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd    = prior_vc_sd,
+      carry_n_rows   = NULL,    # break the recursion
+      ...
+    )
+    fb$data_summary$n <- as.integer(carry_n_rows)
+    # Strip per-term cached level counts -- preflight reads from
+    # <fb_dataset>$dictionaries when var_n is NA. This keeps the
+    # IR honest about not knowing the true group sizes.
+    for (i in seq_along(fb$random_terms)) {
+      fb$random_terms[[i]]$var_n      <- NA_integer_
+      fb$random_terms[[i]]$var_levels <- NULL
+    }
+    for (i in seq_along(fb$fixed_terms)) {
+      if (identical(fb$fixed_terms[[i]]$type, "factor")) {
+        fb$fixed_terms[[i]]$n_levels <- NA_integer_
+        fb$fixed_terms[[i]]$levels   <- NULL
+      }
+    }
+    fb$source <- "brms_metadata_only"
+    return(fb)
+  }
+
+  # When `data` is present and `carry_n_rows` is set, override the
+  # cached row count on the returned IR (use case: stress-testing the
+  # preflight ceiling on a synthetic claim that the data is bigger
+  # than nrow(data)).
+  override_n_rows <- carry_n_rows
 
   # LHS-pipe brms addition forms (`y | trials(n) ~ ...`,
   # `y | cens(c) ~ ...`, `y | weights(w) ~ ...`, `y | se(s) ~ ...`).
@@ -192,6 +246,9 @@ fb_from_brms <- function(formula,
     known_matrices = character(0)
   )
 
+  if (!is.null(override_n_rows))
+    data_summary$n <- as.integer(override_n_rows)
+
   new_fb_terms(
     response       = response,
     family         = fam_name,
@@ -206,6 +263,22 @@ fb_from_brms <- function(formula,
     capabilities   = character(),
     source         = "brms"
   )
+}
+
+
+# Stage 2 MVP -- synthesise a one-row, all-numeric placeholder
+# data.frame from a brms-style formula. Used by the data = NULL +
+# carry_n_rows ingest path so the existing brms walker can produce
+# the IR shape; the realised level counts are stripped after the
+# walk so the preflight layer reads them from <fb_dataset> instead.
+.fb_from_brms_placeholder_data <- function(formula) {
+  all_vars <- all.vars(formula)
+  if (!length(all_vars))
+    stop("formula references no variables; cannot synthesise ",
+         "placeholder data.", call. = FALSE)
+  pl <- as.list(rep(1.0, length(all_vars)))
+  names(pl) <- all_vars
+  as.data.frame(pl, stringsAsFactors = FALSE)
 }
 
 # ---------------------------------------------------------------- #
