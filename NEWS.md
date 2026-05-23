@@ -25,6 +25,59 @@ all of which break the cell-constant linear predictor.
 Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
 the greta / INLA aggregated emit path and the `$exactness` slot.
 
+## Preflight hardening -- smooth/spline estimators + unknown-term refusal
+
+The Stage 2 preflight layer now characterises every term class the
+asreml and brms parsers can emit. Five new branches:
+
+- Mgcv smooth terms (`s(x)`, `smooth_mgcv` in the IR) on either side
+  of the formula: dense `N x k` basis estimate using the resolved
+  `term$k` from `mgcv::smoothCon()`. Previously parser-emitted smooths
+  fell through to a single-column estimate -- a factor-of-`k`
+  under-estimate that could let a large smooth model pass preflight
+  when the actual basis exceeded the ceiling.
+- P-spline terms (`spl(x)`): dense `N x df` basis with `df = 8`
+  matching the codegen default.
+- Factor:factor interactions: dense treatment-coded `N x (prod(L) - 1)`
+  estimate; the audit-named high-cardinality scary case.
+- Factor:continuous interactions (ADR 0019 indexed slope): integer
+  index column + continuous column + `(L - 1)` per-level slope
+  coefficients.
+- Polynomial terms (`pol(x, d)`): dense `N x d` basis.
+
+The fixed and random fallthrough branches no longer record a
+single-dense-column estimate framed as "conservative lower bound" --
+a lower bound is the opposite of conservative for a refusal gate.
+Unrecognised term classes now flag the per-term entry with
+`unknown_representation = TRUE` and the top-level preflight returns a
+typed `flexybayes_preflight_refusal` with
+`reason_code = "representation_unknown_for_preflight"` carrying the
+binding term label. Structured-covariance random terms (`vm`, `ped`,
+`fa`, `us`, `at`, `ar1`, `nested`, etc.) remain estimated via the
+indexed-representation heuristic and are now labelled
+`representation_class = "indexed_structured_estimate"` with a header
+note that production fits at large `N` should set `memory_ceiling_gb`
+explicitly rather than relying on the default.
+
+## Behaviour change -- default RAM fraction lowered from 80% to 60%
+
+The default design-memory ceiling is now `60%` of system RAM (was
+`80%`). This is conservative for shared workstations, CI runners, and
+interactive laptops where the user expects the rest of the machine to
+remain responsive under load. A new global option
+`flexyBayes.preflight_ram_fraction` exposes the fraction for per-host
+tuning:
+
+```r
+options(flexyBayes.preflight_ram_fraction = 0.5)   # tighter
+options(flexyBayes.preflight_ram_fraction = 0.9)   # looser, single-user host
+```
+
+The fraction is validated as `(0, 1]`. The 8 GiB fallback (used when
+neither the `benchmarkme` nor the `memuse` RAM probe is installed)
+is unaffected -- the fallback is already a conservative absolute
+floor.
+
 # flexyBayes 0.3.0
 
 ## Stage 2 design-memory preflight

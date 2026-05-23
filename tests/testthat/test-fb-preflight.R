@@ -281,8 +281,12 @@ test_that("default ceiling resolves to a positive byte count", {
   pf <- .fb_preflight(fb, .fb_dataset(df))
 
   expect_true(pf$ceiling_bytes > 0)
-  # 8 GiB minimum guaranteed by the fallback even if no probe is present
-  expect_true(pf$ceiling_bytes >= 8 * 1024^3 * 0.8 - 1)
+  # On any host with a successful RAM probe and >=8 GiB RAM, the
+  # default 60% fraction yields >= 4.8 GiB; on the fallback path the
+  # raw 8 GiB ceiling also clears 4.8 GiB. Audit P2.3 (2026-05-23)
+  # lowered the default fraction from 0.8 to 0.6 -- 80% was too high
+  # for shared workstations / CI / interactive laptops.
+  expect_true(pf$ceiling_bytes >= 8 * 1024^3 * 0.6 - 1)
 })
 
 test_that("ceiling fallback returns 8 GiB when probes return NA", {
@@ -419,4 +423,303 @@ test_that("carry_n_rows round-trip: metadata-only IR + dataset -> preflight runs
   re_bytes <- pf$per_term_estimate[["(1 | g)"]]$design_memory_bytes
   expect_gte(re_bytes, 4e7)
   expect_lte(re_bytes, 4.2e7)
+})
+
+
+# ---------------------------------------------------------------- #
+# Phase B hardening (2026-05-23) -- audit-driven new estimators     #
+# ---------------------------------------------------------------- #
+
+test_that("smooth_mgcv parser type estimates N x k dense basis", {
+  # Audit P1.2: parser emits type = "smooth_mgcv"; previously fell
+  # through to random_other (12N + 16k) for a 3.3x under-estimate at
+  # N = 5000, k = 5. Expected estimate now matches the audit number.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 5000L,
+    col_types = list(y = "double", x = "double"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 5000L,
+    random_terms = list(list(type = "smooth_mgcv", var = "x", k = 5L))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["s(x)"]]
+  expect_identical(entry$term_kind, "random_smooth")
+  expect_identical(entry$representation_class, "dense_baseline")
+  # 8 * 5000 * 5 + 8 * 5 + 256 = 200,296.
+  expect_equal(entry$design_memory_bytes, 8 * 5000 * 5 + 8 * 5 + 256)
+  expect_null(pf$refusal)
+})
+
+test_that("spline (spl) parser type estimates N x df dense basis at df=8", {
+  # Audit P1.2: parser emits type = "spline"; codegen hardcodes
+  # df = 8. Previously fell through to random_other (12N + 16k) for
+  # a 5.3x under-estimate at N = 5000.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 5000L,
+    col_types = list(y = "double", x = "double"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 5000L,
+    random_terms = list(list(type = "spline", var = "x"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["spl(x)"]]
+  expect_identical(entry$term_kind, "random_spline")
+  # 8 * 5000 * 8 + 8 * 8 + 256 = 320,320.
+  expect_equal(entry$design_memory_bytes, 8 * 5000 * 8 + 8 * 8 + 256)
+})
+
+test_that("factor:factor interaction sizes dense treatment-coded block", {
+  # Audit P1.3: high-cardinality factor:factor is the named scary
+  # case. Previously fell through to a single-column estimate
+  # (8N + 8) -- the dense block is (K-1)x larger.
+  df <- data.frame(
+    y  = rnorm(1000),
+    f1 = factor(rep(letters[1:10], 100)),
+    f2 = factor(rep(LETTERS[1:5],  each = 200))
+  )
+  ds <- .fb_dataset(df)
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(type = "factor_interaction",
+                             vars = c("f1", "f2"),
+                             label = "f1:f2"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["f1:f2"]]
+  expect_identical(entry$term_kind, "fixed_factor_interaction")
+  # Reduced-rank treatment coding: model.matrix(~ f1 * f2) interaction
+  # block alone has prod(L_i - 1) = 9 * 4 = 36 columns. The estimate
+  # matches the common additive-with-interaction shape exactly.
+  expect_equal(entry$design_memory_bytes,
+               8 * 1000 * 36 + 8 * 36 + 256)
+})
+
+test_that("factor:factor refuses when cardinality unresolvable", {
+  # Metadata-only dataset with no dictionaries -- the factor:factor
+  # estimator cannot compute K and flags unknown_representation.
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", f1 = "factor", f2 = "factor"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(type = "factor_interaction",
+                             vars = c("f1", "f2"),
+                             label = "f1:f2"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+  expect_identical(pf$refusal$binding_term, "f1:f2")
+  expect_true(is.na(pf$refusal$binding_bytes))
+  expect_true(is.na(pf$refusal$total_bytes))
+})
+
+test_that("factor_numeric_interaction (ADR 0019) sizes indexed slope block", {
+  df <- data.frame(
+    y = rnorm(1000),
+    x = rnorm(1000),
+    f = factor(rep(letters[1:5], 200))
+  )
+  ds <- .fb_dataset(df)
+  # Slot names match parse_formula.R:67 ($factor, $continuous, $n_levels).
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(
+      type       = "factor_numeric_interaction",
+      factor     = "f",
+      continuous = "x",
+      vars       = c("f", "x"),
+      n_levels   = 5L,
+      label      = "f:x"
+    ))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["f:x"]]
+  expect_identical(entry$term_kind, "fixed_factor_numeric_interaction")
+  # 4 * 1000 + 8 * 1000 + 8 * (5 - 1) + 256 = 12,288.
+  expect_equal(entry$design_memory_bytes,
+               4 * 1000 + 8 * 1000 + 8 * 4 + 256)
+})
+
+test_that("polynomial term sizes degree-d dense basis", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", x = "double"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(type = "polynomial", var = "x",
+                             degree = 4L, label = "pol(x,4)"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["pol(x,4)"]]
+  expect_identical(entry$term_kind, "fixed_polynomial")
+  # 8 * 1000 * 4 + 8 * 4 + 256 = 32,288.
+  expect_equal(entry$design_memory_bytes,
+               8 * 1000 * 4 + 8 * 4 + 256)
+})
+
+test_that("expression term (I() / arithmetic) sizes one column", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", x = "double"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(type = "expression",
+                             label = "I(x^2)"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  entry <- pf$per_term_estimate[["I(x^2)"]]
+  expect_identical(entry$term_kind, "fixed_expression")
+  # 8 * 1000 + 8 + 256 = 8,264. NOT flagged unknown.
+  expect_equal(entry$design_memory_bytes, 8 * 1000 + 8 + 256)
+  expect_null(pf$refusal)
+})
+
+test_that("interaction_generic random term triggers representation_unknown", {
+  # parse_formula.R:214 fallback for random terms whose interaction
+  # shape didn't match any structured-cov pattern. The audit P1.3
+  # framing: unknown shape != "estimate a small column".
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", g = "factor"),
+    dictionaries = list(g = letters[1:5])
+  )
+  fb <- .test_make_fb_ir(
+    n_rows       = 1000L,
+    random_terms = list(list(
+      type  = "interaction_generic",
+      left  = list(type = "vm", var = "g", mat = "M"),
+      right = list(type = "polynomial", var = "x")
+    ))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+})
+
+test_that("unknown fixed type triggers representation_unknown refusal", {
+  ds <- .fb_dataset(
+    data = NULL, n_rows = 1000L,
+    col_types = list(y = "double", x = "double"),
+    dictionaries = list()
+  )
+  fb <- .test_make_fb_ir(
+    n_rows      = 1000L,
+    fixed_terms = list(list(type = "exotic_unsupported_type",
+                             var  = "x",
+                             label = "exotic(x)"))
+  )
+  pf <- .fb_preflight(fb, ds)
+
+  expect_false(is.null(pf$refusal))
+  expect_identical(pf$refusal$reason_code,
+                   "representation_unknown_for_preflight")
+  expect_identical(pf$refusal$binding_term, "exotic(x)")
+})
+
+
+# ---------------------------------------------------------------- #
+# flexyBayes.preflight_ram_fraction option                          #
+# ---------------------------------------------------------------- #
+
+test_that("preflight_ram_fraction scales the default ceiling", {
+  # Stub the probe so we always exercise the fraction code path
+  # (8 GiB fallback ignores the fraction by design).
+  ns       <- asNamespace("flexyBayes")
+  original <- get(".fb_probe_system_ram", envir = ns, inherits = FALSE)
+  on.exit(assignInNamespace(".fb_probe_system_ram", original,
+                            ns = "flexyBayes"))
+  assignInNamespace(".fb_probe_system_ram",
+                    function(...) 16 * 1024^3, ns = "flexyBayes")
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = 0.3)
+  c_low  <- .fb_resolve_ceiling(NULL)
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = 0.9)
+  c_high <- .fb_resolve_ceiling(NULL)
+
+  expect_equal(c_low,  0.3 * 16 * 1024^3)
+  expect_equal(c_high, 0.9 * 16 * 1024^3)
+  expect_equal(c_high / c_low, 3, tolerance = 1e-9)
+})
+
+test_that("preflight_ram_fraction default is 0.6 (audit P2.3)", {
+  ns       <- asNamespace("flexyBayes")
+  original <- get(".fb_probe_system_ram", envir = ns, inherits = FALSE)
+  on.exit(assignInNamespace(".fb_probe_system_ram", original,
+                            ns = "flexyBayes"))
+  assignInNamespace(".fb_probe_system_ram",
+                    function(...) 16 * 1024^3, ns = "flexyBayes")
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = NULL)
+  ceiling_default <- .fb_resolve_ceiling(NULL)
+  expect_equal(ceiling_default, 0.6 * 16 * 1024^3)
+})
+
+test_that("preflight_ram_fraction rejects out-of-range values", {
+  ns       <- asNamespace("flexyBayes")
+  original <- get(".fb_probe_system_ram", envir = ns, inherits = FALSE)
+  on.exit(assignInNamespace(".fb_probe_system_ram", original,
+                            ns = "flexyBayes"))
+  assignInNamespace(".fb_probe_system_ram",
+                    function(...) 8 * 1024^3, ns = "flexyBayes")
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = 0)
+  expect_error(.fb_resolve_ceiling(NULL),
+               regexp = "preflight_ram_fraction")
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = 1.5)
+  expect_error(.fb_resolve_ceiling(NULL),
+               regexp = "preflight_ram_fraction")
+
+  withr::local_options(flexyBayes.preflight_ram_fraction = -0.1)
+  expect_error(.fb_resolve_ceiling(NULL),
+               regexp = "preflight_ram_fraction")
+})
+
+
+# ---------------------------------------------------------------- #
+# print.fb_preflight_refusal -- representation_unknown shape         #
+# ---------------------------------------------------------------- #
+
+test_that("print.fb_preflight_refusal: NA bytes render cleanly", {
+  ref <- structure(
+    list(
+      reason_code   = "representation_unknown_for_preflight",
+      binding_term  = "exotic(x)",
+      binding_bytes = NA_real_,
+      total_bytes   = NA_real_,
+      ceiling_bytes = 8 * 1024^3,
+      n_rows        = 1000L
+    ),
+    class = c("fb_preflight_refusal", "list")
+  )
+  out <- capture.output(print(ref))
+  expect_true(any(grepl("representation_unknown_for_preflight",
+                        out, fixed = TRUE)))
+  expect_true(any(grepl("NA (not characterised)",
+                        out, fixed = TRUE)))
+  expect_true(any(grepl("remedy:", out, fixed = TRUE)))
+  # No override-suggest line on unknown_for_preflight.
+  expect_false(any(grepl("override:", out, fixed = TRUE)))
 })

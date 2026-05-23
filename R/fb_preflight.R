@@ -35,8 +35,26 @@
 .FB_PREFLIGHT_BASE_OVERHEAD <- 4096
 
 # Default smooth-basis dimension when an mgcv-style s(x) term carries
-# no explicit k= argument. Matches mgcv's default (10) per ?mgcv::s.
+# no explicit k= argument and .enrich() has not yet populated term$k.
+# Matches mgcv's default (10) per ?mgcv::s. The enriched IR carries
+# the resolved k = ncol(sm_obj$X) after absorb.cons; that value is
+# preferred when available.
 .FB_PREFLIGHT_SMOOTH_K_DEFAULT <- 10L
+
+# Default spline df for spl(x) -- matches the codegen path's hardcoded
+# splines::bs(..., df = 8, degree = 3, intercept = FALSE) basis. If a
+# future enrich step records term$df we will prefer it.
+.FB_PREFLIGHT_SPLINE_DF_DEFAULT <- 8L
+
+# Default fraction of system RAM used as the design-memory ceiling when
+# no explicit `memory_ceiling_gb` is passed. 0.6 (60%) is conservative
+# for shared workstations / CI / interactive laptops where the user
+# expects the rest of the machine to remain responsive under load.
+# Override per session via `options(flexyBayes.preflight_ram_fraction
+# = <fraction>)`. Audit P2.3 (2026-05-23): the previous 80% default was
+# too high for shared hosts; the new default plus the option give
+# users explicit control.
+.FB_PREFLIGHT_DEFAULT_RAM_FRACTION <- 0.6
 
 
 # Top-level constructor. Returns the `<fb_preflight>` object even when
@@ -90,26 +108,50 @@
   # The .preflight_fixed_term() dispatcher handles the smooth marker
   # internally; the if-branch above already covers it.
 
-  total <- .FB_PREFLIGHT_BASE_OVERHEAD +
-           sum(vapply(per_term, function(e) e$design_memory_bytes,
-                      numeric(1L)))
+  # Unknown-representation gate (audit P1.3, 2026-05-23). Any per-term
+  # entry flagged as unknown_representation = TRUE forces a refusal
+  # regardless of byte estimate: an honest ceiling check cannot be made
+  # on a term whose design shape we did not characterise. This refusal
+  # is preferred over the byte-ceiling refusal -- a known-too-large
+  # design is informative, but an unknown design is the safety-critical
+  # case.
+  unknown_terms <- vapply(per_term,
+                          function(e) isTRUE(e$unknown_representation),
+                          logical(1L))
 
   refusal <- NULL
-  if (total > ceiling_bytes) {
-    # Binding term = largest single-term estimate.
-    binding_idx   <- which.max(vapply(per_term,
-                                       function(e) e$design_memory_bytes,
-                                       numeric(1L)))
-    binding_label <- names(per_term)[[binding_idx]]
-    binding_entry <- per_term[[binding_idx]]
+  total   <- NA_real_
+
+  if (any(unknown_terms)) {
+    unknown_label <- names(per_term)[which(unknown_terms)[1L]]
     refusal <- .new_fb_preflight_refusal(
-      reason_code     = "design_memory_exceeds_ceiling",
-      binding_term    = binding_label,
-      binding_bytes   = binding_entry$design_memory_bytes,
-      total_bytes     = total,
+      reason_code     = "representation_unknown_for_preflight",
+      binding_term    = unknown_label,
+      binding_bytes   = NA_real_,
+      total_bytes     = NA_real_,
       ceiling_bytes   = ceiling_bytes,
       n_rows          = n_rows
     )
+  } else {
+    total <- .FB_PREFLIGHT_BASE_OVERHEAD +
+             sum(vapply(per_term, function(e) e$design_memory_bytes,
+                        numeric(1L)))
+    if (total > ceiling_bytes) {
+      # Binding term = largest single-term estimate.
+      binding_idx   <- which.max(vapply(per_term,
+                                         function(e) e$design_memory_bytes,
+                                         numeric(1L)))
+      binding_label <- names(per_term)[[binding_idx]]
+      binding_entry <- per_term[[binding_idx]]
+      refusal <- .new_fb_preflight_refusal(
+        reason_code     = "design_memory_exceeds_ceiling",
+        binding_term    = binding_label,
+        binding_bytes   = binding_entry$design_memory_bytes,
+        total_bytes     = total,
+        ceiling_bytes   = ceiling_bytes,
+        n_rows          = n_rows
+      )
+    }
   }
 
   structure(
@@ -146,16 +188,24 @@
 
 # Walk a single fixed_terms[[i]] entry. The IR's fixed_terms list
 # entries carry varying shapes depending on the ingest path; we
-# pattern-match on common slots: $type ("numeric", "factor",
-# "interaction", "smooth", "expression"), $var (variable name),
-# $var_n (level count for factor terms), $deparse (free-form label).
+# pattern-match on $type with one branch per term class the parsers
+# can emit. Anything that does not match a known class falls into
+# the unknown-representation guard at the bottom -- audit P1.3
+# (2026-05-23): a "conservative lower bound" is not safe for refusal;
+# under-estimating risks letting a model through that the backend
+# then fails to allocate.
 .preflight_fixed_term <- function(term, n_rows, fb_dataset, family_ok) {
 
   ttype <- if (!is.null(term$type)) term$type else "expression"
   label <- .preflight_term_label(term, ttype, kind = "fixed")
 
-  # Smooth (s(x), t2(x)) -- dense basis block.
-  if (ttype %in% c("smooth", "s", "t2")) {
+  # Smooth s(x) / t2(x) -- dense basis block. Two forms hit this
+  # branch: the hand-built sentinel "smooth"/"s"/"t2" used by the test
+  # IR helpers and the parser-emitted "smooth_mgcv" (the live ingest
+  # path; parse_formula.R:149 emits this type and .enrich() populates
+  # term$k = ncol(sm_obj$X) after mgcv::smoothCon() absorbs the
+  # identifiability constraint).
+  if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv")) {
     k <- if (!is.null(term$k) && is.numeric(term$k))
            as.integer(term$k) else .FB_PREFLIGHT_SMOOTH_K_DEFAULT
     bytes <- 8 * n_rows * k +    # N x k dense basis
@@ -167,6 +217,25 @@
       representation_class             = "dense_baseline",
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "fixed_smooth"
+    ))
+  }
+
+  # P-spline spl(x) -- splines::bs() basis block. The codegen path
+  # hardcodes df = 8, degree = 3, intercept = FALSE so the dense
+  # basis is N x df. We prefer term$df if a future enrich step
+  # records it; otherwise we use the codegen default.
+  if (identical(ttype, "spline")) {
+    df <- if (!is.null(term$df) && is.numeric(term$df))
+            as.integer(term$df) else .FB_PREFLIGHT_SPLINE_DF_DEFAULT
+    bytes <- 8 * n_rows * df +
+             8 * df +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "dense_baseline",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "fixed_spline"
     ))
   }
 
@@ -200,19 +269,128 @@
     ))
   }
 
-  # Interaction / expression / fallthrough -- dense baseline.
-  # Assumes a single dense double column of length N as a conservative
-  # lower bound; refusal logic uses the binding-term flag so this
-  # bound is safe (real interactions are typically larger, not smaller).
+  # Factor:factor interaction -- treatment-coded reduced-rank
+  # model.matrix(~ f1*f2, data) returns prod(L_i - 1) columns for the
+  # interaction block alone, on the standard convention where main
+  # effects and the intercept are also present. Audit-named scary
+  # case: high-cardinality factor:factor can exceed the ceiling by
+  # orders of magnitude vs the v0.3.0 "single dense column"
+  # fallthrough estimate. The estimate is exact for the common
+  # additive-with-interaction model; on the rare `y ~ f1:f2 - 1`
+  # form it under-estimates by (L1 + L2 - 1) columns -- in any
+  # high-cardinality regime that is negligible relative to the
+  # prod(L_i - 1) block size.
+  if (identical(ttype, "factor_interaction")) {
+    n_dummies <- .preflight_factor_interaction_dummies(term$vars, fb_dataset)
+    if (is.na(n_dummies)) {
+      # Cardinality unresolvable from the dataset wrapper -- the
+      # interaction memory is unknown. Flag for representation-
+      # unknown refusal at the top level.
+      return(.preflight_entry(
+        label                            = label,
+        design_memory_bytes              = NA_real_,
+        representation_class             = "unknown",
+        aggregated_likelihood_candidate  = FALSE,
+        term_kind                        = "fixed_factor_interaction",
+        unknown_representation           = TRUE
+      ))
+    }
+    bytes <- 8 * n_rows * n_dummies +
+             8 * n_dummies +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "dense_baseline",
+      aggregated_likelihood_candidate  = family_ok,
+      term_kind                        = "fixed_factor_interaction"
+    ))
+  }
+
+  # Factor:continuous interaction -- treatment-coded indexed slope
+  # (ADR 0019). Representation: factor index column + continuous
+  # column + (L - 1) per-level slope coefficients (reference level's
+  # slope fixed to zero so no coefficient slot).
+  if (identical(ttype, "factor_numeric_interaction")) {
+    L <- .preflight_term_level_count(term, fb_dataset)
+    bytes <- 4 * n_rows +
+             8 * n_rows +
+             8 * max(L - 1L, 0L) +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "indexed_fixed_factor_numeric",
+      aggregated_likelihood_candidate  = family_ok,
+      term_kind                        = "fixed_factor_numeric_interaction"
+    ))
+  }
+
+  # Polynomial pol(x, d) -- degree-d dense basis. The IR carries
+  # term$degree from parse_formula.R; the basis is d columns of N.
+  if (identical(ttype, "polynomial")) {
+    d <- if (!is.null(term$degree) && is.numeric(term$degree))
+           as.integer(term$degree) else 2L
+    bytes <- 8 * n_rows * d +
+             8 * d +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "dense_baseline",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "fixed_polynomial"
+    ))
+  }
+
+  # Generic numeric:numeric interaction -- a single product column.
+  if (identical(ttype, "interaction")) {
+    bytes <- 8 * n_rows +
+             8 +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "indexed_fixed_numeric",
+      aggregated_likelihood_candidate  = family_ok,
+      term_kind                        = "fixed_interaction"
+    ))
+  }
+
+  # Expression term -- I() / arithmetic / function calls evaluated
+  # against data (parse_formula.R:89 returns this when the label is
+  # not a bare variable in `data`). The standard representation is
+  # one double column (the evaluated expression vector) plus one
+  # slope coefficient.
+  if (identical(ttype, "expression")) {
+    bytes <- 8 * n_rows +
+             8 +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "indexed_fixed_numeric",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "fixed_expression"
+    ))
+  }
+
+  # Unknown fallthrough. The Stage 2 contract is
+  # "do not silently under-estimate"; an unrecognised fixed term flags
+  # the entry for representation-unknown refusal at the top level.
+  # A diagnostic single-column estimate is recorded so the print
+  # surface still shows something, but it is NOT consumed by the
+  # ceiling check when unknown_representation = TRUE.
   bytes <- 8 * n_rows +
            8 +
            .FB_PREFLIGHT_TERM_OVERHEAD
   .preflight_entry(
     label                            = label,
     design_memory_bytes              = bytes,
-    representation_class             = "dense_baseline",
+    representation_class             = "unknown",
     aggregated_likelihood_candidate  = FALSE,
-    term_kind                        = "fixed_other"
+    term_kind                        = "fixed_other",
+    unknown_representation           = TRUE
   )
 }
 
@@ -259,10 +437,72 @@
     ))
   }
 
-  # Fallthrough -- correlated slope (refused upstream by fb_from_brms,
-  # but the asreml ingest may carry structured forms). Conservative
-  # estimate uses the slope-uncor formula doubled (for the correlation
-  # block); ensures we do not silently under-estimate large designs.
+  # Smooth s(x) on the random side -- the asreml ingest path places
+  # parser-emitted "smooth_mgcv" terms in random_terms (e.g.
+  # random = ~ s(x, k = 6)). Same N x k dense basis cost as the
+  # fixed-side branch. Prior to the 2026-05-23 audit fix this fell
+  # through to the structured-cov estimate below, which under-estimated
+  # by a factor of k.
+  if (rtype %in% c("smooth_mgcv", "smooth", "s", "t2")) {
+    sm_k <- if (!is.null(term$k) && is.numeric(term$k))
+              as.integer(term$k) else .FB_PREFLIGHT_SMOOTH_K_DEFAULT
+    bytes <- 8 * n_rows * sm_k +
+             8 * sm_k +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "dense_baseline",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "random_smooth"
+    ))
+  }
+
+  # P-spline spl(x) on the random side. Same N x df dense basis as
+  # the fixed-side branch (codegen default df = 8).
+  if (identical(rtype, "spline")) {
+    df <- if (!is.null(term$df) && is.numeric(term$df))
+            as.integer(term$df) else .FB_PREFLIGHT_SPLINE_DF_DEFAULT
+    bytes <- 8 * n_rows * df +
+             8 * df +
+             .FB_PREFLIGHT_TERM_OVERHEAD
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "dense_baseline",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "random_spline"
+    ))
+  }
+
+  # interaction_generic -- the parse_formula classifier's fallback
+  # when no structured-interaction pattern matched (parse_formula.R
+  # :214). Memory is unknown because the design shape is not
+  # characterised by a single template. Flag for representation-
+  # unknown refusal at the top level.
+  if (identical(rtype, "interaction_generic")) {
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = NA_real_,
+      representation_class             = "unknown",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "random_unknown",
+      unknown_representation           = TRUE
+    ))
+  }
+
+  # Structured-covariance random terms (vm, ped, fa, us, at, ar1,
+  # ar2, cor, str, at_units, fa_gxe, us_gxe, at_simple, ar1_spatial,
+  # vm_gxe, nested, combo, polynomial, ...). Each is a supported
+  # model class in flexyBayes, but the design representation differs
+  # per term and the IR does not carry a single field that captures
+  # it. The estimate below is an indexed-representation heuristic
+  # (one int index column + slope variable column + 2 * k latent
+  # coefficients) that captures the order of magnitude for indexed
+  # forms but can under-estimate large structured covariance blocks
+  # (e.g. us(k) at large k). For production fits at large N with
+  # structured covariance, set `memory_ceiling_gb` explicitly rather
+  # than relying on the default.
   bytes <- 4 * n_rows +
            8 * n_rows +
            16 * k +
@@ -270,9 +510,9 @@
   .preflight_entry(
     label                            = label,
     design_memory_bytes              = bytes,
-    representation_class             = "dense_baseline",
+    representation_class             = "indexed_structured_estimate",
     aggregated_likelihood_candidate  = FALSE,
-    term_kind                        = "random_other"
+    term_kind                        = "random_structured"
   )
 }
 
@@ -283,19 +523,41 @@
 
 # Build a single per-term entry. Centralised so adding a new field
 # (e.g. an `effort_estimate` for Stage 2.1) is a one-line change.
+# `unknown_representation = TRUE` flags terms whose design memory we
+# could not characterise; the top-level `.fb_preflight()` then routes
+# such terms to a `representation_unknown_for_preflight` refusal in
+# preference to a (possibly under-estimated) ceiling check.
 .preflight_entry <- function(label,
                               design_memory_bytes,
                               representation_class,
                               aggregated_likelihood_candidate,
-                              term_kind) {
+                              term_kind,
+                              unknown_representation = FALSE) {
   list(
     label                            = label,
     design_memory_bytes              = as.numeric(design_memory_bytes),
     representation_class             = representation_class,
     aggregated_likelihood_candidate  = isTRUE(aggregated_likelihood_candidate),
     term_kind                        = term_kind,
-    overhead_constant                = .FB_PREFLIGHT_TERM_OVERHEAD
+    overhead_constant                = .FB_PREFLIGHT_TERM_OVERHEAD,
+    unknown_representation           = isTRUE(unknown_representation)
   )
+}
+
+# Count the dummy columns for a factor:factor (...:factor)
+# treatment-coded reduced-rank interaction. The interaction block
+# alone in `model.matrix(~ f1*f2*...)` carries prod(L_i - 1) columns
+# when main effects and intercept are also present (the standard
+# convention). Returns NA_integer_ when any factor cardinality
+# cannot be resolved from the dataset wrapper's dictionaries.
+.preflight_factor_interaction_dummies <- function(vars, fb_dataset) {
+  if (!length(vars)) return(NA_integer_)
+  ks <- vapply(vars, function(v) {
+    .fb_dataset_levels(fb_dataset, as.character(v))
+  }, numeric(1L))
+  if (anyNA(ks)) return(NA_integer_)
+  ks_minus_one <- pmax(as.integer(ks) - 1L, 0L)
+  as.integer(prod(ks_minus_one))
 }
 
 # Build a display label from an IR term descriptor. Mirrors the
@@ -306,8 +568,13 @@
   if (!is.null(term$deparse) && nzchar(term$deparse)) return(term$deparse)
 
   if (identical(kind, "fixed")) {
-    if (ttype %in% c("smooth", "s", "t2") && !is.null(term$var))
+    if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv") &&
+        !is.null(term$var))
       return(paste0("s(", term$var, ")"))
+    if (identical(ttype, "spline") && !is.null(term$var))
+      return(paste0("spl(", term$var, ")"))
+    if (identical(ttype, "factor_interaction") && !is.null(term$vars))
+      return(paste(term$vars, collapse = ":"))
     if (!is.null(term$var)) return(as.character(term$var))
     return("<fixed:unnamed>")
   }
@@ -322,6 +589,10 @@
              paste0("1 + ", slope) else slope
     return(paste0("(", lhs, " || ", group, ")"))
   }
+  if (ttype %in% c("smooth_mgcv", "smooth", "s", "t2"))
+    return(paste0("s(", group, ")"))
+  if (identical(ttype, "spline"))
+    return(paste0("spl(", group, ")"))
   paste0("(", ttype, " | ", group, ")")
 }
 
@@ -349,12 +620,21 @@
 # Memory ceiling resolution                                         #
 # ---------------------------------------------------------------- #
 
-# Resolves the byte-valued ceiling. Explicit override via the
-# memory_ceiling_gb argument; otherwise 0.8 x system RAM via
-# benchmarkme::get_ram() or memuse::Sys.meminfo(); fallback to 8 GiB
-# when neither probe is installed. The fallback is documented so
-# users in minimal install environments see a predictable refusal
-# threshold rather than a hard error.
+# Resolves the byte-valued ceiling. Resolution priority:
+#   1. Explicit `memory_ceiling_gb` argument (always wins).
+#   2. RAM probe x fraction-of-RAM, where the fraction is
+#      `getOption("flexyBayes.preflight_ram_fraction", 0.6)`. The
+#      audit P2.3 (2026-05-23) change moved the default fraction
+#      from 0.8 to 0.6 and exposed the option so users on shared
+#      workstations / CI / interactive laptops can tighten or
+#      loosen the default without passing an argument through every
+#      dispatch entry. The fraction is validated as `(0, 1]`.
+#   3. 8 GiB conservative fallback when neither RAM probe is
+#      available (benchmarkme / memuse uninstalled). The fallback
+#      is documented so users in minimal install environments see
+#      a predictable refusal threshold rather than a hard error;
+#      the RAM-fraction option is NOT applied to the fallback (the
+#      8 GiB number is itself already a conservative absolute floor).
 .fb_resolve_ceiling <- function(memory_ceiling_gb) {
   if (!is.null(memory_ceiling_gb)) {
     if (!is.numeric(memory_ceiling_gb) ||
@@ -370,7 +650,15 @@
     # 8 GiB conservative fallback when neither probe is available.
     return(8 * 1024^3)
   }
-  0.8 * ram_bytes
+
+  fraction <- getOption("flexyBayes.preflight_ram_fraction",
+                        .FB_PREFLIGHT_DEFAULT_RAM_FRACTION)
+  if (!is.numeric(fraction) || length(fraction) != 1L ||
+      is.na(fraction) || fraction <= 0 || fraction > 1)
+    stop("`flexyBayes.preflight_ram_fraction` must be a numeric scalar ",
+         "in (0, 1]; got: ", deparse(fraction), call. = FALSE)
+
+  as.numeric(fraction) * ram_bytes
 }
 
 .fb_probe_system_ram <- function() {
@@ -476,20 +764,30 @@ print.fb_preflight_refusal <- function(x, ...) {
   cat("<fb_preflight_refusal>\n")
   cat(sprintf("  reason_code:    %s\n", x$reason_code))
   cat(sprintf("  binding_term:   %s\n", x$binding_term))
-  cat(sprintf("  binding_bytes:  %s B  (%.2f GiB)\n",
-              format(round(x$binding_bytes), big.mark = " ",
-                     scientific = FALSE),
-              x$binding_bytes / 1024^3))
-  cat(sprintf("  total_bytes:    %s B  (%.2f GiB)\n",
-              format(round(x$total_bytes), big.mark = " ",
-                     scientific = FALSE),
-              x$total_bytes / 1024^3))
-  cat(sprintf("  ceiling_bytes:  %s B  (%.2f GiB)\n",
-              format(round(x$ceiling_bytes), big.mark = " ",
-                     scientific = FALSE),
-              x$ceiling_bytes / 1024^3))
-  ceiling_gb_suggest <- ceiling(x$total_bytes / 1024^3 * 1.25)
-  cat(sprintf("  override:       pass memory_ceiling_gb = %d to retry\n",
-              ceiling_gb_suggest))
+
+  fmt_bytes <- function(b) {
+    if (is.na(b)) "NA (not characterised)"
+    else sprintf("%s B  (%.2f GiB)",
+                 format(round(b), big.mark = " ", scientific = FALSE),
+                 b / 1024^3)
+  }
+  cat(sprintf("  binding_bytes:  %s\n", fmt_bytes(x$binding_bytes)))
+  cat(sprintf("  total_bytes:    %s\n", fmt_bytes(x$total_bytes)))
+  cat(sprintf("  ceiling_bytes:  %s\n", fmt_bytes(x$ceiling_bytes)))
+
+  if (identical(x$reason_code, "design_memory_exceeds_ceiling") &&
+      !is.na(x$total_bytes)) {
+    ceiling_gb_suggest <- ceiling(x$total_bytes / 1024^3 * 1.25)
+    cat(sprintf("  override:       pass memory_ceiling_gb = %d to retry\n",
+                ceiling_gb_suggest))
+  } else if (identical(x$reason_code,
+                       "representation_unknown_for_preflight")) {
+    cat("  remedy:         the term shape is not characterised by the\n",
+        "                  preflight estimator. Restructure the formula\n",
+        "                  to use a recognised term class, or open an\n",
+        "                  issue with the term type so the estimator\n",
+        "                  can be extended.\n",
+        sep = "")
+  }
   invisible(x)
 }
