@@ -88,18 +88,16 @@
 #'   structured refusal until INLA-side `code`-slot support lands.
 #'
 #' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
-#'   Stage 3A (ADR 0022, v0.3.2) aggregated-gaussian gate. `"auto"`
-#'   consults `.fb_aggregation_plan()` and routes through the
-#'   sufficient-statistics emit path when the IR is in scope
-#'   (gaussian-identity, fixed + random-intercept, productive
-#'   compression); falls through to the per-row path otherwise.
-#'   `TRUE` forces aggregation -- raises a structured refusal when
-#'   the plan declares ineligibility. `FALSE` skips the gate
-#'   entirely. At v0.3.2 the aggregated path is INLA-only; greta
-#'   aggregation is deferred to v0.3.3 (the spike confirms algebraic
-#'   viability; the package wiring needs a non-`eval()` codegen
-#'   pattern). Aggregated fits carry `$exactness == "aggregated_exact"`
-#'   and the dispatch trace's `path` slot reads `"aggregated_gaussian"`.
+#'   Aggregated-gaussian sufficient-statistics gate. `"auto"`
+#'   consults the aggregation plan and routes through the per-cell
+#'   emit path when the IR is in scope (gaussian-identity, fixed +
+#'   random-intercept, productive compression); falls through to the
+#'   per-row path otherwise. `TRUE` forces aggregation -- raises a
+#'   structured refusal when the plan declares ineligibility.
+#'   `FALSE` skips the gate entirely. Both `backend = "inla"` and
+#'   `backend = "greta"` support the aggregated path. Aggregated fits
+#'   carry `$exactness == "aggregated_exact"` and the dispatch trace's
+#'   `path` slot reads `"aggregated_gaussian"`.
 #'
 #' @return An object of class `"flexybayes"` — a list with three components:
 #' \describe{

@@ -298,15 +298,15 @@
                                        link, data_name) {
 
   # Aggregation only defined for backends with a flexyBayes-side
-  # aggregated emit path. v0.3.2 supports greta + inla; brms / gretaR
-  # / stan have no aggregated path in scope at v0.3.2.
+  # aggregated emit path. v0.3.3 supports greta + inla; brms / gretaR
+  # / stan have no aggregated path in scope.
   agg_capable_backend <- backend %in% c("greta", "inla", "auto")
   if (!agg_capable_backend) {
     if (isTRUE(aggregate))
       stop("`aggregate = TRUE` is not supported on backend = \"",
-           backend, "\" at v0.3.2 (the aggregated path is wired for ",
-           "greta and inla only). Pass aggregate = FALSE or switch ",
-           "backend.", call. = FALSE)
+           backend, "\" (the aggregated path is wired for greta and ",
+           "inla only). Pass aggregate = FALSE or switch backend.",
+           call. = FALSE)
     return(NULL)
   }
 
@@ -315,27 +315,20 @@
   fb_dataset_meta <- .fb_dataset(data)
   plan <- .fb_aggregation_plan(fb, fb_dataset_meta)
 
-  # Resolve the effective backend for the aggregated emit. v0.3.2
-  # supports only INLA on the aggregated path (greta deferred to
-  # v0.3.3; see emit_gaussian_aggregated() header for the dispatch
-  # rationale). Force INLA when backend = "auto" or "greta" if the
-  # plan would otherwise route to aggregation; refuse explicitly when
-  # backend = "greta" with aggregate = TRUE.
+  # Resolve the effective backend for the aggregated emit. v0.3.3
+  # supports both INLA and greta on the aggregated path; the greta
+  # path uses the call-construct-in-env workaround in
+  # .emit_gaussian_aggregated_greta() to bypass greta::model()'s
+  # substitute()-deparse trap under do.call().
   eff_backend <- .agg_resolve_backend(backend, fb)
-  if (identical(eff_backend, "greta")) {
-    if (isTRUE(aggregate))
-      stop("`aggregate = TRUE` on backend = \"greta\" is deferred ",
-           "at v0.3.2. Pass backend = \"inla\" (or \"auto\") for ",
-           "the aggregated path, or aggregate = FALSE for per-row ",
-           "greta.", call. = FALSE)
+  if (identical(eff_backend, "greta") && !isTRUE(aggregate))
     return(NULL)
-  }
 
-  # at_units on INLA at v0.3.2: the multi-likelihood INLA stack is
-  # deferred. If we'd otherwise route to INLA AND the rcov uses
-  # at_units, force the eff_backend down to greta (which supports the
-  # heterogeneous-residual aggregated path) or fall through to per-row
-  # when greta isn't an option.
+  # at_units on INLA: the multi-likelihood INLA stack is still
+  # deferred at v0.3.3 (queued for a later minor). If we'd otherwise
+  # route to INLA AND the rcov uses at_units, force the eff_backend
+  # down to greta (which supports the heterogeneous-residual aggregated
+  # path) or fall through to per-row when greta isn't an option.
   uses_at_units <- length(fb$rcov_terms) > 0L &&
     any(vapply(fb$rcov_terms,
                function(t) identical(t$type %||% "", "at_units"),
@@ -343,8 +336,8 @@
   if (identical(eff_backend, "inla") && uses_at_units) {
     if (identical(backend, "inla") && isTRUE(aggregate))
       stop("`aggregate = TRUE` with backend = \"inla\" refused: ",
-           "heterogeneous residual at_units on INLA is deferred at ",
-           "v0.3.2 (requires the multi-likelihood INLA stack). Pass ",
+           "heterogeneous residual at_units on INLA requires the ",
+           "multi-likelihood INLA stack (deferred at v0.3.3). Pass ",
            "backend = \"greta\" with aggregate = TRUE, or aggregate ",
            "= FALSE for per-row INLA.", call. = FALSE)
     if (identical(backend, "auto"))
