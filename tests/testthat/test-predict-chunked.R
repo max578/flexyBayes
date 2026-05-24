@@ -141,17 +141,6 @@ test_that("Decision 2: allow_new_levels='refuse' lists multiple unknown levels",
   expect_match(conditionMessage(err), "ZZ")
 })
 
-test_that("Decision 2: allow_new_levels='sample' is reserved at v0.3.4 (deferred-feature refusal)", {
-  testthat::skip_if_not_installed("greta")
-  fx <- mk_predict_fit()
-  nd <- fx$dat[1:5, ]
-  err <- expect_error(
-    predict(fx$fit, newdata = nd, allow_new_levels = "sample"),
-    "reserved at v0.3.4"
-  )
-  expect_match(conditionMessage(err), "deferred to v0.3.5")
-})
-
 test_that("Decision 2: allow_new_levels='population' is the default", {
   testthat::skip_if_not_installed("greta")
   fx <- mk_predict_fit()

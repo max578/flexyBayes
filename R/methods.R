@@ -376,14 +376,44 @@ residuals.flexybayes <- function(object, ...) {
 #'   Decision 2). `"population"` sets unknown-level rows to NA on the
 #'   affected column and emits a warning naming the count; downstream
 #'   prediction returns NA for these rows. `"refuse"` raises a
-#'   structured stop on the first unknown level. `"sample"` (fresh
-#'   random-effect draw per unknown level) is reserved at v0.3.4 --
-#'   the label is stable but the implementation is deferred to v0.3.5
-#'   alongside the file-backed prediction output. Only consulted when
-#'   the fit carries an `extras$fb_dataset` slot (fits produced under
-#'   v0.3.4+); legacy fits skip dictionary resolution entirely.
-#' @return If `se.fit = FALSE`, a numeric vector. If `se.fit = TRUE`, a list
-#'   with `fit` and `se.fit`.
+#'   structured stop on the first unknown level. `"sample"` (active
+#'   since v0.3.5) layers a fresh `Normal(0, tau_<group>)`
+#'   random-effect realisation onto each unknown row per posterior
+#'   draw -- caller's `set.seed()` controls reproducibility. The
+#'   in-memory return reports the posterior-mean prediction
+#'   (sampled-RE contribution averages toward zero across draws);
+#'   the file-backed return (`output_file = ...`) captures the
+#'   proper per-row posterior interval reflecting sampled-RE
+#'   uncertainty. Only consulted when the fit carries an
+#'   `extras$fb_dataset` slot (fits produced under v0.3.4+); legacy
+#'   fits skip dictionary resolution entirely.
+#' @param output_file Optional character path. When supplied,
+#'   prediction is written to disk under the format resolved by
+#'   `format` (Stage 3B; ADR 0023 Decision 4). The file is a
+#'   tabular structure with columns `point`, `lower`, `upper`
+#'   (95\% posterior credible bounds), optional `se.fit`, plus the
+#'   columns of `newdata`. Refuses if `output_file` already exists
+#'   (no silent overwrite). Returns the path invisibly. Requires
+#'   a fit with posterior draws on `$greta$draws` (greta-backend
+#'   fits including `fb_brms(..., backend = "greta")`); INLA fits
+#'   do not currently expose per-draw access and route to a
+#'   structured refusal. Default `NULL` (in-memory return).
+#' @param format One of `"auto"` (default), `"csv"`, `"rds"`, `"fst"`.
+#'   Only consulted when `output_file` is supplied. `"auto"`
+#'   resolves to: `"csv"` when `interop = TRUE`; `"fst"` when
+#'   `nrow(newdata) >= 1e6` and `fst` is installed; `"rds"`
+#'   otherwise. `"fst"` requested without `fst` installed raises a
+#'   structured refusal naming the install command. The fst path
+#'   is 30--40x faster than rds at N >= 1e6 per the
+#'   Stage-3B-shape benchmark (`benchmark_results/fst_stage3b_2026-05-23`).
+#' @param interop Logical. When `TRUE`, the format-resolution rule
+#'   under `format = "auto"` prefers `"csv"` (universally readable)
+#'   over rds / fst (R-only / fst-only). Useful for handing the
+#'   prediction grid to a non-R consumer. Default `FALSE`. Only
+#'   consulted when `output_file` is supplied and `format = "auto"`.
+#' @return If `output_file` is supplied: invisibly returns the path
+#'   that was written to. Otherwise: if `se.fit = FALSE`, a numeric
+#'   vector. If `se.fit = TRUE`, a list with `fit` and `se.fit`.
 #' @export
 predict.flexybayes <- function(object, newdata = NULL,
                                type = c("response", "link"),
@@ -392,11 +422,20 @@ predict.flexybayes <- function(object, newdata = NULL,
                                allow_new_levels = c("population",
                                                      "sample",
                                                      "refuse"),
+                               output_file = NULL,
+                               format = c("auto", "csv", "rds", "fst"),
+                               interop = FALSE,
                                ...) {
   type <- match.arg(type)
   allow_new_levels <- match.arg(allow_new_levels)
+  format <- match.arg(format)
 
   if (is.null(newdata)) {
+    if (!is.null(output_file))
+      stop("predict.flexybayes(): `output_file` is only supported ",
+           "with `newdata`. For fitted-value persistence, write the ",
+           "fit's $glm$fitted.values to disk directly.",
+           call. = FALSE)
     if (type == "link") {
       pred <- object$glm$linear.predictors
     } else {
@@ -412,12 +451,54 @@ predict.flexybayes <- function(object, newdata = NULL,
   # fit carries a persisted <fb_dataset> descriptor (v0.3.4+ fits),
   # resolve factor levels in newdata against the fit-time codes per
   # allow_new_levels policy. Legacy fits (no extras$fb_dataset slot)
-  # skip this step and fall through to the v0.3.3 behaviour. The
-  # resolver routes "sample" to a structured refusal at v0.3.4.
+  # skip this step and fall through to the v0.3.3 behaviour.
+  # "sample" was reserved at v0.3.4 (deferred-stop); v0.3.5 activates
+  # the branch -- the resolver attaches `attr(newdata,
+  # "sample_re_summary")` so downstream paths can layer a sampled
+  # RE realisation onto each unknown row per draw.
   fb_dataset_meta <- object$extras$fb_dataset
   if (!is.null(fb_dataset_meta)) {
     newdata <- .predict_resolve_factors(newdata, fb_dataset_meta,
                                          allow_new_levels)
+  }
+
+  # Stage 3B (ADR 0023 Decision 4) file-backed output path. Routes
+  # before the chunked-iteration branch because .predict_to_file()
+  # handles its own chunking with a per-chunk per-draw posterior
+  # interval computation, accumulates point/lower/upper vectors
+  # across chunks, and writes the result via .predict_write_file()
+  # under the format resolved from `format` / `interop` /
+  # `nrow(newdata)` / fst availability. Returns invisible(path).
+  if (!is.null(output_file)) {
+    return(.predict_to_file(
+      object             = object,
+      newdata            = newdata,
+      output_file        = output_file,
+      format             = format,
+      interop            = interop,
+      type               = type,
+      se.fit             = se.fit,
+      chunk_size         = chunk_size,
+      allow_new_levels   = allow_new_levels
+    ))
+  }
+
+  # In-memory "sample" path: when the resolver tagged unknown rows
+  # via `sample_re_summary`, route through .predict_in_memory_sample()
+  # which uses per-draw computation to layer sampled-RE
+  # contributions onto unknown rows. Single-pass; sample mode does
+  # not chunk in the in-memory return path (sample + chunked
+  # iteration would re-sample per chunk and break ADR 0023 §6.d
+  # bitwise equivalence; chunked sample is only supported via
+  # `output_file`).
+  if (identical(allow_new_levels, "sample") &&
+      !is.null(attr(newdata, "sample_re_summary"))) {
+    return(.predict_in_memory_sample(
+      object  = object,
+      newdata = newdata,
+      type    = type,
+      se.fit  = se.fit
+    ))
   }
 
   # Stage 3B (ADR 0023) chunked iteration. Routes through the chunk
