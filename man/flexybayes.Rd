@@ -70,7 +70,15 @@ Supports \code{vm()}, \code{at()}, \code{us()}, \code{fa()}, \code{ar1()}, \code
 (e.g., \code{"probit"} for binomial).}
 
 \item{known_matrices}{Named list of matrices referred to in the random
-formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}).}
+formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}). As of v0.3.7,
+each matrix may be supplied either as a dense base-R \code{matrix}
+(passed via \code{vm(group, V = ...)} or \code{ped(group, A = ...)}, the
+legacy default), a user-supplied lower-triangular Cholesky
+factor (\code{vm(group, chol = L)}; greta backend only), or a sparse
+precision matrix \code{Matrix::dgCMatrix} (\code{vm(group, precision = Q)}
+or \code{ped(group, A_inv, use_sparse_precision = TRUE)}; greta and
+INLA backends). See the structured-covariance vignette for
+per-format worked examples.}
 
 \item{weights}{Optional numeric weight vector (length N); sets
 Var = sigma^2 / w.}
@@ -155,13 +163,18 @@ structured refusal until INLA-side \code{code}-slot support lands.}
 Aggregated-gaussian sufficient-statistics gate. \code{"auto"}
 consults the aggregation plan and routes through the per-cell
 emit path when the IR is in scope (gaussian-identity, fixed +
-random-intercept, productive compression); falls through to the
-per-row path otherwise. \code{TRUE} forces aggregation -- raises a
-structured refusal when the plan declares ineligibility.
-\code{FALSE} skips the gate entirely. Both \code{backend = "inla"} and
-\code{backend = "greta"} support the aggregated path. Aggregated fits
-carry \verb{$exactness == "aggregated_exact"} and the dispatch trace's
-\code{path} slot reads \code{"aggregated_gaussian"}.}
+random-intercept, productive compression) \strong{on \code{backend = "inla"}};
+on \code{backend = "greta"}, \code{"auto"} falls through to the per-row
+path even when the plan is eligible (\code{TRUE} is required to
+activate the greta aggregated emit explicitly). \code{TRUE} forces
+aggregation on either backend -- raises a structured refusal
+when the plan declares ineligibility. \code{FALSE} skips the gate
+entirely. Aggregated fits carry \verb{$exactness == "aggregated_exact"}
+and the dispatch trace's \code{path} slot reads \code{"aggregated_gaussian"}.
+The asymmetry is documented behaviour rather than a bug: greta
+uses dense-matrix per-row emit by default for predictable RAM,
+and switching to the aggregated path silently would change the
+posterior numerical profile without an explicit opt-in.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:

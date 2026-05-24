@@ -34,6 +34,8 @@ The four-verb spine plus its companion diagnostics:
 | `tidy.flexybayes()`, `glance.flexybayes()`, `augment.flexybayes()` | experimental | broom-compliant; column names follow broom convention and are stable for the columns currently emitted. New columns are non-breaking. |
 | `recover_data.flexybayes()`, `emm_basis.flexybayes()` | experimental | emmeans-compliant; signatures dictated by the emmeans S3 contract. |
 | `print.lgm_refusal()` | experimental | Internal S3 method, registered for dispatch only; output format may evolve when ADR 0017 lands (refusal sites consolidated into `lgm_gate()`). |
+| `predict.flexybayes()` (Stage 3A / 3B) | experimental | `newdata` interface mirrors `stats::predict()`; v0.3.5 added `output_file` / `format = c("auto","csv","rds","fst")` / `interop` arguments + `allow_new_levels = c("population","sample","refuse")`. Interval semantics are *posterior expected-response*, not posterior-predictive (no residual observation noise). Stage 3A `$aggregate` argument is backend-asymmetric: `"auto"` activates the aggregated path on `backend = "inla"`; on `backend = "greta"` requires explicit `TRUE`. |
+| Known-covariance carriers on `vm()` / `ped()` (Stage 5A) | experimental | v0.3.7: `chol = L` (greta only), `precision = Q` (greta + INLA via `generic0`), `ped(..., use_sparse_precision = TRUE)`. Mutually exclusive with the dense `V` carrier and with each other. `blocks = list(V1, V2, ...)` reserves its input vocabulary in v0.3.7 and refuses with `route_not_yet_emitted` (lands v0.3.8). `low_rank_factor =` reserves a slot gated behind ADR 0027 (Stage 6 / v0.4.0); refuses with `approximate_route_not_yet_registered`. |
 
 ## Internal-but-S3-visible diagnostics
 

@@ -219,7 +219,109 @@ designs — the design VC is essential for honest standard errors. The
 *spatio-temporal* vignette extends this to spatial residual
 correlation on top of the design structure.
 
-# 7. Comparing covariance structures
+# 7. Known-covariance inputs: chol, precision, pedigree opt-in
+
+The `vm()` and `ped()` special-terms accept the covariance carrier
+in multiple representations. The dense $V$ form is the default and
+remains unchanged from earlier releases; three additional formats
+let the caller skip a redundant factorisation, route through INLA's
+sparse-precision interface, or declare a sparse pedigree precision
+directly. The choice changes the computational path, not the model.
+
+**Dense $V$ (default; both backends).** Pass a covariance matrix
+directly. flexyBayes computes its Cholesky factor at fit time:
+
+```{r vm-dense, eval=FALSE}
+fit_dense <- flexybayes(
+  yield ~ env, random = ~ vm(geno, Gmat),
+  data = met_example, known_matrices = list(Gmat = G_mat),
+  backend = "greta"
+)
+```
+
+**User-supplied Cholesky factor (greta backend).** If the
+lower-triangular Cholesky factor of $V$ is already available
+(serialised from a prior step, or computed once across many fits),
+pass it via `chol = L` to skip the `t(chol(V))` recomputation:
+
+```{r vm-chol, eval=FALSE}
+L_user <- t(chol(G_mat))   # build once, reuse across fits
+fit_chol <- flexybayes(
+  yield ~ env, random = ~ vm(geno, chol = L_user),
+  data = met_example, known_matrices = list(L_user = L_user),
+  backend = "greta"
+)
+```
+
+The chol input must be square and lower-triangular; the validator
+refuses on an upper-triangular or non-square input.
+
+**Sparse precision matrix (greta + INLA backends).** Many sources
+of structured covariance arrive sparse upstream of flexyBayes:
+pedigree-based $A^{-1}$ is sparse by construction, spatial
+precision matrices from BYM2 / ICAR are sparse, and many block-
+independent designs have sparse precision even when the
+covariance itself is dense. Passing the sparse precision directly
+avoids dense intermediates:
+
+```{r vm-precision, eval=FALSE}
+Q <- solve(G_mat)   # or build sparse Q directly via ICAR / BYM2
+fit_prec <- flexybayes(
+  yield ~ env, random = ~ vm(geno, precision = Q),
+  data = met_example, known_matrices = list(Q = Q),
+  backend = "inla"
+)
+```
+
+On the INLA backend, sparse precision routes through INLA's
+user-defined precision interface
+`f(<var>_id, model = "generic0", Cmatrix = Q)` (Rue & Held 2005,
+*Gaussian Markov Random Fields*; Lindgren et al. 2011). The
+sparse path is the recommended route for large spatial / genomic
+problems where the dense covariance would not fit in memory. On
+greta the precision matrix is densified at fit time
+(`as.matrix(solve(chol(Q)))`), so the sparse-efficiency win is
+backend-specific.
+
+The validator checks symmetry and positive-definiteness; refusals
+name the failure mode (`precision_not_symmetric`,
+`precision_not_positive_definite`).
+
+**Pedigree sparse-precision opt-in.** When the user has already
+inverted the pedigree to $A^{-1}$ (or pulled sparse $A^{-1}$
+directly from `pedigreemm::getAInv()`), the `ped()` constructor
+takes a flag that routes through the sparse-precision codepath
+without a redundant inversion:
+
+```{r ped-sparse, eval=FALSE}
+A_inv <- solve(A_mat)   # or pedigreemm::getAInv(ped_obj)
+fit_ped_sparse <- flexybayes(
+  yield ~ env, random = ~ ped(animal, A_inv,
+                              use_sparse_precision = TRUE),
+  data = animal_data, known_matrices = list(A_inv = A_inv),
+  backend = "inla"
+)
+```
+
+flexyBayes does not depend on `pedigreemm` or any pedigree-graph
+library; the user constructs $A^{-1}$ and passes it. The level
+ordering of the grouping factor must match the row/column order
+of the supplied precision matrix.
+
+**Mutual exclusion.** At most one of `V` / `chol` / `precision` /
+`blocks` / `low_rank_factor` may be supplied to a single `vm()`
+call; the parser raises `vm_redundant_specification` on a
+double-supply. The dense default activates when none of the
+opt-in arguments is present.
+
+**Backend mapping.** With `backend = "auto"`, dispatch routes
+precision-format vm/ped to INLA (preferred for sparsity); chol-
+and dense-format vm/ped to greta. With explicit `backend = "inla"`,
+chol and dense vm/ped raise a structured `lgm_gate` refusal naming
+the actionable workaround (re-express as `vm(group, precision = solve(V))`,
+or route via `backend = "greta"`).
+
+# 8. Comparing covariance structures
 
 Two competing structures on the same data are compared via PSIS-LOO
 (see the *downstream analysis* vignette for the manual log-likelihood
@@ -232,7 +334,7 @@ thumb is:
 - if `loo_compare` returns a difference smaller than its standard
   error, the parsimonious factor-analytic is preferred.
 
-# 8. Pitfalls
+# 9. Pitfalls
 
 **Hyperparameter budget exceeded → INLA refuses.** `us(env):geno`
 with $n_{\text{env}} = 9$ has 45 free covariance entries — well above
@@ -259,7 +361,7 @@ covariance — there are simply not enough observations per cell.
 Convergence diagnostics will flag this, but the more honest move is
 to choose `fa(env, 1):gen` (a one-factor approximation) up front.
 
-# 9. Active prompts
+# 10. Active prompts
 
 1. Refit `met_example` with `fa(env, 1):geno` and `fa(env, 3):geno`.
    How does the fit improve as `k` increases? (Compute
@@ -271,7 +373,7 @@ to choose `fa(env, 1):gen` (a one-factor approximation) up front.
 3. Build a design-VC fit with `rep + rep:block + geno + geno:env`
    on `met_example`. Which variance component dominates?
 
-# 10. Session information
+# 11. Session information
 
 ```{r session-info}
 sessionInfo()

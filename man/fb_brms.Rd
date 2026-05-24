@@ -91,7 +91,10 @@ mirroring the asreml entry.}
 \item{known_matrices}{Named list of matrices referenced by the
 model (mirrors \code{flexybayes()} for downstream compatibility;
 the five-shape corpus does not consume them, but the slot is
-carried through to the IR for traceability).}
+carried through to the IR for traceability). As of v0.3.7,
+accepts dense / chol / sparse-precision carriers per
+\code{?flexybayes} (see \verb{@param known_matrices} there for the
+per-format invocation syntax).}
 
 \item{verbose}{Logical: print generated greta code to console
 (greta path only).}
@@ -115,7 +118,10 @@ semantics. Session-level override via
 
 \item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.
 Aggregated-gaussian sufficient-statistics gate. See \code{?flexybayes}
-for full semantics. Both \code{backend = "inla"} and \code{backend = "greta"} support the aggregated path.}
+for full semantics. \strong{Backend-asymmetric behaviour}: \code{"auto"}
+activates the aggregated path on \code{backend = "inla"} when the
+IR is in scope; on \code{backend = "greta"}, \code{"auto"} falls through
+to the per-row path and \code{TRUE} is required to opt in explicitly.}
 }
 \value{
 Under default \code{return_code = FALSE} and \code{review_code = FALSE}: an object of class \code{"flexybayes"} (greta or auto-fell-

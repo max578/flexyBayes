@@ -103,7 +103,10 @@
 #' @param known_matrices Named list of matrices referenced by the
 #'   model (mirrors `flexybayes()` for downstream compatibility;
 #'   the five-shape corpus does not consume them, but the slot is
-#'   carried through to the IR for traceability).
+#'   carried through to the IR for traceability). As of v0.3.7,
+#'   accepts dense / chol / sparse-precision carriers per
+#'   `?flexybayes` (see `@param known_matrices` there for the
+#'   per-format invocation syntax).
 #' @param verbose Logical: print generated greta code to console
 #'   (greta path only).
 #' @param mcmc_verbose Logical: show MCMC progress bar.
@@ -111,8 +114,10 @@
 #'   greta code string without fitting.
 #' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
 #'   Aggregated-gaussian sufficient-statistics gate. See `?flexybayes`
-#'   for full semantics. Both `backend = "inla"` and `backend =
-#'   "greta"` support the aggregated path.
+#'   for full semantics. **Backend-asymmetric behaviour**: `"auto"`
+#'   activates the aggregated path on `backend = "inla"` when the
+#'   IR is in scope; on `backend = "greta"`, `"auto"` falls through
+#'   to the per-row path and `TRUE` is required to opt in explicitly.
 #' @param review_code Logical: if `TRUE`, return a
 #'   `<flexybayes_review>` deferred-execution object carrying the
 #'   generated code, IR, resolved prior, captured call, and RNG

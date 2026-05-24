@@ -2,7 +2,7 @@
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package is currently a 0.3.x development build (`0.3.0.9000`).
+The package is currently a 0.3.x release build (`0.3.7`).
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and
@@ -43,10 +43,10 @@ This NOTE carries four sub-items:
 
 1. *New submission.* Intrinsic to first submission; resolves once
    CRAN's incoming checks accept the upload.
-2. *Version contains large components (0.3.0.9000).* Development-tag
-   artefact (`.9000` is the dev marker per the R-pkgs convention);
-   disappears at the public-release version bump to `0.3.1` (or the
-   next scheduled release tag).
+2. *Version contains large components.* This sub-NOTE fires only at
+   development versions (`*.9000` tag per the R-pkgs convention); it
+   is absent at the proper release version (`0.3.7`) and reappears
+   only when checking the dev tip between releases.
 3. *Suggests or Enhances not in mainstream repositories: greta, INLA.*
    `greta` lives on CRAN as of 0.5.x; this sub-NOTE fires when CRAN's
    incoming-feasibility check cannot resolve `greta` against its

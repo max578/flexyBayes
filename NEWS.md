@@ -1,3 +1,94 @@
+# flexyBayes 0.3.7
+
+## Stage 5A -- known-covariance input formats
+
+`vm()` and `ped()` now accept user-supplied covariance carriers
+beyond the dense $V$ matrix. Three new formats activate in v0.3.7;
+two more reserve their input slots for v0.3.8 / v0.4.0:
+
+- **Cholesky factor** (greta backend):
+
+  ```r
+  L <- t(chol(G))   # user pre-computes the lower-triangular factor
+  flexybayes(
+    yield ~ env, random = ~ vm(geno, chol = L),
+    data = dat, known_matrices = list(L = L),
+    backend = "greta"
+  )
+  ```
+  Skips the `t(chol(V))` step at fit time. Useful when $L$ is already
+  available (e.g., from a prior pre-processing step that factorised
+  a kinship matrix once and serialised the factor).
+
+- **Sparse precision** (greta + INLA backends):
+
+  ```r
+  Q <- solve(G)     # or build sparse Q directly via ICAR / BYM2
+  flexybayes(
+    y ~ 1, random = ~ vm(cell, precision = Q),
+    data = dat, known_matrices = list(Q = Q),
+    backend = "inla"
+  )
+  ```
+  Routes through INLA's `f(<var>_id, model = "generic0", Cmatrix = Q)`
+  interface (Rue & Held 2005, *Gaussian Markov Random Fields*; Lindgren
+  et al. 2011) when `backend = "inla"`. Order-of-magnitude memory win
+  on large sparse problems (BYM2 spatial models, sparse-inverse
+  pedigree relationship matrices). On greta the precision matrix
+  densifies at fit time (`as.matrix(solve(chol(Q)))`); use INLA for
+  the sparse-efficiency win.
+
+- **Pedigree sparse-precision** opt-in for `ped()`:
+
+  ```r
+  ped(animal, A_inv, use_sparse_precision = TRUE)
+  ```
+  When the user has already inverted the pedigree to `A_inv = solve(A)`
+  (or pulled the sparse $A^{-1}$ directly from `pedigreemm`), this
+  flag routes through the precision codepath without a redundant
+  inversion. The user is responsible for the inversion at construction
+  time; flexyBayes does not depend on `pedigreemm` or any other
+  pedigree-graph library.
+
+The dense $V$ path (`vm(group, V = G)`) is **unchanged** -- byte-identical
+to v0.3.6. Existing fits saved as `.rds` reload without IR migration:
+the new `cov_representation` IR slot is additive, and legacy IRs
+default to `format = "dense"`.
+
+Two more formats reserve their input slots in v0.3.7 but refuse
+cleanly with forward-pointer messages: `blocks = list(V1, V2, ...)`
+defers to v0.3.8 with `route_not_yet_emitted`; `low_rank_factor =`
++ `low_rank_scheme = "pca"` defers to v0.4.0 (ADR 0027 approximation
+registry) with `approximate_route_not_yet_registered`. Reserving the
+input vocabulary now lets future releases ship without changing the
+`vm()` / `ped()` call shape.
+
+**Backend dispatch.** With `backend = "auto"`, INLA accepts vm/ped
+only when the precision representation is supplied; dense or chol
+inputs route to greta. With explicit `backend = "inla"`, dense or
+chol inputs raise a structured `lgm_gate` refusal naming the
+actionable workaround (re-express as `vm(group, precision = solve(V))`,
+or route via `backend = "greta"`). The refusal text branches on the
+format to point the user at the right remedy.
+
+**Validation.** Each format passes through a typed structural
+validator on the user-supplied matrix before the emit path runs:
+
+- `chol` must be square and lower-triangular (refusals
+  `chol_not_square`, `chol_not_triangular`).
+- `precision` must be symmetric and positive-definite (refusals
+  `precision_not_symmetric`, `precision_not_positive_definite`).
+  The PD check uses base R `chol()` on the dense coercion;
+  performance-grade sparse-PD probes land in v0.3.8.
+
+Mutual exclusion across `V` / `chol` / `precision` / `blocks` /
+`low_rank_factor` is enforced at parse time with the
+`vm_redundant_specification` refusal.
+
+**Routing audit anchor.** `backend_decision(fit)$routing_policy_version`
+bumps from `"stage4_v1"` to `"stage5a_v1"` (per ADR 0024) to record
+that INLA's allowlist behaviour materially changed at v0.3.7.
+
 # flexyBayes 0.3.6
 
 ## Stage 4 -- backend routing trace + preflight metadata consumption
@@ -135,15 +226,21 @@ Pre-existing prediction grids are not overwritten: if
 `output_file` already exists, `predict()` raises a structured
 stop suggesting `unlink()` rather than overwriting silently.
 
-The posterior intervals follow standard posterior-predictive
-quantile semantics (Gelman et al. 2013, Bayesian Data Analysis,
-section 15): the linear predictor is evaluated under each
-retained posterior draw, the link inverse is applied per draw,
-and `point` / `lower` / `upper` are read off the rowwise mean
-and 2.5% / 97.5% quantiles. Chunked vs unchunked file output is
-equivalent at floating-point precision; BLAS non-associativity
-at the matrix-size boundary introduces ULP-level differences
-(~2e-16) but no numerically meaningful drift.
+The posterior intervals follow posterior expected-response
+quantile semantics (mirrors `brms::posterior_epred()`; Gelman et al.
+2013, *Bayesian Data Analysis*, section 15.4 on linear-predictor
+posteriors): the linear predictor is evaluated under each retained
+posterior draw, the link inverse is applied per draw, and `point` /
+`lower` / `upper` are read off the rowwise mean and 2.5% / 97.5%
+quantiles. **These are intervals on the expected response, not
+posterior-predictive intervals** — they do not include residual
+observation noise. For full posterior-predictive intervals
+(observation noise included), route the in-memory draws through
+external tooling such as `brms::posterior_predict()` on a refit, or
+add a residual-noise draw per row using `fit$sigma`. Chunked vs
+unchunked file output is equivalent at floating-point precision;
+BLAS non-associativity at the matrix-size boundary introduces
+ULP-level differences (~2e-16) but no numerically meaningful drift.
 
 **`allow_new_levels = "sample"` is now active.** The label was
 stable at 0.3.4; the implementation ships here. Unknown factor

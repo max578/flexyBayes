@@ -35,6 +35,7 @@
 
 emit_inla <- function(fb,
                       data,
+                      known_matrices = list(),
                       verbose      = TRUE,
                       return_code  = FALSE,
                       the_call     = NULL,
@@ -95,13 +96,44 @@ emit_inla <- function(fb,
     cat(paste(rep("-", 60), collapse = ""), "\n\n")
   }
 
+  # ADR 0025 Phase B-inla: when a vm/ped term routes via
+  # f(<var>_id, model = "generic0", Cmatrix = <symbol>), INLA
+  # resolves both the integer index column AND the Cmatrix symbol
+  # from the `data` argument. Convert data.frame to a list, attach
+  # an integer index column per vm/ped term, and merge
+  # known_matrices so the precision matrices are in INLA's lookup
+  # scope at fit time. Defensive collision check refuses when a
+  # known_matrices entry shadows a data column, preserving the
+  # package's no-silent-failure identity.
+  data_inla <- as.list(data)
+  for (term in fb$random_terms) {
+    if (term$type %in% c("vm", "ped")) {
+      idx_name <- paste0(term$var, "_id")
+      data_inla[[idx_name]] <- as.integer(factor(data[[term$var]]))
+    }
+  }
+  if (length(known_matrices)) {
+    conflicts <- intersect(names(data_inla), names(known_matrices))
+    if (length(conflicts))
+      .stop_structured_cov_refusal(
+        reason_code = "known_matrices_data_name_collision",
+        message     = paste0(
+          "known_matrices entry/entries '",
+          paste(conflicts, collapse = "', '"),
+          "' collide with data column names; rename to disambiguate ",
+          "(INLA's data-list lookup is name-keyed)."),
+        conflicts = conflicts
+      )
+    data_inla <- c(data_inla, known_matrices)
+  }
+
   # Fit
   t0 <- proc.time()
   fit <- tryCatch(
     INLA::inla(
       formula         = inla_form,
       family          = inla_family,
-      data            = data,
+      data            = data_inla,
       control.compute = list(config = TRUE,
                               return.marginals = TRUE,
                               dic = TRUE, waic = TRUE),
@@ -245,6 +277,31 @@ emit_inla <- function(fb,
         "f(", gslope, ", ", sv, ", model = \"iid\"",
         if (nzchar(hyper_slope)) paste0(", ", hyper_slope) else "",
         ")"))
+      next
+    }
+    # ADR 0025 Phase B-inla: vm/ped with format = "precision" or
+    # "pedigree_sparse_precision" route through INLA's user-defined
+    # precision interface, f(idx, model = "generic0", Cmatrix = Q).
+    # INLA's generic0 model requires the first arg to be an integer
+    # index into the rows/cols of Cmatrix; we pre-compute the index
+    # column <var>_id in data_inla (see emit_inla() body below) and
+    # reference it here so summary.random[[<var>_id]] carries the
+    # natural name in the fit object. The level ordering of the
+    # factor must align with the row ordering of Q -- the user is
+    # responsible for that alignment when constructing Q against a
+    # known set of group levels.
+    if (term$type %in% c("vm", "ped")) {
+      cov <- term$cov_representation
+      key <- term$var
+      hyper_str <- .inla_hyper_arg(hyper_ctrl[[key]])
+      idx_name  <- paste0(term$var, "_id")
+      contrib <- paste0(
+        "f(", idx_name,
+        ", model = \"generic0\", Cmatrix = ", cov$data,
+        if (nzchar(hyper_str)) paste0(", ", hyper_str) else "",
+        ")"
+      )
+      rhs_terms <- c(rhs_terms, contrib)
       next
     }
     key <- switch(term$type,

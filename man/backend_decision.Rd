@@ -32,7 +32,7 @@ for the backends considered but not chosen. Empty for
 explicit user requests (policy bypassed per ADR 0024
 §6(g)).}
 \item{\code{routing_policy_version}}{Character; e.g.
-\code{"stage4_v1"}. The audit-anchor for reproducibility -- a
+\code{"stage5a_v1"}. The audit-anchor for reproducibility -- a
 policy change bumps this string.}
 }
 }
