@@ -1,3 +1,38 @@
+# flexyBayes 0.3.3
+
+## Stage 3A -- Gaussian aggregated emit (greta path)
+
+Completes the aggregated-gaussian path by activating the greta
+backend alongside INLA. `fb_brms(..., backend = "greta", aggregate
+= TRUE)` and `flexybayes(..., backend = "greta", aggregate = TRUE)`
+now route through the same sufficient-statistics emit as the INLA
+path. The greta implementation factorises the cell-mean weighted
+gaussian observation against a gamma observation on the within-cell
+sum of squares; together these recover the per-row gaussian log-
+likelihood exactly (the algebraic identity proof is in Searle,
+Casella & McCulloch (1992) *Variance Components* §3). On a fixed-
+seed synthetic dataset with N = 800, J = 20, the aggregated greta
+posterior recovers a known (beta, sigma, tau) triple within MC
+tolerance; the backend-fidelity check is shipped as a stress-gated
+test (`FLEXYBAYES_RUN_STRESS=true`).
+
+**Known caveat.** The aggregated INLA path still uses an explicit
+`loggamma(1, 5e-5)` precision prior on random-intercept terms when
+the user has not supplied a prior via `prior = fb_prior(...)`, for
+the data-scale-stability reason in the 0.3.2 caveat. Unifying the
+default-prior behaviour across per-row and aggregated paths remains
+queued. The greta aggregated path follows the same default prior
+shape (sd-scale) as the per-row greta path; matched-prior
+comparisons within greta are therefore consistent without extra
+configuration.
+
+**Heterogeneous residual.** `at(f):units` on greta now flows through
+the aggregated path end-to-end (when `f` is in the cell key). The
+multi-likelihood INLA stack required for the same on the INLA
+aggregated path remains queued.
+
+---
+
 # flexyBayes 0.3.2
 
 ## Stage 3A -- Gaussian aggregated emit (INLA path)
