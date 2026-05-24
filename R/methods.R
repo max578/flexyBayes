@@ -362,13 +362,39 @@ residuals.flexybayes <- function(object, ...) {
 #' @param type `"link"` for linear predictor, `"response"` for response scale.
 #' @param se.fit Logical: return standard errors?
 #' @param ... Additional arguments (ignored)
+#' @param chunk_size Optional integer. When supplied, and when
+#'   `newdata` has more rows than `chunk_size`, prediction iterates
+#'   over chunks of this size and concatenates the results. Default
+#'   `NULL` preserves the single-pass behaviour. Per-chunk prediction
+#'   uses the same factor-level dictionary so `chunk_size` does not
+#'   change the numerical output -- only the wall-time and peak
+#'   memory profile. A typical setting at large `newdata` is
+#'   `chunk_size = 10000L`.
+#' @param allow_new_levels One of `"population"` (default), `"sample"`,
+#'   or `"refuse"`. Policy for handling factor levels in `newdata`
+#'   that are not in the fit-time dictionary (Stage 3B; ADR 0023
+#'   Decision 2). `"population"` sets unknown-level rows to NA on the
+#'   affected column and emits a warning naming the count; downstream
+#'   prediction returns NA for these rows. `"refuse"` raises a
+#'   structured stop on the first unknown level. `"sample"` (fresh
+#'   random-effect draw per unknown level) is reserved at v0.3.4 --
+#'   the label is stable but the implementation is deferred to v0.3.5
+#'   alongside the file-backed prediction output. Only consulted when
+#'   the fit carries an `extras$fb_dataset` slot (fits produced under
+#'   v0.3.4+); legacy fits skip dictionary resolution entirely.
 #' @return If `se.fit = FALSE`, a numeric vector. If `se.fit = TRUE`, a list
 #'   with `fit` and `se.fit`.
 #' @export
 predict.flexybayes <- function(object, newdata = NULL,
                                type = c("response", "link"),
-                               se.fit = FALSE, ...) {
+                               se.fit = FALSE,
+                               chunk_size = NULL,
+                               allow_new_levels = c("population",
+                                                     "sample",
+                                                     "refuse"),
+                               ...) {
   type <- match.arg(type)
+  allow_new_levels <- match.arg(allow_new_levels)
 
   if (is.null(newdata)) {
     if (type == "link") {
@@ -380,6 +406,41 @@ predict.flexybayes <- function(object, newdata = NULL,
       return(list(fit = pred, se.fit = rep(NA_real_, length(pred))))
     }
     return(pred)
+  }
+
+  # Stage 3B (ADR 0023) dictionary-backed factor handling. When the
+  # fit carries a persisted <fb_dataset> descriptor (v0.3.4+ fits),
+  # resolve factor levels in newdata against the fit-time codes per
+  # allow_new_levels policy. Legacy fits (no extras$fb_dataset slot)
+  # skip this step and fall through to the v0.3.3 behaviour. The
+  # resolver routes "sample" to a structured refusal at v0.3.4.
+  fb_dataset_meta <- object$extras$fb_dataset
+  if (!is.null(fb_dataset_meta)) {
+    newdata <- .predict_resolve_factors(newdata, fb_dataset_meta,
+                                         allow_new_levels)
+  }
+
+  # Stage 3B (ADR 0023) chunked iteration. Routes through the chunk
+  # iterator when chunk_size is supplied AND the row count exceeds
+  # it. Chunked path recurses into predict.flexybayes(chunk_size =
+  # NULL) per chunk so the chunked branch only fires once at the
+  # outer call. Dictionary resolution above has already happened on
+  # the full newdata; per-chunk recursion passes through unchanged
+  # factor columns. (The recursive call would re-resolve harmlessly
+  # since known-level factor columns round-trip as identity, but the
+  # outer-level resolution gives a single warning + single attribute
+  # rather than n_chunks worth.)
+  if (!is.null(chunk_size) &&
+      is.numeric(chunk_size) &&
+      length(chunk_size) == 1L &&
+      chunk_size > 0L &&
+      nrow(newdata) > chunk_size) {
+    return(.predict_chunked_iterate(object, newdata,
+                                     chunk_size       = as.integer(chunk_size),
+                                     type             = type,
+                                     se.fit           = se.fit,
+                                     allow_new_levels = allow_new_levels,
+                                     ...))
   }
 
   # ADR 0018: smooth-aware prediction on newdata. The smooth terms
