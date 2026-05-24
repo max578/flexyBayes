@@ -70,7 +70,15 @@ Supports \code{vm()}, \code{at()}, \code{us()}, \code{fa()}, \code{ar1()}, \code
 (e.g., \code{"probit"} for binomial).}
 
 \item{known_matrices}{Named list of matrices referred to in the random
-formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}).}
+formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}). As of v0.3.7,
+each matrix may be supplied either as a dense base-R \code{matrix}
+(passed via \code{vm(group, V = ...)} or \code{ped(group, A = ...)}, the
+legacy default), a user-supplied lower-triangular Cholesky
+factor (\code{vm(group, chol = L)}; greta backend only), or a sparse
+precision matrix \code{Matrix::dgCMatrix} (\code{vm(group, precision = Q)}
+or \code{ped(group, A_inv, use_sparse_precision = TRUE)}; greta and
+INLA backends). See the structured-covariance vignette for
+per-format worked examples.}
 
 \item{weights}{Optional numeric weight vector (length N); sets
 Var = sigma^2 / w.}

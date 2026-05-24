@@ -103,7 +103,10 @@
 #' @param known_matrices Named list of matrices referenced by the
 #'   model (mirrors `flexybayes()` for downstream compatibility;
 #'   the five-shape corpus does not consume them, but the slot is
-#'   carried through to the IR for traceability).
+#'   carried through to the IR for traceability). As of v0.3.7,
+#'   accepts dense / chol / sparse-precision carriers per
+#'   `?flexybayes` (see `@param known_matrices` there for the
+#'   per-format invocation syntax).
 #' @param verbose Logical: print generated greta code to console
 #'   (greta path only).
 #' @param mcmc_verbose Logical: show MCMC progress bar.

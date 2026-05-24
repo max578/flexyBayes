@@ -18,7 +18,15 @@
 #' @param link Character or NULL: override the default link function
 #'   (e.g., `"probit"` for binomial).
 #' @param known_matrices Named list of matrices referred to in the random
-#'   formula (e.g., `list(Gmat = G_mat, Amat = A_mat)`).
+#'   formula (e.g., `list(Gmat = G_mat, Amat = A_mat)`). As of v0.3.7,
+#'   each matrix may be supplied either as a dense base-R `matrix`
+#'   (passed via `vm(group, V = ...)` or `ped(group, A = ...)`, the
+#'   legacy default), a user-supplied lower-triangular Cholesky
+#'   factor (`vm(group, chol = L)`; greta backend only), or a sparse
+#'   precision matrix `Matrix::dgCMatrix` (`vm(group, precision = Q)`
+#'   or `ped(group, A_inv, use_sparse_precision = TRUE)`; greta and
+#'   INLA backends). See the structured-covariance vignette for
+#'   per-format worked examples.
 #' @param weights Optional numeric weight vector (length N); sets
 #'   Var = sigma^2 / w.
 #' @param n_samples Integer: number of posterior samples per chain.

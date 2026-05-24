@@ -36,6 +36,7 @@ Imports:
     graphics,
     splines,
     mgcv,
+    Matrix,
     utils
 Suggests:
     greta (>= 0.4.0),
@@ -70,7 +71,6 @@ Suggests:
     patchwork,
     ggrepel,
     fields,
-    Matrix,
     sn,
     vdiffr,
     withr
