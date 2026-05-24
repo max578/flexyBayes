@@ -24,6 +24,19 @@
   if (length(expr) >= i) deparse(expr[[i]]) else NA_character_
 }
 
+# Safe deparse of a named argument inside a call expression. Returns
+# NA_character_ when the argument is absent. Used by the formula parser
+# to extract Stage 5A named arguments (chol, precision, ...) from
+# vm() / ped() special-term calls without disturbing the existing
+# positional-V backward-compat path.
+.dep_named <- function(expr, name) {
+  nms <- names(expr)
+  if (is.null(nms)) return(NA_character_)
+  idx <- which(nms == name)
+  if (length(idx) == 0L) return(NA_character_)
+  deparse(expr[[idx[[1L]]]])
+}
+
 # Resolve family and link function
 #
 # @param family Character: gaussian, binomial, poisson, negative_binomial,

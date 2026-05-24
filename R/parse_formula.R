@@ -124,12 +124,44 @@
 
   # ASReml-specific functions
   switch(fn,
-    "vm"   = list(list(type = "vm",  var = .dep(expr, 2),
-                       mat  = .dep(expr, 3))),
+    # ADR 0025 Stage 5A: vm() ingest extends to capture optional
+    # named arguments (chol, precision, blocks, low_rank_factor,
+    # low_rank_scheme) alongside the historical positional / V=
+    # dense-matrix arg. The cov_representation slot is the IR
+    # anchor; v0.3.7 emits dense + chol + precision, v0.3.8 emits
+    # blocks, low-rank reserves the slot for ADR 0027.
+    "vm"   = {
+      var_name <- .dep(expr, 2)
+      mat_expr <- .extract_vm_dense_arg(expr)
+      cov_rep  <- .cov_representation_from_call(
+        fn              = "vm",
+        mat             = mat_expr,
+        chol            = .dep_named(expr, "chol"),
+        precision       = .dep_named(expr, "precision"),
+        blocks          = .dep_named(expr, "blocks"),
+        low_rank_factor = .dep_named(expr, "low_rank_factor"),
+        low_rank_scheme = .dep_named(expr, "low_rank_scheme")
+      )
+      list(list(type = "vm", var = var_name, mat = mat_expr,
+                cov_representation = cov_rep))
+    },
     "ide"  = ,
     "id"   = list(list(type = "ide", var = .dep(expr, 2))),
-    "ped"  = list(list(type = "ped", var = .dep(expr, 2),
-                       mat  = .dep(expr, 3))),
+    # ADR 0025 Decision 6: ped() gains optional use_sparse_precision
+    # flag that routes through the sparse-precision format internally.
+    # Phase A captures the flag; emit activation is Phase B.
+    "ped"  = {
+      var_name <- .dep(expr, 2)
+      mat_expr <- .extract_vm_dense_arg(expr)
+      use_sp   <- .dep_named(expr, "use_sparse_precision")
+      cov_rep  <- .cov_representation_from_call(
+        fn                   = "ped",
+        mat                  = mat_expr,
+        use_sparse_precision = use_sp
+      )
+      list(list(type = "ped", var = var_name, mat = mat_expr,
+                cov_representation = cov_rep))
+    },
     "fa"   = list(list(type = "fa",  var = .dep(expr, 2),
                        k    = as.integer(expr[[3]]))),
     "us"   = list(list(type = "us",  var = .dep(expr, 2))),
