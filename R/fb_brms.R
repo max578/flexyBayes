@@ -109,6 +109,10 @@
 #' @param mcmc_verbose Logical: show MCMC progress bar.
 #' @param return_code Logical: if `TRUE`, return the generated
 #'   greta code string without fitting.
+#' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
+#'   Stage 3A (v0.3.2) aggregated-gaussian gate. See `?flexybayes`
+#'   for full semantics. At v0.3.2 the aggregated path is INLA-only;
+#'   greta aggregation is deferred to a follow-on release.
 #' @param review_code Logical: if `TRUE`, return a
 #'   `<flexybayes_review>` deferred-execution object carrying the
 #'   generated code, IR, resolved prior, captured call, and RNG
