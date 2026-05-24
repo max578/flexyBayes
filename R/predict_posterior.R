@@ -141,7 +141,9 @@
   if (is.null(object$greta) || is.null(object$greta$draws))
     stop(".predict_sample_re_for_unknowns(): allow_new_levels = ",
          "\"sample\" requires posterior draws on $greta$draws. ",
-         "Fit does not carry them.", call. = FALSE)
+         "Fit does not carry them. INLA fits do not currently ",
+         "expose per-draw access; an INLA draws adapter is queued ",
+         "for a future release.", call. = FALSE)
 
   draws_mat <- do.call(rbind, lapply(object$greta$draws, as.matrix))
   n_total   <- nrow(draws_mat)
