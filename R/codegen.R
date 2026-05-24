@@ -248,9 +248,23 @@
       # .sigma_decl() so the uniform-on-SD default (and any per-group
       # uniform_per_vc / pc_per_vc spec) applies; legacy lognormal is
       # the fallback when no per-group spec is set.
+      #
+      # ADR 0025 Stage 5A: cov_representation$format dispatches the
+      # square-root construction. The dense path is bit-identical to
+      # the pre-Stage 5A `t(chol(V))` emit; the new chol path uses
+      # the user-supplied L directly (saving the chol() step); the
+      # precision and pedigree_sparse_precision paths derive a square
+      # root via solve(chol(Q)) -- algebraically: if R = chol(Q) so
+      # R'R = Q, then B = solve(R) satisfies BB' = Q^{-1} = V, which
+      # is the property u = B z gives covariance V. as.matrix() wraps
+      # the symbol so Matrix-package sparse inputs densify cleanly
+      # for greta's as_data() lift. The sparse-precision efficiency
+      # win lands on the INLA path (Phase B-inla).
       "vm" = {
-        tag <- term$var; mat <- term$mat
-        ctx <- .add(ctx, "L_G_", tag, " <- t(chol(", mat, "))")
+        tag <- term$var
+        cov <- term$cov_representation
+        sqrt_expr <- .vm_ped_sqrt_expr(cov, term$mat)
+        ctx <- .add(ctx, "L_G_", tag, " <- ", sqrt_expr)
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- as_data(L_G_", tag,
@@ -262,9 +276,13 @@
 
       # Animal model: ped(animal, A). AMBITION_STAGE.md §1.4: same as
       # vm() above -- sigma routes via .sigma_decl() for uniform-on-SD.
+      # ADR 0025 Decision 6: use_sparse_precision = TRUE routes through
+      # the pedigree_sparse_precision branch of .vm_ped_sqrt_expr().
       "ped" = {
-        tag <- term$var; mat <- term$mat
-        ctx <- .add(ctx, "L_A_", tag, " <- t(chol(", mat, "))")
+        tag <- term$var
+        cov <- term$cov_representation
+        sqrt_expr <- .vm_ped_sqrt_expr(cov, term$mat)
+        ctx <- .add(ctx, "L_A_", tag, " <- ", sqrt_expr)
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- as_data(L_A_", tag,

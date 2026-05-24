@@ -139,18 +139,30 @@
   list(format = "dense", data = mat, scheme = NULL)
 }
 
-# Phase A guard. Runs at setup_env time, after known_matrices binding
-# has loaded the matrix (so validators can inspect it). Dispatches:
+# Stage 5A route guard. Runs at setup_env time on the greta dispatch
+# path (setup_env is greta-only; emit_inla() runs its own allowlist
+# check via lgm_gate). Dispatches:
 #
 #   format = "dense"                      -> no-op (legacy path).
-#   format = "chol" / "precision"         -> Phase A: run input validator,
-#                                            then route_not_yet_emitted
-#                                            refusal pointing to v0.3.7
-#                                            Phase B activation.
-#   format = "pedigree_sparse_precision"  -> same as precision.
-#   format = "blocks" / "low_rank"        -> route_not_yet_emitted refusal
-#                                            pointing to v0.3.8 / v0.4.0
-#                                            (ADR 0025 v0.3.8 / ADR 0027).
+#   format = "chol"                       -> v0.3.7 Phase B active on
+#                                            greta: run input validator,
+#                                            then proceed silently.
+#   format = "precision" /
+#   format = "pedigree_sparse_precision"  -> v0.3.7 Phase B active on
+#                                            greta: run input validator
+#                                            (precision validator
+#                                            applies to both), then
+#                                            proceed silently. (Sparse
+#                                            efficiency wins land on
+#                                            the INLA path at Phase
+#                                            B-inla; greta densifies
+#                                            via as.matrix() at
+#                                            codegen time.)
+#   format = "blocks"                     -> v0.3.8 forward-pointer
+#                                            refusal (ADR 0025
+#                                            Decision 3).
+#   format = "low_rank"                   -> ADR 0027 / Stage 6
+#                                            approximate-route refusal.
 #
 # The validators raise typed structural refusals (chol_not_triangular,
 # precision_not_positive_definite, ...) so users see input errors at
@@ -165,36 +177,13 @@
   if (fmt == "chol") {
     L <- known_matrices[[cov$data]]
     .validate_chol_input(L, name = cov$data, group_var = term$var)
-    .stop_structured_cov_refusal(
-      reason_code = "route_not_yet_emitted",
-      message     = paste0(
-        "vm(", term$var, ", chol = ", cov$data,
-        "): the user-supplied Cholesky-factor route is reserved for ",
-        "v0.3.7 Phase B activation (ADR 0025 Decision 1). The input ",
-        "validates correctly; emit wiring lands at Phase B."
-      ),
-      format = "chol"
-    )
+    return(invisible(NULL))
   }
 
   if (fmt %in% c("precision", "pedigree_sparse_precision")) {
     Q <- known_matrices[[cov$data]]
-    if (fmt == "precision")
-      .validate_precision_input(Q, name = cov$data, group_var = term$var)
-    .stop_structured_cov_refusal(
-      reason_code = "route_not_yet_emitted",
-      message     = paste0(
-        "vm/ped(", term$var,
-        if (fmt == "pedigree_sparse_precision")
-          ", use_sparse_precision = TRUE)"
-        else
-          paste0(", precision = ", cov$data, ")"),
-        ": the sparse-precision route is reserved for v0.3.7 Phase B ",
-        "activation (ADR 0025 Decision 2 / Decision 6). The input ",
-        "validates correctly; emit wiring lands at Phase B."
-      ),
-      format = fmt
-    )
+    .validate_precision_input(Q, name = cov$data, group_var = term$var)
+    return(invisible(NULL))
   }
 
   if (fmt == "blocks") {
@@ -224,6 +213,42 @@
   }
 
   invisible(NULL)
+}
+
+# Codegen helper. Returns the R expression (as a string) that
+# constructs a square root B of V such that B B' = V on the greta
+# emit path. Inputs:
+#
+#   cov          The cov_representation slot from the parsed term
+#                (NULL or absent for legacy IRs).
+#   legacy_mat   The pre-Stage-5A `term$mat` field, used as the
+#                dense fallback when cov_representation is absent
+#                (saved fits, parser-bypass test fixtures).
+#
+# Per-format square roots:
+#   dense:                       t(chol(V))                lower-tri Cholesky of V
+#   chol:                        as.matrix(L)              user supplies L directly
+#   precision /
+#   pedigree_sparse_precision:   solve(chol(Q))            B = R^{-1} where R = chol(Q),
+#                                                          giving B B' = Q^{-1} = V
+#
+# The Phase A route guard ensures blocks / low_rank cannot reach this
+# helper from setup_env; the stop() branch is a contract assertion.
+.vm_ped_sqrt_expr <- function(cov, legacy_mat) {
+  if (is.null(cov))
+    return(paste0("t(chol(", legacy_mat, "))"))
+  switch(cov$format,
+    "dense"                     = paste0("t(chol(", cov$data, "))"),
+    "chol"                      = paste0("as.matrix(", cov$data, ")"),
+    "precision"                 = paste0("as.matrix(solve(chol(",
+                                          cov$data, ")))"),
+    "pedigree_sparse_precision" = paste0("as.matrix(solve(chol(",
+                                          cov$data, ")))"),
+    stop("internal: vm/ped cov_representation$format = '", cov$format,
+         "' reached .vm_ped_sqrt_expr() despite the setup_env route ",
+         "guard. This is a flexyBayes bug -- the guard's allowlist ",
+         "and this dispatch are out of sync.", call. = FALSE)
+  )
 }
 
 # Validator: user-supplied Cholesky factor.

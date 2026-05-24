@@ -138,25 +138,23 @@ test_that("setup_env dense vm path binds the matrix and falls through Phase A gu
 })
 
 # ---------------------------------------------------------------- #
-# Setup-env: chol path runs validator + Phase A route refusal.      #
+# Setup-env: chol path runs validator + binds matrix (Phase B-greta).#
 # ---------------------------------------------------------------- #
 
-test_that("chol path: lower-triangular L passes validator then refuses with route_not_yet_emitted", {
+test_that("chol path: lower-triangular L passes validator AND binds the L matrix to ev", {
   dat <- data.frame(geno = factor(1:5))
   L   <- diag(5); L[lower.tri(L)] <- 0.1
   random_terms <- flexyBayes:::.parse_formula(~ vm(geno, chol = L), dat)
   fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
 
   ev <- new.env(parent = emptyenv())
-  err <- tryCatch(
-    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
-                            list(list(type = "units")),
-                            dat, list(L = L), NULL),
-    flexybayes_structured_cov_refusal = identity
-  )
-  expect_s3_class(err, "flexybayes_structured_cov_refusal")
-  expect_equal(err$reason_code, "route_not_yet_emitted")
-  expect_equal(err$format, "chol")
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                          list(list(type = "units")),
+                          dat, list(L = L), NULL)
+  expect_true("L" %in% ls(ev))
+  expect_equal(ev$L, L)
+  expect_equal(ev$geno_id, 1:5)
+  expect_equal(ev$n_geno, 5L)
 })
 
 test_that("chol path: upper-triangular L refuses with chol_not_triangular before route guard", {
@@ -197,7 +195,7 @@ test_that("chol path: non-square L refuses with chol_not_square before route gua
 # Setup-env: precision path runs validator + Phase A route refusal. #
 # ---------------------------------------------------------------- #
 
-test_that("precision path: PD symmetric Q passes validator then refuses with route_not_yet_emitted", {
+test_that("precision path: PD symmetric Q passes validator AND binds Q to ev", {
   skip_if_not_installed("Matrix")
   dat <- data.frame(geno = factor(1:5))
   Q   <- diag(5) + 0.01 * matrix(1, 5, 5)   # symmetric PD
@@ -205,15 +203,30 @@ test_that("precision path: PD symmetric Q passes validator then refuses with rou
   fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
 
   ev <- new.env(parent = emptyenv())
-  err <- tryCatch(
-    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
-                            list(list(type = "units")),
-                            dat, list(Q = Q), NULL),
-    flexybayes_structured_cov_refusal = identity
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                          list(list(type = "units")),
+                          dat, list(Q = Q), NULL)
+  expect_true("Q" %in% ls(ev))
+  expect_equal(ev$Q, Q)
+})
+
+test_that("pedigree_sparse_precision path: PD symmetric Q passes validator AND binds Q to ev", {
+  skip_if_not_installed("Matrix")
+  dat <- data.frame(animal = factor(1:5))
+  Q   <- diag(5) + 0.01 * matrix(1, 5, 5)   # symmetric PD
+  random_terms <- flexyBayes:::.parse_formula(
+    ~ ped(animal, Q, use_sparse_precision = TRUE), dat
   )
-  expect_s3_class(err, "flexybayes_structured_cov_refusal")
-  expect_equal(err$reason_code, "route_not_yet_emitted")
-  expect_equal(err$format, "precision")
+  fixed_info <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
+
+  ev <- new.env(parent = emptyenv())
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                          list(list(type = "units")),
+                          dat, list(Q = Q), NULL)
+  expect_true("Q" %in% ls(ev))
+  expect_equal(ev$Q, Q)
+  expect_equal(ev$animal_id, 1:5)
+  expect_equal(ev$n_animal, 5L)
 })
 
 test_that("precision path: asymmetric Q refuses with precision_not_symmetric", {
@@ -298,6 +311,148 @@ test_that("blocks path refuses with route_not_yet_emitted pointing to v0.3.8", {
   expect_equal(err$format, "blocks")
   expect_match(err$message, "v0\\.3\\.8")
 })
+
+# ---------------------------------------------------------------- #
+# Phase B-greta: codegen emits per-format square-root expressions.  #
+# ---------------------------------------------------------------- #
+
+.fixture_data_for_vm <- function(N = 60L, n_geno = 6L) {
+  set.seed(20260525L)
+  data.frame(
+    geno  = factor(rep(seq_len(n_geno), length.out = N)),
+    x     = rnorm(N),
+    yield = rnorm(N, 50, 5)
+  )
+}
+
+test_that("codegen: dense vm path keeps the pre-Stage-5A t(chol()) expression", {
+  dat <- .fixture_data_for_vm()
+  G_mat <- diag(6) + 0.1
+  code <- flexybayes(yield ~ 1, random = ~ vm(geno, Gmat),
+                     data = dat, known_matrices = list(Gmat = G_mat),
+                     return_code = TRUE, verbose = FALSE)
+  expect_true(grepl("L_G_geno <- t(chol(Gmat))", code, fixed = TRUE))
+  expect_false(grepl("as.matrix(", code, fixed = TRUE))
+})
+
+test_that("codegen: chol path emits as.matrix(L), no t(chol()) wrap", {
+  dat <- .fixture_data_for_vm()
+  G   <- diag(6) + 0.1
+  L   <- t(chol(G))
+  code <- flexybayes(yield ~ 1, random = ~ vm(geno, chol = L_chol),
+                     data = dat, known_matrices = list(L_chol = L),
+                     return_code = TRUE, verbose = FALSE)
+  expect_true(grepl("L_G_geno <- as.matrix(L_chol)", code, fixed = TRUE))
+  expect_false(grepl("L_G_geno <- t(chol(", code, fixed = TRUE))
+})
+
+test_that("codegen: precision path emits solve(chol(Q)) square root", {
+  skip_if_not_installed("Matrix")
+  dat <- .fixture_data_for_vm()
+  G   <- diag(6) + 0.1
+  Q   <- solve(G)
+  code <- flexybayes(yield ~ 1, random = ~ vm(geno, precision = Qprec),
+                     data = dat, known_matrices = list(Qprec = Q),
+                     return_code = TRUE, verbose = FALSE)
+  expect_true(grepl("L_G_geno <- as.matrix(solve(chol(Qprec)))",
+                    code, fixed = TRUE))
+})
+
+test_that("codegen: ped use_sparse_precision = TRUE emits solve(chol(Q)) square root", {
+  skip_if_not_installed("Matrix")
+  dat <- data.frame(
+    animal = factor(rep(seq_len(6L), length.out = 60L)),
+    yield  = rnorm(60L, 50, 5)
+  )
+  G <- diag(6) + 0.1
+  Q <- solve(G)
+  code <- flexybayes(
+    yield ~ 1,
+    random = ~ ped(animal, Qprec, use_sparse_precision = TRUE),
+    data   = dat, known_matrices = list(Qprec = Q),
+    return_code = TRUE, verbose = FALSE
+  )
+  expect_true(grepl("L_A_animal <- as.matrix(solve(chol(Qprec)))",
+                    code, fixed = TRUE))
+})
+
+# ---------------------------------------------------------------- #
+# Phase B-greta (b) / (c) / (d-partial): posterior equivalence on   #
+# greta across dense / chol / precision paths. Stress-gated; TF     #
+# RNG state across two separate greta fits is not reseeded by base  #
+# set.seed() (cf. test-validation-lmer.R header) so we run two      #
+# short fits and assert posterior-mean agreement on the recovered   #
+# sigma_geno parameter within a generous Monte-Carlo tolerance.     #
+# ---------------------------------------------------------------- #
+
+test_that("posterior equivalence: dense V vs chol = t(chol(V)) on greta", {
+  skip_if_not_installed("greta")
+  testthat::skip_on_cran()
+  testthat::skip_on_ci()
+  if (!identical(tolower(Sys.getenv("FLEXYBAYES_RUN_STRESS")), "true"))
+    testthat::skip("set FLEXYBAYES_RUN_STRESS=true to run this Phase B-greta MCMC check")
+
+  dat <- .fixture_data_for_vm()
+  G   <- diag(6) + 0.1
+  L   <- t(chol(G))
+
+  fit_dense <- flexybayes(
+    yield ~ 1, random = ~ vm(geno, G_mat),
+    data = dat, known_matrices = list(G_mat = G),
+    backend = "greta",
+    n_samples = 200L, warmup = 200L, chains = 1L,
+    verbose = FALSE
+  )
+  fit_chol <- flexybayes(
+    yield ~ 1, random = ~ vm(geno, chol = L_user),
+    data = dat, known_matrices = list(L_user = L),
+    backend = "greta",
+    n_samples = 200L, warmup = 200L, chains = 1L,
+    verbose = FALSE
+  )
+
+  sigma_dense <- mean(as.matrix(fit_dense$draws[, "sigma_geno"]))
+  sigma_chol  <- mean(as.matrix(fit_chol$draws[,  "sigma_geno"]))
+  expect_lt(abs(sigma_dense - sigma_chol),
+            max(0.5, 0.25 * sigma_dense))   # generous MC tolerance
+})
+
+test_that("posterior equivalence: dense V vs precision = solve(V) on greta", {
+  skip_if_not_installed("greta")
+  skip_if_not_installed("Matrix")
+  testthat::skip_on_cran()
+  testthat::skip_on_ci()
+  if (!identical(tolower(Sys.getenv("FLEXYBAYES_RUN_STRESS")), "true"))
+    testthat::skip("set FLEXYBAYES_RUN_STRESS=true to run this Phase B-greta MCMC check")
+
+  dat <- .fixture_data_for_vm()
+  G   <- diag(6) + 0.1
+  Q   <- solve(G)
+
+  fit_dense <- flexybayes(
+    yield ~ 1, random = ~ vm(geno, G_mat),
+    data = dat, known_matrices = list(G_mat = G),
+    backend = "greta",
+    n_samples = 200L, warmup = 200L, chains = 1L,
+    verbose = FALSE
+  )
+  fit_prec <- flexybayes(
+    yield ~ 1, random = ~ vm(geno, precision = Qprec),
+    data = dat, known_matrices = list(Qprec = Q),
+    backend = "greta",
+    n_samples = 200L, warmup = 200L, chains = 1L,
+    verbose = FALSE
+  )
+
+  sigma_dense <- mean(as.matrix(fit_dense$draws[, "sigma_geno"]))
+  sigma_prec  <- mean(as.matrix(fit_prec$draws[,  "sigma_geno"]))
+  expect_lt(abs(sigma_dense - sigma_prec),
+            max(0.5, 0.25 * sigma_dense))
+})
+
+# ---------------------------------------------------------------- #
+# Original Phase A test (kept for reference; assertion intact).     #
+# ---------------------------------------------------------------- #
 
 test_that("low_rank path with registered-looking scheme refuses with approximate_route_not_yet_registered", {
   dat <- data.frame(geno = factor(1:5))

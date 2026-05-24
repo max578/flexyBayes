@@ -133,11 +133,15 @@
     },
     "vm"     = {
       .stage5a_route_check(term, known_matrices)
-      mk_id(term$var); mk_mat(term$mat)
+      mk_id(term$var)
+      cov <- term$cov_representation
+      mk_mat(if (!is.null(cov)) cov$data else term$mat)
     },
     "ped"    = {
       .stage5a_route_check(term, known_matrices)
-      mk_id(term$var); mk_mat(term$mat)
+      mk_id(term$var)
+      cov <- term$cov_representation
+      mk_mat(if (!is.null(cov)) cov$data else term$mat)
     },
     "fa"     = mk_id(term$var),
     "fa_gxe" = { mk_id(term$outer); mk_id(term$inner) },
