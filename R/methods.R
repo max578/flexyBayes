@@ -26,6 +26,13 @@ print.flexybayes <- function(x, ...) {
   cat("  Params :", mi$n_params, "monitored;",
       mi$n_fixed, "fixed,", mi$n_random, "random terms\n")
 
+  # Stage 3A (ADR 0022 Decision 5): exactness slot. Per-row fits get
+  # "exact"; aggregated fits get "aggregated_exact" but go through
+  # print.flexybayes_aggregated (defined below). Older fits without
+  # the slot fall through silently.
+  if (!is.null(x$exactness))
+    cat("  Exact. :", x$exactness, "\n")
+
   # Quick convergence
   if (!is.null(x$extras$convergence$gelman)) {
     rhat <- x$extras$convergence$gelman$psrf[, "Point est."]
@@ -63,7 +70,25 @@ summary.flexybayes <- function(object, ...) {
   if (!is.null(ci$random)) cat("  Random :", deparse(ci$random), "\n")
   cat("  Family :", mi$family, "/", mi$link, "\n")
   cat("  N =", mi$n_obs, ", chains =", ci$chains,
-      ", samples =", ci$n_samples, "\n\n")
+      ", samples =", ci$n_samples, "\n")
+
+  # Stage 3A (ADR 0022 Decision 5 + 6): exactness line + conditional
+  # compression-ratio line. The compression line appears only when
+  # exactness == "aggregated_exact" AND ratio N/K >= 2; otherwise
+  # suppressed per the ADR's "avoid misleading claims on small or
+  # non-aggregable data" mitigation.
+  if (!is.null(object$exactness))
+    cat("  Exact. :", object$exactness, "\n")
+  am <- object$extras$aggregation_meta
+  if (identical(object$exactness, "aggregated_exact") &&
+      !is.null(am) && am$N / am$K >= 2) {
+    cat(sprintf(
+      "  Agg.   : N = %s rows -> K = %s cells (ratio %.0f:1)\n",
+      format(am$N, big.mark = " ", scientific = FALSE),
+      format(am$K, big.mark = " ", scientific = FALSE),
+      am$N / am$K))
+  }
+  cat("\n")
 
   # Fixed effects
   cat("-- Fixed effects (posterior) ", strrep("-", 33), "\n")
@@ -115,6 +140,102 @@ summary.flexybayes <- function(object, ...) {
 
   invisible(object$extras$summary)
 }
+
+#' Print a flexybayes_aggregated object (Stage 3A; ADR 0022)
+#'
+#' Brief one-screen summary of an aggregated-gaussian fit produced by
+#' `flexybayes(..., aggregate = "auto"/TRUE)` or `fb_brms(..., aggregate
+#' = ...)`. Includes the Stage 3A `exactness` field and the cell
+#' compression ratio (when N/K >= 2 per ADR 0022 Decision 6).
+#'
+#' @param x   a `<flexybayes_aggregated>` object.
+#' @param ... unused.
+#' @return invisibly returns `x`.
+#' @export
+print.flexybayes_aggregated <- function(x, ...) {
+  mi <- x$extras$model_info
+  am <- x$extras$aggregation_meta
+  bd <- x$extras$backend_decision
+
+  cat("Bayesian mixed model  [flexyBayes / aggregated-gaussian]\n")
+  cat(strrep("-", 60), "\n")
+  cat("  family:    ", mi$family, "(", mi$link, "link)\n")
+  cat("  N obs:     ", mi$n_obs, "\n")
+  cat("  K cells:   ", mi$n_cells, "\n")
+  cat("  fixed:     ", mi$n_fixed, "\n")
+  cat("  random:    ", mi$n_random, "\n")
+  cat("  backend:   ", bd$backend, "(path =", bd$path, ")\n")
+  cat("  runtime:   ", round(x$extras$run_time, 2), "sec\n")
+  cat("  exactness: ", x$exactness, "\n")
+  if (!is.null(am) && am$N / am$K >= 2)
+    cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
+                format(am$N, big.mark = " ", scientific = FALSE),
+                format(am$K, big.mark = " ", scientific = FALSE),
+                am$N / am$K))
+  cat(strrep("-", 60), "\n")
+  cat("  $glm      -- per-row reconstructed fitted values + coef shim\n")
+  cat("  $inla     -- raw aggregated INLA fit (use INLA's summary etc.)\n")
+  cat("  $extras   -- summary, aggregation_meta, backend_decision\n")
+  invisible(x)
+}
+
+
+#' Summarise a flexybayes_aggregated object (Stage 3A; ADR 0022)
+#'
+#' Posterior summary read off the aggregated INLA fit's
+#' `summary.fixed` + `summary.hyperpar` slots. Shows the Stage 3A
+#' compression line (per ADR 0022 Decision 6) when N/K >= 2.
+#'
+#' @param object a `<flexybayes_aggregated>` object.
+#' @param ...    unused.
+#' @return invisibly returns the posterior summary list.
+#' @export
+summary.flexybayes_aggregated <- function(object, ...) {
+  mi <- object$extras$model_info
+  am <- object$extras$aggregation_meta
+  bd <- object$extras$backend_decision
+  ps <- object$extras$summary
+
+  cat("Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]\n")
+  cat(strrep("=", 65), "\n")
+  cat("  family:    ", mi$family, "/", mi$link, "\n")
+  cat("  N =", mi$n_obs, ", K =", mi$n_cells, "\n")
+  cat("  backend:   ", bd$backend, "\n")
+  cat("  exactness: ", object$exactness, "\n")
+  if (!is.null(am) && am$N / am$K >= 2)
+    cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
+                format(am$N, big.mark = " ", scientific = FALSE),
+                format(am$K, big.mark = " ", scientific = FALSE),
+                am$N / am$K))
+  cat("\n")
+
+  cat("-- Fixed effects (posterior) ", strrep("-", 35), "\n")
+  beta <- ps$beta_means
+  if (length(beta) > 0L) {
+    sds <- sqrt(diag(ps$beta_vcov))
+    fx_df <- data.frame(
+      Estimate = round(beta, 4),
+      Post.SD  = round(sds,  4),
+      row.names = names(beta)
+    )
+    print(fx_df)
+  } else cat("  (none)\n")
+
+  cat("\n-- Variance components ", strrep("-", 40), "\n")
+  vc <- list(sigma = ps$sigma_means, tau = ps$tau_means)
+  if (length(vc$sigma)) {
+    cat(sprintf("  sigma (residual SD): %.4f\n", vc$sigma))
+  }
+  if (length(vc$tau)) {
+    for (i in seq_along(vc$tau)) {
+      cat(sprintf("  tau_%d  (random SD): %.4f\n", i, vc$tau[i]))
+    }
+  }
+
+  cat("\n  Run time:", round(object$extras$run_time, 2), "sec\n")
+  invisible(ps)
+}
+
 
 #' Extract fixed effect coefficients
 #' @param object A flexybayes object

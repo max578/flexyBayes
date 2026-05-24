@@ -17,6 +17,30 @@
                         envir = asNamespace("generics"))
     }, error = function(e) NULL)
   }
+
+  # Register greta S3 methods inside flexyBayes's namespace so the
+  # Stage 3A `.emit_gaussian_aggregated_greta()` path can call into
+  # greta from within a package-namespace context. Without this,
+  # greta's internal `check_dims` -> `as.greta_array(...)` dispatch
+  # routes greta_array operands to `as.greta_array.matrix` instead
+  # of `as.greta_array.greta_array`, producing a spurious
+  # missing/infinite-values error on otherwise-valid greta_arrays.
+  if (requireNamespace("greta", quietly = TRUE)) {
+    tryCatch({
+      greta_ns <- asNamespace("greta")
+      flx_ns   <- asNamespace(pkgname)
+      for (cls in c("greta_array", "matrix", "numeric", "logical",
+                     "integer", "data.frame", "array")) {
+        m_name <- paste0("as.greta_array.", cls)
+        if (exists(m_name, envir = greta_ns, inherits = FALSE)) {
+          registerS3method("as.greta_array", cls,
+                            get(m_name, envir = greta_ns,
+                                inherits = FALSE),
+                            envir = flx_ns)
+        }
+      }
+    }, error = function(e) NULL)
+  }
 }
 
 .onAttach <- function(libname, pkgname) {

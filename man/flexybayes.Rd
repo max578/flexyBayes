@@ -24,7 +24,8 @@ flexybayes(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "auto")
+  backend = c("greta", "inla", "auto"),
+  aggregate = "auto"
 )
 
 fb(
@@ -46,7 +47,8 @@ fb(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "auto")
+  backend = c("greta", "inla", "auto"),
+  aggregate = "auto"
 )
 }
 \arguments{
@@ -148,6 +150,20 @@ call routes to greta with the note
 \code{review_code = TRUE} is currently scoped to \code{backend = "greta"}
 only; combining with \code{backend = "inla"} / \code{"auto"} raises a
 structured refusal until INLA-side \code{code}-slot support lands.}
+
+\item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.
+Stage 3A (ADR 0022, v0.3.2) aggregated-gaussian gate. \code{"auto"}
+consults \code{.fb_aggregation_plan()} and routes through the
+sufficient-statistics emit path when the IR is in scope
+(gaussian-identity, fixed + random-intercept, productive
+compression); falls through to the per-row path otherwise.
+\code{TRUE} forces aggregation -- raises a structured refusal when
+the plan declares ineligibility. \code{FALSE} skips the gate
+entirely. At v0.3.2 the aggregated path is INLA-only; greta
+aggregation is deferred to v0.3.3 (the spike confirms algebraic
+viability; the package wiring needs a non-\code{eval()} codegen
+pattern). Aggregated fits carry \verb{$exactness == "aggregated_exact"}
+and the dispatch trace's \code{path} slot reads \code{"aggregated_gaussian"}.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:

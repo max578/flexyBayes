@@ -1,3 +1,72 @@
+# flexyBayes 0.3.2
+
+## Stage 3A -- Gaussian aggregated emit (INLA path)
+
+Wires the sufficient-statistics aggregation foundation (introduced
+in 0.3.0 as `<fb_aggregated>` + `<fb_aggregation_plan>`) into the
+live dispatch path. Gaussian-identity LMMs whose linear predictor
+is cell-constant -- fixed numeric / factor effects plus random
+intercepts on factor groupings -- now have an aggregated emit path
+that fits the same posterior on per-cell sufficient statistics
+rather than per-observation likelihood contributions. The aggregated
+log-likelihood is the algebraic identity of the per-row form (no
+approximation; see Searle, Casella & McCulloch (1992) *Variance
+Components* §3 and Bates et al. (2015) §3 on the profiled-deviance
+shortcut); the bit-exact equivalence is gated by a property-based
+test in `tests/testthat/test-aggregate-gaussian.R`.
+
+**API.** A new `aggregate = c("auto", TRUE, FALSE)` argument joins
+`flexybayes()` and `fb_brms()`. The default `"auto"` consults the
+plan and silently routes through the aggregated emit when the IR
+is in scope and compression is productive (`K/N <= 0.5`); falls
+through to the per-row path when out of scope. `TRUE` forces
+aggregation -- raises a structured refusal naming the plan's
+reason code when ineligible. `FALSE` skips the gate entirely.
+
+**Exactness field.** Every flexybayes fit now carries an
+`$exactness` slot. Per-row paths populate it as `"exact"`;
+aggregated paths populate it as `"aggregated_exact"`. The dispatch
+trace's `path` slot reads `"aggregated_gaussian"` on aggregated
+fits. `summary()` and a new `print.flexybayes_aggregated()` /
+`summary.flexybayes_aggregated()` surface the field plus a
+compression-ratio line when N/K >= 2 (suppressed on smaller
+datasets to avoid misleading claims).
+
+**Backend coverage at 0.3.2.** INLA-backed aggregation is shipped
+end-to-end (cell-mean weighted gaussian + a custom precision-prior
+expression that absorbs the within-cell sum-of-squares correction;
+the algebra is documented in the file header). Greta-backed
+aggregation is deferred to a follow-on -- the algebraic pattern
+(cell-mean weighted gaussian plus a gamma observation on the
+within-cell SS) is viable, but the package wiring needs a
+codegen-without-runtime-parse workaround for an R S3 dispatch
+context-sensitivity that surfaces only inside the package
+namespace. `aggregate = TRUE` on `backend = "greta"` refuses
+cleanly with a deferred-feature message; `aggregate = "auto"` on
+greta silently falls through to the per-row path.
+
+**Heterogeneous residual.** `at(f):units` is supported on the
+aggregated path when `f` is a cell-key term (so each cell has a
+single residual variance). When the residual factor is not a cell
+key the per-row / per-cell algebraic identity breaks and the emit
+refuses with a structured `heterogeneous_residual_factor_not_in_-
+cell_key` reason code.
+
+**Known caveat.** The aggregated INLA path uses an explicit
+`loggamma(1, 5e-5)` precision prior on random-intercept terms when
+the user has not supplied a prior via `prior = fb_prior(...)`,
+because INLA's data-scale-dependent default would otherwise
+produce different effective priors on the per-row and aggregated
+data scales. Matched-prior comparisons between per-row and
+aggregated paths therefore require either passing an explicit
+`fb_prior()` or accepting that the residual / random-intercept
+posteriors will differ on tail behaviour. The fixed-effect
+posteriors remain bit-exactly equivalent under the algebraic
+identity. Unifying the per-row default-prior behaviour with the
+aggregated path is queued for a follow-on.
+
+---
+
 # flexyBayes 0.3.1
 
 ## Trust Pass -- preflight + aggregation honesty hardening

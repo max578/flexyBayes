@@ -32,7 +32,10 @@
                               rcov,
                               family,
                               link,
-                              data_name) {
+                              data_name,
+                              aggregate = "auto") {
+
+  aggregate <- .normalise_aggregate(aggregate)
 
   # gretaR slot: dormant in v0.2. The branch is unreachable from
   # user-facing entries (their match.arg excludes "gretaR") but
@@ -52,6 +55,38 @@
   # exceeds the active ceiling. The refusal short-circuits dispatch
   # before any backend code runs.
   .maybe_preflight(fb = fb, data = data, the_call = the_call)
+
+  # Stage 3A aggregated-gaussian gate (ADR 0022). Consumes the
+  # `<fb_aggregation_plan>` if the user opted in (aggregate = "auto"
+  # silently routes when the plan declares eligibility; aggregate =
+  # TRUE refuses with the plan's reason_codes when ineligible;
+  # aggregate = FALSE skips this gate entirely). When the gate
+  # accepts, builds the `<fb_aggregated>` sufficient-statistics
+  # object and dispatches to emit_gaussian_aggregated() on the
+  # resolved backend, short-circuiting the per-row paths below.
+  if (!isFALSE(aggregate) && !isTRUE(return_code)) {
+    agg_fit <- .maybe_aggregate_gaussian(
+      fb             = fb,
+      data           = data,
+      backend        = backend,
+      aggregate      = aggregate,
+      n_samples      = n_samples,
+      warmup         = warmup,
+      chains         = chains,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd    = prior_vc_sd,
+      verbose        = verbose,
+      mcmc_verbose   = mcmc_verbose,
+      the_call       = the_call,
+      fixed          = fixed,
+      random         = random,
+      rcov           = rcov,
+      family         = family,
+      link           = link,
+      data_name      = data_name
+    )
+    if (!is.null(agg_fit)) return(agg_fit)
+  }
 
   # Stan passthrough via brms. Opt-in only -- backend = "auto" never
   # routes to Stan because brms's first-call compile latency (30-60s)
@@ -94,6 +129,7 @@
       )
       fit$extras$fb_terms <- fb
     }
+    fit$exactness <- "exact"
     return(fit)
   }
 
@@ -181,6 +217,7 @@
           )
           fit$extras$fb_terms <- gated
         }
+        fit$exactness <- "exact"
         return(fit)
       }
     }
@@ -227,7 +264,169 @@
       fit$extras$backend_decision <- decision
     fit$extras$fb_terms <- fb
   }
+  if (!isTRUE(return_code)) fit$exactness <- "exact"
   fit
+}
+
+
+# Normalise the user-facing `aggregate` argument. Accepts:
+#   TRUE        -- force aggregation; refuse if plan ineligible.
+#   FALSE       -- skip aggregation; always per-row.
+#   "auto"      -- aggregate when plan eligible; silently fall through
+#                  to per-row otherwise (the v0.3.2 default).
+.normalise_aggregate <- function(x) {
+  if (is.logical(x) && length(x) == 1L && !is.na(x))
+    return(x)
+  if (is.character(x) && length(x) == 1L && identical(x, "auto"))
+    return("auto")
+  stop("`aggregate` must be TRUE, FALSE, or \"auto\"; got: ",
+       paste(deparse(x), collapse = " "), call. = FALSE)
+}
+
+
+# Stage 3A aggregated-gaussian gate (ADR 0022). Returns either a
+# fitted <flexybayes_aggregated> object (gate accepted; aggregated
+# emit ran) or NULL (gate declined; caller falls through to per-row).
+# Refuses (raises a typed condition) when aggregate = TRUE but the
+# plan declares ineligibility, or when aggregate = TRUE on a backend
+# that does not support the aggregated path (brms, gretaR, stan).
+.maybe_aggregate_gaussian <- function(fb, data, backend, aggregate,
+                                       n_samples, warmup, chains,
+                                       prior_fixed_sd, prior_vc_sd,
+                                       verbose, mcmc_verbose, the_call,
+                                       fixed, random, rcov, family,
+                                       link, data_name) {
+
+  # Aggregation only defined for backends with a flexyBayes-side
+  # aggregated emit path. v0.3.2 supports greta + inla; brms / gretaR
+  # / stan have no aggregated path in scope at v0.3.2.
+  agg_capable_backend <- backend %in% c("greta", "inla", "auto")
+  if (!agg_capable_backend) {
+    if (isTRUE(aggregate))
+      stop("`aggregate = TRUE` is not supported on backend = \"",
+           backend, "\" at v0.3.2 (the aggregated path is wired for ",
+           "greta and inla only). Pass aggregate = FALSE or switch ",
+           "backend.", call. = FALSE)
+    return(NULL)
+  }
+
+  # Run the model-level plan against the fb_dataset metadata. Reads
+  # only IR + dictionaries; no design matrix is materialised.
+  fb_dataset_meta <- .fb_dataset(data)
+  plan <- .fb_aggregation_plan(fb, fb_dataset_meta)
+
+  # Resolve the effective backend for the aggregated emit. v0.3.2
+  # supports only INLA on the aggregated path (greta deferred to
+  # v0.3.3; see emit_gaussian_aggregated() header for the dispatch
+  # rationale). Force INLA when backend = "auto" or "greta" if the
+  # plan would otherwise route to aggregation; refuse explicitly when
+  # backend = "greta" with aggregate = TRUE.
+  eff_backend <- .agg_resolve_backend(backend, fb)
+  if (identical(eff_backend, "greta")) {
+    if (isTRUE(aggregate))
+      stop("`aggregate = TRUE` on backend = \"greta\" is deferred ",
+           "at v0.3.2. Pass backend = \"inla\" (or \"auto\") for ",
+           "the aggregated path, or aggregate = FALSE for per-row ",
+           "greta.", call. = FALSE)
+    return(NULL)
+  }
+
+  # at_units on INLA at v0.3.2: the multi-likelihood INLA stack is
+  # deferred. If we'd otherwise route to INLA AND the rcov uses
+  # at_units, force the eff_backend down to greta (which supports the
+  # heterogeneous-residual aggregated path) or fall through to per-row
+  # when greta isn't an option.
+  uses_at_units <- length(fb$rcov_terms) > 0L &&
+    any(vapply(fb$rcov_terms,
+               function(t) identical(t$type %||% "", "at_units"),
+               logical(1L)))
+  if (identical(eff_backend, "inla") && uses_at_units) {
+    if (identical(backend, "inla") && isTRUE(aggregate))
+      stop("`aggregate = TRUE` with backend = \"inla\" refused: ",
+           "heterogeneous residual at_units on INLA is deferred at ",
+           "v0.3.2 (requires the multi-likelihood INLA stack). Pass ",
+           "backend = \"greta\" with aggregate = TRUE, or aggregate ",
+           "= FALSE for per-row INLA.", call. = FALSE)
+    if (identical(backend, "auto"))
+      eff_backend <- "greta"
+    else
+      return(NULL)
+  }
+
+  if (!isTRUE(plan$eligible)) {
+    if (isTRUE(aggregate)) {
+      cond <- structure(
+        class = c("flexybayes_aggregate_refusal", "error", "condition"),
+        list(
+          message     = paste0(
+            "`aggregate = TRUE` refused by .fb_aggregation_plan(): ",
+            paste(plan$reason_codes, collapse = ", "),
+            ". Pass aggregate = FALSE for the per-row path."),
+          call         = the_call,
+          reason_codes = plan$reason_codes,
+          plan         = plan
+        )
+      )
+      stop(cond)
+    }
+    return(NULL)
+  }
+
+  fb_aggregated <- .fb_aggregate_gaussian(fb, fb_dataset_meta)
+
+  fit <- emit_gaussian_aggregated(
+    fb             = fb,
+    fb_aggregated  = fb_aggregated,
+    data           = data,
+    backend        = eff_backend,
+    n_samples      = n_samples,
+    warmup         = warmup,
+    chains         = chains,
+    prior_fixed_sd = prior_fixed_sd,
+    prior_vc_sd    = prior_vc_sd,
+    verbose        = verbose,
+    mcmc_verbose   = mcmc_verbose,
+    return_code    = FALSE,
+    the_call       = the_call,
+    fixed          = fixed,
+    random         = random,
+    rcov           = rcov,
+    family         = family,
+    link           = link,
+    data_name      = data_name
+  )
+
+  fit$exactness <- "aggregated_exact"
+  if (!is.null(fit$extras)) {
+    fit$extras$backend_decision <- list(
+      backend     = eff_backend,
+      path        = "aggregated_gaussian",
+      gate_checks = NULL,
+      reason      = sprintf(
+        "aggregation plan eligible (N = %d, K = %d, ratio = %.2f:1)",
+        plan$N, plan$K_est, plan$N / plan$K_est)
+    )
+    fit$extras$fb_terms <- fb
+  }
+  fit
+}
+
+
+# Choose the effective aggregated-emit backend. greta / inla pass
+# through verbatim. auto consults lgm_gate -- if the model is LGM-
+# compatible and INLA is installed, prefer INLA (faster deterministic
+# on the aggregated path); else greta.
+.agg_resolve_backend <- function(backend, fb) {
+  if (backend %in% c("greta", "inla")) return(backend)
+  if (identical(backend, "auto")) {
+    gated <- tryCatch(lgm_gate(fb), error = function(e) NULL)
+    if (!is.null(gated) && !is_lgm_refusal(gated) &&
+        requireNamespace("INLA", quietly = TRUE))
+      return("inla")
+    return("greta")
+  }
+  # Unknown backend -- caller already filtered, defensive default.
+  "greta"
 }
 
 

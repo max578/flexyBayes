@@ -109,6 +109,10 @@
 #' @param mcmc_verbose Logical: show MCMC progress bar.
 #' @param return_code Logical: if `TRUE`, return the generated
 #'   greta code string without fitting.
+#' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
+#'   Stage 3A (v0.3.2) aggregated-gaussian gate. See `?flexybayes`
+#'   for full semantics. At v0.3.2 the aggregated path is INLA-only;
+#'   greta aggregation is deferred to a follow-on release.
 #' @param review_code Logical: if `TRUE`, return a
 #'   `<flexybayes_review>` deferred-execution object carrying the
 #'   generated code, IR, resolved prior, captured call, and RNG
@@ -172,10 +176,12 @@ fb_brms <- function(formula,
                     verbose        = TRUE,
                     mcmc_verbose   = TRUE,
                     return_code    = FALSE,
-                    review_code    = FALSE) {
+                    review_code    = FALSE,
+                    aggregate      = "auto") {
 
   # ----- 0. Validate ------------------------------------------------
-  backend <- match.arg(backend)
+  backend   <- match.arg(backend)
+  aggregate <- .normalise_aggregate(aggregate)
 
   if (missing(formula))
     stop("`formula` is required: a brms-style two-sided formula.",
@@ -445,6 +451,7 @@ fb_brms <- function(formula,
     rcov           = rcov_form,
     family         = family,
     link           = link,
-    data_name      = data_name
+    data_name      = data_name,
+    aggregate      = aggregate
   )
 }

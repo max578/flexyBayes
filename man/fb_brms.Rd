@@ -21,7 +21,8 @@ fb_brms(
   verbose = TRUE,
   mcmc_verbose = TRUE,
   return_code = FALSE,
-  review_code = FALSE
+  review_code = FALSE,
+  aggregate = "auto"
 )
 }
 \arguments{
@@ -111,6 +112,11 @@ the INLA-side \code{code} slot for the review token is deferred to
 a later release. Default \code{FALSE} preserves the run-immediately
 semantics. Session-level override via
 \code{options(flexyBayes.review_code_default = TRUE)}.}
+
+\item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.
+Stage 3A (v0.3.2) aggregated-gaussian gate. See \code{?flexybayes}
+for full semantics. At v0.3.2 the aggregated path is INLA-only;
+greta aggregation is deferred to a follow-on release.}
 }
 \value{
 Under default \code{return_code = FALSE} and \code{review_code = FALSE}: an object of class \code{"flexybayes"} (greta or auto-fell-
