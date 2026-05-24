@@ -1,3 +1,100 @@
+# flexyBayes 0.3.5
+
+## Stage 3B (file-output) -- file-backed prediction + sample activation
+
+Two additions to `predict.flexybayes(newdata, ...)` complete the
+Stage 3B scope opened at 0.3.4.
+
+**File-backed prediction output.** Three new arguments --
+`output_file`, `format`, `interop` -- route `predict()` to a
+disk-backed tabular output when `output_file` is supplied. The
+file carries `point`, `lower`, `upper` (95% posterior credible
+bounds) plus optional `se.fit`, plus the columns of `newdata`,
+under the format resolved by:
+
+```
+format = "auto" (default):
+  if (interop)                        return "csv"
+  if (N >= 1e6 && fst_available)      return "fst"
+  if (N >= 1e6 && !fst_available)     return "rds"
+  if (N <  1e6)                       return "rds"
+
+format = "csv": always "csv" (no fst dependency)
+format = "rds": always "rds" (no fst dependency)
+format = "fst":
+  if (fst_available)                  return "fst"
+  else                                stop(structured_refusal_with_install_hint)
+```
+
+The fst path is 30-40x faster than rds at N >= 1e6 for
+essentially the same on-disk size (single-platform benchmark
+under `benchmark_results/fst_stage3b_2026-05-23`). `fst` is
+declared in `Suggests` with a `>= 0.9.0` floor; `predict(...,
+format = "fst")` with `fst` not installed raises a structured
+refusal naming the install command and the `format = "rds"`
+override line. Refusing rather than silently falling back is
+consistent with the package's broader no-silent-refusal posture.
+Pre-existing prediction grids are not overwritten: if
+`output_file` already exists, `predict()` raises a structured
+stop suggesting `unlink()` rather than overwriting silently.
+
+The posterior intervals follow standard posterior-predictive
+quantile semantics (Gelman et al. 2013, Bayesian Data Analysis,
+section 15): the linear predictor is evaluated under each
+retained posterior draw, the link inverse is applied per draw,
+and `point` / `lower` / `upper` are read off the rowwise mean
+and 2.5% / 97.5% quantiles. Chunked vs unchunked file output is
+equivalent at floating-point precision; BLAS non-associativity
+at the matrix-size boundary introduces ULP-level differences
+(~2e-16) but no numerically meaningful drift.
+
+**`allow_new_levels = "sample"` is now active.** The label was
+stable at 0.3.4; the implementation ships here. Unknown factor
+levels in `newdata` get a fresh `Normal(0, tau_group)`
+random-effect realisation layered onto the linear predictor per
+posterior draw (mirrors `brms::posterior_epred(...,
+sample_new_levels = "gaussian")`). Caller's `set.seed()`
+controls reproducibility.
+The in-memory return reports the posterior-mean point estimate;
+the sampled-RE contribution averages toward zero across draws so
+the in-memory point estimate sits close to the population
+baseline -- the file-backed return captures the proper per-row
+posterior interval reflecting sampled-RE uncertainty. INLA fits
+do not currently expose per-draw access and route to a
+structured refusal; an INLA draws adapter is queued for a future
+release.
+
+## Internals
+
+- New `R/predict_file_output.R` (`.fst_available`,
+  `.resolve_format`, `.predict_write_file`, `.predict_to_file`).
+- New `R/predict_posterior.R` (`.predict_per_draw`,
+  `.predict_intervals`, `.predict_sample_re_for_unknowns`,
+  `.predict_in_memory_sample`).
+- `R/predict_chunked.R` -- `.predict_resolve_factors()` drops the
+  0.3.4 deferred-stop on `"sample"`; the new branch tags
+  unknown rows via `attr(newdata, "sample_re_summary")` for
+  downstream per-draw consumption.
+- `R/methods.R` -- `predict.flexybayes()` gains `output_file`,
+  `format`, `interop` arguments and two new dispatch branches.
+
+## Test coverage
+
+- New `tests/testthat/test-predict-file-output.R` (16 blocks)
+  covering the pure-path resolution table, the structured
+  fst refusal, csv/rds/fst round-trip with factor preservation,
+  chunked invariance, format = "auto" end-to-end with mocked
+  fst availability, the interop branch, and overwrite refusal.
+- New `tests/testthat/test-predict-sample-new-levels.R` (7
+  blocks) covering active success on mixed known+unknown rows,
+  caller-seed-driven non-determinism, posterior-interval
+  variance scaling, backward-compat with legacy fits,
+  deferred-stop removal confirmation, and the no-draws fit
+  refusal.
+
+Total test counts: PASS 1317 / FAIL 0 / SKIP 73 (0.3.4 baseline
+was 1262/0/73; +55 expectations across 22 new blocks).
+
 # flexyBayes 0.3.4
 
 ## Stage 3B (core) -- chunked indexed prediction + factor-dictionary handling
