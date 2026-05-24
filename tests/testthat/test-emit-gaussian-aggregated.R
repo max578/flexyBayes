@@ -157,17 +157,20 @@ test_that("(j) aggregate = TRUE on out-of-scope IR raises refusal", {
                          err$reason_codes)))
 })
 
-test_that("(j) aggregate = TRUE on backend = 'greta' refuses (v0.3.2 deferred)", {
+test_that("(j) aggregate = TRUE on backend = 'greta' now succeeds (v0.3.3)", {
+  testthat::skip_if_not_installed("greta")
   dat <- mk_agg_data()
-  err <- tryCatch(
-    suppressMessages(fb_brms(
-      y ~ f1 + (1 | g), data = dat,
-      backend = "greta", aggregate = TRUE,
-      n_samples = 100, warmup = 50, chains = 1,
-      prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE)),
-    error = function(e) e)
-  expect_true(grepl("deferred", conditionMessage(err)))
-  expect_true(grepl("greta", conditionMessage(err)))
+  fit <- suppressMessages(fb_brms(
+    y ~ f1 + (1 | g), data = dat,
+    backend = "greta", aggregate = TRUE,
+    n_samples = 200, warmup = 100, chains = 1,
+    prior_fixed_sd = 10, prior_vc_sd = 1,
+    verbose = FALSE, mcmc_verbose = FALSE))
+  expect_s3_class(fit, "flexybayes_aggregated")
+  expect_s3_class(fit, "flexybayes")
+  expect_identical(fit$exactness, "aggregated_exact")
+  expect_identical(backend_decision(fit)$backend, "greta")
+  expect_identical(backend_decision(fit)$path, "aggregated_gaussian")
 })
 
 test_that("(j) aggregate = TRUE on backend = 'brms' refuses", {
@@ -349,9 +352,78 @@ test_that("$glm shim carries per-row reconstructed fitted values", {
 
 
 # ---------------------------------------------------------------- #
-# Greta posterior-equivalence (deferred at v0.3.2)                  #
+# Greta posterior-equivalence (v0.3.3 activation)                    #
 # ---------------------------------------------------------------- #
+# Aggregated greta backend-fidelity check: on a fixed-seed dataset
+# generated from a known (beta, sigma, tau) triple, the aggregated
+# greta posterior means recover the truth within MC tolerance. The
+# bit-exact algebraic identity between per-row and aggregated forms
+# is already tested in `test-aggregate-gaussian.R` (pure-R, no
+# backend). This test is the backend-fidelity check: did greta
+# correctly translate the cell-mean weighted gaussian + gamma-on-WSS
+# pattern into a TF graph + MCMC that recovers truth? Spike gates
+# from `spikes_stage3a/spike_greta.R`: beta <= 0.10, sigma <= 0.10,
+# tau <= 0.15 (tau gets a looser bound because the J=20 RI factor
+# has only 20 levels, so its posterior is wider than beta/sigma's).
+#
+# Stress-gated by FLEXYBAYES_RUN_STRESS=true (one greta MCMC fit ~30-
+# 60 sec on the dev laptop, TF graph compile included).
+#
+# A direct per-row vs aggregated cross-path comparison is impractical
+# here because the per-row greta path uses an over-parameterised
+# fixed-effect contrast scheme (4 columns for a 3-level factor: the
+# intercept + all 3 levels, vs treatment contrasts in the aggregated
+# path producing 3 columns). The two posteriors live on different
+# parametrisations. The pure-R log-likelihood equivalence test in
+# the foundation file covers the algebraic identity; this test
+# covers the backend-side translation only.
 
-test_that("(d) greta posterior-equivalence is deferred at v0.3.2", {
-  skip("greta aggregated emit deferred to v0.3.3; see emit_gaussian_aggregated.R header for the S3-dispatch context. Algebraic viability confirmed in `spikes_stage3a/spike_greta.R`.")
+test_that("(d) greta aggregated posterior recovers truth (MC tol)", {
+  testthat::skip_if_not_installed("greta")
+  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true"))
+    testthat::skip("FLEXYBAYES_RUN_STRESS != \"true\"; skip greta backend-fidelity check.")
+
+  # Generation matches spike_greta.R: known beta on treatment-contrast
+  # columns, J=20 random-intercept levels, residual sigma_true.
+  set.seed(2026L)
+  N <- 800L; J <- 20L
+  beta_true  <- c(2.0, -1.0, 0.5, 0.8, -0.3)
+  sigma_true <- 0.7
+  tau_true   <- 0.4
+  dat <- data.frame(
+    f1 = factor(sample(letters[1:3], N, replace = TRUE)),
+    f2 = factor(sample(letters[1:3], N, replace = TRUE)),
+    g  = factor(sample.int(J, N, replace = TRUE))
+  )
+  u_true <- rnorm(J, 0, tau_true)
+  Xmm    <- model.matrix(~ f1 + f2, data = dat)
+  mu     <- as.numeric(Xmm %*% beta_true) + u_true[as.integer(dat$g)]
+  dat$y  <- rnorm(N, mu, sigma_true)
+
+  fit <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = dat,
+    backend = "greta", aggregate = TRUE,
+    n_samples = 1000L, warmup = 500L, chains = 2L,
+    prior_fixed_sd = 10, prior_vc_sd = 1,
+    verbose = FALSE, mcmc_verbose = FALSE))
+
+  expect_identical(fit$exactness, "aggregated_exact")
+  expect_identical(backend_decision(fit)$backend, "greta")
+  expect_identical(backend_decision(fit)$path,    "aggregated_gaussian")
+
+  beta_post  <- summary(fit)$beta_means
+  sigma_post <- as.numeric(summary(fit)$sigma_means)
+  tau_post   <- as.numeric(summary(fit)$tau_means)
+
+  expect_true(all(abs(beta_post - beta_true) <= 0.10),
+              info = sprintf("max |beta_post - beta_true| = %.4f (truth: %s)",
+                              max(abs(beta_post - beta_true)),
+                              paste(sprintf("%.3f", beta_true),
+                                     collapse = ", ")))
+  expect_true(abs(sigma_post - sigma_true) <= 0.10,
+              info = sprintf("sigma_post = %.4f, sigma_true = %.4f",
+                              sigma_post, sigma_true))
+  expect_true(abs(tau_post - tau_true) <= 0.15,
+              info = sprintf("tau_post = %.4f, tau_true = %.4f",
+                              tau_post, tau_true))
 })
