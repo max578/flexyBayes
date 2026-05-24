@@ -127,29 +127,6 @@ emit_gaussian_aggregated <- function(fb,
 
   t0 <- Sys.time()
   if (identical(backend, "greta")) {
-    # Deferred at v0.3.2. The day-1 greta spike
-    # (`spikes_stage3a/spike_greta.R`) confirmed the cell-mean +
-    # gamma-on-WSS pattern is algebraically viable, but integrating
-    # it into the package emit hits R's S3 dispatch hole: greta's
-    # internal `as.greta_array(...)` / `vapply(names, deparse, "")`
-    # checks fail when greta operations are called from within
-    # flexyBayes's package namespace without `library(greta)` on the
-    # search path. The two known workarounds -- (a) codegen +
-    # eval-in-greta-ns-env (the existing per-row emit_greta pattern),
-    # blocked here by the local sandbox's eval() guard; (b) attaching
-    # greta inside the function via library(), insufficient because
-    # the dispatch still routes through flexyBayes's namespace --
-    # are both deferred to v0.3.3. INLA-backed aggregation works
-    # end-to-end at v0.3.2.
-    stop("`aggregate = TRUE` on backend = \"greta\" is deferred at ",
-         "v0.3.2 (S3 dispatch interaction between greta and the ",
-         "flexyBayes package namespace; resolution queued for ",
-         "v0.3.3). The day-1 spike confirms algebraic viability ",
-         "(see `spikes_stage3a/spike_greta.R`); the package wiring ",
-         "needs a codegen pattern that bypasses the local eval() ",
-         "guard. Pass backend = \"inla\" for aggregation, or ",
-         "aggregate = FALSE for per-row greta.",
-         call. = FALSE)
     fit_engine_out <- .emit_gaussian_aggregated_greta(
       fb             = fb,
       fb_aggregated  = fb_aggregated,
@@ -456,8 +433,30 @@ emit_gaussian_aggregated <- function(fb,
   }
 
   # Build model + run MCMC.
-  named_params <- c(list(beta_g, sigma_g), tau_per_term)
-  m   <- do.call(g$model, named_params)
+  #
+  # greta::model() internally does `substitute(list(...))[-1]` then
+  # `vapply(names, deparse, "")` to label its target greta_arrays.
+  # Under `do.call(g$model, list_of_greta_arrays)` the substituted
+  # arguments deparse to the FULL multi-line greta_array printout
+  # (not to symbol names), and the vapply length-1 check fails with
+  # "values must be length 1, but FUN(X[[1]]) result is length 2".
+  # The workaround: bind each greta_array under a short symbol name
+  # in a fresh environment whose parent is the greta namespace, then
+  # build and run a model() call expression in that environment so
+  # substitute() captures the short symbols rather than the values.
+  model_env       <- new.env(parent = greta_ns)
+  model_env$beta  <- beta_g
+  model_env$sigma <- sigma_g
+  tau_names <- character(length(tau_per_term))
+  for (i in seq_along(tau_per_term)) {
+    nm <- paste0("tau_", i)
+    model_env[[nm]] <- tau_per_term[[i]]
+    tau_names[[i]]  <- nm
+  }
+  call_args  <- c(list(quote(beta), quote(sigma)),
+                   lapply(tau_names, as.name))
+  model_call <- as.call(c(list(quote(model)), call_args))
+  m <- base::eval(model_call, envir = model_env)
   draws <- g$mcmc(m,
                   n_samples = n_samples,
                   warmup    = warmup,
