@@ -1,3 +1,100 @@
+# flexyBayes 0.3.6
+
+## Stage 4 -- backend routing trace + preflight metadata consumption
+
+Two architectural additions complete the v0.2.6 -> v0.3.x dispatch
+story. The existing four-backend surface (`greta` / `inla` /
+`brms`-passthrough / `gretaR`-scaffold) now routes deliberately
+and reports its decisions reproducibly.
+
+**`backend_decision(fit)` gains four new fields.** Every fit
+produced under v0.3.6 carries the existing four fields (`backend`
+/ `path` / `gate_checks` / `reason`, per ADR 0006) plus:
+
+- `preflight_summary` -- the `.fb_preflight()` return value when
+  preflight ran (>1e5-row path); NULL on the small-data fast path
+  by design.
+- `representation_plan` -- a slim list of one entry per IR term:
+  `(term_id, representation_class, justification)`. Derived from
+  `preflight_summary`; NULL when no preflight ran.
+- `rejected_routes` -- a list of `(backend, reason)` pairs for
+  the backends considered but not chosen. Empty for explicit user
+  requests (policy bypassed). For `backend = "auto"`, the list
+  enumerates the non-chosen candidates from `{greta, inla,
+  gretaR}` with per-backend reason codes.
+- `routing_policy_version` -- the policy version that decided
+  this fit's dispatch (e.g., `"stage4_v1"`). Bumping this string
+  is the audit-anchor for reproducibility -- a fit produced under
+  an older policy carries the older string.
+
+Legacy fits (those that recorded the v0.2 / v0.3.5 four-field
+trace before v0.3.6 landed) read out via the accessor with NULL
+defaults on the four new fields; downstream code reading
+`backend_decision(fit)$chosen_backend` is unaffected.
+
+**`lgm_gate(fb, preflight = NULL)`.** The gate signature gains an
+optional second argument. When `preflight` is NULL (the v0.3.5
+calling convention), the gate behaves exactly as today -- 10
+structural rules. When `preflight` is supplied, the gate runs an
+11th rule, `.lgm_check_memory_feasibility_inla(fb, preflight)`,
+that refuses when the INLA path's projected memory exceeds the
+active ceiling. The Stage 4 ship is a single-multiplier
+approximation: INLA memory ~= 3x the indexed preflight total (the
+INLA dense intermediate inflation rule of thumb; per-term
+estimators land at v0.3.7). The multiplier is configurable via
+`options(flexyBayes.inla_memory_multiplier = <value>)`. **The new
+refusal reason code is `memory_infeasibility_inla`** -- distinct
+from the existing structural reason codes (`fixed_term_type_inla`
+/ `random_term_type_inla` / `rcov_term_type_inla` from ADR 0017,
+the six original family / predictor / distributional / re_prior
+/ latent_class / hyperparam_budget). The structural-vs-memory
+distinction is the central new piece of dispatch information --
+distinguishable from `rejected_routes` alone, without re-running
+the gate.
+
+**Routing-policy registry.** The policy lives in
+`.routing_policy_table()`, a small data.frame in `R/dispatch.R`
+that encodes the (`user_request`, `gate_outcome`,
+`preflight_outcome`, `inla_installed`) tuple -> `(chosen_backend,
+reason_code)` mapping. This is the single source of truth: the
+dispatch logic queries the table via `.resolve_routing()` rather
+than re-deriving the decision from nested ifs. Changing the
+policy is a table-edit, not a control-flow surgery.
+
+**Approximate-scheme guard.** Backend names carrying an
+approximate-scheme exactness label (e.g.,
+`"inla_pardiso_approximate"`, `"variational_advi"`) now refuse at
+the entry function with `approximate_route_not_yet_registered`,
+pointing to ADR 0027 (the future approximation registry). The
+package's identity rests on exactness labelling (per Stage 3A /
+ADR 0022); silently routing an approximate request would violate
+that contract.
+
+Worked example -- a memory-infeasible model on `backend = "auto"`
+now produces a trace like:
+
+```r
+bd <- backend_decision(fit)
+bd$backend                # "greta"
+bd$path                   # "auto_lgm_refuse_memory"
+bd$rejected_routes
+# list(
+#   list(backend = "inla",   reason = "memory_infeasibility_inla"),
+#   list(backend = "gretaR", reason = "backend_not_activated")
+# )
+bd$routing_policy_version # "stage4_v1"
+```
+
+The decision is now reproducible from `backend_decision(fit)`
+alone, plus the policy version string. The reproducibility
+posture mirrors `targets::tar_metadata()` (Landau 2021), which
+captures the chosen execution plan plus the rejected alternatives
++ reasons on every pipeline run.
+
+The vignette companion (`flexyBayes-11-lgm-feasibility.Rmd.orig`
+extension for the structural-vs-memory refusal distinction) is
+staged for v0.3.7 alongside the per-term INLA memory estimator.
+
 # flexyBayes 0.3.5
 
 ## Stage 3B (file-output) -- file-backed prediction + sample activation

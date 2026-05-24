@@ -165,6 +165,13 @@ flexybayes <- function(
     backend          = c("greta", "inla", "auto"),
     aggregate        = "auto"
 ) {
+  # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
+  # before match.arg fires its generic "should be one of" error.
+  # The structured refusal points to ADR 0027 (the future
+  # approximation registry) and the available exact-route
+  # alternatives. Runs first so the user sees the architectural
+  # rationale rather than match.arg's surface message.
+  .check_approximate_scheme(backend)
   backend   <- match.arg(backend)
   aggregate <- .normalise_aggregate(aggregate)
 

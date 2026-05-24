@@ -339,8 +339,31 @@ fb_greta <- function(model,
 #' the greta-direct path).
 #'
 #' @param fit A `flexybayes` object.
-#' @return A list with components `backend`, `path`, `gate_checks`,
-#'   `reason`.
+#' @return A list with the following components. The first four
+#'   (per ADR 0006) are present on every fit; the four Stage 4
+#'   fields (per ADR 0024) are present on v0.3.6+ fits and NULL
+#'   on pre-Stage-4 fits for backward compatibility.
+#'   \describe{
+#'     \item{`backend`}{Character; one of `"greta"`, `"inla"`,
+#'       `"brms"`, `"gretaR"`.}
+#'     \item{`path`}{Character; the dispatch path token.}
+#'     \item{`gate_checks`}{List or NULL; the `lgm_gate()` check
+#'       trail (failures on refusal; capabilities on accept).}
+#'     \item{`reason`}{Character; the dispatch-decision rationale.}
+#'     \item{`preflight_summary`}{An `<fb_preflight>` object or
+#'       NULL. Populated when `.fb_preflight()` ran (>1e5-row
+#'       path); NULL on the small-data fast path.}
+#'     \item{`representation_plan`}{Named list of slim per-term
+#'       entries `(term_id, representation_class, justification)`
+#'       derived from `preflight_summary`; NULL when no preflight.}
+#'     \item{`rejected_routes`}{List of `(backend, reason)` pairs
+#'       for the backends considered but not chosen. Empty for
+#'       explicit user requests (policy bypassed per ADR 0024
+#'       §6(g)).}
+#'     \item{`routing_policy_version`}{Character; e.g.
+#'       `"stage4_v1"`. The audit-anchor for reproducibility -- a
+#'       policy change bumps this string.}
+#'   }
 #' @export
 backend_decision <- function(fit) {
   if (!inherits(fit, "flexybayes") && !inherits(fit, "flexybayes_inla"))
@@ -350,13 +373,36 @@ backend_decision <- function(fit) {
   if (is.null(decision))
     # Pre-ADR-0006 fit (no recorded decision): synthesise a minimal
     # legacy trace so downstream tooling never sees NULL.
-    list(
-      backend     = if (inherits(fit, "flexybayes_inla")) "inla" else "greta",
-      path        = "legacy_no_recorded_decision",
-      gate_checks = NULL,
-      reason      = paste0("fit predates dispatch-trace recording; ",
-                           "backend inferred from class.")
-    )
-  else
-    decision
+    return(list(
+      backend                = if (inherits(fit, "flexybayes_inla")) "inla" else "greta",
+      path                   = "legacy_no_recorded_decision",
+      gate_checks            = NULL,
+      reason                 = paste0("fit predates dispatch-trace recording; ",
+                                       "backend inferred from class."),
+      preflight_summary      = NULL,
+      representation_plan    = NULL,
+      rejected_routes        = list(),
+      routing_policy_version = NA_character_
+    ))
+  # Stage 4 (ADR 0024) v0.3.6+: surface the four new fields with
+  # NULL defaults so pre-Stage-4 fits (those that recorded the
+  # 4-field ADR-0006 trace before v0.3.6 landed) read out with the
+  # same shape downstream tooling sees on v0.3.6+ fits. Construct
+  # a fresh canonical 8-field list with explicit NULL values --
+  # `decision[["x"]] <- NULL` removes the slot rather than setting
+  # it to NULL, which would silently drop the field on every read.
+  rejected <- decision$rejected_routes
+  if (is.null(rejected)) rejected <- list()
+  version <- decision$routing_policy_version
+  if (is.null(version)) version <- NA_character_
+  list(
+    backend                = decision$backend,
+    path                   = decision$path,
+    gate_checks            = decision$gate_checks,
+    reason                 = decision$reason,
+    preflight_summary      = decision$preflight_summary,
+    representation_plan    = decision$representation_plan,
+    rejected_routes        = rejected,
+    routing_policy_version = version
+  )
 }

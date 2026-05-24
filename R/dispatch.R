@@ -11,7 +11,317 @@
 # canonical_names() resolution. Per ADR 0006 (decision trace) and
 # ADR 0014 (shared helper extraction).
 #
+# Stage 4 (ADR 0024, v0.3.6): the trace shape gains four new
+# fields (`preflight_summary`, `representation_plan`,
+# `rejected_routes`, `routing_policy_version`); the dispatch
+# threads the `<fb_preflight>` result into `lgm_gate()` so the
+# 11th rule (`memory_feasibility_inla`) can fire on INLA-specific
+# memory infeasibility; and the routing policy is centralised in
+# the `.routing_policy_table` registry below.
+#
 # Internal -- not exported.
+
+# ---------------------------------------------------------------- #
+# Stage 4 (ADR 0024) routing policy + trace helpers                 #
+# ---------------------------------------------------------------- #
+
+# The routing policy version string. Bump when the policy table
+# changes shape (rows added / chosen_backend semantics changed) so
+# every fit object produced under a given policy carries the
+# version that decided its dispatch. Audit-anchor per ADR 0024
+# Decision 1 §`routing_policy_version`.
+.ROUTING_POLICY_VERSION <- "stage4_v1"
+
+
+# .routing_policy_table -- single source of truth for the Stage 4
+# routing policy. Each row encodes one (user_request, gate_outcome,
+# preflight_outcome) tuple and maps to the chosen backend plus a
+# canonical reason code from the fixed vocabulary. The table is
+# internal-only (no @export); the dispatch logic queries it via
+# `.resolve_routing()`.
+#
+# NA values in the key columns mean "any value" (a wildcard match
+# for that input). For example, explicit user requests bypass the
+# gate / preflight columns -- a "greta" / "brms" request matches
+# regardless of gate / preflight outcomes.
+#
+# Reason-code vocabulary:
+#   explicit_greta               -- user requested greta directly.
+#   explicit_brms                -- user requested brms (Stan via brms).
+#   explicit_inla_accept         -- user requested inla; gate accepted.
+#   explicit_inla_gate_refused   -- user requested inla; gate refused
+#                                   (raises rather than fallback).
+#   auto_inla_accept             -- auto + gate accept + INLA available.
+#   auto_inla_unavailable        -- auto + gate accept + INLA missing
+#                                   from .libPaths().
+#   auto_gate_refuse_structural  -- auto + gate refuse on a structural
+#                                   reason (ADR 0017 rules 7-9 or the
+#                                   ADR 0019 verification rule 10).
+#   auto_gate_refuse_memory      -- auto + gate refuse on the
+#                                   ADR 0024 rule 11 (memory_feasibility_inla).
+#   backend_not_activated        -- gretaR slot rejected because the
+#                                   scaffold is dormant at v0.3.x.
+#
+# The table is consulted by `.resolve_routing()`; the actual
+# backend invocation lives in `.dispatch_backend()` below. A
+# divergence between the table-resolved chosen backend and the
+# code-resolved chosen backend surfaces as a test failure in
+# tests/testthat/test-backend-routing-trace.R subtest (n).
+.routing_policy_table <- function() {
+  data.frame(
+    user_request      = c("greta", "brms", "inla",
+                          "inla",
+                          "auto",
+                          "auto",
+                          "auto",
+                          "auto",
+                          "auto"),
+    gate_outcome      = c(NA_character_, NA_character_, "accept",
+                          "refuse",
+                          "accept",
+                          "accept",
+                          "refuse_structural",
+                          "refuse_memory",
+                          "accept"),
+    preflight_outcome = c(NA_character_, NA_character_, NA_character_,
+                          NA_character_,
+                          "clear",
+                          "clear",
+                          NA_character_,
+                          NA_character_,
+                          NA_character_),
+    inla_installed    = c(NA, NA, NA,
+                          NA,
+                          TRUE,
+                          FALSE,
+                          NA,
+                          NA,
+                          NA),
+    chosen_backend    = c("greta", "brms", "inla",
+                          NA_character_,  # explicit-inla refusal raises
+                          "inla",
+                          "greta",
+                          "greta",
+                          "greta",
+                          "greta"),       # auto + accept + skipped preflight
+    reason_code       = c("explicit_greta", "explicit_brms",
+                          "explicit_inla_accept",
+                          "explicit_inla_gate_refused",
+                          "auto_inla_accept",
+                          "auto_inla_unavailable",
+                          "auto_gate_refuse_structural",
+                          "auto_gate_refuse_memory",
+                          "auto_inla_accept"),
+    stringsAsFactors  = FALSE
+  )
+}
+
+
+# .resolve_routing() -- given the three input keys and the
+# environmental flags (INLA install + gretaR activation), returns
+# the canonical chosen_backend + rejected_routes per the
+# `.routing_policy_table`. Used to populate the trace at dispatch
+# time; the actual backend invocation lives in `.dispatch_backend()`
+# below.
+#
+# Returns list with:
+#   $chosen_backend   character(1)
+#   $reason_code      character(1)
+#   $rejected_routes  list of list(backend, reason_code); empty for
+#                     explicit user requests (policy bypassed) per
+#                     ADR 0024 §6(g).
+.resolve_routing <- function(user_request, gate_outcome,
+                              preflight_outcome,
+                              inla_installed,
+                              gretaR_activated) {
+
+  is_explicit <- user_request %in% c("greta", "brms", "inla")
+  table <- .routing_policy_table()
+
+  # Find the matching row -- columns with NA are wildcards.
+  match_row <- function(row) {
+    (is.na(row$user_request)      || row$user_request      == user_request) &&
+    (is.na(row$gate_outcome)      || row$gate_outcome      == (gate_outcome %||% NA_character_)) &&
+    (is.na(row$preflight_outcome) || row$preflight_outcome == (preflight_outcome %||% NA_character_)) &&
+    (is.na(row$inla_installed)    || identical(row$inla_installed, inla_installed))
+  }
+  hits <- vapply(seq_len(nrow(table)),
+                  function(i) match_row(table[i, ]),
+                  logical(1L))
+  if (!any(hits)) {
+    # No policy row matches -- fall back to greta with a generic
+    # reason code. This branch should never fire in production
+    # (the table covers every conceivable tuple); if it does, the
+    # test suite catches it via subtest (n).
+    return(list(
+      chosen_backend  = "greta",
+      reason_code     = "policy_table_no_match_fallback_greta",
+      rejected_routes = list()
+    ))
+  }
+  row <- table[which(hits)[1L], ]
+
+  # Rejected routes: empty for explicit user requests (policy
+  # bypassed); otherwise enumerate the non-chosen backends with
+  # per-backend reason codes derived from the same routing inputs.
+  rejected <- list()
+  if (!is_explicit) {
+    # auto's policy considers {inla, greta, gretaR}; brms never
+    # appears in auto's candidate set per ADR 0024 §3.
+    chosen <- row$chosen_backend
+    candidates <- c("inla", "greta", "gretaR")
+    for (cand in setdiff(candidates, chosen)) {
+      cand_reason <- switch(
+        cand,
+        "inla"   = .inla_rejection_reason(gate_outcome, inla_installed),
+        "greta"  = "not_chosen_by_policy",
+        "gretaR" = if (isTRUE(gretaR_activated)) "not_chosen_by_policy"
+                   else "backend_not_activated"
+      )
+      rejected[[length(rejected) + 1L]] <- list(
+        backend = cand,
+        reason  = cand_reason
+      )
+    }
+  }
+
+  list(
+    chosen_backend  = row$chosen_backend,
+    reason_code     = row$reason_code,
+    rejected_routes = rejected
+  )
+}
+
+
+# Reason code for the INLA rejection in auto's rejected_routes
+# list. Derived from the same inputs that drove the policy row
+# match; surfaces the specific gate / install signal that
+# excluded INLA from the chosen backend on the auto path.
+.inla_rejection_reason <- function(gate_outcome, inla_installed) {
+  if (identical(gate_outcome, "refuse_memory"))
+    return("memory_infeasibility_inla")
+  if (identical(gate_outcome, "refuse_structural"))
+    return("structural_infeasibility_inla")
+  if (isTRUE(inla_installed) || is.na(inla_installed))
+    return("not_chosen_by_policy")
+  "backend_not_installed"
+}
+
+
+# .build_routing_decision() -- canonical 8-field trace constructor.
+# All six dispatch sites in this file build their trace via this
+# helper so the trace shape is uniform. The four existing fields
+# (backend, path, gate_checks, reason) per ADR 0006 are preserved
+# verbatim; the four new fields (preflight_summary, representation_
+# plan, rejected_routes, routing_policy_version) are populated per
+# ADR 0024 Decision 1.
+.build_routing_decision <- function(backend, path, gate_checks, reason,
+                                     preflight_summary      = NULL,
+                                     representation_plan    = NULL,
+                                     rejected_routes        = list(),
+                                     routing_policy_version =
+                                       .ROUTING_POLICY_VERSION) {
+  list(
+    backend                = backend,
+    path                   = path,
+    gate_checks            = gate_checks,
+    reason                 = reason,
+    preflight_summary      = preflight_summary,
+    representation_plan    = representation_plan,
+    rejected_routes        = rejected_routes,
+    routing_policy_version = routing_policy_version
+  )
+}
+
+
+# .representation_plan_from_preflight() -- slim per-term plan
+# derived from the `<fb_preflight>` per_term_estimate slot. Per
+# ADR 0024 §6(b), one entry per IR term with the representation
+# class + a one-line justification. The full preflight per-term
+# entries remain available on $preflight_summary; this slim
+# representation surfaces the chosen-class summary for trace
+# consumers.
+.representation_plan_from_preflight <- function(preflight) {
+  if (is.null(preflight) || is.null(preflight$per_term_estimate))
+    return(NULL)
+  per_term <- preflight$per_term_estimate
+  out <- lapply(names(per_term), function(label) {
+    entry <- per_term[[label]]
+    list(
+      term_id              = label,
+      representation_class = entry$representation_class %||% NA_character_,
+      justification        = .representation_justification(entry)
+    )
+  })
+  names(out) <- names(per_term)
+  out
+}
+
+.representation_justification <- function(entry) {
+  if (isTRUE(entry$unknown_representation))
+    return("representation not characterised by preflight estimator")
+  bytes <- entry$design_memory_bytes %||% NA_real_
+  if (is.na(bytes))
+    return("byte estimate unavailable")
+  if (isTRUE(entry$aggregated_likelihood_candidate))
+    sprintf("indexed (%.1f MB); aggregation-eligible", bytes / 1024^2)
+  else
+    sprintf("indexed (%.1f MB)", bytes / 1024^2)
+}
+
+
+# .check_approximate_scheme() -- entry-function guard called from
+# `flexybayes()` and `fb_brms()` BEFORE match.arg(backend) so
+# approximate-scheme requests refuse with a structured ADR-0027
+# pointer rather than match.arg's generic "should be one of" error.
+# Per ADR 0024 §3 last bullet + §6(h).
+#
+# Pattern: any backend name containing "approximate" (case-
+# insensitive) or matching ^variational_ is considered an
+# approximate-scheme request. Catches the ADR's named examples
+# (inla_pardiso_approximate, variational_advi) plus future
+# `approximate_<scheme>` shapes.
+.check_approximate_scheme <- function(backend) {
+  if (!is.character(backend) || length(backend) == 0L)
+    return(invisible(NULL))
+  # User may pass `c("greta", "inla", "auto")` (the default arg
+  # list) -- only the actual single-value selection matters.
+  # Inspect every element defensively.
+  for (b in backend) {
+    if (is.na(b) || !nzchar(b)) next
+    looks_approximate <- grepl("approximate", b, ignore.case = TRUE,
+                                fixed = FALSE) ||
+                          grepl("^variational_", b)
+    if (!looks_approximate) next
+    cond <- structure(
+      class = c("flexybayes_approximate_route_refusal", "error",
+                "condition"),
+      list(
+        message = paste0(
+          "backend = \"", b, "\": approximate-scheme dispatch is ",
+          "not yet registered (reason_code = ",
+          "approximate_route_not_yet_registered).\n",
+          "Stage 6 / ADR 0027 ships the approximation registry; ",
+          "until that lands, the routing layer refuses any backend ",
+          "name carrying an exactness label of \"approximate_<scheme>\".\n",
+          "The package's identity rests on exactness labelling (per ",
+          "Stage 3A / ADR 0022); silently routing an approximate ",
+          "request would violate that contract.\n",
+          "Re-route via backend = \"greta\" (full MCMC; \"exact\"), ",
+          "backend = \"inla\" (Laplace; \"exact\"), or ",
+          "backend = \"brms\" (Stan via brms; \"exact\")."),
+        call = NULL,
+        backend     = b,
+        reason_code = "approximate_route_not_yet_registered"
+      )
+    )
+    stop(cond)
+  }
+  invisible(NULL)
+}
+
+
+# ---------------------------------------------------------------- #
 
 .dispatch_backend <- function(fb,
                               data,
@@ -65,7 +375,15 @@
   # with a structured error if any term's design-memory estimate
   # exceeds the active ceiling. The refusal short-circuits dispatch
   # before any backend code runs.
-  .maybe_preflight(fb = fb, data = data, the_call = the_call)
+  # Stage 4 (ADR 0024, v0.3.6): the preflight return is captured
+  # and threaded into lgm_gate(fb, preflight) below so the 11th
+  # rule (memory_feasibility_inla) can fire on INLA-specific
+  # memory infeasibility. .maybe_preflight() still raises on the
+  # hard-ceiling refusal (backward compat for test-fb-preflight-
+  # dispatch.R); the soft INLA-only ceiling is handled by the gate
+  # rule.
+  preflight_result <- .maybe_preflight(fb = fb, data = data,
+                                        the_call = the_call)
 
   # Stage 3A aggregated-gaussian gate (ADR 0022). Consumes the
   # `<fb_aggregation_plan>` if the user opted in (aggregate = "auto"
@@ -134,13 +452,19 @@
     )
     if (return_code) return(fit)
     if (!is.null(fit$extras)) {
-      fit$extras$backend_decision <- list(
+      # Stage 4 (ADR 0024): explicit-brms request bypasses the
+      # policy; rejected_routes is empty per §6(g).
+      fit$extras$backend_decision <- .build_routing_decision(
         backend     = "brms",
         path        = "explicit_brms",
         gate_checks = NULL,
         reason      = paste0("user requested brms explicitly ",
                               "(Stan passthrough; lgm_gate() not ",
-                              "consulted on this path).")
+                              "consulted on this path)."),
+        preflight_summary   = preflight_result,
+        representation_plan =
+          .representation_plan_from_preflight(preflight_result),
+        rejected_routes     = list()
       )
       fit$extras$fb_terms <- fb
       if (!is.null(fb_dataset_meta_for_fit))
@@ -151,8 +475,16 @@
   }
 
   decision <- NULL
+  inla_installed <- requireNamespace("INLA", quietly = TRUE)
+  gretaR_activated <- isTRUE(getOption("flexyBayes.gretaR_activated",
+                                        FALSE))
   if (backend %in% c("inla", "auto")) {
-    gated <- lgm_gate(fb)
+    # Stage 4 (ADR 0024): gate receives preflight so the 11th rule
+    # (memory_feasibility_inla) can fire on INLA-specific memory
+    # infeasibility. preflight is NULL below the 1e5-row threshold;
+    # the rule then trivially passes per its v0.3.5 backward-
+    # compatible default.
+    gated <- lgm_gate(fb, preflight = preflight_result)
 
     if (is_lgm_refusal(gated)) {
       if (backend == "inla") {
@@ -162,6 +494,9 @@
              call. = FALSE)
       }
       primary <- gated$failures[[1L]]
+      # Distinguish memory vs structural refusal for routing trace.
+      is_memory <- identical(primary$rule_id, "memory_feasibility_inla")
+      gate_outcome <- if (is_memory) "refuse_memory" else "refuse_structural"
       if (!isTRUE(getOption(
             "flexyBayes.silence_auto_fallback_note", FALSE)))
         message("backend = \"auto\": lgm_gate() refused (",
@@ -169,15 +504,27 @@
                 "); falling back to greta. Pass backend = ",
                 "\"greta\" to silence, or backend = \"inla\" ",
                 "to force the refusal as an error.")
-      decision <- list(
+      routing <- .resolve_routing(
+        user_request      = "auto",
+        gate_outcome      = gate_outcome,
+        preflight_outcome = NA_character_,
+        inla_installed    = inla_installed,
+        gretaR_activated  = gretaR_activated
+      )
+      decision <- .build_routing_decision(
         backend     = "greta",
-        path        = "auto_lgm_refuse",
+        path        = if (is_memory) "auto_lgm_refuse_memory"
+                      else "auto_lgm_refuse",
         gate_checks = gated$failures,
         reason      = paste0("lgm_gate() refused (",
-                             primary$rule_id, "); auto fell back to greta.")
+                             primary$rule_id, "); auto fell back to greta."),
+        preflight_summary   = preflight_result,
+        representation_plan =
+          .representation_plan_from_preflight(preflight_result),
+        rejected_routes     = routing$rejected_routes
       )
     } else {
-      if (!requireNamespace("INLA", quietly = TRUE)) {
+      if (!inla_installed) {
         if (backend == "auto") {
           if (!isTRUE(getOption(
                 "flexyBayes.silence_auto_inla_missing_note", FALSE)))
@@ -187,18 +534,28 @@
                     "fast path. Silence via ",
                     "options(flexyBayes.silence_auto_inla_missing_note ",
                     "= TRUE).")
-          decision <- list(
+          routing <- .resolve_routing(
+            user_request      = "auto",
+            gate_outcome      = "accept",
+            preflight_outcome = "clear",
+            inla_installed    = FALSE,
+            gretaR_activated  = gretaR_activated
+          )
+          decision <- .build_routing_decision(
             backend     = "greta",
             path        = "auto_inla_unavailable",
             gate_checks = gated$capabilities,
-            reason      = "lgm_gate() accepted; INLA not installed; routed to greta."
+            reason      = "lgm_gate() accepted; INLA not installed; routed to greta.",
+            preflight_summary   = preflight_result,
+            representation_plan =
+              .representation_plan_from_preflight(preflight_result),
+            rejected_routes     = routing$rejected_routes
           )
         }
       }
 
       if (backend == "inla" ||
-          (backend == "auto" &&
-           requireNamespace("INLA", quietly = TRUE))) {
+          (backend == "auto" && inla_installed)) {
         # ADR 0017: with the gate folded around emit_inla()'s
         # structural refusals, lgm_gate(fb) == accept is a
         # sufficient condition for .build_inla_formula(gated) to
@@ -226,11 +583,24 @@
         )
         if (return_code) return(fit)
         if (!is.null(fit$extras)) {
-          fit$extras$backend_decision <- list(
+          inla_routing <- if (backend == "auto")
+            .resolve_routing(
+              user_request      = "auto",
+              gate_outcome      = "accept",
+              preflight_outcome = "clear",
+              inla_installed    = TRUE,
+              gretaR_activated  = gretaR_activated)
+            else
+              list(rejected_routes = list())  # explicit inla bypass
+          fit$extras$backend_decision <- .build_routing_decision(
             backend     = "inla",
             path        = if (backend == "auto") "auto_accept" else "explicit_inla_accept",
             gate_checks = gated$capabilities,
-            reason      = "lgm_gate() accepted; INLA dispatch."
+            reason      = "lgm_gate() accepted; INLA dispatch.",
+            preflight_summary   = preflight_result,
+            representation_plan =
+              .representation_plan_from_preflight(preflight_result),
+            rejected_routes     = inla_routing$rejected_routes
           )
           fit$extras$fb_terms <- gated
           if (!is.null(fb_dataset_meta_for_fit))
@@ -241,11 +611,16 @@
       }
     }
   } else {
-    decision <- list(
+    # Explicit greta request -- policy bypassed per ADR 0024 §6(g).
+    decision <- .build_routing_decision(
       backend     = "greta",
       path        = "explicit_greta",
       gate_checks = NULL,
-      reason      = "user requested greta explicitly (no gate run)."
+      reason      = "user requested greta explicitly (no gate run).",
+      preflight_summary   = preflight_result,
+      representation_plan =
+        .representation_plan_from_preflight(preflight_result),
+      rejected_routes     = list()
     )
   }
 
@@ -412,13 +787,25 @@
 
   fit$exactness <- "aggregated_exact"
   if (!is.null(fit$extras)) {
-    fit$extras$backend_decision <- list(
+    # Stage 4 (ADR 0024): the aggregated-gaussian path's chosen
+    # backend was already resolved by .agg_resolve_backend()
+    # above; rejected_routes is empty (the aggregation gate
+    # itself bypasses the routing policy table -- per ADR 0022
+    # this is its own dispatch path). preflight is NULL here
+    # because aggregation runs upstream of the >1e5 preflight
+    # threshold in practice; if invoked under the metadata-only
+    # path the slot stays NULL and reproducibility checks treat
+    # it as legitimately absent.
+    fit$extras$backend_decision <- .build_routing_decision(
       backend     = eff_backend,
       path        = "aggregated_gaussian",
       gate_checks = NULL,
       reason      = sprintf(
         "aggregation plan eligible (N = %d, K = %d, ratio = %.2f:1)",
-        plan$N, plan$K_est, plan$N / plan$K_est)
+        plan$N, plan$K_est, plan$N / plan$K_est),
+      preflight_summary   = NULL,
+      representation_plan = NULL,
+      rejected_routes     = list()
     )
     fit$extras$fb_terms <- fb
   }
