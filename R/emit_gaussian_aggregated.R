@@ -674,7 +674,12 @@ emit_gaussian_aggregated <- function(fb,
       variance_comps  = posterior_summary$variance_comps,
       run_time        = elapsed,
       parse_info      = list(
-        fixed   = fb$fixed_terms,
+        # Mirror emit_greta()'s fixed-info shape so confint /
+        # summary / methods.R downstream consumers see the same
+        # `list(response, intercept, terms)` structure.
+        fixed   = list(response  = fb$response,
+                        intercept = fb$intercept,
+                        terms     = fb$fixed_terms),
         random  = fb$random_terms,
         rcov    = fb$rcov_terms,
         family  = list(family = fb$family,
