@@ -156,8 +156,12 @@ yield ~ env + I(x^2)         # expression terms
 # Random effects
 random = ~ geno                       # simple iid
 random = ~ block:rep                  # nested
-random = ~ vm(geno, Gmat)             # GBLUP (genomic)
+random = ~ vm(geno, Gmat)             # GBLUP (dense V; both backends)
+random = ~ vm(geno, chol = L)         # user-supplied Cholesky (greta only; v0.3.7+)
+random = ~ vm(geno, precision = Q)    # sparse precision (BYM2-ready; INLA preferred; v0.3.7+)
 random = ~ ped(animal, Amat)          # pedigree (animal model)
+random = ~ ped(animal, A_inv,
+               use_sparse_precision = TRUE)  # sparse pedigree precision (v0.3.7+)
 random = ~ at(env):geno               # diagonal GxE
 random = ~ us(env):id(geno)           # unstructured GxE
 random = ~ fa(env, 2):id(geno)        # factor-analytic GxE

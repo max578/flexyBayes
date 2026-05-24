@@ -99,13 +99,18 @@
 #'   Aggregated-gaussian sufficient-statistics gate. `"auto"`
 #'   consults the aggregation plan and routes through the per-cell
 #'   emit path when the IR is in scope (gaussian-identity, fixed +
-#'   random-intercept, productive compression); falls through to the
-#'   per-row path otherwise. `TRUE` forces aggregation -- raises a
-#'   structured refusal when the plan declares ineligibility.
-#'   `FALSE` skips the gate entirely. Both `backend = "inla"` and
-#'   `backend = "greta"` support the aggregated path. Aggregated fits
-#'   carry `$exactness == "aggregated_exact"` and the dispatch trace's
-#'   `path` slot reads `"aggregated_gaussian"`.
+#'   random-intercept, productive compression) **on `backend = "inla"`**;
+#'   on `backend = "greta"`, `"auto"` falls through to the per-row
+#'   path even when the plan is eligible (`TRUE` is required to
+#'   activate the greta aggregated emit explicitly). `TRUE` forces
+#'   aggregation on either backend -- raises a structured refusal
+#'   when the plan declares ineligibility. `FALSE` skips the gate
+#'   entirely. Aggregated fits carry `$exactness == "aggregated_exact"`
+#'   and the dispatch trace's `path` slot reads `"aggregated_gaussian"`.
+#'   The asymmetry is documented behaviour rather than a bug: greta
+#'   uses dense-matrix per-row emit by default for predictable RAM,
+#'   and switching to the aggregated path silently would change the
+#'   posterior numerical profile without an explicit opt-in.
 #'
 #' @return An object of class `"flexybayes"` — a list with three components:
 #' \describe{

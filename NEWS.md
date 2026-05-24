@@ -226,15 +226,21 @@ Pre-existing prediction grids are not overwritten: if
 `output_file` already exists, `predict()` raises a structured
 stop suggesting `unlink()` rather than overwriting silently.
 
-The posterior intervals follow standard posterior-predictive
-quantile semantics (Gelman et al. 2013, Bayesian Data Analysis,
-section 15): the linear predictor is evaluated under each
-retained posterior draw, the link inverse is applied per draw,
-and `point` / `lower` / `upper` are read off the rowwise mean
-and 2.5% / 97.5% quantiles. Chunked vs unchunked file output is
-equivalent at floating-point precision; BLAS non-associativity
-at the matrix-size boundary introduces ULP-level differences
-(~2e-16) but no numerically meaningful drift.
+The posterior intervals follow posterior expected-response
+quantile semantics (mirrors `brms::posterior_epred()`; Gelman et al.
+2013, *Bayesian Data Analysis*, section 15.4 on linear-predictor
+posteriors): the linear predictor is evaluated under each retained
+posterior draw, the link inverse is applied per draw, and `point` /
+`lower` / `upper` are read off the rowwise mean and 2.5% / 97.5%
+quantiles. **These are intervals on the expected response, not
+posterior-predictive intervals** — they do not include residual
+observation noise. For full posterior-predictive intervals
+(observation noise included), route the in-memory draws through
+external tooling such as `brms::posterior_predict()` on a refit, or
+add a residual-noise draw per row using `fit$sigma`. Chunked vs
+unchunked file output is equivalent at floating-point precision;
+BLAS non-associativity at the matrix-size boundary introduces
+ULP-level differences (~2e-16) but no numerically meaningful drift.
 
 **`allow_new_levels = "sample"` is now active.** The label was
 stable at 0.3.4; the implementation ships here. Unknown factor

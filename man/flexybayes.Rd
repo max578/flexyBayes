@@ -163,13 +163,18 @@ structured refusal until INLA-side \code{code}-slot support lands.}
 Aggregated-gaussian sufficient-statistics gate. \code{"auto"}
 consults the aggregation plan and routes through the per-cell
 emit path when the IR is in scope (gaussian-identity, fixed +
-random-intercept, productive compression); falls through to the
-per-row path otherwise. \code{TRUE} forces aggregation -- raises a
-structured refusal when the plan declares ineligibility.
-\code{FALSE} skips the gate entirely. Both \code{backend = "inla"} and
-\code{backend = "greta"} support the aggregated path. Aggregated fits
-carry \verb{$exactness == "aggregated_exact"} and the dispatch trace's
-\code{path} slot reads \code{"aggregated_gaussian"}.}
+random-intercept, productive compression) \strong{on \code{backend = "inla"}};
+on \code{backend = "greta"}, \code{"auto"} falls through to the per-row
+path even when the plan is eligible (\code{TRUE} is required to
+activate the greta aggregated emit explicitly). \code{TRUE} forces
+aggregation on either backend -- raises a structured refusal
+when the plan declares ineligibility. \code{FALSE} skips the gate
+entirely. Aggregated fits carry \verb{$exactness == "aggregated_exact"}
+and the dispatch trace's \code{path} slot reads \code{"aggregated_gaussian"}.
+The asymmetry is documented behaviour rather than a bug: greta
+uses dense-matrix per-row emit by default for predictable RAM,
+and switching to the aggregated path silently would change the
+posterior numerical profile without an explicit opt-in.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:
