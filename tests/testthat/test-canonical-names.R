@@ -79,9 +79,14 @@ test_that("canonical_names() on a greta fit translates asreml-emit names", {
 test_that("canonical_names() on an INLA fit translates Precision-for and attaches sqrt(1/prec)", {
   testthat::skip_if_not_installed("INLA")
   d <- mk_canon_data()
+  # aggregate = FALSE: this test exercises the per-row INLA fit's
+  # hyperparameter naming; the Stage 3A aggregated path (ADR 0022)
+  # uses a different fit-object shape (no `$inla$summary.hyperpar`
+  # of the per-row form). Aggregated-path canonical-name coverage
+  # ships with Phase C tests.
   fit <- suppressMessages(flexybayes(
     yield ~ env, random = ~ geno, data = d,
-    backend = "inla", verbose = FALSE
+    backend = "inla", aggregate = FALSE, verbose = FALSE
   ))
   cn <- canonical_names(fit)
 

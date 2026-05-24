@@ -172,10 +172,12 @@ fb_brms <- function(formula,
                     verbose        = TRUE,
                     mcmc_verbose   = TRUE,
                     return_code    = FALSE,
-                    review_code    = FALSE) {
+                    review_code    = FALSE,
+                    aggregate      = "auto") {
 
   # ----- 0. Validate ------------------------------------------------
-  backend <- match.arg(backend)
+  backend   <- match.arg(backend)
+  aggregate <- .normalise_aggregate(aggregate)
 
   if (missing(formula))
     stop("`formula` is required: a brms-style two-sided formula.",
@@ -445,6 +447,7 @@ fb_brms <- function(formula,
     rcov           = rcov_form,
     family         = family,
     link           = link,
-    data_name      = data_name
+    data_name      = data_name,
+    aggregate      = aggregate
   )
 }

@@ -92,9 +92,15 @@ test_that("backend = 'greta' records the explicit-greta trace", {
 test_that("backend = 'auto' routes a Gaussian random-intercept model to INLA", {
   testthat::skip_if_not_installed("INLA")
   d <- mk_lgm_data()
+  # aggregate = FALSE: scope the test to the per-row INLA dispatch
+  # path. The Stage 3A aggregated-gaussian gate (ADR 0022, v0.3.2)
+  # would otherwise auto-route this LGM-compatible model to the
+  # aggregated emit (path = "aggregated_gaussian") and short-circuit
+  # the lgm_gate call. Aggregated-path coverage lives in
+  # test-emit-gaussian-aggregated.R.
   fit <- suppressMessages(flexybayes(
     yield ~ env, random = ~ geno, data = d,
-    backend = "auto", verbose = FALSE
+    backend = "auto", aggregate = FALSE, verbose = FALSE
   ))
   bd <- backend_decision(fit)
   expect_identical(bd$backend, "inla")

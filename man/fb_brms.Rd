@@ -21,7 +21,8 @@ fb_brms(
   verbose = TRUE,
   mcmc_verbose = TRUE,
   return_code = FALSE,
-  review_code = FALSE
+  review_code = FALSE,
+  aggregate = "auto"
 )
 }
 \arguments{

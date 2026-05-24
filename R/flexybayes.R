@@ -87,6 +87,20 @@
 #'   only; combining with `backend = "inla"` / `"auto"` raises a
 #'   structured refusal until INLA-side `code`-slot support lands.
 #'
+#' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
+#'   Stage 3A (ADR 0022, v0.3.2) aggregated-gaussian gate. `"auto"`
+#'   consults `.fb_aggregation_plan()` and routes through the
+#'   sufficient-statistics emit path when the IR is in scope
+#'   (gaussian-identity, fixed + random-intercept, productive
+#'   compression); falls through to the per-row path otherwise.
+#'   `TRUE` forces aggregation -- raises a structured refusal when
+#'   the plan declares ineligibility. `FALSE` skips the gate
+#'   entirely. At v0.3.2 the aggregated path is INLA-only; greta
+#'   aggregation is deferred to v0.3.3 (the spike confirms algebraic
+#'   viability; the package wiring needs a non-`eval()` codegen
+#'   pattern). Aggregated fits carry `$exactness == "aggregated_exact"`
+#'   and the dispatch trace's `path` slot reads `"aggregated_gaussian"`.
+#'
 #' @return An object of class `"flexybayes"` — a list with three components:
 #' \describe{
 #'   \item{`$glm`}{A GLM-compatible object (class `c("flexybayes_glm", "glm",
@@ -150,9 +164,11 @@ flexybayes <- function(
     mcmc_verbose     = TRUE,
     return_code      = FALSE,
     review_code      = FALSE,
-    backend          = c("greta", "inla", "auto")
+    backend          = c("greta", "inla", "auto"),
+    aggregate        = "auto"
 ) {
-  backend <- match.arg(backend)
+  backend   <- match.arg(backend)
+  aggregate <- .normalise_aggregate(aggregate)
 
   # Defer the greta package check to the emit-greta branch. For
   # backend = "inla" we don't need greta installed; for backend =
@@ -385,7 +401,8 @@ flexybayes <- function(
     rcov           = rcov,
     family         = family,
     link           = link,
-    data_name      = data_name
+    data_name      = data_name,
+    aggregate      = aggregate
   )
 }
 
