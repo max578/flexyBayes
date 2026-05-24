@@ -1,7 +1,8 @@
-# predict_chunked.R -- Stage 3B core (ADR 0023 Decisions 1, 2, 3).
+# predict_chunked.R -- Stage 3B core (ADR 0023 Decisions 1, 2, 3) +
+# Stage 3B file-output (ADR 0023 Decision 4) "sample" activation.
 #
-# Three internal helpers driving the v0.3.4 extensions on
-# predict.flexybayes():
+# Three internal helpers driving the v0.3.4 core + v0.3.5
+# sample-activation extensions on predict.flexybayes():
 #
 #   .predict_resolve_factors(newdata, fb_dataset, allow_new_levels)
 #     Decision 1: dictionary-backed factor handling. Coerces each
@@ -18,8 +19,16 @@
 #                         maps to NA in the model.matrix() expansion.
 #       - "refuse"     -- structured stop naming column + first 5
 #                         unknown levels + total count.
-#       - "sample"     -- structured stop with a v0.3.5 forward
-#                         pointer (reserved label per ADR 0023).
+#       - "sample"     -- coerce to NA (same as "population") and
+#                         attach attr(newdata, "sample_re_summary")
+#                         carrying the unknown-row index information
+#                         so downstream .predict_per_draw() can
+#                         layer a sampled random-effect realisation
+#                         onto the linear predictor for unknown
+#                         rows. No warning fires (sampling is the
+#                         requested semantics, not a fallback).
+#                         Activated at v0.3.5 (was reserved at
+#                         v0.3.4 with a forward-pointer refusal).
 #
 #   .predict_chunked_iterate(object, newdata, chunk_size, ...)
 #     Decision 3: chunk_size iteration. Splits newdata into chunks
@@ -29,8 +38,9 @@
 #     into a single result of the same shape as the all-in-one call.
 #
 # Used by:
-#   - predict.flexybayes() (R/methods.R) -- the new arguments
-#     chunk_size + allow_new_levels route through these helpers.
+#   - predict.flexybayes() (R/methods.R) -- the chunk_size +
+#     allow_new_levels + output_file arguments route through these
+#     helpers.
 #
 # Not exported.
 
@@ -47,17 +57,6 @@
          call. = FALSE)
   }
 
-  if (identical(allow_new_levels, "sample")) {
-    stop("`allow_new_levels = \"sample\"` (fresh random-effect draw ",
-         "per unknown level) is reserved at v0.3.4 -- the label is ",
-         "stable but the implementation is deferred to v0.3.5 with ",
-         "the file-backed prediction output. Pass ",
-         "`allow_new_levels = \"population\"` (collapse unknown ",
-         "levels to the population-level prediction) or ",
-         "`\"refuse\"` (stop on first unknown level) at v0.3.4.",
-         call. = FALSE)
-  }
-
   unknown_summary <- list()
   for (col in intersect(names(fb_dataset$dictionaries),
                          names(newdata))) {
@@ -70,7 +69,8 @@
       unknown_levels <- unique(col_vals[unknown_idx])
       unknown_summary[[col]] <- list(
         n_rows         = length(unknown_idx),
-        unknown_levels = unknown_levels
+        unknown_levels = unknown_levels,
+        row_indices    = unknown_idx
       )
 
       if (identical(allow_new_levels, "refuse")) {
@@ -85,13 +85,13 @@
              paste(show, collapse = ", "), ".",
              call. = FALSE)
       }
-      # "population" branch: set unknown-level rows to NA in this
-      # column. Downstream model.matrix() drops NA rows from the
-      # design matrix (na.action default); the predict body fills
-      # the corresponding prediction slots with NA. The result
-      # surfaces unknown rows as NA rather than silently producing
-      # a population-baseline number; the call attribute below
-      # carries the count for caller introspection.
+      # "population" and "sample" branches both set unknown rows to
+      # NA in this column. Downstream model.matrix() drops NA rows
+      # from the design matrix (na.action default); the predict
+      # body fills the corresponding prediction slots with NA. For
+      # "sample", the sample_re_summary attribute below carries the
+      # row indices so downstream per-draw computation can add a
+      # sampled RE realisation per unknown row.
       col_vals[unknown_idx] <- NA_character_
     }
 
@@ -102,16 +102,31 @@
     total_rows <- sum(vapply(unknown_summary,
                               function(x) x$n_rows, integer(1L)))
     n_cols <- length(unknown_summary)
-    warning("predict.flexybayes(allow_new_levels = \"",
-            allow_new_levels, "\"): ", total_rows,
-            " row(s) carry unknown factor level(s) across ",
-            n_cols, " column(s) (", paste(names(unknown_summary),
-            collapse = ", "), "); set to NA. ",
-            "Population-level prediction returns NA for these rows. ",
-            "Pass `allow_new_levels = \"refuse\"` to stop ",
-            "explicitly on unknown levels.",
-            call. = FALSE)
-    attr(newdata, "n_unknown_levels") <- unknown_summary
+
+    if (identical(allow_new_levels, "sample")) {
+      # No warning -- sampling is the requested semantics. The
+      # downstream per-draw computation (R/predict_posterior.R)
+      # reads the attribute and adds a fresh
+      # Normal(0, tau_<col>_per_draw) realisation per unknown row
+      # per draw.
+      attr(newdata, "sample_re_summary") <- unknown_summary
+    } else {
+      # "population" branch: surface the count via warning + a
+      # caller-introspectable attribute. Population-level
+      # prediction returns NA for these rows.
+      warning("predict.flexybayes(allow_new_levels = \"",
+              allow_new_levels, "\"): ", total_rows,
+              " row(s) carry unknown factor level(s) across ",
+              n_cols, " column(s) (", paste(names(unknown_summary),
+              collapse = ", "), "); set to NA. ",
+              "Population-level prediction returns NA for these rows. ",
+              "Pass `allow_new_levels = \"refuse\"` to stop ",
+              "explicitly on unknown levels, or ",
+              "`allow_new_levels = \"sample\"` to layer a sampled ",
+              "random-effect realisation onto each unknown row.",
+              call. = FALSE)
+      attr(newdata, "n_unknown_levels") <- unknown_summary
+    }
   }
 
   newdata

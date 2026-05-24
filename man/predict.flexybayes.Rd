@@ -11,6 +11,9 @@
   se.fit = FALSE,
   chunk_size = NULL,
   allow_new_levels = c("population", "sample", "refuse"),
+  output_file = NULL,
+  format = c("auto", "csv", "rds", "fst"),
+  interop = FALSE,
   ...
 )
 }
@@ -39,18 +42,51 @@ that are not in the fit-time dictionary (Stage 3B; ADR 0023
 Decision 2). \code{"population"} sets unknown-level rows to NA on the
 affected column and emits a warning naming the count; downstream
 prediction returns NA for these rows. \code{"refuse"} raises a
-structured stop on the first unknown level. \code{"sample"} (fresh
-random-effect draw per unknown level) is reserved at v0.3.4 --
-the label is stable but the implementation is deferred to v0.3.5
-alongside the file-backed prediction output. Only consulted when
-the fit carries an \code{extras$fb_dataset} slot (fits produced under
-v0.3.4+); legacy fits skip dictionary resolution entirely.}
+structured stop on the first unknown level. \code{"sample"} (active
+since v0.3.5) layers a fresh \verb{Normal(0, tau_<group>)}
+random-effect realisation onto each unknown row per posterior
+draw -- caller's \code{set.seed()} controls reproducibility. The
+in-memory return reports the posterior-mean prediction
+(sampled-RE contribution averages toward zero across draws);
+the file-backed return (\code{output_file = ...}) captures the
+proper per-row posterior interval reflecting sampled-RE
+uncertainty. Only consulted when the fit carries an
+\code{extras$fb_dataset} slot (fits produced under v0.3.4+); legacy
+fits skip dictionary resolution entirely.}
+
+\item{output_file}{Optional character path. When supplied,
+prediction is written to disk under the format resolved by
+\code{format} (Stage 3B; ADR 0023 Decision 4). The file is a
+tabular structure with columns \code{point}, \code{lower}, \code{upper}
+(95\\% posterior credible bounds), optional \code{se.fit}, plus the
+columns of \code{newdata}. Refuses if \code{output_file} already exists
+(no silent overwrite). Returns the path invisibly. Requires
+a fit with posterior draws on \verb{$greta$draws} (greta-backend
+fits including \code{fb_brms(..., backend = "greta")}); INLA fits
+do not currently expose per-draw access and route to a
+structured refusal. Default \code{NULL} (in-memory return).}
+
+\item{format}{One of \code{"auto"} (default), \code{"csv"}, \code{"rds"}, \code{"fst"}.
+Only consulted when \code{output_file} is supplied. \code{"auto"}
+resolves to: \code{"csv"} when \code{interop = TRUE}; \code{"fst"} when
+\code{nrow(newdata) >= 1e6} and \code{fst} is installed; \code{"rds"}
+otherwise. \code{"fst"} requested without \code{fst} installed raises a
+structured refusal naming the install command. The fst path
+is 30--40x faster than rds at N >= 1e6 per the
+Stage-3B-shape benchmark (\code{benchmark_results/fst_stage3b_2026-05-23}).}
+
+\item{interop}{Logical. When \code{TRUE}, the format-resolution rule
+under \code{format = "auto"} prefers \code{"csv"} (universally readable)
+over rds / fst (R-only / fst-only). Useful for handing the
+prediction grid to a non-R consumer. Default \code{FALSE}. Only
+consulted when \code{output_file} is supplied and \code{format = "auto"}.}
 
 \item{...}{Additional arguments (ignored)}
 }
 \value{
-If \code{se.fit = FALSE}, a numeric vector. If \code{se.fit = TRUE}, a list
-with \code{fit} and \code{se.fit}.
+If \code{output_file} is supplied: invisibly returns the path
+that was written to. Otherwise: if \code{se.fit = FALSE}, a numeric
+vector. If \code{se.fit = TRUE}, a list with \code{fit} and \code{se.fit}.
 }
 \description{
 Predict from a flexybayes model
