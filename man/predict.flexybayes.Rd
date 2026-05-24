@@ -9,6 +9,8 @@
   newdata = NULL,
   type = c("response", "link"),
   se.fit = FALSE,
+  chunk_size = NULL,
+  allow_new_levels = c("population", "sample", "refuse"),
   ...
 )
 }
@@ -21,6 +23,28 @@ fitted values from the original data.}
 \item{type}{\code{"link"} for linear predictor, \code{"response"} for response scale.}
 
 \item{se.fit}{Logical: return standard errors?}
+
+\item{chunk_size}{Optional integer. When supplied, and when
+\code{newdata} has more rows than \code{chunk_size}, prediction iterates
+over chunks of this size and concatenates the results. Default
+\code{NULL} preserves the single-pass behaviour. Per-chunk prediction
+uses the same factor-level dictionary so \code{chunk_size} does not
+change the numerical output -- only the wall-time and peak
+memory profile. A typical setting at large \code{newdata} is
+\code{chunk_size = 10000L}.}
+
+\item{allow_new_levels}{One of \code{"population"} (default), \code{"sample"},
+or \code{"refuse"}. Policy for handling factor levels in \code{newdata}
+that are not in the fit-time dictionary (Stage 3B; ADR 0023
+Decision 2). \code{"population"} sets unknown-level rows to NA on the
+affected column and emits a warning naming the count; downstream
+prediction returns NA for these rows. \code{"refuse"} raises a
+structured stop on the first unknown level. \code{"sample"} (fresh
+random-effect draw per unknown level) is reserved at v0.3.4 --
+the label is stable but the implementation is deferred to v0.3.5
+alongside the file-backed prediction output. Only consulted when
+the fit carries an \code{extras$fb_dataset} slot (fits produced under
+v0.3.4+); legacy fits skip dictionary resolution entirely.}
 
 \item{...}{Additional arguments (ignored)}
 }
