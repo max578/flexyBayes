@@ -1,3 +1,46 @@
+# flexyBayes 0.3.4
+
+## Stage 3B (core) -- chunked indexed prediction + factor-dictionary handling
+
+Three new pieces on the `predict.flexybayes(newdata, ...)` surface
+for prediction grids large enough to warrant chunked iteration and
+for cases where `newdata` carries factor levels not seen at fit
+time.
+
+**Dictionary-backed factor handling.** Fits now carry a metadata-
+only `<fb_dataset>` descriptor (frozen factor-level dictionaries
+plus column-type cache) on `fit$extras$fb_dataset`. At
+`predict(newdata)` time, factor columns in `newdata` resolve
+against this dictionary instead of being re-derived from
+`newdata`. The change closes a latent silent-re-levelling
+bug where the v0.3.3 prediction path could permute a random-effect
+contribution under specific `newdata` orderings.
+
+**`allow_new_levels = c("population", "sample", "refuse")`.**
+Policy for factor values in `newdata` that are not in the fit-
+time dictionary. `"population"` (default) coerces unknown-level
+rows to NA on the affected column and emits a warning naming the
+count; downstream prediction returns the population-level
+prediction for those rows. `"refuse"` raises a structured stop on
+the first unknown level, naming the column and (up to five) unknown
+values. `"sample"` (fresh random-effect draw per unknown level) is
+reserved at 0.3.4 -- the label is stable but the implementation
+ships at 0.3.5 alongside the file-backed prediction output.
+
+**`chunk_size` argument.** When supplied and `nrow(newdata) >
+chunk_size`, prediction iterates over chunks of the requested size
+and concatenates the per-chunk results. Default `NULL` preserves
+the single-pass behaviour. `chunk_size` is a wall-time / peak-
+memory knob -- the numerical output is identical to the single-
+pass call. A typical setting at large `newdata` is `chunk_size =
+10000L`.
+
+The file-backed prediction output formats (`format = c("auto",
+"csv", "rds", "fst")` + `output_file` argument) ship together at
+0.3.5; this release covers the in-memory prediction surface only.
+
+---
+
 # flexyBayes 0.3.3
 
 ## Stage 3A -- Gaussian aggregated emit (greta path)

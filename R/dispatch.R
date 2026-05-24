@@ -37,6 +37,17 @@
 
   aggregate <- .normalise_aggregate(aggregate)
 
+  # Stage 3B (ADR 0023) factor-dictionary persistence. Build a
+  # metadata-only <fb_dataset> descriptor at dispatch time so every
+  # exit path can attach it to fit$extras$fb_dataset for downstream
+  # predict.flexybayes(newdata, ...) consumption. Stripping $data
+  # avoids retaining the full training frame on the fit object;
+  # dictionaries + col_types + n_rows are the only fields predict
+  # needs (per Decision 1 of ADR 0023).
+  fb_dataset_meta_for_fit <- tryCatch(
+    .fb_dataset_metadata(.fb_dataset(data)),
+    error = function(e) NULL)
+
   # gretaR slot: dormant in v0.2. The branch is unreachable from
   # user-facing entries (their match.arg excludes "gretaR") but
   # reachable from internal callers + the test suite. v0.3
@@ -85,7 +96,11 @@
       link           = link,
       data_name      = data_name
     )
-    if (!is.null(agg_fit)) return(agg_fit)
+    if (!is.null(agg_fit)) {
+      if (!is.null(agg_fit$extras) && !is.null(fb_dataset_meta_for_fit))
+        agg_fit$extras$fb_dataset <- fb_dataset_meta_for_fit
+      return(agg_fit)
+    }
   }
 
   # Stan passthrough via brms. Opt-in only -- backend = "auto" never
@@ -128,6 +143,8 @@
                               "consulted on this path).")
       )
       fit$extras$fb_terms <- fb
+      if (!is.null(fb_dataset_meta_for_fit))
+        fit$extras$fb_dataset <- fb_dataset_meta_for_fit
     }
     fit$exactness <- "exact"
     return(fit)
@@ -216,6 +233,8 @@
             reason      = "lgm_gate() accepted; INLA dispatch."
           )
           fit$extras$fb_terms <- gated
+          if (!is.null(fb_dataset_meta_for_fit))
+            fit$extras$fb_dataset <- fb_dataset_meta_for_fit
         }
         fit$exactness <- "exact"
         return(fit)
@@ -263,6 +282,8 @@
     if (!is.null(decision))
       fit$extras$backend_decision <- decision
     fit$extras$fb_terms <- fb
+    if (!is.null(fb_dataset_meta_for_fit))
+      fit$extras$fb_dataset <- fb_dataset_meta_for_fit
   }
   if (!isTRUE(return_code)) fit$exactness <- "exact"
   fit

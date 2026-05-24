@@ -208,6 +208,25 @@ print.fb_dataset <- function(x, ...) {
   NA_character_
 }
 
+# Strip the `$data` slot off a data-backed <fb_dataset>, returning a
+# metadata-only descriptor (dictionaries + col_types + n_rows
+# preserved; origin tagged metadata-only). Used by .dispatch_backend()
+# to persist the dataset descriptor on the fit object's extras slot
+# without retaining the full training data.frame. Stage 3B (ADR 0023)
+# consumer: predict.flexybayes(newdata, ...) reads the persisted
+# dictionaries to resolve factor levels in newdata against the fit-
+# time codes (Decision 1; closes the latent silent-re-levelling bug).
+.fb_dataset_metadata <- function(ds) {
+  if (!inherits(ds, "fb_dataset"))
+    stop(".fb_dataset_metadata() expects an <fb_dataset>; got: ",
+         paste(class(ds), collapse = "/"), call. = FALSE)
+  if (identical(ds$origin, "metadata-only")) return(ds)
+  .fb_dataset(data         = NULL,
+              n_rows       = ds$n_rows,
+              col_types    = as.list(ds$col_types),
+              dictionaries = ds$dictionaries)
+}
+
 # Predicate -- is the dataset wrapper a metadata-only descriptor?
 # Used by the preflight stress test to assert no row-wise read
 # happens on the 1e8-row descriptor path.
