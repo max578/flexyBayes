@@ -30,7 +30,7 @@
 # every fit object produced under a given policy carries the
 # version that decided its dispatch. Audit-anchor per ADR 0024
 # Decision 1 §`routing_policy_version`.
-.ROUTING_POLICY_VERSION <- "stage4_v1"
+.ROUTING_POLICY_VERSION <- "stage5a_v1"
 
 
 # .routing_policy_table -- single source of truth for the Stage 4
@@ -569,17 +569,18 @@
         # feasibility (also surfaces directly so the user sees
         # the true diagnostic instead of a silent greta fit).
         fit <- emit_inla(
-          fb        = gated,
-          data      = data,
-          verbose   = verbose,
-          return_code = return_code,
-          the_call  = the_call,
-          fixed     = fixed,
-          random    = random,
-          rcov      = rcov,
-          family    = family,
-          link      = link,
-          data_name = data_name
+          fb             = gated,
+          data           = data,
+          known_matrices = known_matrices,
+          verbose        = verbose,
+          return_code    = return_code,
+          the_call       = the_call,
+          fixed          = fixed,
+          random         = random,
+          rcov           = rcov,
+          family         = family,
+          link           = link,
+          data_name      = data_name
         )
         if (return_code) return(fit)
         if (!is.null(fit$extras)) {

@@ -606,43 +606,78 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("fixed_term_type_inla")
 }
 
-# Check 8 -- Random-term type allowlist for the INLA emit path.
+# Check 8 -- Random-term type / format allowlist for the INLA
+# emit path.
 #
 # emit_inla()'s random-effect switch() recognises simple / ide /
-# id (mapped to INLA "iid") and spline (mapped to INLA "rw2").
-# Structured-covariance forms (vm / ped / at / us / fa / ar1 and
-# variants) are not currently translatable to an INLA f() call
-# without an SPDE / kronecker / spde2 expansion that the v0.2
-# emit does not produce. These re-route to greta; the refusal
-# names the structured-cov class.
+# id (mapped to INLA "iid"), spline (mapped to INLA "rw2"), and
+# simple_slope_uncor (mapped via the ADR 0020 §3.4 verification
+# gate). ADR 0025 Phase B-inla adds vm / ped *conditionally*: the
+# precision and pedigree_sparse_precision formats route through
+# INLA's f(model = "generic0", Cmatrix = Q) interface; the dense
+# and chol formats stay refused on INLA (no native interface for a
+# user-supplied dense covariance or Cholesky factor) and the user
+# is pointed to the actionable workaround (re-express as precision
+# via solve(V), or route via backend = "greta").
 .lgm_check_random_term_inla_support <- function(fb) {
-  allowed <- .inla_random_term_type_allowlist()
-  bad     <- character(0)
-  labels  <- character(0)
+  bad_terms   <- list()
   for (term in fb$random_terms) {
-    if (!is.character(term$type) || !(term$type %in% allowed)) {
-      bad    <- c(bad, as.character(term$type))
-      labels <- c(labels, .inla_random_term_class_label(term$type))
-    }
+    if (!.is_supported_random_term_for_inla(term))
+      bad_terms[[length(bad_terms) + 1L]] <- term
   }
-  if (length(bad)) {
-    first_type  <- bad[[1L]]
-    first_label <- labels[[1L]]
+  if (length(bad_terms)) {
+    first       <- bad_terms[[1L]]
+    first_type  <- as.character(first$type)
+    first_label <- .inla_random_term_class_label(first_type)
+    fmt         <- first$cov_representation$format
+    detail      <- if (first_type %in% c("vm", "ped") &&
+                       !is.null(fmt) &&
+                       fmt %in% c("dense", "chol")) {
+      paste0("INLA accepts vm/ped only with the sparse-precision ",
+             "representation (format = \"precision\" or ",
+             "\"pedigree_sparse_precision\"). The supplied format ",
+             "is \"", fmt, "\". Re-express as vm(", first$var,
+             ", precision = solve(V)) to use INLA's generic0 ",
+             "sparse-precision path, or route via backend = \"greta\".")
+    } else {
+      paste0("INLA's f() machinery does not currently represent ",
+             "this structured-covariance class without an SPDE / ",
+             "kronecker expansion that the v0.2 emit does not ",
+             "produce. Re-route via backend = \"greta\".")
+    }
     return(.lgm_fail(
       "random_term_type_inla",
       paste0("random term type \"", first_type,
              "\" (", first_label, ") is outside the INLA emit ",
-             "allowlist. INLA's f() machinery does not currently ",
-             "represent this structured-covariance class without ",
-             "an SPDE / kronecker expansion that the v0.2 emit ",
-             "does not produce. Re-route via backend = \"greta\"."),
+             "allowlist. ", detail),
       diagnostic = paste0("fb$random_terms type(s): ",
-                           paste(unique(bad), collapse = ", "),
-                           "; allowed: ",
-                           paste(allowed, collapse = ", "))
+                           paste(vapply(bad_terms, function(t)
+                                         as.character(t$type),
+                                       character(1L)),
+                                 collapse = ", "))
     ))
   }
   .lgm_pass("random_term_type_inla")
+}
+
+# Predicate: does a single random-effect term land on the INLA
+# emit path? ADR 0017 "gate truth = emit truth": every term that
+# this returns TRUE for must have a matching branch in
+# .build_inla_formula()'s switch, and vice versa. Phase B-inla
+# extends the predicate to accept vm / ped only when the
+# cov_representation slot carries the precision /
+# pedigree_sparse_precision format.
+.is_supported_random_term_for_inla <- function(term) {
+  if (!is.character(term$type)) return(FALSE)
+  if (term$type %in% c("simple", "ide", "id", "spline",
+                        "simple_slope_uncor"))
+    return(TRUE)
+  if (term$type %in% c("vm", "ped")) {
+    cov <- term$cov_representation
+    if (is.null(cov)) return(FALSE)
+    return(cov$format %in% c("precision", "pedigree_sparse_precision"))
+  }
+  FALSE
 }
 
 # Check 9 -- Rcov-term type allowlist for the INLA emit path.

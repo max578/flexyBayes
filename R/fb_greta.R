@@ -361,7 +361,7 @@ fb_greta <- function(model,
 #'       explicit user requests (policy bypassed per ADR 0024
 #'       §6(g)).}
 #'     \item{`routing_policy_version`}{Character; e.g.
-#'       `"stage4_v1"`. The audit-anchor for reproducibility -- a
+#'       `"stage5a_v1"`. The audit-anchor for reproducibility -- a
 #'       policy change bumps this string.}
 #'   }
 #' @export

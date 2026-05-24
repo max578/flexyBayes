@@ -94,14 +94,14 @@ test_that("ADR 0024 (c): backend_decision()$rejected_routes lists non-chosen bac
 
 
 # ---------------------------------------------------------------- #
-# ADR §6 (d) -- routing_policy_version == "stage4_v1"               #
+# ADR §6 (d) -- routing_policy_version == "stage5a_v1"              #
 # ---------------------------------------------------------------- #
 
-test_that("ADR 0024 (d): routing_policy_version is 'stage4_v1' on fresh fits", {
+test_that("ADR 0024 (d): routing_policy_version is 'stage5a_v1' on fresh fits", {
   testthat::skip_if_not_installed("greta")
   fx <- mk_routing_fit()
   bd <- backend_decision(fx$fit)
-  expect_identical(bd$routing_policy_version, "stage4_v1")
+  expect_identical(bd$routing_policy_version, "stage5a_v1")
 })
 
 
