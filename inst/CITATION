@@ -11,6 +11,6 @@ bibentry(
     person("Beata", "Sznajder")
   ),
   year     = "2026",
-  note     = "R package version 0.3.1",
+  note     = "R package version 0.3.2",
   url      = "https://github.com/AAGI-AUS/flexyBayes"
 )
