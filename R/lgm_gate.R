@@ -58,11 +58,18 @@
 #   by construction.
 # @param reason character(1) non-empty. Logged into capabilities so
 #   downstream tooling can audit forced-INLA fits.
+# @param preflight Optional `<fb_preflight>` result. When supplied
+#   (Stage 4; ADR 0024 Decision 2), the gate runs an 11th rule
+#   `.lgm_check_memory_feasibility_inla()` that refuses when the
+#   INLA path's projected memory exceeds the active ceiling. When
+#   NULL (the v0.3.5 calling convention), the gate behaves exactly
+#   as today -- 10 structural rules, no memory awareness.
 # @return fb_terms (pass / override) or lgm_refusal (default).
 lgm_gate <- function(fb,
                      force                        = NULL,
                      acknowledge_silent_bias_risk = FALSE,
-                     reason                       = NULL) {
+                     reason                       = NULL,
+                     preflight                    = NULL) {
   if (!is_fb_terms(fb))
     stop("`fb` must be an fb_terms object (see fb_from_asreml).",
          call. = FALSE)
@@ -81,7 +88,16 @@ lgm_gate <- function(fb,
     # verification for the factor_numeric_interaction term class.
     # Refuses the INLA emit path when verification has not been run
     # or did not pass on this host.
-    .lgm_check_factor_numeric_interaction_inla_verified(fb)
+    .lgm_check_factor_numeric_interaction_inla_verified(fb),
+    # check 11 (ADR 0024 §Decision 2, Stage 4, v0.3.6) -- INLA-
+    # specific memory-feasibility rule. Trivially passes when the
+    # caller did not supply a preflight result (v0.3.5 backward-
+    # compatible default); otherwise estimates the INLA-path
+    # design memory as a fixed multiple of the indexed estimate
+    # and refuses if the INLA projection exceeds the active
+    # ceiling. See .lgm_check_memory_feasibility_inla() below for
+    # the multiplier rationale.
+    .lgm_check_memory_feasibility_inla(fb, preflight)
     # post-fit numerical-confirm gate -- see emit_inla.
   )
 
@@ -738,4 +754,79 @@ print.lgm_refusal <- function(x, ...) {
     base <- file.path(tempdir(), "flexyBayes-inla-verification")
   }
   file.path(base, "factor_numeric_interaction.rds")
+}
+
+
+# ---------------------------------------------------------------- #
+# Check 11 -- ADR 0024 (Stage 4, v0.3.6) memory-feasibility rule    #
+# ---------------------------------------------------------------- #
+#
+# INLA-specific design-memory feasibility check. The hard ceiling
+# probe lives in `.maybe_preflight()` (R/dispatch.R) and refuses
+# dispatch upstream when the indexed total exceeds the active
+# ceiling. This rule, by contrast, fires on the SOFTER ceiling
+# where the indexed total fits but the INLA path's projected
+# memory does not -- the INLA dense intermediates inflate the
+# indexed estimate by a fixed multiplier per the ADR 0021
+# supplement's 12-class representation taxonomy (dense_factor /
+# dense_continuous / dense_factor_interaction representations
+# allocate 3-4x the indexed_* variants when INLA materialises
+# the full design matrix).
+#
+# The rule is trivially-pass when `preflight` is NULL (the v0.3.5
+# calling convention; the gate is structural-only). When
+# `preflight` is non-NULL, the rule reads
+# `preflight$total_estimate_bytes` + `preflight$ceiling_bytes` and
+# refuses if the inflated INLA projection exceeds the ceiling.
+#
+# Decision rationale (ADR 0024 §header): the structural-vs-
+# memory distinction is the central new piece of dispatch
+# information. memory_infeasibility_inla is the dedicated reason
+# code for memory refusals; the nine structural reason codes from
+# ADR 0017 carry the structural refusals. The two are
+# distinguishable from `rejected_routes` alone, without re-running
+# the gate.
+#
+# Multiplier sourcing: the Stage 4 ship is a single-multiplier
+# approximation. Per-term INLA memory estimators (the more
+# accurate model) land at v0.3.7 alongside the routing-trace
+# vignette refresh per ADR 0024 implementation amendment. The
+# multiplier value (3) reflects the typical INLA dense-design
+# inflation observed on the v0.3.x test corpus; it can be
+# overridden per-session via getOption("flexyBayes.inla_memory_multiplier",
+# default 3).
+.lgm_check_memory_feasibility_inla <- function(fb, preflight) {
+  rule_id <- "memory_feasibility_inla"
+  if (is.null(preflight)) return(.lgm_pass(rule_id))
+  if (!inherits(preflight, "fb_preflight"))
+    return(.lgm_pass(rule_id))
+  if (is.null(preflight$total_estimate_bytes) ||
+      is.null(preflight$ceiling_bytes) ||
+      is.na(preflight$total_estimate_bytes) ||
+      is.na(preflight$ceiling_bytes))
+    return(.lgm_pass(rule_id))
+
+  multiplier <- getOption("flexyBayes.inla_memory_multiplier", 3)
+  if (!is.numeric(multiplier) || length(multiplier) != 1L ||
+      multiplier <= 0)
+    multiplier <- 3
+  inla_estimate <- preflight$total_estimate_bytes * multiplier
+  if (inla_estimate <= preflight$ceiling_bytes)
+    return(.lgm_pass(rule_id))
+
+  inla_gb    <- inla_estimate / 1024^3
+  ceiling_gb <- preflight$ceiling_bytes / 1024^3
+  indexed_gb <- preflight$total_estimate_bytes / 1024^3
+  .lgm_fail(
+    rule_id,
+    sprintf(
+      paste0("INLA path's projected design memory (%.2f GB; ",
+             "~%.0fx the indexed estimate) exceeds the active ",
+             "ceiling (%.2f GB). Re-route via backend = \"greta\" ",
+             "for the indexed representation."),
+      inla_gb, multiplier, ceiling_gb),
+    diagnostic = sprintf(
+      "indexed estimate = %.2f GB; INLA multiplier = %.0fx; ceiling = %.2f GB",
+      indexed_gb, multiplier, ceiling_gb)
+  )
 }

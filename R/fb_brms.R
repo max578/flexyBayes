@@ -180,6 +180,10 @@ fb_brms <- function(formula,
                     aggregate      = "auto") {
 
   # ----- 0. Validate ------------------------------------------------
+  # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
+  # before match.arg's generic message fires. Structured refusal
+  # carries the ADR-0027 pointer + the exact-route alternatives.
+  .check_approximate_scheme(backend)
   backend   <- match.arg(backend)
   aggregate <- .normalise_aggregate(aggregate)
 
