@@ -387,16 +387,22 @@ backend_decision <- function(fit) {
   # Stage 4 (ADR 0024) v0.3.6+: surface the four new fields with
   # NULL defaults so pre-Stage-4 fits (those that recorded the
   # 4-field ADR-0006 trace before v0.3.6 landed) read out with the
-  # same shape downstream tooling sees on v0.3.6+ fits. Use name-
-  # presence test (not is.null on the value) because `list$x <- NULL`
-  # removes the slot rather than setting it to NULL.
-  field_names <- c("preflight_summary", "representation_plan",
-                    "rejected_routes", "routing_policy_version")
-  defaults    <- list(NULL, NULL, list(), NA_character_)
-  present     <- field_names %in% names(decision)
-  for (i in seq_along(field_names)) {
-    if (!present[i])
-      decision[[field_names[i]]] <- defaults[[i]]
-  }
-  decision
+  # same shape downstream tooling sees on v0.3.6+ fits. Construct
+  # a fresh canonical 8-field list with explicit NULL values --
+  # `decision[["x"]] <- NULL` removes the slot rather than setting
+  # it to NULL, which would silently drop the field on every read.
+  rejected <- decision$rejected_routes
+  if (is.null(rejected)) rejected <- list()
+  version <- decision$routing_policy_version
+  if (is.null(version)) version <- NA_character_
+  list(
+    backend                = decision$backend,
+    path                   = decision$path,
+    gate_checks            = decision$gate_checks,
+    reason                 = decision$reason,
+    preflight_summary      = decision$preflight_summary,
+    representation_plan    = decision$representation_plan,
+    rejected_routes        = rejected,
+    routing_policy_version = version
+  )
 }
