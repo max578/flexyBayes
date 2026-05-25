@@ -22,7 +22,8 @@ fb_brms(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  aggregate = "auto"
+  aggregate = "auto",
+  plan = FALSE
 )
 }
 \arguments{

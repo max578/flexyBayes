@@ -26,12 +26,20 @@ print.flexybayes <- function(x, ...) {
   cat("  Params :", mi$n_params, "monitored;",
       mi$n_fixed, "fixed,", mi$n_random, "random terms\n")
 
-  # Stage 3A (ADR 0022 Decision 5): exactness slot. Per-row fits get
-  # "exact"; aggregated fits get "aggregated_exact" but go through
-  # print.flexybayes_aggregated (defined below). Older fits without
-  # the slot fall through silently.
-  if (!is.null(x$exactness))
-    cat("  Exact. :", x$exactness, "\n")
+  # ADR 0030 Decision 4 (v0.3.8): the truth-display surface --
+  # "Representation:" and "Engine:" as two adjacent lines. Replaces
+  # the single-line "Exact.: <exactness>" rendering that conflated
+  # the representation regime (exact vs aggregated_exact) with the
+  # inference engine (greta MCMC vs INLA Laplace etc.). Closes
+  # 2026-05-25 audit Critical Fix #4. Older fits without $exactness
+  # fall through silently.
+  if (!is.null(x$exactness)) {
+    bd <- x$extras$backend_decision
+    cat("  Representation: ",
+        .repr_label_for_fit(x, bd), "\n", sep = "")
+    cat("  Engine:         ",
+        .engine_label_for_fit(x, bd), "\n", sep = "")
+  }
 
   # Quick convergence
   if (!is.null(x$extras$convergence$gelman)) {
@@ -72,13 +80,19 @@ summary.flexybayes <- function(object, ...) {
   cat("  N =", mi$n_obs, ", chains =", ci$chains,
       ", samples =", ci$n_samples, "\n")
 
-  # Stage 3A (ADR 0022 Decision 5 + 6): exactness line + conditional
-  # compression-ratio line. The compression line appears only when
-  # exactness == "aggregated_exact" AND ratio N/K >= 2; otherwise
-  # suppressed per the ADR's "avoid misleading claims on small or
-  # non-aggregable data" mitigation.
-  if (!is.null(object$exactness))
-    cat("  Exact. :", object$exactness, "\n")
+  # ADR 0030 Decision 4 (v0.3.8): Representation:/Engine: two-line
+  # truth display, replacing the single-line "Exact.:". The
+  # conditional compression-ratio line is preserved per ADR 0022
+  # Decision 6 ("avoid misleading claims on small or non-aggregable
+  # data" mitigation: only show ratio when N/K >= 2). Closes
+  # 2026-05-25 audit Critical Fix #4.
+  if (!is.null(object$exactness)) {
+    bd <- object$extras$backend_decision
+    cat("  Representation: ",
+        .repr_label_for_fit(object, bd), "\n", sep = "")
+    cat("  Engine:         ",
+        .engine_label_for_fit(object, bd), "\n", sep = "")
+  }
   am <- object$extras$aggregation_meta
   if (identical(object$exactness, "aggregated_exact") &&
       !is.null(am) && am$N / am$K >= 2) {
@@ -166,7 +180,11 @@ print.flexybayes_aggregated <- function(x, ...) {
   cat("  random:    ", mi$n_random, "\n")
   cat("  backend:   ", bd$backend, "(path =", bd$path, ")\n")
   cat("  runtime:   ", round(x$extras$run_time, 2), "sec\n")
-  cat("  exactness: ", x$exactness, "\n")
+  # ADR 0030 Decision 4 (v0.3.8): truth display as adjacent lines.
+  cat("  Representation: ",
+      .repr_label_for_fit(x, bd), "\n", sep = "")
+  cat("  Engine:         ",
+      .engine_label_for_fit(x, bd), "\n", sep = "")
   if (!is.null(am) && am$N / am$K >= 2)
     cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
                 format(am$N, big.mark = " ", scientific = FALSE),
@@ -991,3 +1009,4 @@ predict.flexybayes_direct_greta <- function(object,
   if (is.null(dim(preds_mat))) preds_mat <- matrix(preds_mat, nrow = 1L)
   rowMeans(preds_mat)
 }
+ 

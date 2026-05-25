@@ -41,6 +41,13 @@
       }
     }, error = function(e) NULL)
   }
+
+  # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
+  # v0.3.8 ships zero .register_refusal() calls; v0.4.0 will populate
+  # the registry from ~30 existing refusal sites, with the registration
+  # block sitting above this lock call. The lock makes the registry
+  # immutable to user code once the package is loaded.
+  .lock_refusal_registry()
 }
 
 .onAttach <- function(libname, pkgname) {

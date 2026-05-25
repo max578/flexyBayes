@@ -182,7 +182,8 @@ fb_brms <- function(formula,
                     mcmc_verbose   = TRUE,
                     return_code    = FALSE,
                     review_code    = FALSE,
-                    aggregate      = "auto") {
+                    aggregate      = "auto",
+                    plan           = FALSE) {
 
   # ----- 0. Validate ------------------------------------------------
   # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
@@ -319,6 +320,20 @@ fb_brms <- function(formula,
       basis = attr(unif_default, "fb_prior_default_basis")
     )
   }
+
+  # plan = TRUE: short-circuit after IR build (ADR 0030 C1).
+  if (isTRUE(plan))
+    return(.fb_plan_from_ir(
+      fb                = fb,
+      data              = data,
+      backend           = backend,
+      known_matrices    = known_matrices,
+      aggregate         = aggregate,
+      memory_ceiling_gb = NULL,
+      predict_plan      = NULL,
+      the_call          = the_call,
+      data_name         = data_name
+    ))
 
   # ----- 3. Review-mode branch (ADR 0011 contract) ------------------
   if (isTRUE(review_code)) {
