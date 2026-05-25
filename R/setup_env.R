@@ -88,6 +88,20 @@
   if (!is.null(weights)) ev$wt_atg <- weights
 }
 
+# v0.3.8 audit Critical Fix #2 helpers. Resolve the grouping factor's
+# level count + levels from data for known-matrix alignment validation.
+# Return NULL when the variable is not present in `data` (e.g.
+# data-side fixture binds *_id directly), in which case the validator
+# downgrades to structural-only checks per its NULL contract.
+.term_var_level_count <- function(vname, data) {
+  if (!vname %in% names(data)) return(NULL)
+  nlevels(factor(data[[vname]]))
+}
+.term_var_levels <- function(vname, data) {
+  if (!vname %in% names(data)) return(NULL)
+  levels(factor(data[[vname]]))
+}
+
 # Set up environment objects for a single random/rcov term
 .setup_term_env <- function(ev, term, data, known_matrices) {
   mk_id <- function(vname) {
@@ -132,14 +146,21 @@
       }
     },
     "vm"     = {
-      .stage5a_route_check(term, known_matrices)
+      # v0.3.8 audit Critical Fix #2: invoke mk_id() before the route
+      # check so the validators can enforce dim + level alignment of
+      # the user-supplied known matrix against the grouping factor.
       mk_id(term$var)
+      .stage5a_route_check(term, known_matrices,
+                           expected_n = .term_var_level_count(term$var, data),
+                           fit_levels = .term_var_levels(term$var, data))
       cov <- term$cov_representation
       mk_mat(if (!is.null(cov)) cov$data else term$mat)
     },
     "ped"    = {
-      .stage5a_route_check(term, known_matrices)
       mk_id(term$var)
+      .stage5a_route_check(term, known_matrices,
+                           expected_n = .term_var_level_count(term$var, data),
+                           fit_levels = .term_var_levels(term$var, data))
       cov <- term$cov_representation
       mk_mat(if (!is.null(cov)) cov$data else term$mat)
     },

@@ -553,76 +553,53 @@ predict.flexybayes <- function(object, newdata = NULL,
 
   tryCatch({
     if (has_smooth_in_ir && length(smooths_slot) > 0L) {
-      # Linear-only model matrix (s() terms stripped from rhs). The
-      # smooth terms in asreml-style fits live on the random formula,
-      # not on the fixed formula, so the fixed formula is already
-      # linear-only. We use the rhs-only variant of model.matrix so
-      # newdata does not need to carry the response variable.
-      X_linear <- stats::model.matrix(
-        stats::delete.response(
-          stats::terms(.linear_formula(fixed_formula))),
-        data = newdata
+      # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route the smooth
+      # in-memory path through the shared kernel so it matches the
+      # file-backed (.predict_to_file) and sampled-RE
+      # (.predict_in_memory_sample) paths byte-for-byte. The kernel
+      # builds the linear-only design matrix via .linear_formula(),
+      # multiplies the fixed-effect per-draw beta block, layers the
+      # per-smooth Bnew %*% (raw * sigma) contribution per draw, and
+      # returns the n_rows x n_draws_eff linear predictor matrix.
+      # Posterior aggregation (mean point + Monte Carlo se.fit) is
+      # applied here so the kernel stays contract-neutral.
+      per_draw_lin <- .predict_linear_draws(
+        object      = object,
+        newdata     = newdata,
+        n_draws_cap = 4000L,
+        sampled_re  = NULL,
+        include     = c("fixed", "smooth")
       )
-      beta <- coef(object)
-      common <- intersect(colnames(X_linear), names(beta))
-      lin_part <- if (length(common) > 0L)
-        as.numeric(X_linear[, common, drop = FALSE] %*% beta[common])
-      else rep(0, nrow(newdata))
-
-      # Per-smooth basis on newdata via mgcv's reference implementation
-      # plus per-smooth posterior-mean basis coefficients from the
-      # draws matrix. The draws columns for s(x) are named
-      # `s_x_raw[i]` (scaled by `sigma_s_x` in the codegen via
-      # `f_s_x <- B_g_s_x %*% (s_x_raw * sigma_s_x)`). We compute the
-      # posterior-mean of the *product* (basis-coefficient vector)
-      # which matches the codegen contract on the linear predictor.
-      draws_mat <- do.call(rbind,
-        lapply(object$greta$draws, as.matrix))
-      smooth_part <- rep(0, nrow(newdata))
-      for (v in names(smooths_slot)) {
-        sm <- smooths_slot[[v]]
-        # Basis at newdata.
-        Bnew <- mgcv::PredictMat(sm, data = newdata)
-        # Posterior-mean basis-coefficient vector. Match the codegen
-        # naming: `s_<v>_raw[1]` ... `s_<v>_raw[k]` and `sigma_s_<v>`.
-        raw_pat   <- paste0("^s_", v, "_raw(\\[|$)")
-        raw_cols  <- grep(raw_pat, colnames(draws_mat), value = TRUE)
-        sigma_col <- paste0("sigma_s_", v)
-        if (length(raw_cols) == 0L || !sigma_col %in% colnames(draws_mat))
-          next
-        # Each draw: raw[k] * sigma -> per-draw basis-coef vector;
-        # average over draws -> posterior-mean basis-coef vector.
-        raw_draws   <- draws_mat[, raw_cols, drop = FALSE]
-        sigma_draws <- draws_mat[, sigma_col]
-        coef_draws  <- sweep(raw_draws, 1L, sigma_draws, `*`)
-        coef_mean   <- colMeans(coef_draws)
-        # The basis from PredictMat is k columns (the absorbed-cons
-        # basis matches the training-time basis dim).
-        if (ncol(Bnew) != length(coef_mean)) next
-        smooth_part <- smooth_part + as.numeric(Bnew %*% coef_mean)
+      fam_link <- object$extras$parse_info$family
+      per_draw <- if (identical(type, "response"))
+                    .apply_link_inverse(per_draw_lin, fam_link$link)
+                  else
+                    per_draw_lin
+      pred <- rowMeans(per_draw)
+      if (se.fit) {
+        se <- apply(per_draw, 1L, stats::sd)
+        return(list(fit = pred, se.fit = se))
       }
-      pred <- lin_part + smooth_part
-      # `mm` carried forward to the se.fit branch below; for the
-      # smooth path we set it to the linear part only (se.fit not
-      # computed on smooths in this iteration).
-      mm <- X_linear
+      return(pred)
+    }
+
+    # No-smooth path. Preserves the coef()-based posterior-mean
+    # computation so INLA fits (which do not currently expose
+    # per-draw access on $greta$draws) continue to predict() on
+    # newdata. Per ADR 0023 the file-backed and sampled-RE paths
+    # remain greta-only; the kernel refuses cleanly there.
+    mm <- stats::model.matrix(
+      stats::delete.response(stats::terms(fixed_formula)),
+      data = newdata
+    )
+    beta <- coef(object)
+
+    common <- intersect(colnames(mm), names(beta))
+    if (length(common) == 0) {
+      warning("No matching coefficients for newdata prediction.")
+      pred <- rep(NA_real_, nrow(newdata))
     } else {
-      # rhs-only model matrix so newdata does not need to carry the
-      # response variable (the prior path required `y` in newdata,
-      # which was unnecessarily restrictive).
-      mm <- stats::model.matrix(
-        stats::delete.response(stats::terms(fixed_formula)),
-        data = newdata
-      )
-      beta <- coef(object)
-
-      common <- intersect(colnames(mm), names(beta))
-      if (length(common) == 0) {
-        warning("No matching coefficients for newdata prediction.")
-        pred <- rep(NA_real_, nrow(newdata))
-      } else {
-        pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
-      }
+      pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
     }
 
     if (type == "response") {
@@ -638,21 +615,14 @@ predict.flexybayes <- function(object, newdata = NULL,
 
     if (se.fit) {
       V <- vcov(object)
-      if (has_smooth_in_ir && length(smooths_slot) > 0L) {
-        # Smooth-path se.fit not computed -- the smooth-basis vcov is
-        # not yet on the IR (only the fixed-effect vcov is). Return NA
-        # rather than a wrong number; v0.3 candidate.
-        se <- rep(NA_real_, nrow(newdata))
+      common <- intersect(colnames(mm), names(beta))
+      if (length(common) > 0 && nrow(V) > 0) {
+        se <- sqrt(rowSums(
+          (mm[, common, drop = FALSE] %*% V[common, common]) *
+           mm[, common, drop = FALSE]
+        ))
       } else {
-        common <- intersect(colnames(mm), names(beta))
-        if (length(common) > 0 && nrow(V) > 0) {
-          se <- sqrt(rowSums(
-            (mm[, common, drop = FALSE] %*% V[common, common]) *
-             mm[, common, drop = FALSE]
-          ))
-        } else {
-          se <- rep(NA_real_, nrow(newdata))
-        }
+        se <- rep(NA_real_, nrow(newdata))
       }
       return(list(fit = pred, se.fit = se))
     }

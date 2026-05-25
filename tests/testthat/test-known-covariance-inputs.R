@@ -629,3 +629,95 @@ test_that("low_rank path with registered-looking scheme refuses with approximate
   expect_equal(err$format, "low_rank")
   expect_equal(err$scheme, "pca")
 })
+
+# ---------------------------------------------------------------- #
+# v0.3.8 audit Critical Fix #2: known-matrix dim/level alignment   #
+# wired through .setup_env() dispatch (.stage5a_route_check now    #
+# receives expected_n + fit_levels from the dispatch layer).        #
+# ---------------------------------------------------------------- #
+
+test_that("setup_env precision path refuses with known_matrix_dim_mismatch when Q dim != nlevels(geno)", {
+  skip_if_not_installed("Matrix")
+  dat <- data.frame(geno = factor(1:5))
+  Q   <- diag(4) + 0.01 * matrix(1, 4, 4)   # 4 x 4 but geno has 5 levels
+  random_terms <- flexyBayes:::.parse_formula(
+    ~ vm(geno, precision = Q), dat
+  )
+  fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
+
+  ev <- new.env(parent = emptyenv())
+  err <- tryCatch(
+    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                            list(list(type = "units")),
+                            dat, list(Q = Q), NULL),
+    flexybayes_structured_cov_refusal = identity
+  )
+  expect_s3_class(err, "flexybayes_structured_cov_refusal")
+  expect_equal(err$reason_code, "known_matrix_dim_mismatch")
+  expect_equal(err$expected_n, 5L)
+  expect_equal(err$actual_dim, c(4L, 4L))
+})
+
+test_that("setup_env precision path refuses with known_matrix_level_mismatch when Q dimnames are permuted", {
+  skip_if_not_installed("Matrix")
+  # geno's levels (1, 2, 3, 4, 5) -- factor default ordering.
+  dat <- data.frame(geno = factor(c("1", "2", "3", "4", "5")))
+  Q   <- diag(5) + 0.01 * matrix(1, 5, 5)
+  # Dimnames are the correct level set, but in reverse order.
+  dimnames(Q) <- list(c("5", "4", "3", "2", "1"),
+                       c("5", "4", "3", "2", "1"))
+  random_terms <- flexyBayes:::.parse_formula(
+    ~ vm(geno, precision = Q), dat
+  )
+  fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
+
+  ev <- new.env(parent = emptyenv())
+  err <- tryCatch(
+    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                            list(list(type = "units")),
+                            dat, list(Q = Q), NULL),
+    flexybayes_structured_cov_refusal = identity
+  )
+  expect_s3_class(err, "flexybayes_structured_cov_refusal")
+  expect_equal(err$reason_code, "known_matrix_level_mismatch")
+  # Refusal message names the perm fix verbatim.
+  expect_match(conditionMessage(err), "perm <- match\\(levels")
+})
+
+test_that("setup_env chol path refuses with known_matrix_dim_mismatch when L dim != nlevels(geno)", {
+  dat <- data.frame(geno = factor(1:5))
+  L   <- diag(4); L[lower.tri(L)] <- 0.1   # 4 x 4 lower-triangular
+  random_terms <- flexyBayes:::.parse_formula(
+    ~ vm(geno, chol = L), dat
+  )
+  fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
+
+  ev <- new.env(parent = emptyenv())
+  err <- tryCatch(
+    flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                            list(list(type = "units")),
+                            dat, list(L = L), NULL),
+    flexybayes_structured_cov_refusal = identity
+  )
+  expect_s3_class(err, "flexybayes_structured_cov_refusal")
+  expect_equal(err$reason_code, "known_matrix_dim_mismatch")
+})
+
+test_that("setup_env precision path: aligned dimnames pass cleanly (happy path through dispatch)", {
+  skip_if_not_installed("Matrix")
+  dat <- data.frame(geno = factor(c("g1", "g2", "g3", "g4", "g5")))
+  Q   <- diag(5) + 0.01 * matrix(1, 5, 5)
+  dimnames(Q) <- list(levels(dat$geno), levels(dat$geno))
+  random_terms <- flexyBayes:::.parse_formula(
+    ~ vm(geno, precision = Q), dat
+  )
+  fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
+
+  ev <- new.env(parent = emptyenv())
+  flexyBayes:::.setup_env(ev, fixed_info, random_terms,
+                          list(list(type = "units")),
+                          dat, list(Q = Q), NULL)
+  expect_true("Q" %in% ls(ev))
+  expect_equal(ev$geno_id, 1:5)
+  expect_equal(ev$n_geno, 5L)
+})

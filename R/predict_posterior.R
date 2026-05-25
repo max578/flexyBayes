@@ -1,20 +1,13 @@
-# predict_posterior.R -- Stage 3B per-draw posterior prediction
-# (ADR 0023 Decision 4 file-output + "sample" activation).
+# predict_posterior.R -- per-draw posterior aggregation + sampled-RE
+# helpers used by the v0.3.5 file-output / sample-mode predict paths.
 #
-# Three internal helpers for per-draw posterior prediction:
-#
-#   .predict_per_draw(object, mm, common, n_draws_cap, sampled_re)
-#     Returns an n_rows x n_draws_eff matrix of linear predictor
-#     values by computing mm[, common] %*% t(beta_per_draw) for the
-#     posterior draws on the fit's $greta$draws slot. Caps draws at
-#     `n_draws_cap` (default 4000 per ADR 0023 §3 memory budget) via
-#     deterministic stride-subsampling so chunked vs unchunked
-#     file output is bitwise identical regardless of RNG state.
-#     If `sampled_re` is non-NULL (list keyed by row index, each
-#     entry a length-n_draws_eff vector of sampled random-effect
-#     realisations), the per-row, per-draw RE realisation is added
-#     to the linear predictor. Used by both the file-backed
-#     predict() path and the allow_new_levels = "sample" activation.
+# v0.3.8 audit close (ADR 0030 C2): the legacy .predict_per_draw()
+# entry point was superseded by .predict_linear_draws() in
+# R/predict_kernel.R, which is the single per-draw kernel routed
+# through by every prediction call site (in-memory smooth-aware,
+# file-backed, sampled-RE). The helpers retained here are the
+# downstream aggregation primitives and the sampled-RE realisation
+# generator.
 #
 #   .predict_intervals(per_draw_mat, level = 0.95)
 #     Returns list(point, lower, upper) with point = posterior mean
@@ -32,88 +25,15 @@
 #     the caller's RNG state (set.seed() upstream is the
 #     reproducibility hook).
 #
-# Not exported. See R/predict_file_output.R for the file-writing
-# layer and R/predict_chunked.R for the chunk-iteration layer; both
-# call into these helpers when the relevant ADR 0023 §Decision
-# branches are active.
-
-.predict_per_draw <- function(object, mm, common,
-                               n_draws_cap = 4000L,
-                               sampled_re  = NULL) {
-  if (is.null(object$greta) || is.null(object$greta$draws))
-    stop(".predict_per_draw(): fit object does not carry posterior ",
-         "draws on $greta$draws. File-backed predict(output_file = ",
-         "...) and allow_new_levels = \"sample\" both require ",
-         "per-draw posterior access. INLA fits do not currently ",
-         "carry draws on $greta$draws; an INLA draws adapter is ",
-         "queued for a future release.",
-         call. = FALSE)
-
-  draws_mat  <- do.call(rbind, lapply(object$greta$draws, as.matrix))
-  fixed_info <- object$extras$parse_info$fixed
-  beta_cols  <- .get_fixed_draw_columns(fixed_info, colnames(draws_mat))
-  if (length(beta_cols) == 0L)
-    stop(".predict_per_draw(): no fixed-effect draw columns found ",
-         "on the fit. The fit may have no fixed effects or have ",
-         "been built under a pre-v0.2 codegen.", call. = FALSE)
-
-  avail         <- beta_cols[beta_cols %in% colnames(draws_mat)]
-  beta_per_draw <- draws_mat[, avail, drop = FALSE]
-
-  # Deterministic stride-subsample to the draws cap. Stride-based
-  # rather than sample.int() so that chunk_size = 10000 and
-  # chunk_size = 1000 give bitwise-identical file output regardless
-  # of caller-set RNG state (ADR 0023 §6.d).
-  n_total <- nrow(beta_per_draw)
-  if (n_total > n_draws_cap) {
-    idx <- as.integer(seq.int(1L, n_total, length.out = n_draws_cap))
-    beta_per_draw <- beta_per_draw[idx, , drop = FALSE]
-  }
-  n_draws_eff <- nrow(beta_per_draw)
-
-  # Reorder beta_per_draw columns by `common` so the matrix-multiply
-  # below aligns positionally with mm[, common]. The draw-column
-  # order is the codegen enumeration of fixed-effect terms; the
-  # `common` order is the model.matrix column enumeration on
-  # newdata. coef()-aligned beta names sit on beta_per_draw via
-  # confint.flexybayes()'s positional contract.
-  beta_names <- names(stats::coef(object))
-  if (length(beta_names) >= length(avail))
-    colnames(beta_per_draw) <- beta_names[seq_along(avail)]
-  beta_keep <- intersect(common, colnames(beta_per_draw))
-  if (length(beta_keep) == 0L)
-    stop(".predict_per_draw(): no overlap between newdata model.",
-         "matrix columns and draw-column beta names; check that the ",
-         "fit's fixed-effect coding matches the newdata factor levels.",
-         call. = FALSE)
-  beta_per_draw <- beta_per_draw[, beta_keep, drop = FALSE]
-  mm_sub        <- mm[, beta_keep, drop = FALSE]
-
-  # n_rows x n_draws_eff per-draw linear predictor.
-  lin_pred <- mm_sub %*% t(beta_per_draw)
-
-  # Sampled-RE contribution for allow_new_levels = "sample" rows.
-  # `sampled_re` is keyed by chunk-relative row index (1..nrow(mm))
-  # and carries length-n_draws_eff vectors. Add row-wise.
-  if (!is.null(sampled_re) && length(sampled_re) > 0L) {
-    for (row_idx in names(sampled_re)) {
-      i <- as.integer(row_idx)
-      if (i < 1L || i > nrow(lin_pred)) next
-      re_vec <- sampled_re[[row_idx]]
-      if (length(re_vec) != n_draws_eff) {
-        # Length mismatch -- truncate / pad with zeros (defensive;
-        # caller's responsibility but better than a silent crash).
-        len <- min(length(re_vec), n_draws_eff)
-        lin_pred[i, seq_len(len)] <- lin_pred[i, seq_len(len)] +
-                                       re_vec[seq_len(len)]
-      } else {
-        lin_pred[i, ] <- lin_pred[i, ] + re_vec
-      }
-    }
-  }
-
-  lin_pred
-}
+#   .predict_in_memory_sample(object, newdata, type, se.fit)
+#     In-memory wrapper for allow_new_levels = "sample". Builds the
+#     per-row sampled-RE realisations via
+#     .predict_sample_re_for_unknowns(), then routes through the
+#     shared kernel (.predict_linear_draws) with
+#     include = c("fixed", "smooth", "random_sampled"). Posterior
+#     aggregation (rowMeans point + MC se.fit) at this layer.
+#
+# Not exported.
 
 
 .predict_intervals <- function(per_draw_mat, level = 0.95) {
@@ -213,21 +133,7 @@
 # path (.predict_to_file).
 .predict_in_memory_sample <- function(object, newdata, type,
                                        se.fit) {
-  fixed_formula <- object$glm$formula
-  beta          <- stats::coef(object)
-  fam_link      <- object$extras$parse_info$family
-
-  mm <- stats::model.matrix(
-    stats::delete.response(stats::terms(fixed_formula)),
-    data = newdata
-  )
-  common <- intersect(colnames(mm), names(beta))
-  if (length(common) == 0L)
-    return(if (isTRUE(se.fit))
-             list(fit    = rep(NA_real_, nrow(newdata)),
-                  se.fit = rep(NA_real_, nrow(newdata)))
-           else
-             rep(NA_real_, nrow(newdata)))
+  fam_link <- object$extras$parse_info$family
 
   sample_re_summary <- attr(newdata, "sample_re_summary")
   draws_count <- nrow(do.call(rbind,
@@ -243,13 +149,34 @@
                 else
                   NULL
 
-  per_draw_lin <- .predict_per_draw(
-    object      = object,
-    mm          = mm,
-    common      = common,
-    n_draws_cap = 4000L,
-    sampled_re  = sampled_re
+  # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route through the
+  # shared kernel so sample-mode fits with s() smooths layer the
+  # smooth-basis contribution onto the linear predictor (pre-v0.3.8
+  # .predict_per_draw() built mm from fixed_formula alone, silently
+  # dropping the smooth basis).
+  per_draw_lin <- tryCatch(
+    .predict_linear_draws(
+      object      = object,
+      newdata     = newdata,
+      n_draws_cap = 4000L,
+      sampled_re  = sampled_re,
+      include     = c("fixed", "smooth", "random_sampled")
+    ),
+    error = function(e) {
+      if (grepl("no fixed-effect draw columns", conditionMessage(e),
+                fixed = TRUE) ||
+          grepl("no overlap between newdata", conditionMessage(e),
+                fixed = TRUE))
+        return(NULL)
+      stop(e)
+    }
   )
+  if (is.null(per_draw_lin))
+    return(if (isTRUE(se.fit))
+             list(fit    = rep(NA_real_, nrow(newdata)),
+                  se.fit = rep(NA_real_, nrow(newdata)))
+           else
+             rep(NA_real_, nrow(newdata)))
 
   per_draw <- if (identical(type, "response"))
                 .apply_link_inverse(per_draw_lin, fam_link$link)

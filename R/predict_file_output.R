@@ -149,9 +149,7 @@
     )
   }
 
-  fixed_formula <- object$glm$formula
-  beta          <- stats::coef(object)
-  fam_link      <- object$extras$parse_info$family
+  fam_link <- object$extras$parse_info$family
 
   # Chunk index sequence. chunk_size = NULL or chunk_size >= N
   # means a single pass over all rows.
@@ -168,18 +166,6 @@
 
   for (rng in chunks) {
     chunk <- newdata[rng, , drop = FALSE]
-    mm    <- stats::model.matrix(
-              stats::delete.response(stats::terms(fixed_formula)),
-              data = chunk
-            )
-    common <- intersect(colnames(mm), names(beta))
-    if (length(common) == 0L) {
-      point_acc[rng] <- NA_real_
-      lower_acc[rng] <- NA_real_
-      upper_acc[rng] <- NA_real_
-      if (isTRUE(se.fit)) se_acc[rng] <- NA_real_
-      next
-    }
 
     # Translate global row indices for sampled RE to chunk-relative
     # row indices. NULL when no sampled-RE is in play.
@@ -195,13 +181,42 @@
       }
     }
 
-    per_draw_lin <- .predict_per_draw(
-      object      = object,
-      mm          = mm,
-      common      = common,
-      n_draws_cap = 4000L,
-      sampled_re  = sampled_re_chunk
+    # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route through the
+    # shared kernel so fits with s() smooth random terms include the
+    # smooth-basis contribution per draw. Pre-v0.3.8 the file-backed
+    # path built model.matrix(fixed_formula, chunk) without consulting
+    # extras$parse_info$smooths -- silently producing predictions
+    # missing the smooth contribution on disk. The kernel routes both
+    # paths through the same .linear_formula() / mgcv::PredictMat()
+    # logic the in-memory smooth branch already used.
+    per_draw_lin <- tryCatch(
+      .predict_linear_draws(
+        object      = object,
+        newdata     = chunk,
+        n_draws_cap = 4000L,
+        sampled_re  = sampled_re_chunk,
+        include     = c("fixed", "smooth", "random_sampled")
+      ),
+      error = function(e) {
+        # No-overlap case: kernel found no fixed-effect overlap; mirror
+        # the legacy NA-filled chunk semantics rather than aborting the
+        # whole file-output.
+        if (grepl("no fixed-effect draw columns", conditionMessage(e),
+                  fixed = TRUE) ||
+            grepl("no overlap between newdata", conditionMessage(e),
+                  fixed = TRUE))
+          return(NULL)
+        stop(e)
+      }
     )
+    if (is.null(per_draw_lin)) {
+      point_acc[rng] <- NA_real_
+      lower_acc[rng] <- NA_real_
+      upper_acc[rng] <- NA_real_
+      if (isTRUE(se.fit)) se_acc[rng] <- NA_real_
+      next
+    }
+
     # Apply link transform per draw before computing posterior
     # intervals. This gives an honest posterior expectation on the
     # response scale rather than inv_link(mean(linear_predictor)),
