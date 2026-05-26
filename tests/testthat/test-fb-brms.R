@@ -281,10 +281,24 @@ test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
     verbose = FALSE, mcmc_verbose = FALSE
   ))
   bd <- backend_decision(fit)
-  expect_setequal(names(bd), c("backend", "path", "gate_checks", "reason"))
+  expect_setequal(
+    names(bd),
+    c("backend", "path", "gate_checks", "reason",
+      "preflight_summary", "representation_plan",
+      "rejected_routes", "routing_policy_version")
+  )
   expect_identical(bd$backend, "greta")
   expect_identical(bd$path, "explicit_greta")
   expect_null(bd$gate_checks)
+  # ADR 0024 v0.3.6+ four new fields: NULL on the small-data fast
+  # path (no preflight, no representation plan); empty list of
+  # rejected routes on an explicit user request (policy-bypass
+  # semantics); routing_policy_version is the live constant.
+  expect_null(bd$preflight_summary)
+  expect_null(bd$representation_plan)
+  expect_identical(bd$rejected_routes, list())
+  expect_type(bd$routing_policy_version, "character")
+  expect_length(bd$routing_policy_version, 1L)
 })
 
 
