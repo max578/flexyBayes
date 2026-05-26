@@ -8,7 +8,7 @@ export_status: local_only
 consensus_mode: none
 domain: r-package
 project: flexyBayes
-status: draft
+status: accepted
 title: "ADR 0005 -- canonical parameter-name registry (greta + INLA + brms-passthrough)"
 tags: [archaeology, adr-0005, archaeology-confidence-explicit, canonical-names, triangulate, brms-style]
 triggers:
