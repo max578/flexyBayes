@@ -7,7 +7,16 @@
 #
 # Run interactively whenever a `.Rmd.orig` source is touched:
 #
-#   Rscript vignettes/_precompile.R
+#   Rscript vignettes/_precompile.R                # all .Rmd.orig
+#   Rscript vignettes/_precompile.R --only 05,08   # selective
+#
+# The `--only` flag accepts a comma-separated list of vignette
+# basenames or basename suffixes. `--only 08` matches
+# `flexyBayes-08-downstream-analysis.Rmd.orig`; `--only 05,08`
+# precompiles both. Added 2026-05-26 (v0.3.8 Phase C) for the
+# selective-refresh workflow ratified by v038-plan-2026-05-25
+# §12.3 -- avoids paying the full 12-vignette MCMC cost when only
+# a subset needs refreshing.
 #
 # Pre-requisites (the precompile is a one-time payment that must
 # succeed in your interactive session, not in CI):
@@ -49,6 +58,40 @@ orig_files <- list.files(
 if (length(orig_files) == 0L) {
   stop("No .Rmd.orig files found in ", vignettes_dir,
        ". Did you cp the .Rmd files first?", call. = FALSE)
+}
+
+# Selective filter: --only <comma-list> restricts the precompile
+# set to vignettes whose basename (without .Rmd.orig) contains any
+# of the comma-separated tokens. Substring match -- "08" matches
+# "flexyBayes-08-downstream-analysis"; "downstream" matches the
+# same vignette. Tokens that match no vignette raise; the empty
+# filter (no --only flag) keeps the full set.
+.cli_args <- commandArgs(trailingOnly = TRUE)
+.only_idx <- which(.cli_args == "--only")
+if (length(.only_idx) == 1L && .only_idx < length(.cli_args)) {
+  tokens <- strsplit(.cli_args[.only_idx + 1L], ",", fixed = TRUE)[[1L]]
+  tokens <- trimws(tokens)
+  tokens <- tokens[nzchar(tokens)]
+  if (length(tokens) == 0L)
+    stop("--only requires at least one comma-separated token.",
+         call. = FALSE)
+  bases <- sub("\\.Rmd\\.orig$", "", basename(orig_files))
+  keep <- vapply(bases, function(b)
+    any(vapply(tokens, function(tok) grepl(tok, b, fixed = TRUE),
+               logical(1L))),
+    logical(1L))
+  unmatched <- tokens[!vapply(tokens, function(tok)
+    any(grepl(tok, bases, fixed = TRUE)), logical(1L))]
+  if (length(unmatched) > 0L)
+    stop("--only token(s) matched no vignette: ",
+         paste(unmatched, collapse = ", "),
+         ". Available basenames: ",
+         paste(bases, collapse = ", "), call. = FALSE)
+  orig_files <- orig_files[keep]
+  cat(sprintf(
+    "[precompile] --only filter: keeping %d of %d vignette(s)\n",
+    length(orig_files), length(bases)
+  ))
 }
 
 cat(sprintf(
