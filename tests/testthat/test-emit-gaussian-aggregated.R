@@ -333,9 +333,42 @@ test_that("flexybayes_aggregated inherits from flexybayes", {
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
   expect_s3_class(fit, "flexybayes_aggregated")
   expect_s3_class(fit, "flexybayes")
+  # Backend identity in the class vector lets S3 generics that have
+  # no .flexybayes_aggregated method (e.g., fb_as_draws_simple) fall
+  # through to the correct backend-specific method. Without this,
+  # triangulate(fit_g, fit_i) on aggregated INLA fits dispatched to
+  # the greta extractor and failed.
+  expect_s3_class(fit, "flexybayes_inla")
+  expect_identical(
+    class(fit),
+    c("flexybayes_aggregated", "flexybayes_inla", "flexybayes")
+  )
   expect_true(!is.null(fit$inla))
   expect_true(!is.null(fit$glm))
   expect_true(!is.null(fit$extras$summary))
+})
+
+test_that("flexybayes_aggregated on greta has no flexybayes_inla label", {
+  # backend = "greta", aggregate = TRUE forces the aggregated path on
+  # greta. (aggregate = "auto" defers to per-row on greta per ADR 0022,
+  # which would give class "flexybayes" -- a different shape that
+  # neither needs nor receives the inla label).
+  testthat::skip_if_not_installed("greta")
+  testthat::skip_on_cran()
+  testthat::skip_on_ci()
+  dat <- mk_agg_data()
+  fit <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = dat,
+    backend = "greta", aggregate = TRUE,
+    n_samples = 50L, warmup = 50L, chains = 1L,
+    prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
+  expect_s3_class(fit, "flexybayes_aggregated")
+  expect_s3_class(fit, "flexybayes")
+  expect_false(inherits(fit, "flexybayes_inla"))
+  expect_identical(
+    class(fit),
+    c("flexybayes_aggregated", "flexybayes")
+  )
 })
 
 test_that("$glm shim carries per-row reconstructed fitted values", {

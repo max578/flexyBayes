@@ -722,12 +722,21 @@ emit_gaussian_aggregated <- function(fb,
               else engine_out$inla
   raw_name <- if (identical(backend, "greta")) "greta" else "inla"
 
+  # Backend identity in the class vector so generics that have no
+  # `.flexybayes_aggregated` method (e.g., fb_as_draws_simple()) fall
+  # through to the correct backend-specific method via S3 dispatch.
+  # Without `flexybayes_inla` in the vector, aggregated INLA fits
+  # dispatched to fb_as_draws_simple.flexybayes (the greta extractor)
+  # and failed with "fit$greta$draws is missing" -- breaking
+  # triangulate(fit_g, fit_i) on the aggregated path.
   fit <- structure(
     list(
       glm    = glm_obj,
       extras = extras
     ),
-    class = c("flexybayes_aggregated", "flexybayes")
+    class = c("flexybayes_aggregated",
+              if (identical(backend, "inla")) "flexybayes_inla",
+              "flexybayes")
   )
   fit[[raw_name]] <- raw_slot
   fit
