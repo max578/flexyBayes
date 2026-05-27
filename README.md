@@ -49,9 +49,15 @@ install.packages("INLA",
 # brms (optional, Stan passthrough)
 install.packages("brms")
 
-# flexyBayes from GitHub
+# flexyBayes -- install from the local checkpoint tarball
+# (the upstream rename, project decision D8, has not yet shipped;
+# remotes::install_github("AAGI-AUS/flexyBayes") will resume once
+# the AAGI-AUS collective conversation closes D8).
+R CMD INSTALL release_tarballs/flexyBayes_0.3.8.tar.gz
+
+# Once D8 ships and the AAGI-AUS/flexyBayes repo exists:
 # install.packages("remotes")
-remotes::install_github("AAGI-AUS/flexyBayes")
+# remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
 `flexyBayes` degrades gracefully when optional engines are missing:

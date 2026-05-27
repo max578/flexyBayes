@@ -25,7 +25,8 @@ flexybayes(
   return_code = FALSE,
   review_code = FALSE,
   backend = c("greta", "inla", "auto"),
-  aggregate = "auto"
+  aggregate = "auto",
+  plan = FALSE
 )
 
 fb(
@@ -48,7 +49,8 @@ fb(
   return_code = FALSE,
   review_code = FALSE,
   backend = c("greta", "inla", "auto"),
-  aggregate = "auto"
+  aggregate = "auto",
+  plan = FALSE
 )
 }
 \arguments{

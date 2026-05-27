@@ -109,7 +109,32 @@ emit_inla <- function(fb,
   for (term in fb$random_terms) {
     if (term$type %in% c("vm", "ped")) {
       idx_name <- paste0(term$var, "_id")
-      data_inla[[idx_name]] <- as.integer(factor(data[[term$var]]))
+      f <- factor(data[[term$var]])
+      data_inla[[idx_name]] <- as.integer(f)
+
+      # v0.3.8 audit Critical Fix #2: enforce known-matrix dim + level
+      # alignment on the INLA emit path. Pre-v0.3.8 the
+      # .build_inla_formula() body deferred this to the user (see the
+      # comment block at L289+ that documented `f(<var>_id, model =
+      # "generic0", Cmatrix = Q)` and the user-responsibility
+      # caveat). The validator refuses cleanly when (a) the matrix
+      # dim does not match the level count, (b) the matrix carries
+      # dimnames that do not match levels(<var>), or (c) the matrix
+      # carries dimnames that match the level set but in a different
+      # order from levels(<var>) -- INLA's generic0 requires
+      # positional alignment with the integer index column built
+      # above. When dimnames are absent the alignment downgrades to
+      # the dim check + a future <fb_plan>-surfaced caution
+      # (planned at Phase B, v0.3.8).
+      cov <- term$cov_representation
+      if (!is.null(cov) &&
+          cov$format %in% c("precision", "pedigree_sparse_precision")) {
+        Q <- known_matrices[[cov$data]]
+        .validate_precision_input(
+          Q, name = cov$data, group_var = term$var,
+          expected_n = nlevels(f), fit_levels = levels(f)
+        )
+      }
     }
   }
   if (length(known_matrices)) {
@@ -284,12 +309,14 @@ emit_inla <- function(fb,
     # precision interface, f(idx, model = "generic0", Cmatrix = Q).
     # INLA's generic0 model requires the first arg to be an integer
     # index into the rows/cols of Cmatrix; we pre-compute the index
-    # column <var>_id in data_inla (see emit_inla() body below) and
+    # column <var>_id in data_inla (see emit_inla() body above) and
     # reference it here so summary.random[[<var>_id]] carries the
-    # natural name in the fit object. The level ordering of the
-    # factor must align with the row ordering of Q -- the user is
-    # responsible for that alignment when constructing Q against a
-    # known set of group levels.
+    # natural name in the fit object. v0.3.8 audit Critical Fix #2:
+    # the level ordering of the factor against the row ordering of Q
+    # is now enforced by .validate_precision_input() (called from
+    # emit_inla() body above with expected_n = nlevels(f) and
+    # fit_levels = levels(f)) when Q carries dimnames; the
+    # pre-v0.3.8 user-responsibility caveat is no longer load-bearing.
     if (term$type %in% c("vm", "ped")) {
       cov <- term$cov_representation
       key <- term$var

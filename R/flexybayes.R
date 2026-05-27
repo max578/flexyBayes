@@ -176,7 +176,8 @@ flexybayes <- function(
     return_code      = FALSE,
     review_code      = FALSE,
     backend          = c("greta", "inla", "auto"),
-    aggregate        = "auto"
+    aggregate        = "auto",
+    plan             = FALSE
 ) {
   # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
   # before match.arg fires its generic "should be one of" error.
@@ -291,6 +292,24 @@ flexybayes <- function(
       basis = attr(unif_default, "fb_prior_default_basis")
     )
   }
+
+  # plan = TRUE: short-circuit after IR build (ADR 0030 C1). The plan
+  # surface lives in fb_plan(); flexybayes(plan = TRUE) is the
+  # courtesy alternative invocation that lets asreml-style callers
+  # reach the same planning object without re-typing the formula in
+  # brms shape.
+  if (isTRUE(plan))
+    return(.fb_plan_from_ir(
+      fb                = fb,
+      data              = data,
+      backend           = backend,
+      known_matrices    = known_matrices,
+      aggregate         = aggregate,
+      memory_ceiling_gb = NULL,
+      predict_plan      = NULL,
+      the_call          = the_call,
+      data_name         = data_name
+    ))
 
   # Review-mode branch. Build the deferred-execution token instead
   # of firing the backend. Code generation does not consume RNG; the

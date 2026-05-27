@@ -167,7 +167,9 @@
 # The validators raise typed structural refusals (chol_not_triangular,
 # precision_not_positive_definite, ...) so users see input errors at
 # input granularity, not as a downstream emit failure.
-.stage5a_route_check <- function(term, known_matrices) {
+.stage5a_route_check <- function(term, known_matrices,
+                                 expected_n = NULL,
+                                 fit_levels = NULL) {
   cov <- term$cov_representation
   if (is.null(cov) || identical(cov$format, "dense"))
     return(invisible(NULL))
@@ -176,13 +178,17 @@
 
   if (fmt == "chol") {
     L <- known_matrices[[cov$data]]
-    .validate_chol_input(L, name = cov$data, group_var = term$var)
+    .validate_chol_input(L, name = cov$data, group_var = term$var,
+                          expected_n = expected_n,
+                          fit_levels = fit_levels)
     return(invisible(NULL))
   }
 
   if (fmt %in% c("precision", "pedigree_sparse_precision")) {
     Q <- known_matrices[[cov$data]]
-    .validate_precision_input(Q, name = cov$data, group_var = term$var)
+    .validate_precision_input(Q, name = cov$data, group_var = term$var,
+                               expected_n = expected_n,
+                               fit_levels = fit_levels)
     return(invisible(NULL))
   }
 
@@ -257,7 +263,9 @@
 # group-level-count dim match. Accepts dense base-R matrix or
 # Matrix::dtCMatrix. Both refusal classes name the offending symbol +
 # group var so the message is actionable at the formula level.
-.validate_chol_input <- function(L, name, group_var) {
+.validate_chol_input <- function(L, name, group_var,
+                                  expected_n = NULL,
+                                  fit_levels = NULL) {
   if (is.null(L))
     .stop_structured_cov_refusal(
       reason_code = "chol_not_in_known_matrices",
@@ -291,6 +299,17 @@
       )
     )
 
+  # v0.3.8 audit Critical Fix #2: known-matrix dim + level alignment.
+  # Pre-v0.3.8 the validator stopped at structural checks; a chol
+  # factor with wrong dim or permuted dimnames would silently
+  # produce wrong predictions downstream. Both checks no-op when
+  # the dispatch layer cannot supply expected_n / fit_levels (e.g.
+  # parser-bypass test fixtures) and refuse cleanly otherwise.
+  .check_known_matrix_dim(L, name = name, group_var = group_var,
+                           expected_n = expected_n)
+  .check_known_matrix_dimnames(L, name = name, group_var = group_var,
+                                fit_levels = fit_levels)
+
   invisible(NULL)
 }
 
@@ -301,7 +320,40 @@
 # accept any object with the Matrix-package symmetry / Cholesky
 # methods. Dense matrices are accepted too (less efficient, but the
 # user-facing semantics are preserved).
-.validate_precision_input <- function(Q, name, group_var) {
+.validate_precision_input <- function(Q, name, group_var,
+                                       expected_n = NULL,
+                                       fit_levels = NULL) {
+  .validate_precision_input_structural(Q, name = name,
+                                        group_var = group_var)
+
+  # v0.3.8 audit Critical Fix #2: known-matrix dim + level alignment.
+  # See .validate_chol_input() for the rationale.
+  .check_known_matrix_dim(Q, name = name, group_var = group_var,
+                           expected_n = expected_n)
+  .check_known_matrix_dimnames(Q, name = name, group_var = group_var,
+                                fit_levels = fit_levels)
+
+  # v0.3.8 audit Critical Fix #3: PD check via the size-appropriate
+  # algorithm. For Matrix::dsCMatrix and other sparse symmetric
+  # inputs, route through Matrix::Cholesky(perm = TRUE) so a 1e5 x
+  # 1e5 sparse precision is not dense-coerced (the pre-v0.3.8
+  # chol(as.matrix(Q)) path materialised the dense matrix and would
+  # OOM on production-scale pedigree inputs). Dense inputs continue
+  # to use base R chol() for the strict-PD contract.
+  #
+  # The flexyBayes.trust_pd option skips PD entirely when the user
+  # has externally validated Q -- useful for repeated fits where the
+  # PD probe is on the critical path.
+  if (!isTRUE(getOption("flexyBayes.trust_pd", FALSE)))
+    .validate_precision_input_pd(Q, name = name, group_var = group_var)
+
+  invisible(NULL)
+}
+
+# Structural checks (cheap; always run). Splits out from
+# .validate_precision_input() so callers that have externally trusted
+# the PD property can still gate on nullness / dim / symmetry.
+.validate_precision_input_structural <- function(Q, name, group_var) {
   if (is.null(Q))
     .stop_structured_cov_refusal(
       reason_code = "precision_not_in_known_matrices",
@@ -324,8 +376,17 @@
       )
     )
 
+  # Strip dimnames before the symmetry probe: dimnames are checked
+  # for level alignment downstream by .check_known_matrix_dimnames(),
+  # not as part of the structural symmetry contract. Pre-v0.3.8 the
+  # symmetry check called Matrix::isSymmetric(Q) directly, which
+  # refuses when dimnames(Q)[[1]] != dimnames(Q)[[2]] (a per-attribute
+  # check); that swallowed the more actionable
+  # known_matrix_dimnames_mismatch refusal downstream.
+  Q_unnamed <- Q
+  dimnames(Q_unnamed) <- NULL
   sym_ok <- tryCatch(
-    isTRUE(Matrix::isSymmetric(Q)),
+    isTRUE(Matrix::isSymmetric(Q_unnamed)),
     error = function(e) FALSE
   )
   if (!sym_ok)
@@ -334,29 +395,152 @@
       message     = paste0(
         "vm(", group_var, ", precision = ", name,
         "): the precision matrix must be symmetric. ",
-        "Matrix::isSymmetric(Q) returned FALSE."
+        "Matrix::isSymmetric(Q) returned FALSE on values (ignoring ",
+        "dimnames; the level-alignment check is separate)."
       )
     )
 
-  # Strict positive-definite check via base R chol() on the dense
-  # coercion. Matrix::Cholesky() routes through LAPACK dpstrf which
-  # uses pivoting with rank detection and succeeds on indefinite
-  # matrices; that is unsuitable for Phase A's strict PD contract.
-  # Sparse-input efficiency is a Phase B concern (the validator will
-  # gain a sparse-Cholesky branch when emit ships).
-  pd_ok <- tryCatch({
-    chol(as.matrix(Q))
-    TRUE
-  }, error = function(e) FALSE,
-     warning = function(w) FALSE)
+  invisible(NULL)
+}
+
+# Positive-definite probe (expensive; skipped under
+# flexyBayes.trust_pd = TRUE). Dispatches by sparsity class:
+#
+#   - Sparse symmetric (Matrix::dsCMatrix, Matrix::dsRMatrix, or any
+#     Matrix-class with a Cholesky method) routes through
+#     Matrix::Cholesky(forceSymmetric(Q), perm = TRUE). The
+#     fill-reducing permutation lets the sparse Cholesky run in
+#     near-linear time on sparse-structured precision matrices
+#     (pedigree A^{-1}; spatial BYM2 Q). The Cholesky factorisation
+#     itself succeeds iff Q is PD; failure surfaces as an error or
+#     warning that this tryCatch traps.
+#   - Dense (base matrix) routes through base R chol() for the same
+#     strict-PD contract the pre-v0.3.8 validator used. No behaviour
+#     change for small-dense V^{-1} inputs.
+.validate_precision_input_pd <- function(Q, name, group_var) {
+  pd_ok <- if (inherits(Q, "sparseMatrix") || inherits(Q, "Matrix")) {
+    # Sparse-native PD probe via Matrix::chol() on the symmetric form.
+    # Matrix::chol() (S4-dispatched to the sparse symmetric method)
+    # raises a CHOLMOD warning "not positive definite" when Q is
+    # indefinite, which the tryCatch traps. Critically, this does
+    # NOT dense-coerce Q -- the audit's Critical Fix #3 concern.
+    # Matrix::Cholesky() (the higher-level factor-returning function)
+    # is not a strict PD test -- it returns a CHMfactor with
+    # non-positive pivot entries for indefinite Q rather than
+    # raising; we use the lower-level chol() entry to get the
+    # warning-based PD contract.
+    tryCatch({
+      Matrix::chol(Matrix::forceSymmetric(Q))
+      TRUE
+    }, error   = function(e) FALSE,
+       warning = function(w) FALSE)
+  } else {
+    tryCatch({
+      chol(as.matrix(Q))
+      TRUE
+    }, error   = function(e) FALSE,
+       warning = function(w) FALSE)
+  }
   if (!pd_ok)
     .stop_structured_cov_refusal(
       reason_code = "precision_not_positive_definite",
       message     = paste0(
         "vm(", group_var, ", precision = ", name,
         "): the precision matrix must be positive-definite. ",
-        "Matrix::Cholesky() probe failed."
+        if (inherits(Q, "sparseMatrix") || inherits(Q, "Matrix"))
+          "Matrix::chol(forceSymmetric(Q)) probe failed."
+        else
+          "chol(as.matrix(Q)) probe failed.",
+        " Pass options(flexyBayes.trust_pd = TRUE) if you have ",
+        "externally verified Q's positive-definiteness."
       )
+    )
+  invisible(NULL)
+}
+
+# v0.3.8 audit Critical Fix #2: dim alignment between a user-supplied
+# known matrix and the inferred level count of its grouping factor.
+# No-op when expected_n is NULL (parser-bypass test fixture, or
+# called from a dispatch site that does not yet supply the level
+# count).
+.check_known_matrix_dim <- function(M, name, group_var, expected_n) {
+  if (is.null(expected_n)) return(invisible(NULL))
+  d <- dim(M)
+  if (is.null(d) || length(d) != 2L)
+    return(invisible(NULL))  # caught by structural checks upstream
+  if (d[[1L]] != expected_n || d[[2L]] != expected_n)
+    .stop_structured_cov_refusal(
+      reason_code = "known_matrix_dim_mismatch",
+      message     = paste0(
+        "vm(", group_var, "): the known matrix '", name,
+        "' has dimension ", d[[1L]], " x ", d[[2L]],
+        ", but the grouping factor `", group_var, "` carries ",
+        expected_n, " levels. The matrix must be ",
+        expected_n, " x ", expected_n,
+        " (one row + column per level)."
+      ),
+      expected_n = expected_n,
+      actual_dim = d
+    )
+  invisible(NULL)
+}
+
+# v0.3.8 audit Critical Fix #2: dimname-driven level alignment. When
+# the matrix carries dimnames, we can enforce that the rows / columns
+# correspond positionally to levels(<group>). When dimnames are
+# absent the check no-ops -- the dispatch layer surfaces an alignment
+# caution on backend_decision instead (the user-side responsibility
+# pre-v0.3.8 comment in emit_inla() was the symptom this fix
+# addresses).
+.check_known_matrix_dimnames <- function(M, name, group_var, fit_levels) {
+  if (is.null(fit_levels)) return(invisible(NULL))
+  dn <- dimnames(M)
+  if (is.null(dn) || is.null(dn[[1L]]) || is.null(dn[[2L]]))
+    return(invisible(NULL))  # dimnames absent -> caution surfaced upstream
+
+  if (!identical(dn[[1L]], dn[[2L]]))
+    .stop_structured_cov_refusal(
+      reason_code = "known_matrix_dimnames_mismatch",
+      message     = paste0(
+        "vm(", group_var, "): the known matrix '", name,
+        "' has different rownames and colnames. The matrix represents ",
+        "the per-level covariance / precision structure; rownames and ",
+        "colnames must be identical and must equal levels(`",
+        group_var, "`)."
+      ),
+      rownames = head(dn[[1L]], 5L),
+      colnames = head(dn[[2L]], 5L)
+    )
+
+  if (!setequal(dn[[1L]], fit_levels))
+    .stop_structured_cov_refusal(
+      reason_code = "known_matrix_level_mismatch",
+      message     = paste0(
+        "vm(", group_var, "): the known matrix '", name,
+        "' carries dimnames that do not match levels(`", group_var,
+        "`). Compare setdiff(dimnames(", name, ")[[1]], levels(`",
+        group_var, "`)) and setdiff(levels(`", group_var,
+        "`), dimnames(", name, ")[[1]]) to surface the gap."
+      ),
+      matrix_levels_head = head(dn[[1L]], 5L),
+      fit_levels_head    = head(fit_levels, 5L)
+    )
+
+  if (!identical(dn[[1L]], fit_levels))
+    .stop_structured_cov_refusal(
+      reason_code = "known_matrix_level_mismatch",
+      message     = paste0(
+        "vm(", group_var, "): the known matrix '", name,
+        "' has the correct level set but is ordered differently from ",
+        "levels(`", group_var, "`). INLA's generic0 model and ",
+        "greta's t(chol(V)) emit both require positional alignment ",
+        "with levels(`", group_var, "`). Permute the matrix:\n",
+        "  perm <- match(levels(`", group_var, "`), dimnames(",
+        name, ")[[1]])\n",
+        "  ", name, " <- ", name, "[perm, perm]"
+      ),
+      matrix_levels_head = head(dn[[1L]], 5L),
+      fit_levels_head    = head(fit_levels, 5L)
     )
 
   invisible(NULL)

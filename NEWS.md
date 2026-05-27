@@ -1,3 +1,135 @@
+# flexyBayes 0.3.8
+
+## Audit-close hardening + planner + truth display
+
+Four themed Phase commits close the 2026-05-25 audit
+(`feedback_v0.3.7_to_v0.4.0_2026-05-25.md`, five Critical Fixes
+and thirteen sub-recommendations) and ratify ADR 0030 contracts
+C1 (planner verb) + C7 (refusal-registry scaffold) + Decision 4
+(`Representation:` / `Engine:` two-line truth display).
+
+**Phase A `fix:` (shared prediction kernel + alignment validators
++ sparse-precision policy).**
+
+- File-backed prediction and the in-memory path now share a
+  single per-draw kernel (`R/predict_kernel.R`); the smooth-bypass
+  bug on `predict(..., output_file = ...)` that lost partial
+  contributions of spline terms is closed. Audit Critical Fix #1.
+- Known-matrix carriers passed via `known_matrices = list(...)`
+  validate against the IR at fit time on both backends: dimension
+  mismatches, level mismatches between `dimnames(M)` and the
+  factor's `levels()`, and dimname misalignments raise typed
+  refusals (`known_matrix_dim_mismatch`,
+  `known_matrix_dimnames_mismatch`,
+  `known_matrix_level_mismatch`) instead of crashing inside the
+  emit. Audit Critical Fix #2.
+- The PD probe on user-supplied sparse precision matrices Q is
+  now sparse-native -- `Matrix::chol(forceSymmetric(Q))` rather
+  than coercing to dense and calling base `chol()`. The
+  `flexyBayes.trust_pd` option allows callers who have already
+  verified PD externally to skip the probe. Audit Critical Fix #3.
+
+**Phase B `feat:` (planner + truth display + refusal registry
+scaffold).**
+
+- New exported verb `fb_plan(formula, data, backend, priors,
+  known_matrices, family, link, weights, aggregate,
+  memory_ceiling_gb, predict_plan, ...)`. Returns a `<fb_plan>`
+  object showing the pre-fit dispatch decision, representation
+  plan, rejected-route trace, predict-shape derivation, and
+  known-matrix summary -- without running the fit. `print()`
+  surfaces a flight-checklist form; `summary()` adds per-term
+  preflight detail; `as.data.frame()` coerces to a wide single
+  row for tabular aggregation across plans. `flexybayes()` and
+  `fb_brms()` accept `plan = FALSE` (default) -> `TRUE` to
+  short-circuit to the plan. ADR 0030 contract C1.
+- `print.flexybayes()` / `summary.flexybayes()` /
+  `print.flexybayes_aggregated()` replace the single `Exact.:`
+  line with two adjacent lines `Representation:` (the IR's
+  exactness vocabulary -- `exact_index`, `aggregated_exact`,
+  `legacy_inla_simple_slope`, etc.) and `Engine:` (the live
+  engine name -- `greta_MCMC`, `INLA_Laplace`,
+  `stan_brms_HMC` -- distinct from `Representation:` because
+  several representations can run on the same engine). Closes
+  audit Critical Fix #4. ADR 0030 Decision 4.
+- New `.refusal_registry` environment + `.register_refusal()` /
+  `.lookup_refusal()` helpers, empty + locked at end of
+  `.onLoad()`. Per-site migration of the ~30 existing `stop()`
+  refusals to registry-backed messages is deferred to v0.4.0 per
+  `feedback_staged_release_pattern`; the v0.3.8 scaffold is
+  forward-architecture for the v0.4.0 export of `fb_refusals()`.
+  ADR 0030 contract C7.
+
+**Phase C `docs:` (audit-drift close + selective vignette
+refresh).**
+
+- Workspace `AGENTS.md` rewritten as a thin pointer to
+  `CLAUDE.md` (eliminates the stale `bayesreml` / `Codex (ctb)`
+  references the audit flagged).
+- Workspace `README.md` replaced (the 2026-04-26 pre-implementation
+  review guide is now historical; current-state README documents
+  v0.2.5 -> v0.3.7 release history + the local-tarball install
+  path pending D8).
+- Package `README.md`: install line replaces the 404-ing
+  `remotes::install_github("AAGI-AUS/flexyBayes")` with
+  `R CMD INSTALL release_tarballs/flexyBayes_0.3.8.tar.gz` plus a
+  "will resume after D8" forward-pointer.
+- `AMBITION_STAGE.md` §8.6: `v0.3.6` mis-label corrected (Stage 4
+  ADR 0024, not Stage 5B ADR 0026); `v0.3.7` + `v0.3.8` rows
+  added.
+- ADR 0024 §Consequences amendments (a) per-term INLA estimator
+  + (c) vignette companion both updated to reflect the v0.3.7 ->
+  v0.3.8 -> follow-on deferral chain.
+- Selective vignette re-precompile -- only vignettes whose
+  printed code chunks render `print(fit)` / `summary(fit)` and
+  therefore show the new `Representation:` / `Engine:` lines.
+  Full sweep deferred to v0.4.0 alongside the vignette deck
+  restructure (per the v0.3.8 plan §12.3 ratification).
+- `cran-comments.md`: v0.3.8 bump + 3-NOTE-sub-item reframing.
+
+**Phase D `test:` (skip ledger + benchmark profiles).**
+
+- New `tools/skip_ledger.R` parses every `tests/testthat/test-*.R`
+  for `skip()` / `skip_if_not()` / `skip_on_cran()` /
+  `skip_if_not_installed()` calls and classifies them against
+  five reason classes (unavailable optional backend; CRAN/CI
+  time budget; stress-only; external toolchain unavailable;
+  deliberately deferred feature); writes
+  `inst/skip-ledger.md` for users and reviewers.
+- Four named benchmark profiles under `tools/profiles/`:
+  `smoke.R` (~30 s pure-R subset), `release.R` (5--10 min
+  canonical release-ceremony gate), `stress.R` (sets
+  `FLEXYBAYES_RUN_STRESS=true`; unblocks the greta MCMC
+  posterior-equivalence tests), `huge_n_probe.R` (skeleton at
+  v0.3.8; the actual `N = 5e6` runs land at v0.4.0 per the
+  trust-release gate).
+- `tools/tally.R` now refreshes `inst/skip-ledger.md` as its
+  closing step.
+
+## Corrections
+
+- `emit_gaussian_aggregated()`: the aggregated INLA path now
+  preserves the `flexybayes_inla` class label on the returned
+  fit (`c("flexybayes_aggregated", "flexybayes_inla",
+  "flexybayes")`). The previous shape dropped `flexybayes_inla`,
+  so `fb_as_draws_simple()` dispatched to the greta extractor
+  and crashed with "fit$greta$draws is missing" -- silently
+  breaking `triangulate(fit_g, fit_i)` on the aggregated path.
+  Class-invariant test_that() blocks in
+  `tests/testthat/test-emit-gaussian-aggregated.R` cover both
+  backend shapes. The greta path stays at the two-element
+  `c("flexybayes_aggregated", "flexybayes")` (no `flexybayes_greta`
+  class is introduced; `fb_as_draws_simple.flexybayes` is the
+  greta extractor). Decision recorded at
+  `ledger/r-package/2026-05-26-aggregated-inla-dispatch-fix-class-vector.cairn.md`.
+- `tests/testthat/test-fb-brms.R:284` `backend_decision()` shape
+  expectation updated from the 4-field ADR-0006 baseline to the
+  8-field ADR-0024 shape (`backend` / `path` / `gate_checks` /
+  `reason` / `preflight_summary` / `representation_plan` /
+  `rejected_routes` / `routing_policy_version`). The test
+  silently failed under `NOT_CRAN=true` since the v0.3.6 close.
+
+
 # flexyBayes 0.3.7
 
 ## Stage 5A -- known-covariance input formats
@@ -131,8 +263,12 @@ structural rules. When `preflight` is supplied, the gate runs an
 that refuses when the INLA path's projected memory exceeds the
 active ceiling. The Stage 4 ship is a single-multiplier
 approximation: INLA memory ~= 3x the indexed preflight total (the
-INLA dense intermediate inflation rule of thumb; per-term
-estimators land at v0.3.7). The multiplier is configurable via
+INLA dense intermediate inflation rule of thumb). Per-term
+estimators are queued for a follow-on release alongside the
+LGM-feasibility vignette; deferred at v0.3.6 close, deferred again
+at v0.3.7 close to keep the Stage 5A known-covariance work the
+focus, and deferred again at v0.3.8 close (audit hardening was
+prioritised). The multiplier is configurable via
 `options(flexyBayes.inla_memory_multiplier = <value>)`. **The new
 refusal reason code is `memory_infeasibility_inla`** -- distinct
 from the existing structural reason codes (`fixed_term_type_inla`
