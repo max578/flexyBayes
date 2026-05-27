@@ -28,34 +28,118 @@ skip_if_no_greta_quiet <- function() {
   testthat::skip_on_ci()
 }
 
-test_that("flexybayes fixed effects agree with lme4 on sleepstudy", {
+# Shared comparator helper consumed by the always-on (primary) and
+# stress-gated (secondary) assertions below. The hybrid recast lands
+# at v0.3.9 Phase B: the primary path containts TF's RNG state via
+# local_tf_seed() and asserts agreement with lme4 at a loosened
+# tolerance suited to a reduced MCMC budget; the secondary path
+# repeats at the original 2000+2000 budget and 1.0 * REML SE / 25%
+# tolerance, gated by FLEXYBAYES_RUN_STRESS=true. Either path covers
+# the user-facing flexybayes() integration end-to-end.
+.assert_sleepstudy_agreement <- function(fit_b, fit_l,
+                                         fixed_tol_mult,
+                                         vc_rel_tol) {
+  beta_b <- coef(fit_b)
+  beta_l <- lme4::fixef(fit_l)
+  se_l   <- sqrt(diag(as.matrix(stats::vcov(fit_l))))
+
+  common <- intersect(names(beta_b), names(beta_l))
+  expect_gt(length(common), 0L)
+
+  for (term in common) {
+    expect_lt(
+      abs(beta_b[[term]] - beta_l[[term]]),
+      fixed_tol_mult * se_l[[term]],
+      label = paste0("|delta| for ", term, " exceeds ",
+                     fixed_tol_mult, " * REML SE")
+    )
+  }
+
+  # Canonical-name layer (the registry-driven mapper):
+  #   greta-side `sigma_e_atg`   -> canonical "sigma"
+  #   greta-side `sigma_Subject` -> canonical "sd_Subject"
+  # The lookup uses public canonical names so the test exercises the
+  # user-facing surface. See canonical_names() / the canonical-name
+  # registry.
+  vc_b   <- fit_b$extras$variance_comps
+  vc_l   <- as.data.frame(lme4::VarCorr(fit_l))
+
+  cn <- canonical_names(fit_b, drop = FALSE)$map
+  vc_b$canonical <- unname(cn[vc_b$component])
+
+  sigma_e_b <- vc_b$estimate[
+    !is.na(vc_b$canonical) & vc_b$canonical == "sigma"
+  ][1]
+  sigma_e_l <- vc_l$sdcor[vc_l$grp == "Residual"]
+  expect_lt(
+    abs(sigma_e_b - sigma_e_l) / sigma_e_l, vc_rel_tol,
+    label = paste0("|sigma| (canonical residual SD) relative error vs ",
+                   "REML > ", vc_rel_tol * 100, "%")
+  )
+
+  sigma_s_b <- vc_b$estimate[
+    !is.na(vc_b$canonical) & vc_b$canonical == "sd_Subject"
+  ][1]
+  sigma_s_l <- vc_l$sdcor[vc_l$grp == "Subject"]
+  expect_lt(
+    abs(sigma_s_b - sigma_s_l) / sigma_s_l, vc_rel_tol,
+    label = paste0("|sd_Subject| (canonical) relative error vs REML > ",
+                   vc_rel_tol * 100, "%")
+  )
+}
+
+test_that("flexybayes fixed effects agree with lme4 on sleepstudy (primary, TF-seeded)", {
   # Weakly-informative fixed-effect prior: the default
   # `prior_fixed_sd = 100` (R/flexybayes.R) flows uniformly to the
-  # intercept, factor contrasts, continuous slopes (R/codegen.R), and
-  # interaction / `I()`-expression terms. On sleepstudy (Reaction has
-  # mean ~ 298), this brackets the data scale without crushing the
-  # posterior; previous narrower defaults forced the intercept toward
-  # zero and inflated the residual variance. Rationale: Gelman (2006)
-  # Bayesian Analysis 1(3):515-534.
+  # intercept, factor contrasts, continuous slopes (R/codegen.R),
+  # interaction and `I()`-expression terms. On sleepstudy (Reaction
+  # has mean ~ 298), this brackets the data scale without crushing
+  # the posterior; previous narrower defaults forced the intercept
+  # toward zero and inflated the residual variance. Rationale:
+  # Gelman (2006) Bayesian Analysis 1(3):515-534.
+  #
+  # v0.3.9 Phase B hybrid recast: the primary always-on path uses
+  # local_tf_seed() to reseed both R and TF before the greta fit, a
+  # reduced 1000+1000 budget, and a loosened 1.5 * REML SE / 30%
+  # tolerance band. The strict 2000+2000 + 1.0 * REML SE / 25%
+  # check lives in the secondary test_that below, gated by
+  # FLEXYBAYES_RUN_STRESS=true. The reduced primary budget runs in
+  # roughly half the wall-time and the TF-seed containment makes the
+  # assertion deterministic up to TF-side ops that
+  # tf$random$set_seed() does not cover (full bit-exactness would
+  # additionally require enable_op_determinism(); see helper-rng.R).
   skip_if_no_greta_quiet()
-  # [flake-stochastic-rng] |Intercept delta| > 1.0 * REML SE depends on
-  # TensorFlow's internal RNG state, which set.seed() does not reseed.
-  # The effective seed state is a function of what other greta fits ran
-  # earlier in the test session, so the test passes in isolation but
-  # fails for some full-suite orderings.  Tracked for v0.3.9 RNG-
-  # containment pass (per-test TF graph reset, or move to a deterministic
-  # numerical reference rather than a sampled posterior).
-  testthat::skip("[flake-stochastic-rng] TF-side RNG state leaks across greta fits; tracked for v0.3.9 RNG containment")
 
   data(sleepstudy, package = "lme4")
 
-  # n_samples = warmup = 2000 + chains = 2 are the smallest budget at
-  # which the posterior mean is robustly within 1 . REML SE of the
-  # REML point estimate across TF-side RNG states. `set.seed()` does
-  # not reseed TensorFlow's internal RNG, so the effective seed state
-  # depends on what other greta fits ran earlier in the test session.
-  # The bumped budget absorbs that variability.
-  set.seed(20260427L)
+  local_tf_seed(20260427L)
+  fit_b <- flexybayes(
+    fixed     = Reaction ~ Days,
+    random    = ~ Subject,
+    data      = sleepstudy,
+    n_samples = 1000,
+    warmup    = 1000,
+    chains    = 2,
+    verbose   = FALSE,
+    mcmc_verbose = FALSE
+  )
+
+  fit_l <- lme4::lmer(Reaction ~ Days + (1 | Subject),
+                       data = sleepstudy, REML = TRUE)
+
+  .assert_sleepstudy_agreement(fit_b, fit_l,
+                                fixed_tol_mult = 1.5,
+                                vc_rel_tol     = 0.30)
+})
+
+test_that("flexybayes fixed effects agree with lme4 on sleepstudy (stress, strict)", {
+  skip_if_no_greta_quiet()
+  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true"))
+    skip("[stress] strict 1.0 * REML SE band; opt-in via FLEXYBAYES_RUN_STRESS=true")
+
+  data(sleepstudy, package = "lme4")
+
+  local_tf_seed(20260427L)
   fit_b <- flexybayes(
     fixed     = Reaction ~ Days,
     random    = ~ Subject,
@@ -70,54 +154,9 @@ test_that("flexybayes fixed effects agree with lme4 on sleepstudy", {
   fit_l <- lme4::lmer(Reaction ~ Days + (1 | Subject),
                        data = sleepstudy, REML = TRUE)
 
-  # Posterior means
-  beta_b <- coef(fit_b)
-  beta_l <- lme4::fixef(fit_l)
-  se_l   <- sqrt(diag(as.matrix(stats::vcov(fit_l))))
-
-  # Align by name
-  common <- intersect(names(beta_b), names(beta_l))
-  expect_gt(length(common), 0L)
-
-  for (term in common) {
-    expect_lt(
-      abs(beta_b[[term]] - beta_l[[term]]),
-      se_l[[term]],
-      label = paste("|delta| for", term, "exceeds 1.0 * REML SE")
-    )
-  }
-
-  # Variance components on the SD scale.
-  #
-  # Canonical-name layer (the registry-driven mapper):
-  #   greta-side `sigma_e_atg`   -> canonical "sigma"
-  #   greta-side `sigma_Subject` -> canonical "sd_Subject"
-  # We look up by the public canonical names rather than the internal
-  # `_atg`-suffixed namespace so the test exercises the user-facing
-  # surface. See canonical_names() / the canonical-name registry.
-  vc_b   <- fit_b$extras$variance_comps
-  vc_l   <- as.data.frame(lme4::VarCorr(fit_l))
-
-  cn <- canonical_names(fit_b, drop = FALSE)$map
-  vc_b$canonical <- unname(cn[vc_b$component])
-
-  sigma_e_b <- vc_b$estimate[
-    !is.na(vc_b$canonical) & vc_b$canonical == "sigma"
-  ][1]
-  sigma_e_l <- vc_l$sdcor[vc_l$grp == "Residual"]
-  expect_lt(
-    abs(sigma_e_b - sigma_e_l) / sigma_e_l, 0.25,
-    label = "|sigma| (canonical residual SD) relative error vs REML > 25%"
-  )
-
-  sigma_s_b <- vc_b$estimate[
-    !is.na(vc_b$canonical) & vc_b$canonical == "sd_Subject"
-  ][1]
-  sigma_s_l <- vc_l$sdcor[vc_l$grp == "Subject"]
-  expect_lt(
-    abs(sigma_s_b - sigma_s_l) / sigma_s_l, 0.25,
-    label = "|sd_Subject| (canonical) relative error vs REML > 25%"
-  )
+  .assert_sleepstudy_agreement(fit_b, fit_l,
+                                fixed_tol_mult = 1.0,
+                                vc_rel_tol     = 0.25)
 })
 
 test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml available)", {

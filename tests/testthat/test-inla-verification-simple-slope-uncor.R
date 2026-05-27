@@ -132,7 +132,11 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
 
   # greta arm. 2000 samples + 2000 warmup per ADR 0020 §Verification;
   # the slope-variance posterior needs enough sweep to settle.
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  # v0.3.9: switched bare options() to withr::local_options() so the
+  # silence flag does not leak into sibling test files in the tally.R
+  # single-process loop (was the upstream cause of the test-smooth.R:88
+  # suite-order flake the v0.3.9 emit-state migration was tracking).
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit_g <- suppressMessages(fb_brms(
     y ~ x + (1 + x || g), data = d, backend = "greta",
     n_samples = 2000L, warmup = 2000L, chains = 1L,

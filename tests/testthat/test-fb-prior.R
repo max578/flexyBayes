@@ -191,7 +191,7 @@ test_that("uniform() rejects missing upper, negative lower, upper <= lower", {
 })
 
 test_that("priors_to_inla() approximates uniform as pc.prec with matched upper", {
-  options(flexyBayes._uniform_inla_approx_emitted = FALSE)
+  local_clean_emit_state()
   p <- fb_prior(sigma ~ uniform(lower = 0, upper = 4))
   expect_message(out <- flexyBayes:::priors_to_inla(p),
                  regexp = "approximated as PC")

@@ -68,7 +68,8 @@ test_that(".enrich() errors politely when s() variable is missing from data", {
 test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
   skip_if_no_greta(); skip_if_no_mgcv()
   d <- mk_smooth_data()
-  options(flexyBayes._default_prior_note_emitted = TRUE)
+  local_clean_emit_state()
+  set_emit_state("default_prior_note", TRUE)
   code <- flexybayes(
     fixed       = y ~ 1, random = ~ s(x),
     data        = d, prior_vc_sd = 1,
@@ -87,23 +88,29 @@ test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
 
 test_that("default uniform prior reaches the smooth's sigma via .sigma_decl", {
   skip_if_no_greta(); skip_if_no_mgcv()
-  # [flake-test-infrastructure] The expect_message() below depends on a
-  # one-shot package-level flag (flexyBayes._default_prior_note_emitted)
-  # that some intervening test in full-suite ordering consumes before
-  # the reset on the next line takes effect.  Reproducible in
-  # alphabetical-file order; passes cleanly in isolation.  Tracked for
-  # v0.3.9 test-isolation pass (move the flag into a withr::local_options
-  # scope or migrate the message contract to a structured signal).
-  testthat::skip("[flake-test-infrastructure] suite-order race on default_prior_note flag; tracked for v0.3.9 isolation")
+  # v0.3.9 emit-state migration + bare-options leak cleanup: the
+  # default_prior_note once-flag now lives in a package-internal env
+  # (R/emit_state.R), shielded from the options() namespace where
+  # unrelated callers used to consume it before the intended emission;
+  # in parallel, six bare options(flexyBayes.silence_default_prior_note
+  # = TRUE) calls across test-inla-verification-simple-slope-uncor.R
+  # and test-random-slopes-uncor.R were migrated to
+  # withr::local_options() so the silence flag does not leak into
+  # sibling test files in the tally.R single-process loop (that leak
+  # was the upstream cause of the v0.3.8 suite-order flake at this
+  # site). The structural-witness assertions below -- latch transitions
+  # FALSE -> TRUE around the flexybayes() call -- pin the contract
+  # directly and are robust against future callinghandler-stack churn;
+  # textual emission via message() remains exercised end-to-end in
+  # test-emit-greta.R and test-emit-state-isolation.R.
   d <- mk_smooth_data()
-  options(flexyBayes._default_prior_note_emitted = FALSE)
-  expect_message(
-    code <- flexybayes(
-      fixed   = y ~ 1, random = ~ s(x),
-      data    = d, verbose = FALSE, return_code = TRUE
-    ),
-    regexp = "uniform\\(0,"
+  local_clean_emit_state()
+  expect_false(flexyBayes:::.emit_state_get("default_prior_note"))
+  code <- flexybayes(
+    fixed   = y ~ 1, random = ~ s(x),
+    data    = d, verbose = FALSE, return_code = TRUE
   )
+  expect_true(flexyBayes:::.emit_state_get("default_prior_note"))
   # Both the residual sigma and the smooth's sigma should be uniform
   # under the ADR 0004 default. Smooth's sigma is keyed by the
   # variable name "x" in priors_to_legacy()'s uniform_per_vc map (via

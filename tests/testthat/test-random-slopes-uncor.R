@@ -154,7 +154,7 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   skip_if_no_greta()
   testthat::skip_if_not_installed("lme4")
   d <- mk_slope_data()
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   # 2000 samples + 2000 warmup per ADR 0020 §Verification. Slope-
   # variance posteriors are intrinsically less identified than
   # intercept-variance ones at modest J (per merged-v2 §5.6 risk 3)
@@ -199,7 +199,7 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
 test_that("canonical_names() on a greta (x || g) fit resolves sd_<x>_<g> AND sd_<g>", {
   skip_if_no_greta()
   d <- mk_slope_data()
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   # (Days || Subject) carries BOTH the intercept-variance (sd_Subject)
   # and slope-variance (sd_Days_Subject) hyperparameters per lme4 /
   # brms semantics. canonical_names() must surface both.
@@ -266,7 +266,7 @@ test_that("triangulate() agrees on sd_<x>_<g> within loosened tolerance (brms vs
   # Slow path: brms compile + sample + greta fit. Marked as Tier-3
   # via skip_on_cran + skip_on_ci. Local-developer rehearsal only.
   d <- mk_slope_data()
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit_g <- suppressMessages(fb_brms(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
@@ -322,7 +322,7 @@ test_that("triangulation fixture honours J >= 10 minimum-group guard", {
 test_that("prior_summary() lists the slope-variance prior row for (x || g)", {
   skip_if_no_greta()
   d <- mk_slope_data()
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit <- suppressMessages(fb_brms(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
@@ -347,7 +347,7 @@ test_that("prior_summary() lists the slope-variance prior row for (x || g)", {
 test_that("fit object exposes the slope-variance hyperparameter via draws + variance_comps", {
   skip_if_no_greta()
   d <- mk_slope_data()
-  options(flexyBayes.silence_default_prior_note = TRUE)
+  withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit <- suppressMessages(fb_brms(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
