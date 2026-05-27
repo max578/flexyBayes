@@ -444,11 +444,14 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
 # One-time announcement of the v0.1.x default change. ADR 0004
 # (uniform default) supersedes ADR 0003 (PC default). Silenceable via
-# options(flexyBayes.silence_default_prior_note = TRUE).
+# options(flexyBayes.silence_default_prior_note = TRUE). The once-flag
+# is held in the package-internal emit-state env (see R/emit_state.R);
+# v0.3.9 migrated the flag out of the options() namespace where
+# unrelated callers could consume it before the intended emission.
 .default_prior_note_once <- function(scale, basis) {
   if (isTRUE(getOption("flexyBayes.silence_default_prior_note", FALSE)))
     return(invisible())
-  if (isTRUE(getOption("flexyBayes._default_prior_note_emitted", FALSE)))
+  if (.emit_state_get("default_prior_note"))
     return(invisible())
   message("flexyBayes: variance-component prior default is uniform(0, ",
           format(scale, digits = 3), ") on every SD (residual sigma + ",
@@ -459,16 +462,17 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
           "for full control, or ",
           "options(flexyBayes.silence_default_prior_note = TRUE) to ",
           "silence this notice.")
-  options(flexyBayes._default_prior_note_emitted = TRUE)
+  .emit_state_set("default_prior_note", TRUE)
 }
 
 # One-time message emitted from priors_to_inla() when a uniform()
 # spec is being approximated as a PC prior. Silenceable via
-# options(flexyBayes.silence_uniform_inla_approx = TRUE).
+# options(flexyBayes.silence_uniform_inla_approx = TRUE). The once-flag
+# is held in the package-internal emit-state env (see R/emit_state.R).
 .uniform_to_inla_warn_once <- function() {
   if (isTRUE(getOption("flexyBayes.silence_uniform_inla_approx", FALSE)))
     return(invisible())
-  if (isTRUE(getOption("flexyBayes._uniform_inla_approx_emitted", FALSE)))
+  if (.emit_state_get("uniform_inla_approx"))
     return(invisible())
   message("flexyBayes: uniform() prior on a variance component is ",
           "approximated as PC(upper, 0.01) for the INLA backend in ",
@@ -477,7 +481,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
           "Exact bounded-uniform support lands in v0.2 -- see ",
           "?fb_prior. Silence this notice via ",
           "options(flexyBayes.silence_uniform_inla_approx = TRUE).")
-  options(flexyBayes._uniform_inla_approx_emitted = TRUE)
+  .emit_state_set("uniform_inla_approx", TRUE)
 }
 
 # ---------------------------------------------------------------- #

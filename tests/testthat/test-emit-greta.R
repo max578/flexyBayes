@@ -99,7 +99,7 @@ test_that("flexybayes() reproduces ar1_spatial code byte-identical", {
 test_that("flexybayes() default uniform prior emits greta::uniform() and an announcement", {
   skip_if_no_greta()
   d <- mk_emit_data()
-  options(flexyBayes._default_prior_note_emitted = FALSE)
+  local_clean_emit_state()
   expect_message(
     code <- flexybayes(
       yield ~ env, random = ~ geno, data = d,
@@ -120,7 +120,7 @@ test_that("flexybayes() default uniform prior emits greta::uniform() and an anno
 test_that("explicit prior_vc_sd suppresses the deprecation note + retains lognormal", {
   skip_if_no_greta()
   d <- mk_emit_data()
-  options(flexyBayes._default_prior_note_emitted = FALSE)
+  local_clean_emit_state()
   expect_no_message(
     code <- flexybayes(
       yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,

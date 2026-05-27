@@ -42,6 +42,13 @@
     }, error = function(e) NULL)
   }
 
+  # Initialise the emit-once message latches into their fresh state.
+  # The store lives in R/emit_state.R inside a package-private env so
+  # it cannot be read or mutated via getOption() / options(); test
+  # code reaches it through .reset_emit_state_for_test() exposed via
+  # helper-emit-state.R.
+  .init_emit_state()
+
   # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
   # v0.3.8 ships zero .register_refusal() calls; v0.4.0 will populate
   # the registry from ~30 existing refusal sites, with the registration
