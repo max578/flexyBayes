@@ -177,6 +177,16 @@ The asymmetry is documented behaviour rather than a bug: greta
 uses dense-matrix per-row emit by default for predictable RAM,
 and switching to the aggregated path silently would change the
 posterior numerical profile without an explicit opt-in.}
+
+\item{plan}{Logical: if \code{TRUE}, short-circuit after intermediate
+representation (IR) build and return a \verb{<fb_plan>} object
+carrying the IR, the routing decision, the representation plan,
+the aggregation plan, and the prediction plan, \emph{without} emitting
+backend code or fitting.  Equivalent to calling \code{\link[=fb_plan]{fb_plan()}} with
+the same formula triple --- exposed inline as \code{flexybayes(plan = TRUE)} so users can reach the planning object without re-typing
+the call.  ADR 0030 C1.  Default \code{FALSE} preserves the run-
+immediately semantics.  Mutually exclusive with \code{return_code} and
+\code{review_code}.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:

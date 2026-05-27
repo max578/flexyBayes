@@ -508,8 +508,8 @@
         "colnames must be identical and must equal levels(`",
         group_var, "`)."
       ),
-      rownames = head(dn[[1L]], 5L),
-      colnames = head(dn[[2L]], 5L)
+      rownames = utils::head(dn[[1L]], 5L),
+      colnames = utils::head(dn[[2L]], 5L)
     )
 
   if (!setequal(dn[[1L]], fit_levels))
@@ -522,8 +522,8 @@
         group_var, "`)) and setdiff(levels(`", group_var,
         "`), dimnames(", name, ")[[1]]) to surface the gap."
       ),
-      matrix_levels_head = head(dn[[1L]], 5L),
-      fit_levels_head    = head(fit_levels, 5L)
+      matrix_levels_head = utils::head(dn[[1L]], 5L),
+      fit_levels_head    = utils::head(fit_levels, 5L)
     )
 
   if (!identical(dn[[1L]], fit_levels))
@@ -539,8 +539,8 @@
         name, ")[[1]])\n",
         "  ", name, " <- ", name, "[perm, perm]"
       ),
-      matrix_levels_head = head(dn[[1L]], 5L),
-      fit_levels_head    = head(fit_levels, 5L)
+      matrix_levels_head = utils::head(dn[[1L]], 5L),
+      fit_levels_head    = utils::head(fit_levels, 5L)
     )
 
   invisible(NULL)

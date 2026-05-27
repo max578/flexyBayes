@@ -123,6 +123,15 @@ for full semantics. \strong{Backend-asymmetric behaviour}: \code{"auto"}
 activates the aggregated path on \code{backend = "inla"} when the
 IR is in scope; on \code{backend = "greta"}, \code{"auto"} falls through
 to the per-row path and \code{TRUE} is required to opt in explicitly.}
+
+\item{plan}{Logical: if \code{TRUE}, short-circuit after IR build and
+return a \verb{<fb_plan>} object (IR + routing decision +
+representation plan + aggregation plan + prediction plan),
+\emph{without} emitting backend code or fitting.  Equivalent to
+calling \code{\link[=fb_plan]{fb_plan()}} with the same formula --- exposed inline
+here so users can reach the planning object without re-typing
+the call.  ADR 0030 C1.  Default \code{FALSE}.  Mutually exclusive
+with \code{return_code} and \code{review_code}.}
 }
 \value{
 Under default \code{return_code = FALSE} and \code{review_code = FALSE}: an object of class \code{"flexybayes"} (greta or auto-fell-

@@ -129,6 +129,14 @@
 #'   a later release. Default `FALSE` preserves the run-immediately
 #'   semantics. Session-level override via
 #'   `options(flexyBayes.review_code_default = TRUE)`.
+#' @param plan Logical: if `TRUE`, short-circuit after IR build and
+#'   return a `<fb_plan>` object (IR + routing decision +
+#'   representation plan + aggregation plan + prediction plan),
+#'   *without* emitting backend code or fitting.  Equivalent to
+#'   calling [fb_plan()] with the same formula --- exposed inline
+#'   here so users can reach the planning object without re-typing
+#'   the call.  ADR 0030 C1.  Default `FALSE`.  Mutually exclusive
+#'   with `return_code` and `review_code`.
 #'
 #' @return Under default `return_code = FALSE` and `review_code =
 #'   FALSE`: an object of class `"flexybayes"` (greta or auto-fell-

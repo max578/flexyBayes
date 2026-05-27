@@ -78,6 +78,16 @@
 #'   precedent: [brms::make_stancode()] plus the `chains = 0` idiom
 #'   for "do everything except sampling". `review_code = TRUE` and
 #'   `return_code = TRUE` are mutually exclusive.
+#' @param plan Logical: if `TRUE`, short-circuit after intermediate
+#'   representation (IR) build and return a `<fb_plan>` object
+#'   carrying the IR, the routing decision, the representation plan,
+#'   the aggregation plan, and the prediction plan, *without* emitting
+#'   backend code or fitting.  Equivalent to calling [fb_plan()] with
+#'   the same formula triple --- exposed inline as `flexybayes(plan =
+#'   TRUE)` so users can reach the planning object without re-typing
+#'   the call.  ADR 0030 C1.  Default `FALSE` preserves the run-
+#'   immediately semantics.  Mutually exclusive with `return_code` and
+#'   `review_code`.
 #' @param backend Character: one of `"greta"` (default; existing
 #'   behaviour --- emit to greta and fit via MCMC), `"inla"`
 #'   (explicit INLA; calls `lgm_gate()` and raises a structured
