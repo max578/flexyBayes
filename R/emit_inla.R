@@ -77,24 +77,27 @@ emit_inla <- function(fb,
   # the "sigma" entry into control.family (residual precision).
   hyper_ctrl  <- if (inherits(fb$priors, "fb_prior"))
     priors_to_inla(fb$priors) else list()
-  inla_form   <- .build_inla_formula(fb, hyper_ctrl = hyper_ctrl)
+  # ADR 0025 Decision 3 (v0.3.10): the formula builder consults
+  # known_matrices to count blocks per blocks-format vm/ped term,
+  # so it must run AFTER the data_inla setup loop (which validates
+  # the blocks structure). The previous v0.3.7 ordering --- formula
+  # build first, then data_inla setup --- is preserved for legacy
+  # paths that do not carry blocks-format terms via the
+  # known_matrices default empty list.
   inla_family <- .resolve_inla_family(fb)
   control_family <- .build_inla_control_family(hyper_ctrl,
                                                 family = inla_family)
 
   if (return_code)
-    return(invisible(list(formula        = inla_form,
-                           family         = inla_family,
-                           hyper          = hyper_ctrl,
-                           control_family = control_family)))
-
-  if (verbose) {
-    cat("\n-- flexyBayes: INLA fit ",
-        paste(rep("-", 40), collapse = ""), "\n", sep = "")
-    cat("  formula: ", deparse(inla_form), "\n", sep = "")
-    cat("  family:  ", inla_family, "\n", sep = "")
-    cat(paste(rep("-", 60), collapse = ""), "\n\n")
-  }
+    return(invisible(list(
+      formula        = .build_inla_formula(
+        fb, hyper_ctrl = hyper_ctrl,
+        known_matrices = known_matrices
+      ),
+      family         = inla_family,
+      hyper          = hyper_ctrl,
+      control_family = control_family
+    )))
 
   # ADR 0025 Phase B-inla: when a vm/ped term routes via
   # f(<var>_id, model = "generic0", Cmatrix = <symbol>), INLA
@@ -106,6 +109,13 @@ emit_inla <- function(fb,
   # known_matrices entry shadows a data column, preserving the
   # package's no-silent-failure identity.
   data_inla <- as.list(data)
+  # v0.3.10 (ADR 0025 Decision 3): blocks-format vm/ped terms generate
+  # K per-block precision matrices that need to live in `data_inla`
+  # alongside the integer index columns, since INLA looks up Cmatrix
+  # symbols from the data list at fit time. The slot is also keyed by
+  # the term's variable name so multiple blocks-format terms do not
+  # collide on a generic name.
+  blocks_precision_for_inla <- list()
   for (term in fb$random_terms) {
     if (term$type %in% c("vm", "ped")) {
       idx_name <- paste0(term$var, "_id")
@@ -135,21 +145,105 @@ emit_inla <- function(fb,
           expected_n = nlevels(f), fit_levels = levels(f)
         )
       }
+
+      # v0.3.10 (ADR 0025 Decision 3): blocks-format vm/ped routes
+      # through K independent f(<var>_id_block_<k>, model =
+      # "generic0", Cmatrix = <symbol>_Q_<k>) calls. Pre-compute one
+      # integer index column per block (NA outside the block) and one
+      # per-block precision matrix (Q_k = solve(V_k)). Convention:
+      # levels(<var>) are partitioned into K consecutive chunks of
+      # sizes n_1, ..., n_K --- the validator's `block_sizes` slot is
+      # the source of truth. The within-block position is the
+      # 1-based offset of that level within its block.
+      if (!is.null(cov) && identical(cov$format, "blocks")) {
+        blocks_meta <- .validate_blocks_input(
+          known_matrices[[cov$data]],
+          name       = cov$data,
+          group_var  = term$var,
+          expected_n = nlevels(f)
+        )
+        block_sizes  <- blocks_meta$block_sizes
+        block_ends   <- cumsum(block_sizes)
+        block_starts <- c(1L, utils::head(block_ends, -1L) + 1L)
+        level_ids    <- as.integer(f)
+        for (k in seq_along(block_sizes)) {
+          idx_block_name <- paste0(term$var, "_id_block_", k)
+          q_block_name   <- paste0(cov$data, "_Q_", k)
+          within_block   <- level_ids - block_starts[[k]] + 1L
+          within_block[level_ids < block_starts[[k]] |
+                       level_ids > block_ends[[k]]] <- NA_integer_
+          data_inla[[idx_block_name]] <- within_block
+
+          V_k <- blocks_meta$blocks[[k]]
+          Q_k <- if (inherits(V_k, "Matrix"))
+                   Matrix::solve(Matrix::forceSymmetric(V_k))
+                 else
+                   solve(as.matrix(V_k))
+          blocks_precision_for_inla[[q_block_name]] <- Q_k
+        }
+      }
     }
   }
-  if (length(known_matrices)) {
-    conflicts <- intersect(names(data_inla), names(known_matrices))
+  if (length(blocks_precision_for_inla)) {
+    conflicts <- intersect(names(data_inla),
+                            names(blocks_precision_for_inla))
     if (length(conflicts))
       .stop_structured_cov_refusal(
         reason_code = "known_matrices_data_name_collision",
         message     = paste0(
-          "known_matrices entry/entries '",
+          "blocks-format precision matrix name(s) '",
           paste(conflicts, collapse = "', '"),
-          "' collide with data column names; rename to disambiguate ",
-          "(INLA's data-list lookup is name-keyed)."),
+          "' collide with data column names. Rename the blocks ",
+          "carrier (the per-block precision matrices are named ",
+          "<carrier>_Q_<k>) to disambiguate."
+        ),
         conflicts = conflicts
       )
-    data_inla <- c(data_inla, known_matrices)
+    data_inla <- c(data_inla, blocks_precision_for_inla)
+  }
+  if (length(known_matrices)) {
+    # ADR 0025 Decision 3 (v0.3.10): blocks-format carriers are
+    # lists-of-matrices, not single matrices --- they belong in
+    # blocks_precision_for_inla (in their per-block Q_k form), not
+    # in data_inla under their user-facing symbol. Drop them before
+    # the bulk append so INLA does not see a list column.
+    blocks_symbols <- character(0L)
+    for (term in fb$random_terms) {
+      if (term$type %in% c("vm", "ped") &&
+          !is.null(term$cov_representation) &&
+          identical(term$cov_representation$format, "blocks"))
+        blocks_symbols <- c(blocks_symbols,
+                            term$cov_representation$data)
+    }
+    km_for_inla <- known_matrices[
+      setdiff(names(known_matrices), blocks_symbols)
+    ]
+    if (length(km_for_inla)) {
+      conflicts <- intersect(names(data_inla), names(km_for_inla))
+      if (length(conflicts))
+        .stop_structured_cov_refusal(
+          reason_code = "known_matrices_data_name_collision",
+          message     = paste0(
+            "known_matrices entry/entries '",
+            paste(conflicts, collapse = "', '"),
+            "' collide with data column names; rename to disambiguate ",
+            "(INLA's data-list lookup is name-keyed)."),
+          conflicts = conflicts
+        )
+      data_inla <- c(data_inla, km_for_inla)
+    }
+  }
+
+  # Formula build runs here (post data_inla setup) so blocks-format
+  # vm/ped terms can resolve their K-count from known_matrices.
+  inla_form <- .build_inla_formula(fb, hyper_ctrl = hyper_ctrl,
+                                    known_matrices = known_matrices)
+  if (verbose) {
+    cat("\n-- flexyBayes: INLA fit ",
+        paste(rep("-", 40), collapse = ""), "\n", sep = "")
+    cat("  formula: ", deparse(inla_form), "\n", sep = "")
+    cat("  family:  ", inla_family, "\n", sep = "")
+    cat(paste(rep("-", 60), collapse = ""), "\n\n")
   }
 
   # Fit
@@ -232,7 +326,8 @@ emit_inla <- function(fb,
 # fb_terms -> INLA formula                                         #
 # ---------------------------------------------------------------- #
 
-.build_inla_formula <- function(fb, hyper_ctrl = list()) {
+.build_inla_formula <- function(fb, hyper_ctrl = list(),
+                                 known_matrices = list()) {
   rhs_terms <- character(0)
 
   # Intercept
@@ -321,6 +416,43 @@ emit_inla <- function(fb,
       cov <- term$cov_representation
       key <- term$var
       hyper_str <- .inla_hyper_arg(hyper_ctrl[[key]])
+
+      # ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped emits K
+      # independent f() calls, one per block, each with its own
+      # generic0 precision and an INLA-default per-block precision
+      # hyperparameter. The K integer index columns + K per-block
+      # precision matrices are pre-computed in emit_inla()'s
+      # data_inla setup loop; here we only need the block count,
+      # which the resolved known_matrices entry surfaces directly.
+      # The per-block hyperparameter is left at INLA's
+      # loggamma(1, 5e-5) default --- no shared per-block prior at
+      # v0.3.10 (the priors-to-inla hyper_ctrl entry is keyed by
+      # term$var, so all K blocks share its parameters when the user
+      # supplies one via fb_prior()).
+      if (!is.null(cov) && identical(cov$format, "blocks")) {
+        blocks_value <- known_matrices[[cov$data]]
+        K <- if (is.list(blocks_value)) length(blocks_value) else 0L
+        if (K == 0L)
+          stop("lgm_gate broken contract: blocks-format vm/ped term ",
+               "reached .build_inla_formula() but known_matrices[[\"",
+               cov$data, "\"]] is empty or not a list. This is a ",
+               "flexyBayes internal bug --- the gate or emit_inla()'s ",
+               "validator should have refused first.", call. = FALSE)
+        contribs <- character(K)
+        for (k in seq_len(K)) {
+          idx_block_name <- paste0(term$var, "_id_block_", k)
+          q_block_name   <- paste0(cov$data, "_Q_", k)
+          contribs[[k]] <- paste0(
+            "f(", idx_block_name,
+            ", model = \"generic0\", Cmatrix = ", q_block_name,
+            if (nzchar(hyper_str)) paste0(", ", hyper_str) else "",
+            ")"
+          )
+        }
+        rhs_terms <- c(rhs_terms, contribs)
+        next
+      }
+
       idx_name  <- paste0(term$var, "_id")
       contrib <- paste0(
         "f(", idx_name,

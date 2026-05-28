@@ -614,11 +614,14 @@ print.lgm_refusal <- function(x, ...) {
 # simple_slope_uncor (mapped via the ADR 0020 §3.4 verification
 # gate). ADR 0025 Phase B-inla adds vm / ped *conditionally*: the
 # precision and pedigree_sparse_precision formats route through
-# INLA's f(model = "generic0", Cmatrix = Q) interface; the dense
-# and chol formats stay refused on INLA (no native interface for a
-# user-supplied dense covariance or Cholesky factor) and the user
-# is pointed to the actionable workaround (re-express as precision
-# via solve(V), or route via backend = "greta").
+# INLA's f(model = "generic0", Cmatrix = Q) interface; the blocks
+# format (v0.3.10, Decision 3) routes through K independent
+# f(<var>_id_block_<k>, model = "generic0", Cmatrix = solve(V_k))
+# calls. The dense and chol formats stay refused on INLA (no
+# native interface for a user-supplied dense covariance or
+# Cholesky factor) and the user is pointed to the actionable
+# workaround (re-express as precision via solve(V), or route via
+# backend = "greta").
 .lgm_check_random_term_inla_support <- function(fb) {
   bad_terms   <- list()
   for (term in fb$random_terms) {
@@ -633,10 +636,11 @@ print.lgm_refusal <- function(x, ...) {
     detail      <- if (first_type %in% c("vm", "ped") &&
                        !is.null(fmt) &&
                        fmt %in% c("dense", "chol")) {
-      paste0("INLA accepts vm/ped only with the sparse-precision ",
-             "representation (format = \"precision\" or ",
-             "\"pedigree_sparse_precision\"). The supplied format ",
-             "is \"", fmt, "\". Re-express as vm(", first$var,
+      paste0("INLA accepts vm/ped only with the sparse-precision, ",
+             "pedigree_sparse_precision, or blocks representation ",
+             "(format = \"precision\", \"pedigree_sparse_precision\", ",
+             "or \"blocks\"). The supplied format is \"", fmt,
+             "\". Re-express as vm(", first$var,
              ", precision = solve(V)) to use INLA's generic0 ",
              "sparse-precision path, or route via backend = \"greta\".")
     } else {
@@ -675,7 +679,8 @@ print.lgm_refusal <- function(x, ...) {
   if (term$type %in% c("vm", "ped")) {
     cov <- term$cov_representation
     if (is.null(cov)) return(FALSE)
-    return(cov$format %in% c("precision", "pedigree_sparse_precision"))
+    return(cov$format %in% c("precision", "pedigree_sparse_precision",
+                              "blocks"))
   }
   FALSE
 }

@@ -587,10 +587,25 @@
     ))
   }
 
+  # ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped terms
+  # surface as `block_diagonal` so fb_plan() can render
+  # "(K blocks)" annotations on the print form. The byte estimate
+  # tracks the indexed_structured_known formula at preflight time
+  # --- the per-block memory model lands in the Phase B per-term
+  # INLA memory estimator.
+  cov <- term$cov_representation
   bytes <- 4 * n_rows +
            8 * n_rows +
            16 * k +
            .FB_PREFLIGHT_TERM_OVERHEAD
+  if (!is.null(cov) && identical(cov$format, "blocks"))
+    return(.preflight_entry(
+      label                            = label,
+      design_memory_bytes              = bytes,
+      representation_class             = "block_diagonal",
+      aggregated_likelihood_candidate  = FALSE,
+      term_kind                        = "random_structured"
+    ))
   .preflight_entry(
     label                            = label,
     design_memory_bytes              = bytes,

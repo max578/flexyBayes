@@ -1,3 +1,48 @@
+# flexyBayes 0.3.10
+
+## Stage 5A blocks emit + low_rank refusal-stub upgrade (ADR 0025 Decisions 3 + 4)
+
+Phase A closes two of the three v0.3.8-deferred items that v0.3.9
+did not absorb. The block-diagonal carrier `vm(group, blocks = ...)`
+ships end-to-end on greta + INLA; the low-rank refusal upgrades to
+name the v0.4.0 `validate_approximation()` forward export by
+reference, and three new reason codes register into the v0.3.8 C7
+refusal-registry scaffold as the first migration (forward-pattern
+demonstration for the v0.4.0 Wave 1 Phase 1C bulk migration).
+
+- `vm(group, blocks = my_blocks)` --- where `my_blocks` resolves to
+  `list(V_1, ..., V_K)` --- is active on greta + INLA. The greta path
+  emits via `t(chol(as.matrix(Matrix::bdiag(...))))` through
+  `.vm_ped_sqrt_expr()` (fits the v0.3.7 sqrt-expr architecture
+  unchanged; "exact and boring" per the 2026-05-28 planning
+  correction). The INLA path emits K independent
+  `f(<var>_id_block_<k>, model = "generic0", Cmatrix = solve(V_k))`
+  calls; per-block integer index columns + per-block precision
+  matrices are pre-computed in `data_inla`.
+- `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` refuses
+  with the upgraded message naming **ADR 0027** + `validate_approximation()`
+  (v0.4.0 Wave 1 Phase 1B) and the actionable workaround
+  `vm(group, V = U %*% t(U))` for the dense materialisation path.
+- Two new structured refusals: `block_partition_incomplete` (sum of
+  block sizes does not match the grouping factor's level count) and
+  `block_not_positive_definite` (offending block index named in the
+  message text).
+- `fb_plan()` reports `representation_plan` entries with class
+  `block_diagonal` for blocks-format vm/ped terms; the print form
+  renders `(K blocks)` annotations from `known_matrices` resolution.
+  The fit-side `print.flexybayes()` Representation line renders
+  `exact (block-diagonal, K blocks)` when blocks-format terms are
+  present.
+- `lgm_gate()` check 8 (`random_term_type_inla`) accepts vm/ped with
+  `cov_representation$format == "blocks"`; the refusal text for
+  `format %in% c("dense", "chol")` extends to mention the blocks
+  carrier as a third structurally-INLA-eligible representation.
+- The refusal-registry scaffold (ADR 0030 C7, shipped at v0.3.8 with
+  zero entries) gains its first three entries via
+  `.populate_refusal_registry_v0310()` --- registered at `.onLoad()`
+  before the registry locks. The full ~28-site migration follows the
+  same `.register_refusal()` shape at v0.4.0 Wave 1 Phase 1C.
+
 # flexyBayes 0.3.9
 
 ## Test-isolation pass -- three v0.3.8-deferred stochastic flakes closed

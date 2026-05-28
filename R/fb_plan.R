@@ -223,6 +223,9 @@ fb_plan <- function(formula,
 
   # ---- representation plan ------------------------------------- #
   representation_plan <- .representation_plan_from_preflight(preflight)
+  representation_plan <- .annotate_block_diagonal_counts(
+    representation_plan, fb, known_matrices
+  )
 
   # ---- cov_validation_policy ----------------------------------- #
   cov_policy <- .cov_validation_policy(known_matrices = known_matrices,
@@ -244,7 +247,8 @@ fb_plan <- function(formula,
   engine_label <- .engine_label_for(chosen_backend, chosen_path)
 
   # ---- representation label (Representation: line; ADR 0030 D4) - #
-  repr_label <- .representation_label_for(chosen_path, agg)
+  repr_label <- .representation_label_for(chosen_path, agg,
+                                           representation_plan)
 
   # ---- assemble ------------------------------------------------- #
   structure(
@@ -373,15 +377,78 @@ fb_plan <- function(formula,
 
 
 # .representation_label_for() --- the Representation: line companion
-# to engine_label. "exact" / "aggregated_exact (N:K ratio)" / "n/a".
-.representation_label_for <- function(path, agg) {
+# to engine_label. "exact" / "aggregated_exact (N:K ratio)" /
+# "exact (block-diagonal, K blocks)" / "n/a".
+.representation_label_for <- function(path, agg,
+                                       representation_plan = NULL) {
   if (identical(path, "aggregated_inla")) {
     if (!is.na(agg$ratio) && agg$ratio >= 2)
       return(sprintf("aggregated_exact (compression %.0f:1)",
                      agg$ratio))
     return("aggregated_exact")
   }
+  if (!is.null(representation_plan)) {
+    block_entries <- Filter(function(rp)
+      identical(rp$representation_class %||% NA_character_,
+                "block_diagonal"),
+      representation_plan)
+    if (length(block_entries)) {
+      k_total <- sum(vapply(block_entries,
+                             function(rp) as.integer(rp$block_count %||% NA_integer_),
+                             integer(1L)))
+      if (!is.na(k_total) && k_total > 0L)
+        return(sprintf("exact (block-diagonal, %d blocks)", k_total))
+      return("exact (block-diagonal)")
+    }
+  }
   "exact"
+}
+
+
+# .annotate_block_diagonal_counts() --- enriches representation_plan
+# entries whose class is "block_diagonal" with the block count read
+# from known_matrices[[<symbol>]]. The preflight estimator runs from
+# fb_dataset metadata only, so it does not have access to
+# known_matrices --- we annotate post-hoc here. Idempotent on entries
+# that are not block_diagonal or whose carrier is not in
+# known_matrices (e.g., a parser-bypass fixture).
+.annotate_block_diagonal_counts <- function(representation_plan,
+                                             fb, known_matrices) {
+  if (is.null(representation_plan) || length(representation_plan) == 0L)
+    return(representation_plan)
+  block_terms <- Filter(function(t) {
+    isTRUE(t$type %in% c("vm", "ped")) &&
+      !is.null(t$cov_representation) &&
+      identical(t$cov_representation$format, "blocks")
+  }, fb$random_terms)
+  if (length(block_terms) == 0L) return(representation_plan)
+
+  for (i in seq_along(representation_plan)) {
+    entry <- representation_plan[[i]]
+    if (!identical(entry$representation_class %||% NA_character_,
+                   "block_diagonal"))
+      next
+    matched <- NULL
+    for (term in block_terms) {
+      candidates <- unique(c(term$label, term$var,
+                              term$deparse))
+      if (any(vapply(candidates,
+                      function(c)
+                        !is.null(c) &&
+                          (identical(c, entry$term_id) ||
+                            grepl(c, entry$term_id, fixed = TRUE)),
+                      logical(1L)))) {
+        matched <- term
+        break
+      }
+    }
+    if (is.null(matched)) next
+    sym <- matched$cov_representation$data
+    val <- known_matrices[[sym]]
+    if (is.list(val) && !is.data.frame(val))
+      representation_plan[[i]]$block_count <- length(val)
+  }
+  representation_plan
 }
 
 
@@ -463,10 +530,13 @@ print.fb_plan <- function(x, ...) {
       length(x$representation_plan) > 0L) {
     cat("  Representation plan:\n", sep = "")
     for (rp in x$representation_plan) {
+      cls <- rp$representation_class %||% "unknown"
+      if (identical(cls, "block_diagonal") &&
+          !is.null(rp$block_count))
+        cls <- paste0(cls, " (", rp$block_count, " blocks)")
       cat("    ",
           format(rp$term_id, width = 24),
-          " -> ", format(rp$representation_class %||% "unknown",
-                          width = 22),
+          " -> ", format(cls, width = 30),
           "  ", rp$justification %||% "",
           "\n", sep = "")
     }

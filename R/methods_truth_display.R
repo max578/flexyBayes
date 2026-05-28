@@ -15,6 +15,9 @@
 # .repr_label_for_fit() --- the Representation: line content.
 # Reads $exactness directly (the canonical slot since ADR 0022) and
 # attaches the compression ratio for aggregated_exact when N/K >= 2.
+# ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped fits surface
+# the "(block-diagonal, K blocks)" annotation by reading the routing
+# trace's representation_plan for block_diagonal entries.
 .repr_label_for_fit <- function(fit, bd) {
   exact <- fit$exactness %||% "exact"
   if (identical(exact, "aggregated_exact")) {
@@ -24,6 +27,21 @@
       return(sprintf("aggregated_exact (compression %.0f:1)",
                      am$N / am$K))
     return("aggregated_exact")
+  }
+  block_entries <- if (!is.null(bd$representation_plan))
+    Filter(function(rp)
+      identical(rp$representation_class %||% NA_character_,
+                "block_diagonal"),
+      bd$representation_plan)
+  else NULL
+  if (length(block_entries)) {
+    k_total <- sum(vapply(block_entries,
+                           function(rp)
+                             as.integer(rp$block_count %||% NA_integer_),
+                           integer(1L)))
+    if (!is.na(k_total) && k_total > 0L)
+      return(sprintf("exact (block-diagonal, %d blocks)", k_total))
+    return("exact (block-diagonal)")
   }
   exact
 }
