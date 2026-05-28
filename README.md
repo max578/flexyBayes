@@ -53,7 +53,7 @@ install.packages("brms")
 # (the upstream rename, project decision D8, has not yet shipped;
 # remotes::install_github("AAGI-AUS/flexyBayes") will resume once
 # the AAGI-AUS collective conversation closes D8).
-R CMD INSTALL release_tarballs/flexyBayes_0.3.9.tar.gz
+R CMD INSTALL release_tarballs/flexyBayes_0.3.10.tar.gz
 
 # Once D8 ships and the AAGI-AUS/flexyBayes repo exists:
 # install.packages("remotes")
