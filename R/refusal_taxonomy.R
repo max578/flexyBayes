@@ -134,6 +134,77 @@
 }
 
 
+# --- v0.3.10 registry population (ADR 0025 Decisions 3 + 4) ------ #
+
+# .populate_refusal_registry_v0310() --- the first migration of
+# existing refusal sites into the v0.3.8 C7 scaffold. Called from
+# .onLoad() *before* .lock_refusal_registry() so the entries are
+# in place when user code first observes the registry.
+#
+# Three reason codes register at v0.3.10:
+#
+#   block_partition_incomplete         --- ADR 0025 D3 (blocks
+#                                          structural refusal: sum of
+#                                          block sizes != grouping
+#                                          factor level count).
+#   block_not_positive_definite        --- ADR 0025 D3 (blocks
+#                                          structural refusal: at
+#                                          least one V_k fails the
+#                                          PD probe; the offending
+#                                          block index is named in
+#                                          the message text).
+#   approximate_route_not_yet_registered --- ADR 0025 D4 + ADR 0027
+#                                            (low-rank refusal-stub
+#                                            upgrade naming
+#                                            validate_approximation()
+#                                            as the v0.4.0 Wave 1
+#                                            Phase 1B forward export).
+#
+# Forward pattern: the v0.4.0 Wave 1 Phase 1C bulk migration moves
+# the ~28 remaining inline-message refusal sites into this scaffold
+# using the same .register_refusal() call shape.
+.populate_refusal_registry_v0310 <- function() {
+  .register_refusal(
+    reason_code        = "block_partition_incomplete",
+    description        = paste0(
+      "Block-diagonal vm/ped: the block sizes do not partition ",
+      "the grouping factor's level count."),
+    message_template   = paste0(
+      "vm(%s, blocks = %s): block sizes (%s = %d) do not match ",
+      "levels(`%s`) (%d levels)."),
+    registered_in_adr  = "ADR 0025",
+    plan_field         = "representation_plan",
+    since_version      = "0.3.10"
+  )
+  .register_refusal(
+    reason_code        = "block_not_positive_definite",
+    description        = paste0(
+      "Block-diagonal vm/ped: at least one V_k failed the ",
+      "positive-definite probe."),
+    message_template   = paste0(
+      "vm(%s, blocks = %s): block %d failed the PD probe (size ",
+      "%d x %d)."),
+    registered_in_adr  = "ADR 0025",
+    plan_field         = "representation_plan",
+    since_version      = "0.3.10"
+  )
+  .register_refusal(
+    reason_code        = "approximate_route_not_yet_registered",
+    description        = paste0(
+      "Approximate covariance / dispatch carriers refuse until the ",
+      "ADR 0027 approximation registry ships at v0.4.0 ",
+      "(validate_approximation())."),
+    message_template   = paste0(
+      "vm(%s, low_rank_factor = %s, low_rank_scheme = '%s'): ",
+      "low-rank carriers require validate_approximation() (v0.4.0)."),
+    registered_in_adr  = "ADR 0025+0027",
+    plan_field         = "representation_plan",
+    since_version      = "0.3.10"
+  )
+  invisible(NULL)
+}
+
+
 # --- lock helper -------------------------------------------------- #
 
 # .lock_refusal_registry() --- locks the environment so no further

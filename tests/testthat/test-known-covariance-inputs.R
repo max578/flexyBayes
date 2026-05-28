@@ -291,25 +291,26 @@ test_that("chol path with L missing from known_matrices refuses cleanly", {
 })
 
 # ---------------------------------------------------------------- #
-# v0.3.8 forward-pointer refusals.                                  #
+# ADR 0025 Decision 3 (v0.3.10): blocks ships end-to-end. The      #
+# pre-v0.3.10 route-refusal subtest below is rewritten as a        #
+# success-path guard --- valid block partition validates cleanly,  #
+# binds the carrier into setup_env, and falls through to codegen.  #
 # ---------------------------------------------------------------- #
 
-test_that("blocks path refuses with route_not_yet_emitted pointing to v0.3.8", {
+test_that("blocks path: valid 2+3 partition validates and falls through Phase A guard", {
   dat <- data.frame(geno = factor(1:5))
+  Bs  <- list(diag(2), diag(3))                # 2 + 3 = 5 = nlevels(geno)
   random_terms <- flexyBayes:::.parse_formula(~ vm(geno, blocks = Bs), dat)
   fixed_info   <- flexyBayes:::.parse_fixed(V1 ~ 1, cbind(dat, V1 = 1))
 
   ev <- new.env(parent = emptyenv())
-  err <- tryCatch(
+  expect_silent(
     flexyBayes:::.setup_env(ev, fixed_info, random_terms,
                             list(list(type = "units")),
-                            dat, list(Bs = list(diag(2), diag(3))), NULL),
-    flexybayes_structured_cov_refusal = identity
+                            dat, list(Bs = Bs), NULL)
   )
-  expect_s3_class(err, "flexybayes_structured_cov_refusal")
-  expect_equal(err$reason_code, "route_not_yet_emitted")
-  expect_equal(err$format, "blocks")
-  expect_match(err$message, "v0\\.3\\.8")
+  expect_true("Bs" %in% ls(ev))
+  expect_identical(ev$Bs, Bs)
 })
 
 # ---------------------------------------------------------------- #
@@ -610,7 +611,7 @@ test_that("(e) BYM2-shape lattice: sparse-precision fit succeeds on INLA", {
 # Original Phase A test (kept for reference; assertion intact).     #
 # ---------------------------------------------------------------- #
 
-test_that("low_rank path with registered-looking scheme refuses with approximate_route_not_yet_registered", {
+test_that("low_rank path with registered-looking scheme refuses with approximate_route_not_yet_registered (v0.3.10 upgraded message)", {
   dat <- data.frame(geno = factor(1:5))
   random_terms <- flexyBayes:::.parse_formula(
     ~ vm(geno, low_rank_factor = F_mat, low_rank_scheme = "pca"), dat
@@ -628,6 +629,12 @@ test_that("low_rank path with registered-looking scheme refuses with approximate
   expect_equal(err$reason_code, "approximate_route_not_yet_registered")
   expect_equal(err$format, "low_rank")
   expect_equal(err$scheme, "pca")
+  # v0.3.10 upgrade: message names ADR 0027 + validate_approximation()
+  # + the actionable workaround (materialise U %*% t(U)).
+  expect_match(err$message, "ADR 0027")
+  expect_match(err$message, "validate_approximation\\(\\)")
+  expect_match(err$message, "v0\\.4\\.0")
+  expect_match(err$message, "F_mat %\\*% t\\(F_mat\\)")
 })
 
 # ---------------------------------------------------------------- #

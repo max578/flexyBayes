@@ -49,11 +49,18 @@
   # helper-emit-state.R.
   .init_emit_state()
 
+  # ADR 0025 Decisions 3 + 4 (v0.3.10): register the first three
+  # canonical refusal-reason codes into the v0.3.8 C7 scaffold ---
+  # block_partition_incomplete, block_not_positive_definite, and the
+  # upgraded approximate_route_not_yet_registered. This is the first
+  # migration; the v0.4.0 Wave 1 Phase 1C bulk migration follows the
+  # same .register_refusal() shape for the ~28 remaining sites.
+  .populate_refusal_registry_v0310()
+
   # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
-  # v0.3.8 ships zero .register_refusal() calls; v0.4.0 will populate
-  # the registry from ~30 existing refusal sites, with the registration
-  # block sitting above this lock call. The lock makes the registry
-  # immutable to user code once the package is loaded.
+  # The lock makes the registry immutable to user code once the
+  # package is loaded; .register_refusal() calls beyond this point
+  # raise rather than mutate the locked environment.
   .lock_refusal_registry()
 }
 

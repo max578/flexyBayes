@@ -614,11 +614,14 @@ print.lgm_refusal <- function(x, ...) {
 # simple_slope_uncor (mapped via the ADR 0020 §3.4 verification
 # gate). ADR 0025 Phase B-inla adds vm / ped *conditionally*: the
 # precision and pedigree_sparse_precision formats route through
-# INLA's f(model = "generic0", Cmatrix = Q) interface; the dense
-# and chol formats stay refused on INLA (no native interface for a
-# user-supplied dense covariance or Cholesky factor) and the user
-# is pointed to the actionable workaround (re-express as precision
-# via solve(V), or route via backend = "greta").
+# INLA's f(model = "generic0", Cmatrix = Q) interface; the blocks
+# format (v0.3.10, Decision 3) routes through K independent
+# f(<var>_id_block_<k>, model = "generic0", Cmatrix = solve(V_k))
+# calls. The dense and chol formats stay refused on INLA (no
+# native interface for a user-supplied dense covariance or
+# Cholesky factor) and the user is pointed to the actionable
+# workaround (re-express as precision via solve(V), or route via
+# backend = "greta").
 .lgm_check_random_term_inla_support <- function(fb) {
   bad_terms   <- list()
   for (term in fb$random_terms) {
@@ -633,10 +636,11 @@ print.lgm_refusal <- function(x, ...) {
     detail      <- if (first_type %in% c("vm", "ped") &&
                        !is.null(fmt) &&
                        fmt %in% c("dense", "chol")) {
-      paste0("INLA accepts vm/ped only with the sparse-precision ",
-             "representation (format = \"precision\" or ",
-             "\"pedigree_sparse_precision\"). The supplied format ",
-             "is \"", fmt, "\". Re-express as vm(", first$var,
+      paste0("INLA accepts vm/ped only with the sparse-precision, ",
+             "pedigree_sparse_precision, or blocks representation ",
+             "(format = \"precision\", \"pedigree_sparse_precision\", ",
+             "or \"blocks\"). The supplied format is \"", fmt,
+             "\". Re-express as vm(", first$var,
              ", precision = solve(V)) to use INLA's generic0 ",
              "sparse-precision path, or route via backend = \"greta\".")
     } else {
@@ -675,7 +679,8 @@ print.lgm_refusal <- function(x, ...) {
   if (term$type %in% c("vm", "ped")) {
     cov <- term$cov_representation
     if (is.null(cov)) return(FALSE)
-    return(cov$format %in% c("precision", "pedigree_sparse_precision"))
+    return(cov$format %in% c("precision", "pedigree_sparse_precision",
+                              "blocks"))
   }
   FALSE
 }
@@ -835,12 +840,54 @@ print.lgm_refusal <- function(x, ...) {
   if (is.null(preflight)) return(.lgm_pass(rule_id))
   if (!inherits(preflight, "fb_preflight"))
     return(.lgm_pass(rule_id))
-  if (is.null(preflight$total_estimate_bytes) ||
-      is.null(preflight$ceiling_bytes) ||
-      is.na(preflight$total_estimate_bytes) ||
+  if (is.null(preflight$ceiling_bytes) ||
       is.na(preflight$ceiling_bytes))
     return(.lgm_pass(rule_id))
 
+  # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
+  # INLA memory estimator landed on `preflight$memory_estimate`, the
+  # check decomposes the estimate by representation class and reports
+  # the breakdown on refusal. Falls back to the v0.3.6 single-
+  # multiplier path when memory_estimate is absent (legacy callers).
+  mem <- preflight$memory_estimate
+  if (inherits(mem, "fb_memory_estimate") &&
+      !is.null(mem$total) && !is.na(mem$total)) {
+    inla_estimate <- as.numeric(mem$total)
+    if (inla_estimate <= preflight$ceiling_bytes)
+      return(.lgm_pass(rule_id))
+
+    inla_gb    <- inla_estimate / 1024^3
+    ceiling_gb <- preflight$ceiling_bytes / 1024^3
+    bd         <- mem$breakdown
+    top_share  <- if (nrow(bd) > 0L)
+                    bd[order(-bd$bytes), ][1L, ]
+                  else NULL
+    diag_text  <- if (!is.null(top_share))
+                    sprintf(
+                      "per-term total = %.2f GB (overhead %.1fx); largest contributor: %s (%s, %.0f%%)",
+                      inla_gb, mem$overhead_factor %||% 2,
+                      top_share$term_label, top_share$representation,
+                      (top_share$share %||% 0) * 100)
+                  else
+                    sprintf("per-term total = %.2f GB; ceiling = %.2f GB",
+                            inla_gb, ceiling_gb)
+    return(.lgm_fail(
+      "memory_feasibility_inla_per_term",
+      sprintf(
+        paste0("INLA path's per-term memory estimate (%.2f GB) ",
+               "exceeds the active ceiling (%.2f GB). Re-route via ",
+               "backend = \"greta\" for the indexed representation, ",
+               "or reduce structured-cov cardinality."),
+        inla_gb, ceiling_gb),
+      diagnostic = diag_text
+    ))
+  }
+
+  # Legacy single-multiplier path (v0.3.6 default; retained for
+  # backward-compat when memory_estimate is unavailable).
+  if (is.null(preflight$total_estimate_bytes) ||
+      is.na(preflight$total_estimate_bytes))
+    return(.lgm_pass(rule_id))
   multiplier <- getOption("flexyBayes.inla_memory_multiplier", 3)
   if (!is.numeric(multiplier) || length(multiplier) != 1L ||
       multiplier <= 0)

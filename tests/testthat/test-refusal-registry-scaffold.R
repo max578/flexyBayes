@@ -75,22 +75,49 @@ test_that("user-side assign() into .refusal_registry raises", {
 })
 
 # ---------------------------------------------------------------- #
-# (e) registry is empty at v0.3.8 (deliberate scaffold-only)         #
+# (e) v0.3.10 first-migration entries (ADR 0025 Decisions 3 + 4)    #
 # ---------------------------------------------------------------- #
+#
+# v0.3.8 shipped the registry scaffold empty (zero entries; deliberate
+# scaffold-only posture). v0.3.10 lands the first three entries via
+# .populate_refusal_registry_v0310(): the two blocks-structural codes
+# (block_partition_incomplete + block_not_positive_definite) plus the
+# upgraded approximate_route_not_yet_registered. The full ~28-site
+# bulk migration follows at v0.4.0 Wave 1 Phase 1C using the same
+# .register_refusal() shape.
 
-test_that(".refusal_registry is empty at v0.3.8 (scaffold-only)", {
-  reg <- flexyBayes:::.refusal_registry
-  expect_equal(length(ls(envir = reg, all.names = TRUE)), 0L)
+test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
+  reg     <- flexyBayes:::.refusal_registry
+  entries <- ls(envir = reg, all.names = TRUE)
+  expect_true("block_partition_incomplete"           %in% entries)
+  expect_true("block_not_positive_definite"          %in% entries)
+  expect_true("approximate_route_not_yet_registered" %in% entries)
+  expect_equal(length(entries), 3L)
 })
 
 # ---------------------------------------------------------------- #
-# Bonus: .lookup_refusal() returns NULL for any code at v0.3.8       #
+# Bonus: .lookup_refusal() returns the registered entry shape       #
 # ---------------------------------------------------------------- #
 
-test_that(".lookup_refusal() returns NULL for any code at v0.3.8", {
+test_that(".lookup_refusal() returns NULL for unregistered codes", {
   expect_null(flexyBayes:::.lookup_refusal("explicit_inla_gate_refused"))
   expect_null(flexyBayes:::.lookup_refusal("design_memory_exceeds_ceiling"))
   expect_null(flexyBayes:::.lookup_refusal("any_arbitrary_string"))
   expect_null(flexyBayes:::.lookup_refusal(""))
   expect_null(flexyBayes:::.lookup_refusal(NULL))
+})
+
+test_that(".lookup_refusal() returns the registered entry for the v0.3.10 codes", {
+  entry <- flexyBayes:::.lookup_refusal("block_partition_incomplete")
+  expect_type(entry, "list")
+  expect_equal(entry$reason_code,       "block_partition_incomplete")
+  expect_equal(entry$registered_in_adr, "ADR 0025")
+  expect_equal(entry$since_version,     "0.3.10")
+  expect_equal(entry$plan_field,        "representation_plan")
+
+  entry_low <- flexyBayes:::.lookup_refusal(
+    "approximate_route_not_yet_registered"
+  )
+  expect_equal(entry_low$registered_in_adr, "ADR 0025+0027")
+  expect_equal(entry_low$since_version,     "0.3.10")
 })

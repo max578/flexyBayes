@@ -10,8 +10,10 @@
 #                  name for low_rank>)
 #
 # v0.3.7 activates dense + chol + precision (+ ped sparse-precision
-# opt-in via Decision 6). v0.3.8 activates blocks; low_rank reserves
-# the slot for ADR 0027 (Stage 6 / v0.4.0).
+# opt-in via Decision 6). v0.3.10 activates blocks (ADR 0025 Decision
+# 3); low_rank reserves the slot for ADR 0027 (Stage 6 / v0.4.0) and
+# the refusal message names `validate_approximation()` as the v0.4.0
+# Wave 1 Phase 1B forward export.
 #
 # Phase A (this file) ships:
 #   - The IR slot constructor (.cov_representation_from_call).
@@ -193,15 +195,14 @@
   }
 
   if (fmt == "blocks") {
-    .stop_structured_cov_refusal(
-      reason_code = "route_not_yet_emitted",
-      message     = paste0(
-        "vm(", term$var, ", blocks = ", cov$data,
-        "): the block-diagonal covariance route is reserved for ",
-        "v0.3.8 (ADR 0025 Decision 3)."
-      ),
-      format = "blocks"
+    blocks_list <- known_matrices[[cov$data]]
+    .validate_blocks_input(
+      blocks_list,
+      name       = cov$data,
+      group_var  = term$var,
+      expected_n = expected_n
     )
+    return(invisible(NULL))
   }
 
   if (fmt == "low_rank") {
@@ -210,8 +211,12 @@
       message     = paste0(
         "vm(", term$var, ", low_rank_factor = ", cov$data,
         ", low_rank_scheme = '", cov$scheme,
-        "'): approximate routes refuse until ADR 0027 (Stage 6 / ",
-        "v0.4.0) ships the approximation registry."
+        "'): low-rank covariance carriers require the approximation ",
+        "registry (ADR 0027), which lands at flexyBayes v0.4.0 as ",
+        "validate_approximation() (Wave 1 Phase 1B). Until then, ",
+        "materialise the rank-K matrix and route through the dense ",
+        "path: vm(", term$var, ", V = ", cov$data, " %*% t(",
+        cov$data, "))."
       ),
       format = "low_rank",
       scheme = cov$scheme
@@ -237,9 +242,17 @@
 #   precision /
 #   pedigree_sparse_precision:   solve(chol(Q))            B = R^{-1} where R = chol(Q),
 #                                                          giving B B' = Q^{-1} = V
+#   blocks:                      t(chol(bdiag(V_1, ...)))  block-diagonal V; the
+#                                                          K-independent MVN draws are
+#                                                          algebraically identical to
+#                                                          a single MVN with V = bdiag,
+#                                                          which the dense codepath
+#                                                          already handles correctly
+#                                                          ("exact and boring" per the
+#                                                          2026-05-28 planning correction).
 #
-# The Phase A route guard ensures blocks / low_rank cannot reach this
-# helper from setup_env; the stop() branch is a contract assertion.
+# The Phase A route guard ensures low_rank cannot reach this helper
+# from setup_env; the stop() branch is a contract assertion.
 .vm_ped_sqrt_expr <- function(cov, legacy_mat) {
   if (is.null(cov))
     return(paste0("t(chol(", legacy_mat, "))"))
@@ -250,6 +263,9 @@
                                           cov$data, ")))"),
     "pedigree_sparse_precision" = paste0("as.matrix(solve(chol(",
                                           cov$data, ")))"),
+    "blocks"                    = paste0("t(chol(as.matrix(",
+                                          "Matrix::bdiag(", cov$data,
+                                          "))))"),
     stop("internal: vm/ped cov_representation$format = '", cov$format,
          "' reached .vm_ped_sqrt_expr() despite the setup_env route ",
          "guard. This is a flexyBayes bug -- the guard's allowlist ",
@@ -456,6 +472,132 @@
       )
     )
   invisible(NULL)
+}
+
+# Validator: user-supplied block-diagonal covariance carrier.
+#
+# Ships at v0.3.10 with ADR 0025 Decision 3. The user supplies a
+# named list `blocks = my_blocks` where `my_blocks` resolves at fit
+# time to `list(V_1, ..., V_K)` --- each V_k is the dense covariance
+# matrix for one block of the grouping factor's levels (taken in the
+# natural ordering of `levels(group_var)`). The validator runs both
+# on the greta path (from `.stage5a_route_check()`) and on the INLA
+# path (from `emit_inla()`'s data_inla setup loop); both pass the
+# same `expected_n` (the level count) so the partition contract is
+# enforced uniformly.
+#
+# Returns a list with `block_sizes` (integer vector of n_k) and
+# `total_n` so callers can pre-compute per-block integer index
+# columns + per-block precision matrices without re-walking the
+# block list.
+#
+# Refusal contracts:
+#   blocks_not_in_known_matrices    --- the symbol resolves to NULL.
+#   blocks_not_a_list               --- value is not a list.
+#   blocks_empty_list               --- length-zero list.
+#   block_not_positive_definite     --- some V_k fails PD probe;
+#                                       message names the offending
+#                                       block index.
+#   block_partition_incomplete      --- sum(n_k) != expected_n.
+.validate_blocks_input <- function(blocks_list, name, group_var,
+                                    expected_n = NULL) {
+  if (is.null(blocks_list))
+    .stop_structured_cov_refusal(
+      reason_code = "blocks_not_in_known_matrices",
+      message     = paste0(
+        "vm(", group_var, ", blocks = ", name,
+        "): the block list '", name,
+        "' is not in known_matrices. Pass it via known_matrices = list(",
+        name, " = list(V_1, ..., V_K))."
+      )
+    )
+
+  if (!is.list(blocks_list) || is.data.frame(blocks_list))
+    .stop_structured_cov_refusal(
+      reason_code = "blocks_not_a_list",
+      message     = paste0(
+        "vm(", group_var, ", blocks = ", name,
+        "): the block carrier must be a base-R list of K covariance ",
+        "matrices; got class '",
+        paste(class(blocks_list), collapse = "/"), "'."
+      )
+    )
+
+  K <- length(blocks_list)
+  if (K == 0L)
+    .stop_structured_cov_refusal(
+      reason_code = "blocks_empty_list",
+      message     = paste0(
+        "vm(", group_var, ", blocks = ", name,
+        "): the block list is empty; expected at least one ",
+        "covariance matrix."
+      )
+    )
+
+  block_sizes <- integer(K)
+  for (k in seq_len(K)) {
+    V_k <- blocks_list[[k]]
+    d   <- dim(V_k)
+    if (is.null(d) || length(d) != 2L || d[[1L]] != d[[2L]])
+      .stop_structured_cov_refusal(
+        reason_code = "block_not_positive_definite",
+        message     = paste0(
+          "vm(", group_var, ", blocks = ", name,
+          "): block ", k, " is not a square matrix (dim = ",
+          paste(d %||% "NULL", collapse = " x "), "). ",
+          "Each V_k must be a square, symmetric, positive-definite ",
+          "covariance matrix."
+        ),
+        block_index = k
+      )
+    block_sizes[[k]] <- d[[1L]]
+
+    pd_ok <- tryCatch({
+      if (inherits(V_k, "Matrix"))
+        Matrix::chol(Matrix::forceSymmetric(V_k))
+      else
+        chol(as.matrix(V_k))
+      TRUE
+    }, error   = function(e) FALSE,
+       warning = function(w) FALSE)
+    if (!pd_ok)
+      .stop_structured_cov_refusal(
+        reason_code = "block_not_positive_definite",
+        message     = paste0(
+          "vm(", group_var, ", blocks = ", name,
+          "): block ", k, " (size ", d[[1L]],
+          " x ", d[[2L]], ") failed the positive-definite probe. ",
+          "Each V_k must be symmetric and positive-definite; ",
+          "chol() / Matrix::chol() did not succeed."
+        ),
+        block_index = k
+      )
+  }
+
+  total_n <- sum(block_sizes)
+  if (!is.null(expected_n) && total_n != expected_n)
+    .stop_structured_cov_refusal(
+      reason_code = "block_partition_incomplete",
+      message     = paste0(
+        "vm(", group_var, ", blocks = ", name,
+        "): the block sizes (",
+        paste(block_sizes, collapse = " + "),
+        " = ", total_n,
+        ") do not sum to the grouping factor's level count (",
+        expected_n, "). The blocks must partition levels(`",
+        group_var, "`) exactly --- each level lands in one and ",
+        "only one block."
+      ),
+      expected_n  = expected_n,
+      actual_n    = total_n,
+      block_sizes = block_sizes
+    )
+
+  list(
+    block_sizes = block_sizes,
+    total_n     = total_n,
+    blocks      = blocks_list
+  )
 }
 
 # v0.3.8 audit Critical Fix #2: dim alignment between a user-supplied
