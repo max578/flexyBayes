@@ -57,6 +57,38 @@ test_that(".fb_preflight() accepts a small in-scope design", {
   expect_identical(length(pf$per_term_estimate), 2L)
   expect_true("x"        %in% names(pf$per_term_estimate))
   expect_true("(1 | g)"  %in% names(pf$per_term_estimate))
+  # v0.3.10 ADR 0024 amendment (a): per-term INLA memory estimator
+  # surfaces a stable-shape breakdown plus a backward-compatible
+  # scalar coercion via as.numeric().
+  expect_s3_class(pf$memory_estimate, "fb_memory_estimate")
+  expect_identical(
+    names(pf$memory_estimate),
+    c("total", "breakdown", "overhead_factor", "raw_total")
+  )
+  expect_identical(
+    names(pf$memory_estimate$breakdown),
+    c("term_label", "representation", "bytes", "share")
+  )
+  expect_identical(
+    as.numeric(pf$memory_estimate),
+    pf$memory_estimate$total
+  )
+})
+
+test_that(".fb_preflight() per-term memory_estimate accumulates the indexed-random + fixed contributions", {
+  df <- data.frame(y = rnorm(60), x = rnorm(60),
+                   g = factor(rep(letters[1:5], 12)))
+  fb <- fb_from_brms(y ~ x + (1 | g), data = df)
+  pf <- .fb_preflight(fb, .fb_dataset(df))
+  bd <- pf$memory_estimate$breakdown
+  # Random intercept term + a single "(fixed effects)" row.
+  expect_true(nrow(bd) >= 2L)
+  expect_true("(fixed effects)" %in% bd$term_label)
+  expect_true("indexed_random_intercept" %in% bd$representation)
+  expect_true(all(bd$bytes >= 0))
+  expect_true(abs(sum(bd$share, na.rm = TRUE) - 1) < 1e-6 ||
+                all(is.na(bd$share)))
+  expect_true(pf$memory_estimate$overhead_factor == 2)
 })
 
 test_that(".fb_preflight() refuses when design exceeds tight ceiling", {

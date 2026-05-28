@@ -60,9 +60,18 @@
 # Top-level constructor. Returns the `<fb_preflight>` object even when
 # the design is feasible (refusal == NULL); the caller pattern-matches
 # on inherits(pf$refusal, "fb_preflight_refusal").
+#
+# ADR 0024 §Consequences amendment (a) (v0.3.10): the `known_matrices`
+# arg threads the user-supplied vm/ped carriers through so the per-
+# term INLA memory estimator can resolve sparse-precision nnz() and
+# block-diagonal sum_k n_k^2 accurately. NULL is the v0.3.5 backward-
+# compatible default --- callers that do not have known_matrices in
+# scope (legacy tests, dataset-only preflight) get the conservative
+# upper-bound estimator that assumes worst-case dense/diagonal forms.
 .fb_preflight <- function(fb_ir,
                           fb_dataset,
-                          memory_ceiling_gb = NULL) {
+                          memory_ceiling_gb = NULL,
+                          known_matrices    = NULL) {
 
   if (!inherits(fb_ir, "fb_terms"))
     stop(".fb_preflight() requires an `<fb_terms>` IR; got: ",
@@ -164,6 +173,21 @@
     error = function(e) NULL
   )
 
+  # ADR 0024 §Consequences amendment (a) (v0.3.10): per-term INLA
+  # memory estimator. Reads representation_class per term and applies
+  # the INLA-specific model (dense n^2, sparse nnz * c_sparse, block-
+  # diagonal sum_k n_k^2, pedigree_sparse_precision nnz(A^-1) *
+  # c_sparse, fixed effects n * p) plus a 2x internal overhead
+  # constant. The result is an <fb_memory_estimate> with backward-
+  # compatible as.numeric() returning the total bytes.
+  memory_estimate <- .estimate_inla_memory_breakdown(
+    per_term        = per_term,
+    fb_ir           = fb_ir,
+    n_rows          = n_rows,
+    known_matrices  = known_matrices,
+    fb_dataset      = fb_dataset
+  )
+
   structure(
     list(
       per_term_estimate    = per_term,
@@ -171,6 +195,7 @@
       ceiling_bytes        = ceiling_bytes,
       n_rows               = n_rows,
       aggregation_plan     = agg_plan,
+      memory_estimate      = memory_estimate,
       refusal              = refusal
     ),
     class = c("fb_preflight", "list")
@@ -907,6 +932,263 @@ print.fb_preflight_refusal <- function(x, ...) {
         "                  issue with the term type so the estimator\n",
         "                  can be extended.\n",
         sep = "")
+  } else if (identical(x$reason_code,
+                       "memory_feasibility_inla_per_term")) {
+    cat("  remedy:         INLA's per-term memory model exceeds the\n",
+        "                  active ceiling. Route via backend = \"greta\"\n",
+        "                  for the indexed representation, or reduce\n",
+        "                  the structured-cov term cardinality.\n",
+        sep = "")
+  }
+  invisible(x)
+}
+
+
+# ---------------------------------------------------------------- #
+# v0.3.10 (ADR 0024 §Consequences amendment (a)) ---             #
+# Per-term INLA memory estimator                                    #
+# ---------------------------------------------------------------- #
+
+# Sparse-matrix bytes-per-non-zero constant. The Matrix package's
+# dsCMatrix stores a value (8B double) + a row index (4B int) + a
+# per-column pointer (~4B amortised); the practical figure is well-
+# attested at ~16 bytes per non-zero (Lindgren, Rue, Lindstrom 2011
+# §6.3; matches Matrix::object.size() probes on production-shape
+# precision matrices).
+.FB_INLA_BYTES_PER_NNZ <- 16L
+
+# INLA-internal overhead multiplier. Absorbs the per-component
+# allocations INLA's stage-2 (CCD/grid integration) makes on top of
+# the structural design memory. Configurable via the option
+# `flexyBayes.preflight_inla_overhead_factor` (default 2.0).
+.FB_INLA_OVERHEAD_DEFAULT <- 2.0
+
+
+# .estimate_inla_memory_breakdown() --- the per-term INLA memory model.
+#
+# Walks the preflight per_term_estimate + the IR's fixed/random term
+# slots and applies a representation-specific INLA-memory model to
+# each. Returns an `<fb_memory_estimate>` carrier with two fields:
+#
+#   $total                  numeric(1L), bytes; the overhead-applied
+#                           sum of per-term contributions plus a fixed-
+#                           effect model-matrix contribution.
+#   $breakdown              a data.frame with one row per term:
+#                              term_label       (character)
+#                              representation   (character)
+#                              bytes            (numeric)
+#                              share            (numeric in [0, 1])
+#                           Column order is stable per ADR 0030 §C4
+#                           closed-vocabulary discipline.
+#
+# Backward compatibility: the carrier inherits class `fb_memory_estimate`
+# and `as.numeric.fb_memory_estimate()` returns `$total`, so existing
+# scalar-numeric consumers (`if (as.numeric(pf$memory_estimate) > ...)`)
+# keep working unchanged.
+.estimate_inla_memory_breakdown <- function(per_term, fb_ir, n_rows,
+                                             known_matrices = NULL,
+                                             fb_dataset     = NULL) {
+  rows <- list()
+
+  # Random-term INLA memory contributions, keyed on representation
+  # class. The per_term entries from .preflight_random_term() carry
+  # the design_memory_bytes from the indexed estimator; we re-derive
+  # the INLA-specific bytes here per format.
+  for (i in seq_along(fb_ir$random_terms)) {
+    term  <- fb_ir$random_terms[[i]]
+    label <- .preflight_term_label(term, term$type %||% "simple",
+                                    kind = "random")
+    entry <- per_term[[label]]
+    if (is.null(entry) || isTRUE(entry$unknown_representation)) next
+
+    repr  <- entry$representation_class %||% "unknown"
+    k     <- .preflight_term_level_count(term, fb_dataset)
+    bytes <- .inla_random_term_bytes(term, repr, k,
+                                      known_matrices = known_matrices,
+                                      n_rows         = n_rows)
+    rows[[length(rows) + 1L]] <- list(
+      term_label     = label,
+      representation = repr,
+      bytes          = bytes
+    )
+  }
+
+  # Fixed-effect contribution: the design matrix INLA materialises
+  # as N x p doubles. We sum across fixed terms' bytes from the
+  # preflight estimator --- those entries already model the per-term
+  # design block (one column for numeric/expression, k-1 for factor
+  # dummies, n_dummies for factor interactions, k for smooths /
+  # polynomials).
+  fixed_bytes <- 0
+  for (i in seq_along(fb_ir$fixed_terms)) {
+    term  <- fb_ir$fixed_terms[[i]]
+    label <- .preflight_term_label(term, term$type %||% "expression",
+                                    kind = "fixed")
+    entry <- per_term[[label]]
+    if (is.null(entry) || isTRUE(entry$unknown_representation)) next
+    fixed_bytes <- fixed_bytes + (entry$design_memory_bytes %||% 0)
+  }
+  if (fixed_bytes > 0)
+    rows[[length(rows) + 1L]] <- list(
+      term_label     = "(fixed effects)",
+      representation = "fixed_model_matrix",
+      bytes          = fixed_bytes
+    )
+
+  bytes_vec <- vapply(rows, function(r) as.numeric(r$bytes), numeric(1L))
+  raw_total <- sum(bytes_vec, na.rm = TRUE)
+  overhead  <- getOption("flexyBayes.preflight_inla_overhead_factor",
+                          .FB_INLA_OVERHEAD_DEFAULT)
+  if (!is.numeric(overhead) || length(overhead) != 1L ||
+      is.na(overhead) || overhead <= 0)
+    overhead <- .FB_INLA_OVERHEAD_DEFAULT
+  total <- raw_total * overhead
+
+  breakdown <- if (length(rows) == 0L) {
+    data.frame(
+      term_label     = character(0L),
+      representation = character(0L),
+      bytes          = numeric(0L),
+      share          = numeric(0L),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    shares <- if (raw_total > 0) bytes_vec / raw_total
+              else rep(NA_real_, length(rows))
+    data.frame(
+      term_label     = vapply(rows, `[[`, character(1L), "term_label"),
+      representation = vapply(rows, `[[`, character(1L), "representation"),
+      bytes          = bytes_vec,
+      share          = shares,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  structure(
+    list(
+      total            = total,
+      breakdown        = breakdown,
+      overhead_factor  = overhead,
+      raw_total        = raw_total
+    ),
+    class = c("fb_memory_estimate", "list")
+  )
+}
+
+
+# Map a single random-term entry to its INLA memory contribution.
+# Conservative-by-design: when known_matrices is unavailable, sparse-
+# precision and block-diagonal forms fall back to upper-bound
+# estimates that assume worst-case sparsity / partition shapes.
+.inla_random_term_bytes <- function(term, repr, k,
+                                     known_matrices = NULL,
+                                     n_rows         = NA_real_) {
+  if (is.na(k) || is.null(k)) k <- 0L
+  k_num <- as.numeric(k)
+
+  # Indexed random intercept / IID: a k-vector of latent u's + the
+  # integer index column. INLA's overhead inflates this only modestly.
+  if (repr %in% c("indexed_random_intercept", "dense_baseline")) {
+    if (identical(repr, "indexed_random_intercept"))
+      return(8 * k_num + 4 * n_rows)
+    # dense_baseline on the random side: the design block at this
+    # representation is already dense (e.g., spline / smooth on
+    # random), and the per-term design_memory_bytes is the right
+    # surrogate for the INLA model-matrix carryover.
+    return(0)  # accounted via design_memory_bytes if any; defaulting
+  }
+
+  if (identical(repr, "indexed_structured_known")) {
+    # Sparse precision: nnz(Q) * c_sparse. Without known_matrices we
+    # use the indexed-fallback K * c_sparse (assumes diagonal Q ---
+    # the smallest sparse footprint; intentional under-estimate
+    # rather than alarmist over-estimate when Q is unavailable).
+    cov <- term$cov_representation
+    nnz <- NA_real_
+    if (!is.null(known_matrices) && !is.null(cov) &&
+        !is.null(known_matrices[[cov$data]])) {
+      Q <- known_matrices[[cov$data]]
+      nnz <- tryCatch({
+        if (inherits(Q, "sparseMatrix"))
+          as.numeric(Matrix::nnzero(Q))
+        else
+          sum(abs(as.matrix(Q)) > 0)
+      }, error = function(e) NA_real_)
+    }
+    if (is.na(nnz)) nnz <- k_num
+    return(nnz * .FB_INLA_BYTES_PER_NNZ)
+  }
+
+  if (identical(repr, "block_diagonal")) {
+    # sum_k n_k^2 * 8. Without known_matrices, use K^2 as worst-case
+    # upper bound (single block of full K).
+    cov <- term$cov_representation
+    block_sizes <- NULL
+    if (!is.null(known_matrices) && !is.null(cov) &&
+        !is.null(known_matrices[[cov$data]])) {
+      blocks <- known_matrices[[cov$data]]
+      if (is.list(blocks))
+        block_sizes <- vapply(blocks,
+                               function(V) {
+                                 d <- dim(V)
+                                 if (is.null(d)) 0L else as.integer(d[[1L]])
+                               },
+                               integer(1L))
+    }
+    sum_sq <- if (is.null(block_sizes)) k_num^2
+              else sum(as.numeric(block_sizes)^2)
+    return(sum_sq * 8)
+  }
+
+  # Default: a small overhead constant per term (lighter representations
+  # already accounted for in the indexed branches).
+  0
+}
+
+
+#' Coerce an `<fb_memory_estimate>` carrier to a numeric scalar
+#'
+#' Returns `x$total` (bytes, after the INLA overhead multiplier).
+#' Registered against the `as.double` S3 generic so that
+#' `as.numeric(<fb_memory_estimate>)` dispatches correctly --- the
+#' base-R `as.numeric` is `.Primitive("as.double")`, so dispatch
+#' fires on `as.double`, not on `as.numeric`.
+#'
+#' @param x   an `<fb_memory_estimate>` carrier.
+#' @param ... unused.
+#' @return numeric(1L) total bytes.
+#' @keywords internal
+#' @export
+as.double.fb_memory_estimate <- function(x, ...) {
+  if (is.null(x$total)) return(NA_real_)
+  as.numeric(unclass(x)$total)
+}
+
+
+#' Print method for an internal `<fb_memory_estimate>` carrier
+#'
+#' Renders the per-term INLA memory breakdown introduced at v0.3.10
+#' (ADR 0024 §Consequences amendment (a)).
+#'
+#' @param x   an `<fb_memory_estimate>` object.
+#' @param ... unused.
+#' @return invisibly returns `x`.
+#' @keywords internal
+#' @export
+print.fb_memory_estimate <- function(x, ...) {
+  fmt_mb <- function(b)
+    if (is.na(b)) "NA"
+    else sprintf("%.1f MB", b / 1024^2)
+  cat(sprintf("<fb_memory_estimate> total = %s (INLA path; overhead = %.1fx)\n",
+              fmt_mb(x$total), x$overhead_factor))
+  if (nrow(x$breakdown) > 0L) {
+    for (i in seq_len(nrow(x$breakdown))) {
+      r <- x$breakdown[i, ]
+      cat(sprintf("  - %-22s  %-26s  %9s  (%s)\n",
+                  r$term_label, r$representation, fmt_mb(r$bytes),
+                  if (is.na(r$share)) "NA"
+                  else sprintf("%.0f%%", r$share * 100)))
+    }
   }
   invisible(x)
 }

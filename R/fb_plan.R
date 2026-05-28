@@ -137,7 +137,8 @@ fb_plan <- function(formula,
   pf_dataset <- .fb_dataset(data)
   preflight  <- .fb_preflight(fb_ir             = fb,
                               fb_dataset        = pf_dataset,
-                              memory_ceiling_gb = memory_ceiling_gb)
+                              memory_ceiling_gb = memory_ceiling_gb,
+                              known_matrices    = known_matrices)
 
   preflight_refused <- inherits(preflight$refusal, "fb_preflight_refusal")
 
@@ -563,6 +564,22 @@ print.fb_plan <- function(x, ...) {
         sprintf("~ %.1f MB (preflight)",
                 x$memory_estimate_bytes / 1024^2),
         "\n", sep = "")
+
+  # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
+  # INLA memory estimator ran, surface the breakdown rows directly
+  # under the headline memory line. Total + overhead make the
+  # representation-class contributions auditable at plan time.
+  mem <- x$preflight$memory_estimate
+  if (inherits(mem, "fb_memory_estimate") &&
+      !is.null(mem$breakdown) && nrow(mem$breakdown) > 0L) {
+    cat(sprintf("    INLA per-term total:  ~ %.1f MB (overhead %.1fx)\n",
+                mem$total / 1024^2, mem$overhead_factor %||% 2))
+    for (i in seq_len(nrow(mem$breakdown))) {
+      r <- mem$breakdown[i, ]
+      cat(sprintf("      - %-22s %-26s %8.1f MB\n",
+                  r$term_label, r$representation, r$bytes / 1024^2))
+    }
+  }
 
   cat("  Representation:          ", x$representation_label,
       "\n", sep = "")

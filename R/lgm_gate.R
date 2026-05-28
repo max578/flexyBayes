@@ -840,12 +840,54 @@ print.lgm_refusal <- function(x, ...) {
   if (is.null(preflight)) return(.lgm_pass(rule_id))
   if (!inherits(preflight, "fb_preflight"))
     return(.lgm_pass(rule_id))
-  if (is.null(preflight$total_estimate_bytes) ||
-      is.null(preflight$ceiling_bytes) ||
-      is.na(preflight$total_estimate_bytes) ||
+  if (is.null(preflight$ceiling_bytes) ||
       is.na(preflight$ceiling_bytes))
     return(.lgm_pass(rule_id))
 
+  # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
+  # INLA memory estimator landed on `preflight$memory_estimate`, the
+  # check decomposes the estimate by representation class and reports
+  # the breakdown on refusal. Falls back to the v0.3.6 single-
+  # multiplier path when memory_estimate is absent (legacy callers).
+  mem <- preflight$memory_estimate
+  if (inherits(mem, "fb_memory_estimate") &&
+      !is.null(mem$total) && !is.na(mem$total)) {
+    inla_estimate <- as.numeric(mem$total)
+    if (inla_estimate <= preflight$ceiling_bytes)
+      return(.lgm_pass(rule_id))
+
+    inla_gb    <- inla_estimate / 1024^3
+    ceiling_gb <- preflight$ceiling_bytes / 1024^3
+    bd         <- mem$breakdown
+    top_share  <- if (nrow(bd) > 0L)
+                    bd[order(-bd$bytes), ][1L, ]
+                  else NULL
+    diag_text  <- if (!is.null(top_share))
+                    sprintf(
+                      "per-term total = %.2f GB (overhead %.1fx); largest contributor: %s (%s, %.0f%%)",
+                      inla_gb, mem$overhead_factor %||% 2,
+                      top_share$term_label, top_share$representation,
+                      (top_share$share %||% 0) * 100)
+                  else
+                    sprintf("per-term total = %.2f GB; ceiling = %.2f GB",
+                            inla_gb, ceiling_gb)
+    return(.lgm_fail(
+      "memory_feasibility_inla_per_term",
+      sprintf(
+        paste0("INLA path's per-term memory estimate (%.2f GB) ",
+               "exceeds the active ceiling (%.2f GB). Re-route via ",
+               "backend = \"greta\" for the indexed representation, ",
+               "or reduce structured-cov cardinality."),
+        inla_gb, ceiling_gb),
+      diagnostic = diag_text
+    ))
+  }
+
+  # Legacy single-multiplier path (v0.3.6 default; retained for
+  # backward-compat when memory_estimate is unavailable).
+  if (is.null(preflight$total_estimate_bytes) ||
+      is.na(preflight$total_estimate_bytes))
+    return(.lgm_pass(rule_id))
   multiplier <- getOption("flexyBayes.inla_memory_multiplier", 3)
   if (!is.numeric(multiplier) || length(multiplier) != 1L ||
       multiplier <= 0)

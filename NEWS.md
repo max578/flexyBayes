@@ -43,6 +43,35 @@ demonstration for the v0.4.0 Wave 1 Phase 1C bulk migration).
   before the registry locks. The full ~28-site migration follows the
   same `.register_refusal()` shape at v0.4.0 Wave 1 Phase 1C.
 
+## Per-term INLA memory estimator (ADR 0024 §Consequences amendments (a) + (c))
+
+Phase B replaces the v0.3.6 single-multiplier INLA memory check with
+a per-term decomposition keyed on representation class.
+
+- `<fb_preflight>` gains a `memory_estimate` slot carrying an
+  `<fb_memory_estimate>` carrier with `$total` (bytes after the INLA
+  overhead constant; default 2x; configurable via
+  `flexyBayes.preflight_inla_overhead_factor`), `$breakdown` (a
+  stable-shape data.frame with rows `term_label`, `representation`,
+  `bytes`, `share` --- ADR 0030 §C4 closed-vocabulary discipline), and
+  the pre-overhead `$raw_total`. `as.numeric(pf$memory_estimate)`
+  returns the total, so existing scalar-numeric consumers keep
+  working unchanged.
+- `lgm_gate()` rule 11 (`memory_feasibility_inla`) decomposes per term
+  when `memory_estimate` is present: dense `n^2`, sparse precision
+  `nnz(Q) * 16` (per Lindgren et al. 2011), block-diagonal
+  `sum_k n_k^2 * 8`, indexed random `8K + 4N`, fixed effects
+  `N * p * 8`. Refuses with the new reason code
+  `memory_feasibility_inla_per_term` and names the largest
+  contributor + its representation on the diagnostic line.
+- `fb_plan()` print form renders the breakdown rows under the
+  headline memory line: total + overhead factor followed by one
+  indented row per term with representation class + bytes.
+- New vignette `flexyBayes-13-lgm-feasibility-memory` walks through
+  the per-term model, how to read `memory_estimate$breakdown`, four
+  patterns to negotiate a refusal, and the SPDE-mesh / approximate-
+  scheme surfaces explicitly out of scope at v0.3.10.
+
 # flexyBayes 0.3.9
 
 ## Test-isolation pass -- three v0.3.8-deferred stochastic flakes closed

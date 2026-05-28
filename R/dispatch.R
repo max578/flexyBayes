@@ -383,7 +383,8 @@
   # dispatch.R); the soft INLA-only ceiling is handled by the gate
   # rule.
   preflight_result <- .maybe_preflight(fb = fb, data = data,
-                                        the_call = the_call)
+                                        the_call       = the_call,
+                                        known_matrices = known_matrices)
 
   # Stage 3A aggregated-gaussian gate (ADR 0022). Consumes the
   # `<fb_aggregation_plan>` if the user opted in (aggregate = "auto"
@@ -840,7 +841,8 @@
 # entry block and the review_code branches in flexybayes() /
 # fb_brms() so the gate fires identically across both paths.
 .maybe_preflight <- function(fb, data, the_call,
-                              threshold = 1e5L) {
+                              known_matrices = NULL,
+                              threshold      = 1e5L) {
   if (!isTRUE(!is.null(fb$data_summary$n) &&
               fb$data_summary$n >= threshold))
     return(NULL)
@@ -853,7 +855,8 @@
   pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
   pf_dataset <- .fb_dataset(data)
   pf_result  <- .fb_preflight(fb, pf_dataset,
-                               memory_ceiling_gb = pf_ceiling_gb)
+                               memory_ceiling_gb = pf_ceiling_gb,
+                               known_matrices    = known_matrices)
   if (inherits(pf_result$refusal, "fb_preflight_refusal"))
     .stop_preflight_refusal(pf_result$refusal, call = the_call)
   pf_result
