@@ -1,5 +1,29 @@
 # flexyBayes 0.4.0 (in development)
 
+## `fb_refusals()` --- a browsable registry of refusal reasons
+
+flexyBayes now ships a complete, locked vocabulary of the conditions
+under which it declines to fit, route, or validate a model, exposed
+through a new exported accessor and a precise condition-class contract.
+
+- **New exported function `fb_refusals(reason_code = NULL,
+  since_version = NULL)`.** Returns an `fb_refusals_table` data frame
+  --- one row per refusal reason carrying its `reason_code`, a one-line
+  `description`, the `since_version` it was introduced in, and the
+  related `plan_field` --- with a compact print method. Optional
+  filters narrow the listing to specific reason codes or to an
+  introducing-version prefix (`fb_refusals(since_version = "0.4")`).
+- **Precise, catchable refusal classes.** Every user-facing refusal now
+  carries a condition class `flexybayes_refusal_<reason_code>` above its
+  existing family class, so a specific refusal can be caught directly,
+  for example `tryCatch(fit, flexybayes_refusal_precision_not_symmetric
+  = handler)`. The registry holds the complete 31-reason vocabulary;
+  routing-decision reasons and internal control-flow signals are
+  deliberately excluded as they are not refusals a user can encounter.
+- The aggregated-emit out-of-scope refusal's reason code is now
+  `rcov_type_unsupported_for_aggregation` (previously a less
+  descriptive identifier).
+
 ## `validate_approximation()` + the `low_rank_smooth` smooth approximation (ADR 0030 C5 + ADR 0027, v0.4.0 Wave 1 Phase 1B)
 
 Completes the approximation contract end to end: the `low_rank_smooth`

@@ -75,6 +75,15 @@
   # same .register_refusal() shape for the ~28 remaining sites.
   .populate_refusal_registry_v0310()
 
+  # ADR 0030 C7 (v0.4.0 Wave 1 Phase 1C): bulk-register the remaining
+  # 28 user-facing refusal codes, so the registry now holds the
+  # complete 31-code user-facing vocabulary. Routing-decision reasons
+  # (backend_decision trace) and internal aggregate-out-of-scope
+  # control-flow signals are deliberately not registered --- they are
+  # not refusals a user can hit. Every refusal site now routes through
+  # .fb_refusal_condition(), which gates on this registry.
+  .populate_refusal_registry_v0400()
+
   # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
   # The lock makes the registry immutable to user code once the
   # package is loaded; .register_refusal() calls beyond this point

@@ -293,29 +293,24 @@
                                 fixed = FALSE) ||
                           grepl("^variational_", b)
     if (!looks_approximate) next
-    cond <- structure(
-      class = c("flexybayes_approximate_route_refusal", "error",
-                "condition"),
-      list(
-        message = paste0(
-          "backend = \"", b, "\": approximate-scheme dispatch is ",
-          "not yet registered (reason_code = ",
-          "approximate_route_not_yet_registered).\n",
-          "Stage 6 / ADR 0027 ships the approximation registry; ",
-          "until that lands, the routing layer refuses any backend ",
-          "name carrying an exactness label of \"approximate_<scheme>\".\n",
-          "The package's identity rests on exactness labelling (per ",
-          "Stage 3A / ADR 0022); silently routing an approximate ",
-          "request would violate that contract.\n",
-          "Re-route via backend = \"greta\" (full MCMC; \"exact\"), ",
-          "backend = \"inla\" (Laplace; \"exact\"), or ",
-          "backend = \"brms\" (Stan via brms; \"exact\")."),
-        call = NULL,
-        backend     = b,
-        reason_code = "approximate_route_not_yet_registered"
-      )
-    )
-    stop(cond)
+    stop(.fb_refusal_condition(
+      reason_code  = "approximate_route_not_yet_registered",
+      message      = paste0(
+        "backend = \"", b, "\": approximate-scheme dispatch is ",
+        "not yet registered (reason_code = ",
+        "approximate_route_not_yet_registered).\n",
+        "The approximation registry ships at v0.4.0; ",
+        "until that lands, the routing layer refuses any backend ",
+        "name carrying an exactness label of \"approximate_<scheme>\".\n",
+        "The package's identity rests on exactness labelling; ",
+        "silently routing an approximate ",
+        "request would violate that contract.\n",
+        "Re-route via backend = \"greta\" (full MCMC; \"exact\"), ",
+        "backend = \"inla\" (Laplace; \"exact\"), or ",
+        "backend = \"brms\" (Stan via brms; \"exact\")."),
+      family_class = "flexybayes_approximate_route_refusal",
+      backend      = b
+    ))
   }
   invisible(NULL)
 }
@@ -432,19 +427,16 @@
   # the only engine that can produce it.
   if (length(.collect_approx(fb$random_terms)) > 0L) {
     if (backend %in% c("inla", "brms"))
-      stop(structure(
-        class = c("flexybayes_low_rank_requires_greta", "error",
-                  "condition"),
-        list(
-          message = paste0(
-            "A smooth requesting the low_rank_smooth approximation ",
-            "requires the greta backend; the '", backend, "' backend ",
-            "represents smooths differently (INLA via rw2, brms via ",
-            "Stan spline bases) and cannot honour the rank-K basis ",
-            "truncation. Re-fit with backend = \"greta\", or drop the ",
-            "representation = ... argument to fit the exact smooth."),
-          call = NULL,
-          reason_code = "low_rank_requires_greta")))
+      stop(.fb_refusal_condition(
+        reason_code  = "low_rank_requires_greta",
+        message      = paste0(
+          "A smooth requesting the low_rank_smooth approximation ",
+          "requires the greta backend; the '", backend, "' backend ",
+          "represents smooths differently (INLA via rw2, brms via ",
+          "Stan spline bases) and cannot honour the rank-K basis ",
+          "truncation. Re-fit with backend = \"greta\", or drop the ",
+          "representation = ... argument to fit the exact smooth."),
+        family_class = "flexybayes_low_rank_requires_greta"))
     if (identical(backend, "auto")) backend <- "greta"
   }
 
@@ -929,16 +921,13 @@
            refusal$reason_code, "). The dispatch was short-circuited ",
            "before any backend code ran.")
   )
-  cond <- structure(
-    class = c("flexybayes_preflight_refusal", "error", "condition"),
-    list(
-      message       = paste0(headline, "\n", msg),
-      call          = call,
-      refusal       = refusal,
-      reason_code   = refusal$reason_code,
-      binding_term  = refusal$binding_term,
-      ceiling_bytes = refusal$ceiling_bytes
-    )
-  )
-  stop(cond)
+  stop(.fb_refusal_condition(
+    reason_code   = refusal$reason_code,
+    message       = paste0(headline, "\n", msg),
+    family_class  = "flexybayes_preflight_refusal",
+    call          = call,
+    refusal       = refusal,
+    binding_term  = refusal$binding_term,
+    ceiling_bytes = refusal$ceiling_bytes
+  ))
 }

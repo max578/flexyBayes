@@ -63,33 +63,27 @@
 
   if (length(rank) != 1L || is.na(rank) ||
       !is.numeric(rank) || rank != as.integer(rank) || rank < 1L)
-    stop(structure(
-      class = c("flexybayes_low_rank_rank_refusal", "error", "condition"),
-      list(
-        message = paste0(
-          "low_rank_smooth rank", where, " must be a single positive ",
-          "integer; got ", .format_rank_for_message(rank), "."),
-        call = NULL,
-        reason_code = "low_rank_rank_invalid"
-      )))
+    stop(.fb_refusal_condition(
+      reason_code  = "low_rank_rank_invalid",
+      message      = paste0(
+        "low_rank_smooth rank", where, " must be a single positive ",
+        "integer; got ", .format_rank_for_message(rank), "."),
+      family_class = "flexybayes_low_rank_rank_refusal"))
 
   rank <- as.integer(rank)
   max_rank <- min(as.integer(k), as.integer(n))
 
   if (rank > max_rank)
-    stop(structure(
-      class = c("flexybayes_low_rank_rank_refusal", "error", "condition"),
-      list(
-        message = paste0(
-          "low_rank_smooth rank", where, " (", rank, ") exceeds the ",
-          "truncation ceiling min(basis dimension k = ", k,
-          ", n = ", n, ") = ", max_rank, ". A rank at or above the ",
-          "basis dimension reproduces the exact basis; request the ",
-          "exact smooth (drop the approximation) instead, or choose ",
-          "rank <= ", max_rank, "."),
-        call = NULL,
-        reason_code = "low_rank_rank_exceeds_basis"
-      )))
+    stop(.fb_refusal_condition(
+      reason_code  = "low_rank_rank_exceeds_basis",
+      message      = paste0(
+        "low_rank_smooth rank", where, " (", rank, ") exceeds the ",
+        "truncation ceiling min(basis dimension k = ", k,
+        ", n = ", n, ") = ", max_rank, ". A rank at or above the ",
+        "basis dimension reproduces the exact basis; request the ",
+        "exact smooth (drop the approximation) instead, or choose ",
+        "rank <= ", max_rank, "."),
+      family_class = "flexybayes_low_rank_rank_refusal"))
 
   rank
 }
@@ -191,16 +185,13 @@
   low_rank <- approx[schemes == "low_rank_smooth"]
 
   if (length(low_rank) == 0L)
-    stop(structure(
-      class = c("flexybayes_approximation_absent", "error", "condition"),
-      list(
-        message = paste0(
-          "validate_approximation(): the fit carries no low_rank_smooth ",
-          "smooth to validate. The scheme registered but no smooth term ",
-          "was routed through the truncation path."),
-        call = NULL,
-        reason_code = "approximation_absent"
-      )))
+    stop(.fb_refusal_condition(
+      reason_code  = "approximation_absent",
+      message      = paste0(
+        "validate_approximation(): the fit carries no low_rank_smooth ",
+        "smooth to validate. The scheme registered but no smooth term ",
+        "was routed through the truncation path."),
+      family_class = "flexybayes_approximation_absent"))
 
   entry <- .lookup_approximation("low_rank_smooth")
 

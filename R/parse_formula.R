@@ -372,35 +372,29 @@
         spec <- eval(term$approx_expr)
         if (!is.list(spec) || is.null(spec$scheme) ||
             !is.character(spec$scheme) || length(spec$scheme) != 1L)
-          stop(structure(
-            class = c("flexybayes_approximation_spec_invalid", "error",
-                      "condition"),
-            list(
-              message = paste0(
-                "s(", term$var, ", representation = ...): the ",
-                "representation spec must be a list (or fb_approx() ",
-                "object) carrying a single-string `scheme`; e.g. ",
-                "representation = list(scheme = \"low_rank_smooth\", ",
-                "rank = 5L)."),
-              call = NULL,
-              reason_code = "approximation_spec_invalid")))
+          stop(.fb_refusal_condition(
+            reason_code  = "approximation_spec_invalid",
+            message      = paste0(
+              "s(", term$var, ", representation = ...): the ",
+              "representation spec must be a list (or fb_approx() ",
+              "object) carrying a single-string `scheme`; e.g. ",
+              "representation = list(scheme = \"low_rank_smooth\", ",
+              "rank = 5L)."),
+            family_class = "flexybayes_approximation_spec_invalid"))
         # Validate scheme against the locked registry (refuses
         # unknown schemes); only low_rank_smooth has a smooth-basis
         # emit path at v0.4.0.
         .lookup_approximation(spec$scheme)
         if (!identical(spec$scheme, "low_rank_smooth"))
-          stop(structure(
-            class = c("flexybayes_approximation_no_smooth_path", "error",
-                      "condition"),
-            list(
-              message = paste0(
-                "s(", term$var, ", representation = ...): scheme '",
-                spec$scheme, "' is registered but has no smooth-basis ",
-                "emit path at this release; the only smooth ",
-                "approximation scheme with an emit path is ",
-                "low_rank_smooth."),
-              call = NULL,
-              reason_code = "approximation_no_smooth_path")))
+          stop(.fb_refusal_condition(
+            reason_code  = "approximation_no_smooth_path",
+            message      = paste0(
+              "s(", term$var, ", representation = ...): scheme '",
+              spec$scheme, "' is registered but has no smooth-basis ",
+              "emit path at this release; the only smooth ",
+              "approximation scheme with an emit path is ",
+              "low_rank_smooth."),
+            family_class = "flexybayes_approximation_no_smooth_path"))
         tr <- .truncate_smooth_basis(term$X, spec$rank, var = term$var)
         term$X_K <- tr$B_K
         term$approx_spec <- list(

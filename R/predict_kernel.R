@@ -96,37 +96,29 @@
 .predict_kernel_validate_include <- function(include) {
   allowed <- c("fixed", "smooth", "random_sampled")
   if (!is.character(include) || length(include) == 0L) {
-    cond <- structure(
-      list(message = paste0(
-              ".predict_linear_draws(): `include` must be a non-empty ",
-              "character vector; got: ", deparse(include), "."),
-           reason_code = "predict_kernel_invalid_include",
-           supplied    = include,
-           allowed     = allowed,
-           call        = NULL),
-      class = c("flexybayes_predict_kernel_refusal",
-                "flexybayes_refusal", "error", "condition")
-    )
-    stop(cond)
+    stop(.fb_refusal_condition(
+      reason_code  = "predict_kernel_invalid_include",
+      message      = paste0(
+        ".predict_linear_draws(): `include` must be a non-empty ",
+        "character vector; got: ", deparse(include), "."),
+      family_class = "flexybayes_predict_kernel_refusal",
+      supplied     = include,
+      allowed      = allowed))
   }
   bad <- setdiff(include, allowed)
   if (length(bad) > 0L) {
-    cond <- structure(
-      list(message = paste0(
-              ".predict_linear_draws(): `include` value(s) not in the ",
-              "v0.3.8 kernel vocabulary: ",
-              paste(shQuote(bad), collapse = ", "),
-              ". Allowed: ", paste(shQuote(allowed), collapse = ", "),
-              ". (random_known is reserved for v0.4.0.)"),
-           reason_code = "predict_kernel_invalid_include",
-           supplied    = include,
-           bad         = bad,
-           allowed     = allowed,
-           call        = NULL),
-      class = c("flexybayes_predict_kernel_refusal",
-                "flexybayes_refusal", "error", "condition")
-    )
-    stop(cond)
+    stop(.fb_refusal_condition(
+      reason_code  = "predict_kernel_invalid_include",
+      message      = paste0(
+        ".predict_linear_draws(): `include` value(s) not in the ",
+        "v0.3.8 kernel vocabulary: ",
+        paste(shQuote(bad), collapse = ", "),
+        ". Allowed: ", paste(shQuote(allowed), collapse = ", "),
+        ". (random_known is reserved for v0.4.0.)"),
+      family_class = "flexybayes_predict_kernel_refusal",
+      supplied     = include,
+      bad          = bad,
+      allowed      = allowed))
   }
   invisible(NULL)
 }

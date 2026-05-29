@@ -142,18 +142,14 @@ validate_approximation.low_rank_smooth <- function(fit, ...) {
 #' @export
 validate_approximation.default <- function(fit, ...) {
   exactness <- fit$exactness %||% "exact"
-  stop(structure(
-    class = c("flexybayes_approximation_scheme_unknown", "error",
-              "condition"),
-    list(
-      message = paste0(
-        "validate_approximation(): this fit carries no recognised ",
-        "approximation to validate (exactness = '", exactness, "'). ",
-        "validate_approximation() applies only to approximate fits ",
-        "(those routed through a registered approximation scheme such ",
-        "as low_rank_smooth); an exact fit has no bias bound to ",
-        "report."),
-      call = NULL,
-      reason_code = "approximation_scheme_unknown"
-    )))
+  stop(.fb_refusal_condition(
+    reason_code  = "approximation_scheme_unknown",
+    message      = paste0(
+      "validate_approximation(): this fit carries no recognised ",
+      "approximation to validate (exactness = '", exactness, "'). ",
+      "validate_approximation() applies only to approximate fits ",
+      "(those routed through a registered approximation scheme such ",
+      "as low_rank_smooth); an exact fit has no bias bound to ",
+      "report."),
+    family_class = "flexybayes_approximation_scheme_unknown"))
 }

@@ -629,9 +629,10 @@ test_that("low_rank path with registered-looking scheme refuses with approximate
   expect_equal(err$reason_code, "approximate_route_not_yet_registered")
   expect_equal(err$format, "low_rank")
   expect_equal(err$scheme, "pca")
-  # v0.3.10 upgrade: message names ADR 0027 + validate_approximation()
-  # + the actionable workaround (materialise U %*% t(U)).
-  expect_match(err$message, "ADR 0027")
+  # v0.3.10 upgrade: message names the approximation registry +
+  # validate_approximation() + the actionable workaround (materialise
+  # U %*% t(U)).
+  expect_match(err$message, "approximation registry")
   expect_match(err$message, "validate_approximation\\(\\)")
   expect_match(err$message, "v0\\.4\\.0")
   expect_match(err$message, "F_mat %\\*% t\\(F_mat\\)")

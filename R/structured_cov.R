@@ -131,8 +131,8 @@
         reason_code = "low_rank_scheme_required",
         message     = paste0(
           fn, "(): low_rank_factor requires an explicit ",
-          "low_rank_scheme naming the registered approximation. ",
-          "See ADR 0027 (Stage 6 / v0.4.0) for the registry."
+          "low_rank_scheme naming a registered approximation. ",
+          "See ?validate_approximation for the available schemes."
         )
       )
     return(list(format = "low_rank", data = low_rank_factor,
@@ -212,8 +212,8 @@
         "vm(", term$var, ", low_rank_factor = ", cov$data,
         ", low_rank_scheme = '", cov$scheme,
         "'): low-rank covariance carriers require the approximation ",
-        "registry (ADR 0027), which lands at flexyBayes v0.4.0 as ",
-        "validate_approximation() (Wave 1 Phase 1B). Until then, ",
+        "registry, which lands at flexyBayes v0.4.0 as ",
+        "validate_approximation(). Until then, ",
         "materialise the rank-K matrix and route through the dense ",
         "path: vm(", term$var, ", V = ", cov$data, " %*% t(",
         cov$data, "))."
@@ -706,14 +706,15 @@
 # args land in the condition object so callers can pattern-match on
 # format, scheme, etc.
 .stop_structured_cov_refusal <- function(reason_code, message, ...) {
-  payload <- c(
-    list(message = message, reason_code = reason_code, call = NULL),
-    list(...)
-  )
-  cond <- structure(
-    payload,
-    class = c("flexybayes_structured_cov_refusal",
-              "flexybayes_refusal", "error", "condition")
-  )
-  stop(cond)
+  # Phase 1C (ADR 0030 C7): route through the unified condition
+  # constructor. The message is unchanged (the call site still builds
+  # it verbatim); the constructor adds the per-code class
+  # flexybayes_refusal_<reason_code> above the retained family class
+  # and gates the reason_code against the registry.
+  stop(.fb_refusal_condition(
+    reason_code  = reason_code,
+    message      = message,
+    family_class = "flexybayes_structured_cov_refusal",
+    ...
+  ))
 }

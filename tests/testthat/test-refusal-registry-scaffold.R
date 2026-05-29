@@ -92,7 +92,34 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
   expect_true("block_partition_incomplete"           %in% entries)
   expect_true("block_not_positive_definite"          %in% entries)
   expect_true("approximate_route_not_yet_registered" %in% entries)
-  expect_equal(length(entries), 3L)
+})
+
+# ---------------------------------------------------------------- #
+# (e2) v0.4.0 Phase 1C bulk migration: complete 31-code vocabulary  #
+# ---------------------------------------------------------------- #
+#
+# The bulk migration (.populate_refusal_registry_v0400()) registers
+# the remaining 28 user-facing refusal codes, taking the registry to
+# its complete 31-code user-facing vocabulary. The routing-decision
+# reasons and the internal aggregate-out-of-scope control-flow
+# signals are deliberately excluded (see fb_refusals() docs).
+
+test_that(".refusal_registry holds the complete 31-code vocabulary", {
+  reg     <- flexyBayes:::.refusal_registry
+  entries <- ls(envir = reg, all.names = TRUE)
+  expect_equal(length(entries), 31L)
+
+  # spot-check a representative new code from each family
+  expect_true("precision_not_symmetric"        %in% entries)  # structured cov
+  expect_true("low_rank_requires_greta"         %in% entries)  # approximation
+  expect_true("rcov_type_unsupported_for_aggregation" %in% entries)  # aggregate emit
+  expect_true("predict_kernel_invalid_include"  %in% entries)  # prediction
+  expect_true("design_memory_exceeds_ceiling"   %in% entries)  # preflight
+
+  # control-flow / routing reasons must NOT be registered
+  expect_false("non_gaussian_family"               %in% entries)
+  expect_false("smooth_term_not_aggregatable"      %in% entries)
+  expect_false("policy_table_no_match_fallback_greta" %in% entries)
 })
 
 # ---------------------------------------------------------------- #
@@ -101,7 +128,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 
 test_that(".lookup_refusal() returns NULL for unregistered codes", {
   expect_null(flexyBayes:::.lookup_refusal("explicit_inla_gate_refused"))
-  expect_null(flexyBayes:::.lookup_refusal("design_memory_exceeds_ceiling"))
+  expect_null(flexyBayes:::.lookup_refusal("non_gaussian_family"))
   expect_null(flexyBayes:::.lookup_refusal("any_arbitrary_string"))
   expect_null(flexyBayes:::.lookup_refusal(""))
   expect_null(flexyBayes:::.lookup_refusal(NULL))

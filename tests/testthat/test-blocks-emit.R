@@ -232,10 +232,10 @@ test_that("lgm_gate accepts vm() with cov_representation$format = 'blocks'", {
 })
 
 # ---------------------------------------------------------------- #
-# (i) low_rank refusal upgrade carries ADR 0027 + workaround        #
+# (i) low_rank refusal upgrade names the registry + workaround      #
 # ---------------------------------------------------------------- #
 
-test_that("low_rank refusal message names ADR 0027, validate_approximation(), v0.4.0, and the dense materialisation workaround", {
+test_that("low_rank refusal message names the approximation registry, validate_approximation(), v0.4.0, and the dense materialisation workaround", {
   dat <- data.frame(geno = factor(1:5))
   random_terms <- flexyBayes:::.parse_formula(
     ~ vm(geno, low_rank_factor = U, low_rank_scheme = "pca"), dat
@@ -248,7 +248,7 @@ test_that("low_rank refusal message names ADR 0027, validate_approximation(), v0
                             dat, list(U = matrix(0, 5, 2)), NULL),
     flexybayes_structured_cov_refusal = identity
   )
-  expect_match(err$message, "ADR 0027")
+  expect_match(err$message, "approximation registry")
   expect_match(err$message, "validate_approximation\\(\\)")
   expect_match(err$message, "v0\\.4\\.0")
   expect_match(err$message, "U %\\*% t\\(U\\)")

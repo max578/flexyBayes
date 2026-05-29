@@ -218,14 +218,14 @@ test_that("ADR 0024 (g+): .resolve_routing() returns empty rejected_routes for e
 # ADR §6 (h) -- approximate-scheme refusal                          #
 # ---------------------------------------------------------------- #
 
-test_that("ADR 0024 (h): backend='inla_pardiso_approximate' refuses with ADR-0027 pointer", {
+test_that("ADR 0024 (h): backend='inla_pardiso_approximate' refuses with approximation-registry pointer", {
   dat <- data.frame(y = rnorm(20), x = rnorm(20))
   err <- expect_error(
     flexybayes(y ~ x, data = dat,
                 backend = "inla_pardiso_approximate"),
     "approximate_route_not_yet_registered"
   )
-  expect_match(conditionMessage(err), "ADR 0027")
+  expect_match(conditionMessage(err), "approximation registry")
 })
 
 test_that("ADR 0024 (h+): backend='variational_advi' also refuses (variational pattern)", {
@@ -234,7 +234,7 @@ test_that("ADR 0024 (h+): backend='variational_advi' also refuses (variational p
     flexybayes(y ~ x, data = dat, backend = "variational_advi"),
     "approximate_route_not_yet_registered"
   )
-  expect_match(conditionMessage(err), "ADR 0027")
+  expect_match(conditionMessage(err), "approximation registry")
 })
 
 test_that("ADR 0024 (h++): approximate-scheme refusal works on fb_brms too", {
@@ -243,7 +243,7 @@ test_that("ADR 0024 (h++): approximate-scheme refusal works on fb_brms too", {
     fb_brms(y ~ x, data = dat, backend = "inla_pardiso_approximate"),
     "approximate_route_not_yet_registered"
   )
-  expect_match(conditionMessage(err), "ADR 0027")
+  expect_match(conditionMessage(err), "approximation registry")
 })
 
 

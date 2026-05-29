@@ -214,25 +214,19 @@ emit_gaussian_aggregated <- function(fb,
     if (ttype %in% hetero_types) {
       f <- as.character(term$var)
       if (!(f %in% fb_aggregated$cell_key_cols)) {
-        cond <- structure(
-          class = c("flexybayes_aggregate_emit_refusal", "error",
-                    "condition"),
-          list(
-            message = paste0(
-              "emit_gaussian_aggregated(): heterogeneous residual ",
-              "at(", f, "):units refused -- '", f, "' is not in the ",
-              "cell key {", paste(fb_aggregated$cell_key_cols,
-                                   collapse = ", "),
-              "}. The cell-constant sigma property does not hold, ",
-              "so the per-row / per-cell algebraic identity breaks. ",
-              "Pass aggregate = FALSE for the per-row path."),
-            call        = NULL,
-            reason_code = "heterogeneous_residual_factor_not_in_cell_key",
-            factor      = f,
-            cell_key    = fb_aggregated$cell_key_cols
-          )
-        )
-        stop(cond)
+        stop(.fb_refusal_condition(
+          reason_code  = "heterogeneous_residual_factor_not_in_cell_key",
+          message      = paste0(
+            "emit_gaussian_aggregated(): heterogeneous residual ",
+            "at(", f, "):units refused -- '", f, "' is not in the ",
+            "cell key {", paste(fb_aggregated$cell_key_cols,
+                                 collapse = ", "),
+            "}. The cell-constant sigma property does not hold, ",
+            "so the per-row / per-cell algebraic identity breaks. ",
+            "Pass aggregate = FALSE for the per-row path."),
+          family_class = "flexybayes_aggregate_emit_refusal",
+          factor       = f,
+          cell_key     = fb_aggregated$cell_key_cols))
       }
       col_data <- fb_aggregated$sufficient_stats[[f]]
       if (!is.factor(col_data)) col_data <- factor(col_data)
@@ -245,21 +239,15 @@ emit_gaussian_aggregated <- function(fb,
       ))
     }
     # Anything else (us_units, fa_units, ar1_units, ...) is out of scope.
-    cond <- structure(
-      class = c("flexybayes_aggregate_emit_refusal", "error",
-                "condition"),
-      list(
-        message = paste0(
-          "emit_gaussian_aggregated(): rcov term type '", ttype,
-          "' is out of Stage 3A scope. Only homogeneous (units / id) ",
-          "and at_units heterogeneous residual are supported. Pass ",
-          "aggregate = FALSE for the per-row path."),
-        call        = NULL,
-        reason_code = "rcov_type_out_of_stage3a_scope",
-        rcov_type   = ttype
-      )
-    )
-    stop(cond)
+    stop(.fb_refusal_condition(
+      reason_code  = "rcov_type_unsupported_for_aggregation",
+      message      = paste0(
+        "emit_gaussian_aggregated(): rcov term type '", ttype,
+        "' is not supported by the aggregated path. Only homogeneous ",
+        "(units / id) and at_units heterogeneous residual are ",
+        "supported. Pass aggregate = FALSE for the per-row path."),
+      family_class = "flexybayes_aggregate_emit_refusal",
+      rcov_type    = ttype))
   }
   list(kind = "homogeneous", factor = NULL, level_col = NULL,
        n_levels = NULL, levels = NULL)
