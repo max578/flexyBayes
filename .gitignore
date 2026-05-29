@@ -27,3 +27,7 @@ revdep/
 # the gate refuses INLA dispatch with a v0.3 deferral message until
 # the verification test has been run.
 inst/extdata/inla-verification/
+
+# Decision-knowledge ledger (cairns) -- local dev artefact, kept out of
+# package git history (untracked 2026-05-30); already in .Rbuildignore.
+ledger/
