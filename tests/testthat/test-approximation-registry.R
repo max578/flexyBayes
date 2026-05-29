@@ -1,24 +1,23 @@
-# Tests for the approximation registry --- ADR 0030 C5 + ADR 0027
-# (v0.4.0 Wave 1 Phase 1A substrate). The registry formalises the
-# approximation-scheme vocabulary into a single locked
-# .approximation_registry container at .onLoad(). Scaffold-only at
-# this step: the container, the .register_approximation() /
-# .lookup_approximation() / .approximation_scheme() helpers, and the
-# lock helper ship empty; the first scheme (low_rank_smooth) populates
-# together with its emit path + validate_approximation() export. All
-# helpers are internal.
+# Tests for the approximation registry --- ADR 0030 C5 + ADR 0027.
+# The registry formalises the approximation-scheme vocabulary into a
+# single locked .approximation_registry container at .onLoad(). At
+# v0.4.0 Wave 1 Phase 1B the first scheme (low_rank_smooth) populates
+# together with its emit path (R/emit_smooth_low_rank.R) and the
+# exported validate_approximation() surface. All registry helpers are
+# internal.
 #
-# Nine acceptance criteria:
+# Acceptance criteria:
 #
-#   (a) .approximation_registry exists post-.onLoad() and is locked
-#   (b) the registry is empty at the scaffold step
-#   (c) .register_approximation() validates its five-field schema
-#   (d) .register_approximation() refuses when the registry is locked
-#   (e) .lookup_approximation() refuses an unknown scheme
-#   (f) .lookup_approximation() refuses non-string input
-#   (g) .approximation_scheme() refuses an unknown scheme
-#   (h) user-side assign() into the locked registry raises
-#   (i) snapshot test on the (empty) registered vocabulary
+#   (a)  .approximation_registry exists post-.onLoad() and is locked
+#   (b)  the registry carries the v0.4.0 scheme vocabulary
+#   (b2) low_rank_smooth carries the full five-field ADR 0027 schema
+#   (c)  .register_approximation() validates its five-field schema
+#   (d)  .register_approximation() refuses when the registry is locked
+#   (e)  .lookup_approximation() refuses an unknown scheme
+#   (f)  .lookup_approximation() refuses non-string input
+#   (g)  .approximation_scheme() refuses an unknown scheme
+#   (h)  user-side assign() into the locked registry raises
+#   (i)  snapshot test on the registered vocabulary
 
 # ---------------------------------------------------------------- #
 # (a) registry exists + is locked                                   #
@@ -31,12 +30,33 @@ test_that(".approximation_registry exists and is locked post-load", {
 })
 
 # ---------------------------------------------------------------- #
-# (b) registry is empty at the scaffold step                        #
+# (b) registry carries the v0.4.0 scheme vocabulary                 #
 # ---------------------------------------------------------------- #
 
-test_that("the approximation registry is empty at the scaffold step", {
+test_that("the approximation registry carries the v0.4.0 schemes", {
   reg <- flexyBayes:::.approximation_registry
-  expect_length(ls(envir = reg, all.names = FALSE), 0L)
+  expect_setequal(ls(envir = reg, all.names = FALSE), "low_rank_smooth")
+})
+
+# ---------------------------------------------------------------- #
+# (b2) low_rank_smooth carries the full five-field ADR 0027 schema  #
+# ---------------------------------------------------------------- #
+
+test_that("low_rank_smooth registers with a working five-field schema", {
+  entry <- flexyBayes:::.lookup_approximation("low_rank_smooth")
+  expect_setequal(
+    names(entry),
+    c("scheme", "bias_bound", "validation_fn", "fallback_hint",
+      "registered_in_adr"))
+  expect_identical(entry$scheme, "low_rank_smooth")
+  expect_true(is.list(entry$bias_bound))
+  expect_identical(entry$bias_bound$type, "analytical")
+  expect_true(is.function(entry$validation_fn))
+  expect_true(is.character(entry$fallback_hint) &&
+              length(entry$fallback_hint) == 1L)
+  expect_identical(entry$registered_in_adr, "0027")
+  expect_identical(flexyBayes:::.approximation_scheme("low_rank_smooth"),
+                   "low_rank_smooth")
 })
 
 # ---------------------------------------------------------------- #
@@ -98,8 +118,8 @@ test_that(".lookup_approximation() refuses unknown scheme", {
   expect_s3_class(err, "error")
   expect_match(conditionMessage(err),
                "not a registered approximation scheme")
-  # the empty-vocabulary hint is load-bearing at the scaffold step
-  expect_match(conditionMessage(err), "none registered yet")
+  # the known-schemes hint names the registered vocabulary
+  expect_match(conditionMessage(err), "low_rank_smooth")
 })
 
 # ---------------------------------------------------------------- #

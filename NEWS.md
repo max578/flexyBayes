@@ -1,5 +1,43 @@
 # flexyBayes 0.4.0 (in development)
 
+## `validate_approximation()` + the `low_rank_smooth` smooth approximation (ADR 0030 C5 + ADR 0027, v0.4.0 Wave 1 Phase 1B)
+
+Completes the approximation contract end to end: the `low_rank_smooth`
+scheme, its greta emit path, and the exported `validate_approximation()`
+verb land together so every registered scheme carries a working
+validation procedure.
+
+- **New exported verb `validate_approximation(fit, threshold = 0.99)`**
+  --- the sixth (and architecturally-final) exported verb. Returns an
+  `<fb_approximation_validation>` object reporting, per approximated
+  smooth, the realised Frobenius capture
+  (\eqn{\sum_{i \le K} d_i^2 / \sum_i d_i^2}) against the pass
+  threshold (default `0.99`), the overall pass / fail verdict, and a
+  fallback hint. An exact fit refuses (`approximation_scheme_unknown`).
+- **`low_rank_smooth` approximation scheme.** Request a rank-K
+  principal-component truncation of a smooth basis with
+  `s(x, representation = list(scheme = "low_rank_smooth", rank = K))`.
+  The model then carries `K` basis coefficients (the truncated basis
+  `B_K = B V_K`, with `V_K` the top-K right singular vectors of the
+  basis `B`) instead of the full `k`; prediction projects the newdata
+  basis through the same `V_K`. The rank refuses unless it is a
+  positive integer no greater than `min(basis dimension, n)`.
+- **Three-tier `exactness` vocabulary** --- `exact`,
+  `aggregated_exact`, and `approximate_<scheme>`. Approximate fits
+  carry an `[APPROX: <scheme>]` badge on the `Representation:` print
+  line and in `fb_plan()`; every pre-existing fit's label is
+  unchanged.
+- **Greta backend only.** `low_rank_smooth` truncates the dense `mgcv`
+  smooth basis, which only the greta backend materialises; an explicit
+  `backend = "inla"` or `"brms"` request for a low-rank smooth refuses
+  (`low_rank_requires_greta`) rather than silently fitting a different
+  smooth representation, and `backend = "auto"` resolves to greta.
+- **Representation registry** gains the `low_rank` class (sixteenth
+  entry).
+- Fix: the brms-formula ingest's unsupported-feature refusal no longer
+  errors on a multi-line `deparse()`; a long unsupported term now
+  surfaces the intended clean refusal.
+
 ## C5 approximation-registry scaffold (ADR 0030 + ADR 0027, v0.4.0 Wave 1 Phase 1A substrate)
 
 Ships the approximation-scheme registry *infrastructure* --- a single

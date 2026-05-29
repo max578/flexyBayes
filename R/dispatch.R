@@ -422,6 +422,32 @@
     }
   }
 
+  # v0.4.0 Wave 1 Phase 1B (ADR 0027): low_rank_smooth is a
+  # greta-backend approximation. It truncates the dense mgcv smooth
+  # basis, which only the greta emit path materialises; INLA
+  # represents smooths via rw2 and brms via Stan spline bases, so
+  # neither can honour the truncation. An explicit inla / brms request
+  # refuses (rather than silently fitting an unrelated smooth); an
+  # auto request resolves to greta because the approximation dictates
+  # the only engine that can produce it.
+  if (length(.collect_approx(fb$random_terms)) > 0L) {
+    if (backend %in% c("inla", "brms"))
+      stop(structure(
+        class = c("flexybayes_low_rank_requires_greta", "error",
+                  "condition"),
+        list(
+          message = paste0(
+            "A smooth requesting the low_rank_smooth approximation ",
+            "requires the greta backend; the '", backend, "' backend ",
+            "represents smooths differently (INLA via rw2, brms via ",
+            "Stan spline bases) and cannot honour the rank-K basis ",
+            "truncation. Re-fit with backend = \"greta\", or drop the ",
+            "representation = ... argument to fit the exact smooth."),
+          call = NULL,
+          reason_code = "low_rank_requires_greta")))
+    if (identical(backend, "auto")) backend <- "greta"
+  }
+
   # Stan passthrough via brms. Opt-in only -- backend = "auto" never
   # routes to Stan because brms's first-call compile latency (30-60s)
   # would silently break the auto-dispatch transparent-fast-path
@@ -662,7 +688,19 @@
     if (!is.null(fb_dataset_meta_for_fit))
       fit$extras$fb_dataset <- fb_dataset_meta_for_fit
   }
-  if (!isTRUE(return_code)) fit$exactness <- "exact"
+  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 1): three-tier exactness
+  # vocabulary. A greta fit carrying a registered approximation scheme
+  # is labelled "approximate_<scheme>"; an exact fit keeps "exact"
+  # (aggregated paths set "aggregated_exact" upstream). The label is
+  # the same string validate_approximation() and the [APPROX:] display
+  # badge key off.
+  if (!isTRUE(return_code)) {
+    approx <- fit$extras$parse_info$approx
+    fit$exactness <- if (length(approx) > 0L)
+      paste0("approximate_", approx[[1L]]$scheme)
+    else
+      "exact"
+  }
   fit
 }
 

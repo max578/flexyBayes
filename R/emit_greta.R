@@ -204,6 +204,15 @@ emit_greta <- function(fb,
         # has no smooths. predict.flexybayes() reads this slot and
         # re-evaluates the basis on newdata via mgcv::Predict.matrix().
         smooths = .collect_smooths(random_terms),
+        # v0.4.0 Wave 1 Phase 1B (ADR 0027): collect per-smooth
+        # approximation metadata (scheme, rank, projection V_K, full
+        # singular spectrum, realised Frobenius capture) keyed by
+        # smooth variable. Empty list when no smooth was routed through
+        # an approximation scheme. validate_approximation() reads this
+        # slot for its verdict; predict.flexybayes() reads V_K to
+        # project the newdata basis into the truncated coefficient
+        # space (R/predict_kernel.R).
+        approx  = .collect_approx(random_terms),
         # ADR 0019: record which factor:continuous emit branch fired
         # (Option C primary or Option D fallback). NULL if no
         # factor_numeric_interaction term was present.
@@ -262,6 +271,26 @@ emit_greta <- function(fb,
     if (!is.null(t$smooth_obj)) {
       key <- t$var %||% t$smooth_label %||% paste0("s_", length(out) + 1L)
       out[[key]] <- t$smooth_obj
+    }
+  }
+  out
+}
+
+# v0.4.0 Wave 1 Phase 1B (ADR 0027): collect the per-smooth
+# approximation metadata recorded by .enrich() (R/parse_formula.R) into
+# a named list keyed by smooth-term variable name. Each entry carries
+# the scheme, the truncation rank, the projection V_K (the predict path
+# projects the newdata basis through it), the full singular spectrum,
+# and the realised Frobenius capture. Returns an empty named list when
+# no smooth was routed through an approximation scheme, so the
+# parse_info$approx slot has a uniform shape.
+.collect_approx <- function(random_terms) {
+  out <- list()
+  if (length(random_terms) == 0L) return(out)
+  for (t in random_terms) {
+    if (!is.null(t$approx_spec)) {
+      key <- t$var %||% t$smooth_label %||% paste0("s_", length(out) + 1L)
+      out[[key]] <- t$approx_spec
     }
   }
   out

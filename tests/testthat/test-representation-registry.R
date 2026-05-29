@@ -10,7 +10,7 @@
 # Twelve acceptance criteria:
 #
 #   (a) .representation_registry exists post-.onLoad() and is locked
-#   (b) all fifteen v0.4.0 entries are registered
+#   (b) all sixteen v0.4.0 entries are registered
 #   (c) every registered entry carries the documented schema
 #   (d) .lookup_representation() returns the registered entry
 #   (e) .lookup_representation() refuses unknown name
@@ -33,10 +33,10 @@ test_that(".representation_registry exists and is locked post-load", {
 })
 
 # ---------------------------------------------------------------- #
-# (b) all fifteen v0.4.0 entries are registered                     #
+# (b) all sixteen v0.4.0 entries are registered                     #
 # ---------------------------------------------------------------- #
 
-test_that("all fifteen v0.4.0 representation classes are registered", {
+test_that("all sixteen v0.4.0 representation classes are registered", {
   reg <- flexyBayes:::.representation_registry
   expected <- c(
     "dense_cov", "chol_cov", "sparse_precision",
@@ -45,11 +45,13 @@ test_that("all fifteen v0.4.0 representation classes are registered", {
     "indexed_structured_known", "indexed_structured_estimate",
     "indexed_random_intercept", "dense_baseline",
     "indexed_fixed_numeric", "indexed_fixed_factor",
-    "indexed_fixed_factor_numeric"
+    "indexed_fixed_factor_numeric",
+    # v0.4.0 Wave 1 Phase 1B (ADR 0027): low-rank truncated smooth basis
+    "low_rank"
   )
   actual <- ls(envir = reg, all.names = FALSE)
   expect_setequal(actual, expected)
-  expect_length(actual, 15L)
+  expect_length(actual, 16L)
 })
 
 # ---------------------------------------------------------------- #

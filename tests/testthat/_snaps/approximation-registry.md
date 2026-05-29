@@ -3,5 +3,5 @@
     Code
       vocab
     Output
-      character(0)
+      [1] "low_rank_smooth"
 

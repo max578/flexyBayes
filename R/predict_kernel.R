@@ -205,6 +205,17 @@
     for (v in names(smooths_slot)) {
       sm <- smooths_slot[[v]]
       Bnew <- mgcv::PredictMat(sm, data = newdata)
+      # v0.4.0 Wave 1 Phase 1B (ADR 0027): on the low_rank_smooth
+      # approximate path the fitted coefficients live in the rank-K
+      # truncated space, so the newdata basis must be projected through
+      # the same V_K (Bnew %*% V_K, n_new x K) used at fit time. Without
+      # this the n_new x k full basis would mismatch the K coefficient
+      # draws and the dimension guard below would silently drop the
+      # smooth contribution.
+      approx_v <- object$extras$parse_info$approx[[v]]
+      if (!is.null(approx_v) &&
+          identical(approx_v$scheme, "low_rank_smooth"))
+        Bnew <- Bnew %*% approx_v$V_K
       raw_pat   <- paste0("^s_", v, "_raw(\\[|$)")
       raw_cols  <- grep(raw_pat, colnames(draws_sub), value = TRUE)
       sigma_col <- paste0("sigma_s_", v)

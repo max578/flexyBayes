@@ -248,8 +248,15 @@ fb_plan <- function(formula,
   engine_label <- .engine_label_for(chosen_backend, chosen_path)
 
   # ---- representation label (Representation: line; ADR 0030 D4) - #
+  # v0.4.0 Wave 1 Phase 1B: detect a low-rank (or any registered)
+  # approximation scheme requested on a smooth so the plan's
+  # Representation line carries the [APPROX:] badge.
+  plan_approx <- .collect_approx(fb$random_terms)
+  approx_scheme <- if (length(plan_approx) > 0L)
+    plan_approx[[1L]]$scheme else NULL
   repr_label <- .representation_label_for(chosen_path, agg,
-                                           representation_plan)
+                                           representation_plan,
+                                           approx_scheme)
 
   # ---- assemble ------------------------------------------------- #
   structure(
@@ -381,7 +388,13 @@ fb_plan <- function(formula,
 # to engine_label. "exact" / "aggregated_exact (N:K ratio)" /
 # "exact (block-diagonal, K blocks)" / "n/a".
 .representation_label_for <- function(path, agg,
-                                       representation_plan = NULL) {
+                                       representation_plan = NULL,
+                                       approx_scheme = NULL) {
+  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 3): a plan whose formula
+  # routes a smooth through an approximation scheme surfaces the same
+  # [APPROX: <scheme>] badge the fitted object will carry.
+  if (!is.null(approx_scheme))
+    return(paste0("approximate [APPROX: ", approx_scheme, "]"))
   if (identical(path, "aggregated_inla")) {
     if (!is.na(agg$ratio) && agg$ratio >= 2)
       return(sprintf("aggregated_exact (compression %.0f:1)",

@@ -160,6 +160,44 @@
 }
 
 
+# --- v0.4.0 Wave 1 Phase 1B population ---------------------------- #
+
+# .populate_approximation_registry_v0400() --- registers the first
+# approximation scheme, `low_rank_smooth`, with the full five-field
+# ADR 0027 Decision 2 schema. Called from .onLoad() *before*
+# .lock_approximation_registry() so the scheme is in place when user
+# code (and validate_approximation()) first observes the registry.
+# The validation_fn is .validate_low_rank_smooth() from
+# R/emit_smooth_low_rank.R --- it reads the truncation metadata the
+# emit path records on the fit (fit$extras$parse_info$approx) and
+# reports the realised Frobenius capture against the threshold.
+.populate_approximation_registry_v0400 <- function() {
+  .register_approximation(
+    scheme     = "low_rank_smooth",
+    bias_bound = list(
+      type       = "analytical",
+      expression = "frobenius_residual",
+      formula    = quote((norm(B - B_K, type = "F"))^2 /
+                           (norm(B, type = "F"))^2),
+      reference  = "wood_2017_chapter_5",
+      interpretation = paste(
+        "Relative squared Frobenius error of the rank-K truncation",
+        "B_K against the full smooth basis B. Bound = 1 -",
+        "frobenius_capture; default pass threshold frobenius_capture",
+        ">= 0.99 (ADR 0026).")
+    ),
+    validation_fn = .validate_low_rank_smooth,
+    fallback_hint = paste(
+      "Re-fit with a higher rank, or drop the approximation to fit the",
+      "exact smooth. If the basis dimension k is large only because of",
+      "a high default k in s(x, k = ...), reducing k directly is the",
+      "exact alternative to truncation."),
+    registered_in_adr = "0027"
+  )
+  invisible(NULL)
+}
+
+
 # --- lock helper -------------------------------------------------- #
 
 # .lock_approximation_registry() --- locks the environment so no

@@ -178,8 +178,24 @@
     # tensor-product smooths defer to v0.2. The full original call is
     # captured here; .enrich() evaluates it via mgcv::smoothCon() to
     # build the n x k design matrix.
-    "s"    = list(list(type = "smooth_mgcv", call = expr,
-                       var  = .dep(expr, 2))),
+    # v0.4.0 Wave 1 Phase 1B (ADR 0027): an optional `representation`
+    # argument inside s() requests an approximation scheme for the
+    # smooth basis, e.g. s(x, representation = list(scheme =
+    # "low_rank_smooth", rank = 5L)) (the list is the de-classed shape
+    # fb_approx() returns at Phase 1D). It is NOT an mgcv::s() argument,
+    # so it is intercepted here and stripped from the call before
+    # .enrich() evaluates the cleaned call via mgcv::smoothCon(); the
+    # raw spec expression is carried on `approx_expr` and resolved at
+    # enrich time (where the basis dimension k and row count n are known
+    # for the rank refusal).
+    "s"    = {
+      rep_expr <- if (!is.null(expr[["representation"]]))
+        expr[["representation"]] else NULL
+      sm_call <- expr
+      if (!is.null(rep_expr)) sm_call[["representation"]] <- NULL
+      list(list(type = "smooth_mgcv", call = sm_call,
+                var = .dep(sm_call, 2), approx_expr = rep_expr))
+    },
     "dsum" = {
       arg <- expr[[2]]
       grp <- tryCatch({
@@ -344,6 +360,58 @@
       # back to stats::model.matrix() which silently produces wrong
       # predictions near or beyond the training range.
       term$smooth_obj   <- sm_obj
+      # v0.4.0 Wave 1 Phase 1B (ADR 0027): if the s() carried a
+      # `representation` spec, resolve it now (k and n are known) and
+      # truncate the basis to its rank-K principal-component
+      # approximation. The model then carries B_K = X V_K (n x K) and
+      # K coefficients rather than the full n x k basis; V_K and the
+      # realised Frobenius capture are recorded on `approx_spec` for
+      # the emit path (codegen), the predict-side projection, and
+      # validate_approximation().
+      if (!is.null(term$approx_expr)) {
+        spec <- eval(term$approx_expr)
+        if (!is.list(spec) || is.null(spec$scheme) ||
+            !is.character(spec$scheme) || length(spec$scheme) != 1L)
+          stop(structure(
+            class = c("flexybayes_approximation_spec_invalid", "error",
+                      "condition"),
+            list(
+              message = paste0(
+                "s(", term$var, ", representation = ...): the ",
+                "representation spec must be a list (or fb_approx() ",
+                "object) carrying a single-string `scheme`; e.g. ",
+                "representation = list(scheme = \"low_rank_smooth\", ",
+                "rank = 5L)."),
+              call = NULL,
+              reason_code = "approximation_spec_invalid")))
+        # Validate scheme against the locked registry (refuses
+        # unknown schemes); only low_rank_smooth has a smooth-basis
+        # emit path at v0.4.0.
+        .lookup_approximation(spec$scheme)
+        if (!identical(spec$scheme, "low_rank_smooth"))
+          stop(structure(
+            class = c("flexybayes_approximation_no_smooth_path", "error",
+                      "condition"),
+            list(
+              message = paste0(
+                "s(", term$var, ", representation = ...): scheme '",
+                spec$scheme, "' is registered but has no smooth-basis ",
+                "emit path at this release; the only smooth ",
+                "approximation scheme with an emit path is ",
+                "low_rank_smooth."),
+              call = NULL,
+              reason_code = "approximation_no_smooth_path")))
+        tr <- .truncate_smooth_basis(term$X, spec$rank, var = term$var)
+        term$X_K <- tr$B_K
+        term$approx_spec <- list(
+          scheme            = spec$scheme,
+          rank              = tr$rank,
+          k                 = tr$k,
+          V_K               = tr$V_K,
+          singular_values   = tr$singular_values,
+          frobenius_capture = tr$frobenius_capture
+        )
+      }
       term
     },
     term

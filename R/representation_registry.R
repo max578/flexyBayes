@@ -26,10 +26,11 @@
 # discovered during the Phase 1A producer-site sweep of
 # .preflight_fixed_term() (indexed_fixed_numeric, indexed_fixed_factor,
 # indexed_fixed_factor_numeric --- load-bearing on every fixed-effect
-# preflight entry under a new `indexed_fixed` category). low_rank
-# registers in Phase 1B alongside the approximation registry; axis_*
-# entries reserve in Phase 2B alongside the backend-independence axis
-# vocabulary.
+# preflight entry under a new `indexed_fixed` category). The
+# sixteenth entry, low_rank, registers at v0.4.0 Wave 1 Phase 1B
+# alongside the approximation registry (the low_rank_smooth scheme's
+# truncated smooth-basis representation); axis_* entries reserve in
+# Phase 2B alongside the backend-independence axis vocabulary.
 #
 # The string "unknown" at fb_preflight.R:608 is a sentinel for the
 # unknown_representation = TRUE meta-state and is intentionally
@@ -162,8 +163,9 @@
 
 # --- v0.4.0 registry population ---------------------------------- #
 
-# .populate_representation_registry_v0400() --- registers the 15
-# v0.4.0 representation classes. Called from .onLoad() *before*
+# .populate_representation_registry_v0400() --- registers the 16
+# v0.4.0 representation classes (15 at Phase 1A open plus low_rank at
+# Phase 1B). Called from .onLoad() *before*
 # .lock_representation_registry() so the entries are in place when
 # user code first observes the registry.
 .populate_representation_registry_v0400 <- function() {
@@ -320,6 +322,24 @@
     category          = "indexed_fixed",
     registered_in_adr = "ADR 0019 + ADR 0030 (C4)",
     since_version     = "0.3.6"
+  )
+  # v0.4.0 Wave 1 Phase 1B (ADR 0027): the deferred Phase 1A
+  # reservation lands here, alongside the approximation registry.
+  # Classifies an s() smooth whose dense mgcv basis is replaced by its
+  # rank-K principal-component truncation B_K = B V_K (the
+  # low_rank_smooth approximation scheme); the design block the greta
+  # model carries is n x K rather than n x k.
+  .register_representation(
+    name              = "low_rank",
+    description       = paste0(
+      "Rank-K low-rank truncation of a smooth basis (low_rank_smooth ",
+      "scheme; ADR 0027): the n x k dense mgcv basis B is replaced by ",
+      "B_K = B V_K with V_K the top-K right singular vectors, so the ",
+      "model carries K basis coefficients and prediction projects the ",
+      "newdata basis through the same V_K."),
+    category          = "smooth_basis",
+    registered_in_adr = "ADR 0027 + ADR 0030 (C4)",
+    since_version     = "0.4.0"
   )
   invisible(NULL)
 }

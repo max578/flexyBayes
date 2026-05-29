@@ -81,14 +81,22 @@
   # raise rather than mutate the locked environment.
   .lock_refusal_registry()
 
-  # ADR 0030 C5 + ADR 0027 (v0.4.0 Wave 1 Phase 1A substrate): lock
-  # the approximation-scheme registry. Scaffold-only at this step ---
-  # zero .register_approximation() calls. The first scheme
-  # (low_rank_smooth) populates here together with its emit path and
-  # the exported validate_approximation() surface, because the
-  # scheme's validation_fn reads the smooth-basis matrices off a fit
-  # object only the emit path produces. Locking an empty registry now
-  # mirrors the C7 refusal scaffold's v0.3.8 posture.
+  # ADR 0030 C5 + ADR 0027 (v0.4.0 Wave 1 Phase 1B): register the
+  # first approximation scheme, low_rank_smooth, with its full
+  # five-field schema and its validation_fn (.validate_low_rank_smooth,
+  # R/emit_smooth_low_rank.R). The scheme lands together with its emit
+  # path (R/codegen.R low-rank branch), its predict-side projection
+  # (R/predict_kernel.R), and the exported validate_approximation()
+  # surface --- the registry invariant ("every registered scheme
+  # carries a working validation procedure") is honoured because the
+  # validation_fn reads the truncation metadata a real low-rank fit
+  # records on fit$extras$parse_info$approx.
+  .populate_approximation_registry_v0400()
+
+  # Lock the approximation-scheme registry. Further
+  # .register_approximation() calls beyond this point raise rather
+  # than mutate the locked environment; further schemes (inla_laplace,
+  # predictive_process, vb) register here in subsequent releases.
   .lock_approximation_registry()
 }
 

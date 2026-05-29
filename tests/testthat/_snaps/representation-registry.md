@@ -9,6 +9,6 @@
        [7] "indexed_fixed_factor"         "indexed_fixed_factor_numeric"
        [9] "indexed_fixed_numeric"        "indexed_random_intercept"    
       [11] "indexed_structured_estimate"  "indexed_structured_known"    
-      [13] "pedigree_sparse_precision"    "sparse_precision"            
-      [15] "sparse_smooth"               
+      [13] "low_rank"                     "pedigree_sparse_precision"   
+      [15] "sparse_precision"             "sparse_smooth"               
 

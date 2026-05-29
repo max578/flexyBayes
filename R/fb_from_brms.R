@@ -182,7 +182,12 @@ fb_from_brms <- function(formula,
   # Reject unsupported features fail-fast (per v0.1 minimum scope)
   if (length(walked$ext_terms) > 0L) {
     classes <- vapply(walked$ext_terms, function(t) {
-      paste0(t$type, " (", t$deparse, ")")
+      # deparse() returns a multi-line character vector for a
+      # sufficiently long call (e.g. s(x, k = 10, representation =
+      # list(scheme = "low_rank_smooth", rank = 5L))); collapse to a
+      # single string so this fail-fast refusal fires cleanly rather
+      # than tripping the vapply length-1 constraint.
+      paste0(t$type, " (", paste(t$deparse, collapse = " "), ")")
     }, character(1))
     stop("v0.1 brms ingest does not yet support: ",
          paste(classes, collapse = ", "),

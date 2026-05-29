@@ -443,10 +443,20 @@
       "smooth_mgcv" = {
         vname <- term$var
         tag   <- paste0("s_", vname)
+        # v0.4.0 Wave 1 Phase 1B (ADR 0027): on the low_rank_smooth
+        # approximate path, bind the rank-K truncated basis B_K = X V_K
+        # (n x K) and carry K coefficients instead of the full n x k
+        # basis. The linear-predictor block is otherwise identical:
+        # f = B_K %*% (raw_K * sigma). Prediction projects the newdata
+        # basis through the same V_K (R/predict_kernel.R). Exact path
+        # (no approx_spec) is unchanged.
+        basis  <- if (!is.null(term$approx_spec)) term$X_K else term$X
+        n_coef <- if (!is.null(term$approx_spec))
+          term$approx_spec$rank else term$k
         # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-1: bind the
         # basis matrix into the model evaluation environment so the
         # generated greta code can reference it by name.
-        assign(paste0("B_", tag), term$X, envir = ctx$env)
+        assign(paste0("B_", tag), basis, envir = ctx$env)
         # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-2: replace the
         # literal-matrix emission with a bare `as_data(B_s_<vname>)`
         # reference -- the matrix is already in the env from the
@@ -454,7 +464,7 @@
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), vname))
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ",
-                    term$k, ")")
+                    n_coef, ")")
         ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
                     "_raw * sigma_", tag, ")")
         # ADR 0018: monitor the basis-coefficient parameter `s_<v>_raw`

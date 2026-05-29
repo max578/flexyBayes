@@ -20,6 +20,14 @@
 # trace's representation_plan for block_diagonal entries.
 .repr_label_for_fit <- function(fit, bd) {
   exact <- fit$exactness %||% "exact"
+  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 3): approximate fits
+  # carry a bracketed [APPROX: <scheme>] badge --- the load-bearing,
+  # monochrome-friendly visual distinction marking that the fit is not
+  # exact. validate_approximation(fit) reports the realised bias bound.
+  if (startsWith(exact, "approximate_")) {
+    scheme <- sub("^approximate_", "", exact)
+    return(paste0("approximate [APPROX: ", scheme, "]"))
+  }
   if (identical(exact, "aggregated_exact")) {
     am <- fit$extras$aggregation_meta
     if (!is.null(am) && !is.null(am$N) && !is.null(am$K) &&
