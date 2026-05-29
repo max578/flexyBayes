@@ -685,6 +685,30 @@
     since_version      = "0.4.0"
   )
 
+  # -- family support (utils.R::.resolve_family) ---------------------
+  # .resolve_family() is the single family gate every user entry
+  # passes through (asreml via fb.R, brms via fb_from_brms.R). It
+  # admits only the families flexyBayes can emit; any other family --
+  # including those INLA's likelihood roster recognises but flexyBayes
+  # has no emit path for (e.g. survival / time-to-event) -- is refused
+  # up front, never silently fitted.
+  .register_refusal(
+    reason_code        = "unsupported_family",
+    description        = paste0(
+      "The requested family is outside the set flexyBayes can emit. ",
+      "Refused at the family gate (.resolve_family) before any ",
+      "backend code runs."),
+    message_template   = paste0(
+      "Unsupported family \"%s\". flexyBayes supports: gaussian, ",
+      "binomial, binary, poisson, negative_binomial, negbinom, ",
+      "gamma, beta. Other families (including survival / ",
+      "time-to-event and multivariate responses) are planned future ",
+      "work; see fb_refusals()."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+
   invisible(NULL)
 }
 

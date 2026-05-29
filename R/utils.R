@@ -56,8 +56,15 @@
   )
   fam <- tolower(family)
   if (!fam %in% names(defaults))
-    stop("Unsupported family: ", family,
-         ". Supported: ", paste(names(defaults), collapse = ", "))
+    stop(.fb_refusal_condition(
+      reason_code  = "unsupported_family",
+      message      = paste0(
+        "Unsupported family \"", family, "\". flexyBayes supports: ",
+        paste(names(defaults), collapse = ", "),
+        ". Other families (including survival / time-to-event and ",
+        "multivariate responses) are planned future work; see ",
+        "fb_refusals()."),
+      family_class = "flexybayes_unsupported_family"))
   lnk <- if (!is.null(link)) tolower(link) else defaults[[fam]]
   list(family = fam, link = lnk)
 }

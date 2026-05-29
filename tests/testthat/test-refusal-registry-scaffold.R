@@ -95,7 +95,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 })
 
 # ---------------------------------------------------------------- #
-# (e2) v0.4.0 Phase 1C bulk migration: complete 31-code vocabulary  #
+# (e2) refusal vocabulary: complete 32-code post-remediation set    #
 # ---------------------------------------------------------------- #
 #
 # The bulk migration (.populate_refusal_registry_v0400()) registers
@@ -104,10 +104,12 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 31-code vocabulary", {
+test_that(".refusal_registry holds the complete 32-code vocabulary", {
   reg     <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
-  expect_equal(length(entries), 31L)
+  # 31 from the Phase 1C bulk migration + the family-support refusal
+  # added in the 2026-05-30 audit remediation.
+  expect_equal(length(entries), 32L)
 
   # spot-check a representative new code from each family
   expect_true("precision_not_symmetric"        %in% entries)  # structured cov
@@ -115,6 +117,7 @@ test_that(".refusal_registry holds the complete 31-code vocabulary", {
   expect_true("rcov_type_unsupported_for_aggregation" %in% entries)  # aggregate emit
   expect_true("predict_kernel_invalid_include"  %in% entries)  # prediction
   expect_true("design_memory_exceeds_ceiling"   %in% entries)  # preflight
+  expect_true("unsupported_family"              %in% entries)  # family gate
 
   # control-flow / routing reasons must NOT be registered
   expect_false("non_gaussian_family"               %in% entries)

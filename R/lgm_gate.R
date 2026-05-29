@@ -228,6 +228,16 @@ print.lgm_refusal <- function(x, ...) {
 # family must be in INLA's likelihood roster. With INLA loaded we
 # query inla.models()$likelihood; otherwise fall back to a static
 # allowlist refreshed at v0.1 from INLA documentation.
+#
+# NB: this allowlist mirrors INLA's own likelihood roster and is a
+# routing-eligibility check, NOT flexyBayes's notion of supported
+# families. The authoritative family gate is .resolve_family()
+# (R/utils.R), which every user entry (asreml via fb.R, brms via
+# fb_from_brms.R) passes through first and which admits only the
+# families flexyBayes can emit. Families INLA recognises but
+# flexyBayes cannot emit (e.g. survival / time-to-event) never reach
+# this check -- .resolve_family() refuses them up front. When adding
+# a family, register its emit path AND widen .resolve_family().
 .lgm_check_family <- function(fb) {
   fam_name <- if (inherits(fb$family, "family"))
     fb$family$family else as.character(fb$family)
