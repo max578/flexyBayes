@@ -31,7 +31,7 @@
   block_entries <- if (!is.null(bd$representation_plan))
     Filter(function(rp)
       identical(rp$representation_class %||% NA_character_,
-                "block_diagonal"),
+                .representation_class("block_diagonal")),
       bd$representation_plan)
   else NULL
   if (length(block_entries)) {

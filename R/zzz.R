@@ -49,6 +49,24 @@
   # helper-emit-state.R.
   .init_emit_state()
 
+  # ADR 0030 C4 (v0.4.0 Wave 1 Phase 1A): populate the representation
+  # registry with the fifteen v0.4.0-open classes (the ten plan-named
+  # entries plus indexed_random_intercept + dense_baseline discovered
+  # in the v0.3.10 source plus indexed_fixed_numeric /
+  # indexed_fixed_factor / indexed_fixed_factor_numeric discovered
+  # during the Phase 1A .preflight_fixed_term() producer-site sweep).
+  # The registry is the single source of truth for legitimate
+  # representation_class strings at preflight / planning / display
+  # sites; .lookup_representation() / .representation_class() refuse
+  # unknown names so typos cannot silently propagate. low_rank
+  # registers in Phase 1B alongside the approximation registry.
+  .populate_representation_registry_v0400()
+
+  # Lock the representation registry. Bindings remain readable
+  # indefinitely; further .register_representation() calls after
+  # this point raise rather than mutate the locked environment.
+  .lock_representation_registry()
+
   # ADR 0025 Decisions 3 + 4 (v0.3.10): register the first three
   # canonical refusal-reason codes into the v0.3.8 C7 scaffold ---
   # block_partition_incomplete, block_not_positive_definite, and the

@@ -250,7 +250,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "fixed_smooth"
     ))
@@ -269,7 +270,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "fixed_spline"
     ))
@@ -283,7 +285,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_fixed_numeric",
+      representation_class             = .representation_class(
+                                            "indexed_fixed_numeric"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "fixed_numeric"
     ))
@@ -313,7 +316,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_fixed_factor",
+      representation_class             = .representation_class(
+                                            "indexed_fixed_factor"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "fixed_factor"
     ))
@@ -351,7 +355,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "fixed_factor_interaction"
     ))
@@ -381,7 +386,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_fixed_factor_numeric",
+      representation_class             = .representation_class(
+                                            "indexed_fixed_factor_numeric"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "fixed_factor_numeric_interaction"
     ))
@@ -398,7 +404,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "fixed_polynomial"
     ))
@@ -412,7 +419,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_fixed_numeric",
+      representation_class             = .representation_class(
+                                            "indexed_fixed_numeric"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "fixed_interaction"
     ))
@@ -430,7 +438,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_fixed_numeric",
+      representation_class             = .representation_class(
+                                            "indexed_fixed_numeric"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "fixed_expression"
     ))
@@ -487,7 +496,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "indexed_random_intercept",
+      representation_class             = .representation_class(
+                                            "indexed_random_intercept"),
       aggregated_likelihood_candidate  = family_ok,
       term_kind                        = "random_intercept"
     ))
@@ -516,7 +526,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "random_slope"
     ))
@@ -537,7 +548,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "random_smooth"
     ))
@@ -554,7 +566,8 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "dense_baseline",
+      representation_class             = .representation_class(
+                                            "dense_baseline"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "random_spline"
     ))
@@ -627,14 +640,16 @@
     return(.preflight_entry(
       label                            = label,
       design_memory_bytes              = bytes,
-      representation_class             = "block_diagonal",
+      representation_class             = .representation_class(
+                                            "block_diagonal"),
       aggregated_likelihood_candidate  = FALSE,
       term_kind                        = "random_structured"
     ))
   .preflight_entry(
     label                            = label,
     design_memory_bytes              = bytes,
-    representation_class             = "indexed_structured_known",
+    representation_class             = .representation_class(
+                                          "indexed_structured_known"),
     aggregated_likelihood_candidate  = FALSE,
     term_kind                        = "random_structured"
   )
@@ -1088,9 +1103,9 @@ print.fb_preflight_refusal <- function(x, ...) {
 
   # Indexed random intercept / IID: a k-vector of latent u's + the
   # integer index column. INLA's overhead inflates this only modestly.
-  if (repr %in% c("indexed_random_intercept", "dense_baseline")) {
-    if (identical(repr, "indexed_random_intercept"))
-      return(8 * k_num + 4 * n_rows)
+  if (identical(repr, .representation_class("indexed_random_intercept")))
+    return(8 * k_num + 4 * n_rows)
+  if (identical(repr, .representation_class("dense_baseline"))) {
     # dense_baseline on the random side: the design block at this
     # representation is already dense (e.g., spline / smooth on
     # random), and the per-term design_memory_bytes is the right
@@ -1098,7 +1113,7 @@ print.fb_preflight_refusal <- function(x, ...) {
     return(0)  # accounted via design_memory_bytes if any; defaulting
   }
 
-  if (identical(repr, "indexed_structured_known")) {
+  if (identical(repr, .representation_class("indexed_structured_known"))) {
     # Sparse precision: nnz(Q) * c_sparse. Without known_matrices we
     # use the indexed-fallback K * c_sparse (assumes diagonal Q ---
     # the smallest sparse footprint; intentional under-estimate
@@ -1119,7 +1134,7 @@ print.fb_preflight_refusal <- function(x, ...) {
     return(nnz * .FB_INLA_BYTES_PER_NNZ)
   }
 
-  if (identical(repr, "block_diagonal")) {
+  if (identical(repr, .representation_class("block_diagonal"))) {
     # sum_k n_k^2 * 8. Without known_matrices, use K^2 as worst-case
     # upper bound (single block of full K).
     cov <- term$cov_representation

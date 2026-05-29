@@ -391,7 +391,7 @@ fb_plan <- function(formula,
   if (!is.null(representation_plan)) {
     block_entries <- Filter(function(rp)
       identical(rp$representation_class %||% NA_character_,
-                "block_diagonal"),
+                .representation_class("block_diagonal")),
       representation_plan)
     if (length(block_entries)) {
       k_total <- sum(vapply(block_entries,
@@ -427,7 +427,7 @@ fb_plan <- function(formula,
   for (i in seq_along(representation_plan)) {
     entry <- representation_plan[[i]]
     if (!identical(entry$representation_class %||% NA_character_,
-                   "block_diagonal"))
+                   .representation_class("block_diagonal")))
       next
     matched <- NULL
     for (term in block_terms) {
@@ -532,7 +532,7 @@ print.fb_plan <- function(x, ...) {
     cat("  Representation plan:\n", sep = "")
     for (rp in x$representation_plan) {
       cls <- rp$representation_class %||% "unknown"
-      if (identical(cls, "block_diagonal") &&
+      if (identical(cls, .representation_class("block_diagonal")) &&
           !is.null(rp$block_count))
         cls <- paste0(cls, " (", rp$block_count, " blocks)")
       cat("    ",

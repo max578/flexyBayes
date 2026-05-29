@@ -1,3 +1,48 @@
+# flexyBayes 0.4.0 (in development)
+
+## C4 representation registry formalised (ADR 0030, v0.4.0 Wave 1 Phase 1A)
+
+Phase 1A ratifies ADR 0030 contract C4 (closed-vocabulary representation
+classes) end-to-end. The representation-class vocabulary previously spread
+informally across `R/fb_preflight.R`, `R/fb_plan.R`, and
+`R/methods_truth_display.R` as inline string literals now lives in a single
+locked `.representation_registry` environment populated at `.onLoad()` and
+locked immediately after via `.lock_representation_registry()`. Consumer
+sites route every reference through `.representation_class("<name>")`, so
+typos refuse at runtime rather than silently propagating an unknown class
+through preflight / planning / display.
+
+- Fifteen entries at v0.4.0 open: the ten plan-named classes (`dense_cov`,
+  `chol_cov`, `sparse_precision`, `pedigree_sparse_precision`,
+  `block_diagonal`, `dense_smooth`, `sparse_smooth`, `banded_smooth`,
+  `indexed_structured_known`, `indexed_structured_estimate`) plus five
+  additional classes load-bearing in the v0.3.10 source and surfaced
+  during the Phase 1A producer-site sweep (`indexed_random_intercept`,
+  `dense_baseline`, `indexed_fixed_numeric`, `indexed_fixed_factor`,
+  `indexed_fixed_factor_numeric`). `low_rank` registers in Phase 1B
+  alongside the ADR 0027 approximation registry; the `axis_*` reservation
+  lands in Phase 2B with the backend-independence axis vocabulary.
+- Internal helpers: `.register_representation(name, description, category,
+  registered_in_adr, since_version)` validates inputs, refuses duplicate
+  names, and refuses any attempt to register after the registry locks.
+  `.lookup_representation(name)` returns the full registered entry and
+  refuses unknown names with the known-classes hint.
+  `.representation_class(name)` is the edit-light thin wrapper consumer
+  sites call to swap a bare string literal for a validated-name round-trip.
+- Twelve acceptance criteria in
+  `tests/testthat/test-representation-registry.R` (container exists +
+  locked, vocabulary completeness, schema check on every entry, lookup
+  round-trip, lookup refusal on unknown name + non-string input,
+  `.representation_class()` round-trip, registration input validation,
+  duplicate refusal, locked-registry refusal, user-side `assign()` raises,
+  vocabulary snapshot for vocab-lock gating). The snapshot test forces
+  every future vocabulary addition or removal through a conscious
+  maintainer-review step rather than silently mutating the registry.
+- No user-facing API change. Refusal messages on unknown representation
+  classes surface earlier (at `.representation_class()` instead of at the
+  consumer site downstream) but carry identical content; existing tests
+  that assert specific refusal messages continue to pass.
+
 # flexyBayes 0.3.10
 
 ## Stage 5A blocks emit + low_rank refusal-stub upgrade (ADR 0025 Decisions 3 + 4)
