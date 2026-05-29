@@ -171,3 +171,73 @@ test_that("resolve_family works", {
   expect_equal(flexyBayes:::.resolve_family("poisson", NULL)$link, "log")
   expect_error(flexyBayes:::.resolve_family("foo", NULL), "Unsupported")
 })
+
+# ---------------------------------------------------------------- #
+# Parse-time refusals route through the structured registry         #
+#                                                                   #
+# The early formula / spec validation in .parse_fixed() and the     #
+# term walker raises registered `flexybayes_refusal_*` conditions   #
+# rather than bare stop(), so downstream tooling can pattern-match   #
+# on the class. The user-facing message text is preserved.          #
+# ---------------------------------------------------------------- #
+
+test_that("the parse-time refusal codes are registered + user-visible", {
+  codes <- c("formula_not_two_sided", "response_not_in_data",
+             "fa_rank_invalid", "smooth_variable_not_in_data")
+  tab <- fb_refusals()
+  expect_true(all(codes %in% tab$reason_code))
+  expect_true(all(tab$since_version[tab$reason_code %in% codes] == "0.4.0"))
+})
+
+test_that("a one-sided formula raises formula_not_two_sided", {
+  d   <- data.frame(y = rnorm(5), x = rnorm(5))
+  err <- tryCatch(flexyBayes:::.parse_fixed(~ x, d),
+                  error = function(e) e)
+  expect_s3_class(err, "flexybayes_refusal_formula_not_two_sided")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "must be two-sided")
+})
+
+test_that("a response absent from data raises response_not_in_data", {
+  d   <- data.frame(y = rnorm(5), x = rnorm(5))
+  err <- tryCatch(flexyBayes:::.parse_fixed(z ~ x, d),
+                  error = function(e) e)
+  expect_s3_class(err, "flexybayes_refusal_response_not_in_data")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "not found in data")
+})
+
+test_that("fa(x, k) with k < 1 raises fa_rank_invalid", {
+  d   <- data.frame(y = rnorm(20),
+                    env  = factor(rep(letters[1:4], 5)),
+                    geno = factor(rep(1:5, each = 4)))
+  err <- tryCatch(
+    fb_from_asreml(fixed = y ~ 1, random = ~ fa(env, 0):geno, data = d),
+    error = function(e) e)
+  expect_s3_class(err, "flexybayes_refusal_fa_rank_invalid")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "fa\\(\\) requires k >= 1")
+})
+
+test_that("s() on a variable absent from data raises smooth_variable_not_in_data", {
+  testthat::skip_if_not_installed("mgcv")
+  d   <- data.frame(y = rnorm(20), x = rnorm(20))
+  err <- tryCatch(
+    fb_from_asreml(fixed = y ~ 1, random = ~ s(missing_var), data = d),
+    error = function(e) e)
+  expect_s3_class(err, "flexybayes_refusal_smooth_variable_not_in_data")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "not found in data")
+})
+
+test_that("tensor smooths te()/ti()/t2() are refused, not silently accepted", {
+  d <- data.frame(y = rnorm(20), x = rnorm(20), z = rnorm(20))
+  for (f in c("~ te(x, z)", "~ ti(x, z)", "~ t2(x, z)")) {
+    err <- tryCatch(
+      fb_from_asreml(fixed = y ~ 1, random = as.formula(f), data = d),
+      error = function(e) e)
+    expect_s3_class(err, "flexybayes_refusal_tensor_smooth_unsupported")
+    expect_s3_class(err, "flexybayes_refusal")
+    expect_match(conditionMessage(err), "univariate penalised splines")
+  }
+})

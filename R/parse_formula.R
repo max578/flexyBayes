@@ -9,10 +9,15 @@
 # @return List with response, intercept (logical), terms (list of term descriptors)
 .parse_fixed <- function(fixed, data) {
   if (length(fixed) < 3)
-    stop("fixed must be a two-sided formula: response ~ ...")
+    stop(.fb_refusal_condition(
+      reason_code = "formula_not_two_sided",
+      message     = "The model formula must be two-sided: response ~ predictors."))
   response <- deparse(fixed[[2]])
   if (!response %in% names(data))
-    stop("Response variable '", response, "' not found in data.")
+    stop(.fb_refusal_condition(
+      reason_code = "response_not_in_data",
+      message     = paste0("Response variable \"", response,
+                           "\" not found in data.")))
 
   tt <- tryCatch(terms(fixed, data = data), error = function(e) terms(fixed))
   intercept   <- attr(tt, "intercept") == 1
@@ -196,6 +201,20 @@
       list(list(type = "smooth_mgcv", call = sm_call,
                 var = .dep(sm_call, 2), approx_expr = rep_expr))
     },
+    # Tensor-product / multivariate smooths te() / ti() / t2() are not
+    # supported (only univariate s() / spl() ship). Refuse explicitly
+    # rather than letting them reach the simple-variable default below,
+    # which would silently parse e.g. te(x, z) as a term named
+    # "te(x, z)" -- a no-silent-fitting charter violation.
+    "te"   = ,
+    "ti"   = ,
+    "t2"   = stop(.fb_refusal_condition(
+      reason_code = "tensor_smooth_unsupported",
+      message     = paste0(
+        "Tensor-product / multivariate smooth ", deparse(expr),
+        " is not supported. flexyBayes fits univariate penalised ",
+        "splines only -- use s(x) or spl(x) per smooth dimension. ",
+        "Multivariate smooths are planned for a future release."))),
     "dsum" = {
       arg <- expr[[2]]
       grp <- tryCatch({
@@ -227,7 +246,9 @@
   # FA(k) GxE:  fa(env,k) : id(geno)
   if (lt == "fa" && rt %in% c("id", "ide", "simple")) {
     if (!is.null(l$k) && l$k < 1L)
-      stop("fa() requires k >= 1; got k = ", l$k, ".")
+      stop(.fb_refusal_condition(
+        reason_code = "fa_rank_invalid",
+        message     = paste0("fa() requires k >= 1; got k = ", l$k, ".")))
     return(list(list(type = "fa_gxe", outer = l$var, k = l$k,
                      inner = r$var)))
   }
@@ -338,8 +359,10 @@
              "Install with: install.packages(\"mgcv\")",
              call. = FALSE)
       if (is.null(term$var) || !term$var %in% names(data))
-        stop("Smooth s() variable '", term$var,
-             "' not found in data.", call. = FALSE)
+        stop(.fb_refusal_condition(
+          reason_code = "smooth_variable_not_in_data",
+          message     = paste0("Smooth s() variable \"", term$var,
+                               "\" not found in data.")))
       # Build the design matrix at parse time. The original call is
       # evaluated against mgcv's namespace so user-supplied k / bs /
       # by arguments are honoured. absorb.cons = TRUE folds the sum-

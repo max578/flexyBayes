@@ -709,6 +709,73 @@
     since_version      = "0.4.0"
   )
 
+  # -- formula / spec parse-time refusals (parse_formula.R) ----------
+  # Early model-spec and data-binding refusals raised by the formula
+  # parser. Migrated from raw stop() to the structured registry so
+  # downstream tooling pattern-matches on the condition class rather
+  # than the free-text message. Missing-suggested-package errors
+  # (mgcv, greta) and argument-combination guards stay as plain
+  # stop() --- they are environment / call-shape errors, not
+  # model-scope refusals.
+  .register_refusal(
+    reason_code        = "formula_not_two_sided",
+    description        = paste0(
+      "The model formula must be two-sided (response ~ predictors); ",
+      "a formula carrying no left-hand-side response was supplied."),
+    message_template   = paste0(
+      "The model formula must be two-sided: response ~ predictors."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "response_not_in_data",
+    description        = paste0(
+      "The response variable named on the formula's left-hand side ",
+      "is not a column of `data`."),
+    message_template   = paste0(
+      "Response variable \"%s\" not found in data."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "fa_rank_invalid",
+    description        = paste0(
+      "A factor-analytic term fa(x, k) was given a rank k below 1; ",
+      "the factor-analytic rank must be a positive integer."),
+    message_template   = paste0(
+      "fa() requires k >= 1; got k = %s."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "smooth_variable_not_in_data",
+    description        = paste0(
+      "The variable inside a smooth term s(x) is not a column of ",
+      "`data`."),
+    message_template   = paste0(
+      "Smooth s() variable \"%s\" not found in data."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "tensor_smooth_unsupported",
+    description        = paste0(
+      "A tensor-product or multivariate smooth (te(), ti(), t2()) ",
+      "was supplied. flexyBayes fits univariate penalised splines ",
+      "(s(), spl()) only."),
+    message_template   = paste0(
+      "Tensor-product / multivariate smooth %s is not supported. ",
+      "flexyBayes fits univariate penalised splines only -- use ",
+      "s(x) or spl(x) per smooth dimension."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+
   invisible(NULL)
 }
 

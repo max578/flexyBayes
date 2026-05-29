@@ -99,17 +99,17 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # ---------------------------------------------------------------- #
 #
 # The bulk migration (.populate_refusal_registry_v0400()) registers
-# the remaining 28 user-facing refusal codes, taking the registry to
-# its complete 31-code user-facing vocabulary. The routing-decision
+# the remaining user-facing refusal codes. The routing-decision
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 32-code vocabulary", {
+test_that(".refusal_registry holds the complete 37-code vocabulary", {
   reg     <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
-  # 31 from the Phase 1C bulk migration + the family-support refusal
+  # 31 from the Phase 1C bulk migration + the family-support refusal,
+  # the four parse-time spec refusals, and the tensor-smooth refusal
   # added in the 2026-05-30 audit remediation.
-  expect_equal(length(entries), 32L)
+  expect_equal(length(entries), 37L)
 
   # spot-check a representative new code from each family
   expect_true("precision_not_symmetric"        %in% entries)  # structured cov

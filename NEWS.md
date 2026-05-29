@@ -17,7 +17,7 @@ through a new exported accessor and a precise condition-class contract.
   carries a condition class `flexybayes_refusal_<reason_code>` above its
   existing family class, so a specific refusal can be caught directly,
   for example `tryCatch(fit, flexybayes_refusal_precision_not_symmetric
-  = handler)`. The registry holds the complete 32-reason vocabulary;
+  = handler)`. The registry holds the complete 37-reason vocabulary;
   routing-decision reasons and internal control-flow signals are
   deliberately excluded as they are not refusals a user can encounter.
 - The aggregated-emit out-of-scope refusal's reason code is now
@@ -28,6 +28,19 @@ through a new exported accessor and a precise condition-class contract.
   time-to-event likelihood --- is declined at the family gate with the
   catchable `unsupported_family` refusal, which lists the supported
   families and points to `fb_refusals()`.
+- **Parse-time spec refusals now route through the registry.** Early
+  formula checks raise catchable refusals instead of bare errors: a
+  one-sided formula (`formula_not_two_sided`), a response absent from
+  `data` (`response_not_in_data`), a factor-analytic rank below one
+  (`fa_rank_invalid`), and a smooth variable absent from `data`
+  (`smooth_variable_not_in_data`).
+- **Tensor-product smooths are now refused, not silently accepted.**
+  `te()`, `ti()`, and `t2()` raise `tensor_smooth_unsupported` rather
+  than being parsed as ordinary named terms; flexyBayes fits
+  univariate penalised splines (`s()`, `spl()`) only. The README gains
+  a **Known limitations** section documenting the spatial (AR1-only),
+  smooth (univariate-only), survival / HMM (deferred), and
+  missing-data scope boundaries.
 
 ## `validate_approximation()` + the `low_rank_smooth` smooth approximation
 
