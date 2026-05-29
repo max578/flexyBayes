@@ -220,18 +220,23 @@ flexybayes <- function(
   # cleanly for now rather than silently emitting greta code for an
   # INLA fit.
   if (isTRUE(review_code) && backend != "greta")
-    stop("`review_code = TRUE` is currently supported only with ",
-         "backend = \"greta\". Under backend = \"", backend, "\" ",
-         "the inspect-then-fit token would need an INLA-side code ",
-         "slot, queued for a subsequent release. Pass ",
-         "backend = \"greta\" or drop review_code.",
-         call. = FALSE)
+    stop(.fb_refusal_condition(
+      reason_code = "review_code_backend_unsupported",
+      message     = paste0(
+        "`review_code = TRUE` is currently supported only with ",
+        "backend = \"greta\". Under backend = \"", backend, "\" ",
+        "the inspect-then-fit token would need an INLA-side code ",
+        "slot, queued for a subsequent release. Pass ",
+        "backend = \"greta\" or drop review_code.")))
 
   if (isTRUE(review_code) && isTRUE(return_code))
-    stop("`return_code` and `review_code` are mutually exclusive. ",
-         "Use `review_code = TRUE` for inspect-then-fit (returns a ",
-         "<flexybayes_review> object); use `return_code = TRUE` for ",
-         "the code string only.", call. = FALSE)
+    stop(.fb_refusal_condition(
+      reason_code = "code_flags_mutually_exclusive",
+      message     = paste0(
+        "`return_code` and `review_code` are mutually exclusive. ",
+        "Use `review_code = TRUE` for inspect-then-fit (returns a ",
+        "<flexybayes_review> object); use `return_code = TRUE` for ",
+        "the code string only.")))
 
   the_call  <- match.call()
   data_name <- deparse(substitute(data))

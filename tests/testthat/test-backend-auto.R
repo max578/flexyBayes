@@ -51,14 +51,16 @@ test_that("invalid backend value raises match.arg error", {
 # ---------------------------------------------------------------- #
 
 test_that("review_code = TRUE under backend != 'greta' raises a clean refusal", {
-  d <- mk_lgm_data()
+  d   <- mk_lgm_data()
   err <- tryCatch(
     flexybayes(yield ~ env, random = ~ geno, data = d,
                backend = "inla", review_code = TRUE),
-    error = function(e) conditionMessage(e)
+    error = function(e) e
   )
-  expect_true(grepl("review_code", err, fixed = TRUE))
-  expect_true(grepl("greta|future ADR", err))
+  expect_s3_class(err, "flexybayes_refusal_review_code_backend_unsupported")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "review_code", fixed = TRUE)
+  expect_match(conditionMessage(err), "greta", fixed = TRUE)
 })
 
 

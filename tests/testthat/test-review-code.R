@@ -146,17 +146,20 @@ test_that("proceed(rev) advances into a fit and caches the result", {
 # ---------------------------------------------------------------- #
 
 test_that("return_code + review_code raises a structured refusal", {
-  testthat::skip_if_not_installed("greta")
-  d <- mk_review_data()
-  expect_error(
+  # The mutual-exclusion guard fires before any backend work, so this
+  # does not need greta installed.
+  d   <- mk_review_data()
+  err <- tryCatch(
     flexybayes(
       yield ~ env, random = ~ geno, data = d,
       verbose = FALSE, mcmc_verbose = FALSE,
       return_code = TRUE, review_code = TRUE
     ),
-    "mutually exclusive",
-    fixed = TRUE
+    error = function(e) e
   )
+  expect_s3_class(err, "flexybayes_refusal_code_flags_mutually_exclusive")
+  expect_s3_class(err, "flexybayes_refusal")
+  expect_match(conditionMessage(err), "mutually exclusive")
 })
 
 

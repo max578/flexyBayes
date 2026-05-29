@@ -78,8 +78,9 @@
   # ADR 0030 C7 (v0.4.0 Wave 1 Phase 1C): bulk-register the remaining
   # user-facing refusal codes (the v0.3.10 scaffold above seeds the
   # first three). With the family gate and the parse-time spec
-  # refusals folded in during the 2026-05-30 audit remediation, the
-  # registry holds 37 user-facing codes as of that pass. Routing-
+  # refusals and the entry-point argument guards folded in during the
+  # 2026-05-30 audit remediation, the registry holds 39 user-facing
+  # codes as of that pass. Routing-
   # decision reasons (backend_decision trace) and internal aggregate-
   # out-of-scope control-flow signals are deliberately not registered
   # --- they are not refusals a user can hit. Every refusal site now

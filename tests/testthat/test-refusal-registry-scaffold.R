@@ -103,13 +103,14 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 37-code vocabulary", {
+test_that(".refusal_registry holds the complete 39-code vocabulary", {
   reg     <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
   # 31 from the Phase 1C bulk migration + the family-support refusal,
-  # the four parse-time spec refusals, and the tensor-smooth refusal
-  # added in the 2026-05-30 audit remediation.
-  expect_equal(length(entries), 37L)
+  # the four parse-time spec refusals, the tensor-smooth refusal, and
+  # the two entry-point argument guards added in the 2026-05-30 audit
+  # remediation.
+  expect_equal(length(entries), 39L)
 
   # spot-check a representative new code from each family
   expect_true("precision_not_symmetric"        %in% entries)  # structured cov

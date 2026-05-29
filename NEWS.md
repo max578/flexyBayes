@@ -17,7 +17,7 @@ through a new exported accessor and a precise condition-class contract.
   carries a condition class `flexybayes_refusal_<reason_code>` above its
   existing family class, so a specific refusal can be caught directly,
   for example `tryCatch(fit, flexybayes_refusal_precision_not_symmetric
-  = handler)`. The registry holds the complete 37-reason vocabulary;
+  = handler)`. The registry holds the complete 39-reason vocabulary;
   routing-decision reasons and internal control-flow signals are
   deliberately excluded as they are not refusals a user can encounter.
 - The aggregated-emit out-of-scope refusal's reason code is now
@@ -33,7 +33,9 @@ through a new exported accessor and a precise condition-class contract.
   one-sided formula (`formula_not_two_sided`), a response absent from
   `data` (`response_not_in_data`), a factor-analytic rank below one
   (`fa_rank_invalid`), and a smooth variable absent from `data`
-  (`smooth_variable_not_in_data`).
+  (`smooth_variable_not_in_data`). The `review_code` / `return_code`
+  entry-point guards likewise raise catchable refusals
+  (`review_code_backend_unsupported`, `code_flags_mutually_exclusive`).
 - **Tensor-product smooths are now refused, not silently accepted.**
   `te()`, `ti()`, and `t2()` raise `tensor_smooth_unsupported` rather
   than being parsed as ordinary named terms; flexyBayes fits

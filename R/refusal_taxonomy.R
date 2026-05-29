@@ -776,6 +776,35 @@
     since_version      = "0.4.0"
   )
 
+  # -- entry-point argument guards (flexybayes.R) -------------------
+  # Call-shape guards on the review_code / return_code flags. They are
+  # user-reachable refusals (the registry's inclusion criterion), so
+  # they carry catchable classes even though they are argument-
+  # combination errors rather than model-scope refusals.
+  .register_refusal(
+    reason_code        = "review_code_backend_unsupported",
+    description        = paste0(
+      "review_code = TRUE was requested with a backend other than ",
+      "greta; the inspect-then-fit token is currently greta-only."),
+    message_template   = paste0(
+      "`review_code = TRUE` is currently supported only with backend ",
+      "= \"greta\". Pass backend = \"greta\" or drop review_code."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "code_flags_mutually_exclusive",
+    description        = paste0(
+      "return_code = TRUE and review_code = TRUE were both supplied; ",
+      "the two code-return modes are mutually exclusive."),
+    message_template   = paste0(
+      "`return_code` and `review_code` are mutually exclusive."),
+    registered_in_adr  = "audit-2026-05-30",
+    plan_field         = NA_character_,
+    since_version      = "0.4.0"
+  )
+
   invisible(NULL)
 }
 
