@@ -50,12 +50,11 @@ install.packages("INLA",
 install.packages("brms")
 
 # flexyBayes -- install from the local checkpoint tarball
-# (the upstream rename, project decision D8, has not yet shipped;
-# remotes::install_github("AAGI-AUS/flexyBayes") will resume once
-# the AAGI-AUS collective conversation closes D8).
+# (installation from the public repository will be available once
+# the package is published there).
 R CMD INSTALL release_tarballs/flexyBayes_0.3.10.tar.gz
 
-# Once D8 ships and the AAGI-AUS/flexyBayes repo exists:
+# Once published, install directly from the repository:
 # install.packages("remotes")
 # remotes::install_github("AAGI-AUS/flexyBayes")
 ```
