@@ -1,5 +1,37 @@
 # flexyBayes 0.4.0 (in development)
 
+## C5 approximation-registry scaffold (ADR 0030 + ADR 0027, v0.4.0 Wave 1 Phase 1A substrate)
+
+Ships the approximation-scheme registry *infrastructure* --- a single
+locked `.approximation_registry` environment populated at `.onLoad()`
+and locked via `.lock_approximation_registry()`, with the
+`.register_approximation()` (five-field ADR 0027 Decision 2 schema:
+`scheme`, `bias_bound`, `validation_fn`, `fallback_hint`,
+`registered_in_adr`), `.lookup_approximation()`, and
+`.approximation_scheme()` helpers. Empty at this step by design.
+
+- The container ships ahead of its first scheme, mirroring the v0.3.8
+  C7 refusal-registry scaffold (container at v0.3.8, first population
+  at v0.3.10). The first approximation scheme (`low_rank_smooth`)
+  registers together with its emit path and the exported
+  `validate_approximation()` surface, because the scheme's
+  `validation_fn` reads the truncated and full smooth-basis matrices
+  off a fit object that only the emit path produces; landing the
+  scheme, its validation procedure, and its producer in one
+  end-to-end-verifiable change honours the registry invariant that
+  every registered scheme carries a working validation procedure.
+- No user-facing API change at this step. `validate_approximation()`,
+  the `low_rank_smooth` scheme, the `[APPROX: <scheme>]` print badge,
+  and the three-tier `exactness` controlled vocabulary land in the
+  Phase 1B completion change.
+- Nine acceptance criteria in
+  `tests/testthat/test-approximation-registry.R` (container exists +
+  locked; empty at the scaffold step; five-field input validation;
+  locked-registry refusal; unknown-scheme refusal with the
+  empty-vocabulary hint; non-string-input refusal;
+  `.approximation_scheme()` refusal delegation; user-side `assign()`
+  raises; empty-vocabulary snapshot for vocab-lock gating).
+
 ## C4 representation registry formalised (ADR 0030, v0.4.0 Wave 1 Phase 1A)
 
 Phase 1A ratifies ADR 0030 contract C4 (closed-vocabulary representation

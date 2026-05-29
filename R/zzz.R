@@ -80,6 +80,16 @@
   # package is loaded; .register_refusal() calls beyond this point
   # raise rather than mutate the locked environment.
   .lock_refusal_registry()
+
+  # ADR 0030 C5 + ADR 0027 (v0.4.0 Wave 1 Phase 1A substrate): lock
+  # the approximation-scheme registry. Scaffold-only at this step ---
+  # zero .register_approximation() calls. The first scheme
+  # (low_rank_smooth) populates here together with its emit path and
+  # the exported validate_approximation() surface, because the
+  # scheme's validation_fn reads the smooth-basis matrices off a fit
+  # object only the emit path produces. Locking an empty registry now
+  # mirrors the C7 refusal scaffold's v0.3.8 posture.
+  .lock_approximation_registry()
 }
 
 .onAttach <- function(libname, pkgname) {
