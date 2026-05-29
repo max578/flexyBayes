@@ -15,7 +15,7 @@
 invisibly returns \code{x}.
 }
 \description{
-Diagnostic print of the Stage 2 design-memory preflight result:
+Diagnostic print of the design-memory preflight result:
 per-term \code{design_memory_bytes} (formatted with thousand-separator
 " "), \code{representation_class}, and the aggregate ceiling check.
 On refusal the binding term + numeric ceiling appear below the

@@ -57,7 +57,7 @@
 #'   ceiling (defaults to `flexyBayes.preflight_ceiling_gb` option, or
 #'   `flexyBayes.preflight_ram_fraction` x available RAM).
 #' @param predict_plan optional `list(newdata = ..., chunk_size = ...)`
-#'   to compute a prediction-shape plan (per ADR 0023). Plan-only;
+#'   to compute a prediction-shape plan. Plan-only;
 #'   does not fire `predict()`.
 #' @param ...         currently unused; reserved for future plan inputs.
 #'

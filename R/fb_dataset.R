@@ -134,7 +134,7 @@
 #' Format method for an internal `<fb_dataset>` wrapper
 #'
 #' One-line summary of the internal dataset wrapper used by the
-#' Stage 2 preflight layer.
+#' preflight layer.
 #'
 #' @param x   an `<fb_dataset>` object.
 #' @param ... unused.

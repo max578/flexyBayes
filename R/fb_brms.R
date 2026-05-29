@@ -37,15 +37,15 @@
 #'
 #' Outside the supported corpus, ingest refuses with a structured
 #' message naming both the offending construct and the closest
-#' supported alternative. The v0.2.6 corpus extends the v0.2.5
-#' five shapes with uncorrelated random slopes per ADR 0020 --
-#' `(x || g)` and `(1 + x || g)` now parse and emit on the greta
-#' and brms backends. Refused constructs in v0.2.6: LHS addition
+#' supported alternative. The supported corpus covers the
+#' five base shapes plus uncorrelated random slopes --
+#' `(x || g)` and `(1 + x || g)` parse and emit on the greta
+#' and brms backends. Refused constructs: LHS addition
 #' forms (`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.);
 #' correlated random slopes (`(x | g)` -- raises condition class
-#' `flexybayes_correlated_slope_unsupported` with a v0.3 deferral
-#' pointer to Stage 5A structured-covariance representation per
-#' ADR 0025); smoothers (`s()`, `t2()`); Gaussian processes
+#' `flexybayes_correlated_slope_unsupported` with a deferral
+#' pointer to a structured-covariance representation);
+#' smoothers (`s()`, `t2()`); Gaussian processes
 #' (`gp()`); autocorrelation (`ar()`, `ma()`, `arma()`, `cosy()`,
 #' `car()`); multivariate / hurdle / mixture / categorical
 #' families.
@@ -135,7 +135,7 @@
 #'   *without* emitting backend code or fitting.  Equivalent to
 #'   calling [fb_plan()] with the same formula --- exposed inline
 #'   here so users can reach the planning object without re-typing
-#'   the call.  ADR 0030 C1.  Default `FALSE`.  Mutually exclusive
+#'   the call.  Default `FALSE`.  Mutually exclusive
 #'   with `return_code` and `review_code`.
 #'
 #' @return Under default `return_code = FALSE` and `review_code =

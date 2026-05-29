@@ -15,7 +15,6 @@
 invisibly returns \code{x}.
 }
 \description{
-Renders the per-term INLA memory breakdown introduced at v0.3.10
-(ADR 0024 §Consequences amendment (a)).
+Renders the per-term INLA memory breakdown introduced at v0.3.10.
 }
 \keyword{internal}

@@ -190,6 +190,6 @@ test_that("INLA verification refusal points users to greta as the workaround", {
     testthat::skip("INLA verification artefact present + pass -- nothing to refuse")
   msg <- conditionMessage(err)
   expect_true(grepl("backend = \"greta\"", msg, fixed = TRUE))
-  expect_true(grepl("ADR 0020",            msg, fixed = TRUE))
+  expect_true(grepl("three-arbitrator verification test", msg, fixed = TRUE))
   expect_true(grepl("v0\\.3",              msg))
 })

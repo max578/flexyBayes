@@ -15,7 +15,7 @@
 invisibly returns \code{x}.
 }
 \description{
-Diagnostic print of the Stage 3A sufficient-statistics aggregation:
+Diagnostic print of the sufficient-statistics aggregation:
 compression ratio, cell count, total N, and the per-cell key
 columns.
 }

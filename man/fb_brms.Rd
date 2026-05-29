@@ -130,7 +130,7 @@ representation plan + aggregation plan + prediction plan),
 \emph{without} emitting backend code or fitting.  Equivalent to
 calling \code{\link[=fb_plan]{fb_plan()}} with the same formula --- exposed inline
 here so users can reach the planning object without re-typing
-the call.  ADR 0030 C1.  Default \code{FALSE}.  Mutually exclusive
+the call.  Default \code{FALSE}.  Mutually exclusive
 with \code{return_code} and \code{review_code}.}
 }
 \value{
@@ -169,15 +169,15 @@ from the formula shape.
 
 Outside the supported corpus, ingest refuses with a structured
 message naming both the offending construct and the closest
-supported alternative. The v0.2.6 corpus extends the v0.2.5
-five shapes with uncorrelated random slopes per ADR 0020 --
-\code{(x || g)} and \code{(1 + x || g)} now parse and emit on the greta
-and brms backends. Refused constructs in v0.2.6: LHS addition
+supported alternative. The supported corpus covers the
+five base shapes plus uncorrelated random slopes --
+\code{(x || g)} and \code{(1 + x || g)} parse and emit on the greta
+and brms backends. Refused constructs: LHS addition
 forms (\code{y | trials(n) ~ ...}, \code{y | cens(c) ~ ...}, etc.);
 correlated random slopes (\code{(x | g)} -- raises condition class
-\code{flexybayes_correlated_slope_unsupported} with a v0.3 deferral
-pointer to Stage 5A structured-covariance representation per
-ADR 0025); smoothers (\code{s()}, \code{t2()}); Gaussian processes
+\code{flexybayes_correlated_slope_unsupported} with a deferral
+pointer to a structured-covariance representation);
+smoothers (\code{s()}, \code{t2()}); Gaussian processes
 (\code{gp()}); autocorrelation (\code{ar()}, \code{ma()}, \code{arma()}, \code{cosy()},
 \code{car()}); multivariate / hurdle / mixture / categorical
 families.

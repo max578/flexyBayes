@@ -163,7 +163,7 @@ random = ~ geno                       # simple iid
 random = ~ block:rep                  # nested
 random = ~ vm(geno, Gmat)             # GBLUP (dense V; both backends)
 random = ~ vm(geno, chol = L)         # user-supplied Cholesky (greta only; v0.3.7+)
-random = ~ vm(geno, precision = Q)    # sparse precision (BYM2-ready; INLA preferred; v0.3.7+)
+random = ~ vm(geno, precision = Q)    # user-supplied sparse precision (INLA preferred; v0.3.7+)
 random = ~ ped(animal, Amat)          # pedigree (animal model)
 random = ~ ped(animal, A_inv,
                use_sparse_precision = TRUE)  # sparse pedigree precision (v0.3.7+)
@@ -215,6 +215,30 @@ that ships in the package tarball is the pre-evaluated static output.
   around the claim that *evidence of cross-engine agreement* is the
   signature flexyBayes deliverable, not "one more Bayesian mixed-
   model frontend".
+
+## Known limitations
+
+flexyBayes refuses what it cannot yet fit rather than fitting it
+silently. The current release does not cover the following; each is a
+roadmap deferral, and a request that needs one is met with a
+structured refusal naming the gap, not a quiet wrong answer.
+
+- **Spatial structure**: only separable AR1 (`ar1(row):id(col)`) is
+  supported. Intrinsic CAR and BYM2 areal models are not implemented.
+  You can express a custom spatial precision by passing your own
+  matrix to `vm(g, precision = Q)`, but there is no BYM2 helper.
+- **Smooth terms**: univariate penalised splines (`s(x)`, `spl(x)`)
+  are supported. Multivariate and tensor-product smooths (`te()`,
+  `ti()`, `t2()`) are refused and deferred to a later release.
+- **Hidden-Markov, multi-state, and survival models**: not supported.
+  Survival / time-to-event families are refused at the family gate.
+  A NIMBLE backend covering these is on the roadmap with no fixed
+  release target.
+- **Missing data**: flexyBayes does not impute. Greta and the brms
+  (Stan) passthrough require complete cases for the model variables;
+  INLA treats an `NA` response as a prediction target. Resolve
+  missingness (drop or impute) before fitting, or use the prediction
+  path deliberately.
 
 ## Requirements
 

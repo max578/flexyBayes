@@ -97,8 +97,8 @@ fb_from_brms <- function(formula,
   if (is.null(data)) {
     if (is.null(carry_n_rows))
       stop("`data` is NULL but `carry_n_rows` was not supplied. ",
-           "Pass `carry_n_rows = N` for the metadata-only IR path ",
-           "(Stage 2 MVP / v0.3.0), or pass a real data.frame.",
+           "Pass `carry_n_rows = N` for the metadata-only IR path, ",
+           "or pass a real data.frame.",
            call. = FALSE)
     if (!is.numeric(carry_n_rows) || length(carry_n_rows) != 1L ||
         carry_n_rows < 1)
@@ -549,9 +549,8 @@ fb_from_brms <- function(formula,
     "Uncorrelated random slopes (x || g) are supported -- they fit the\n",
     "marginal slope and intercept variances independently and are equivalent\n",
     "to the correlated form when the correlation is small.\n\n",
-    "If your model needs the correlation parameter, defer to v0.3 (Stage 5A\n",
-    "structured-covariance representation; tracked in plan-indexing-bigdata-\n",
-    "merged-2026-05-23-v2.md \u00a73.3 ADR 0025).\n\n",
+    "If your model needs the correlation parameter, defer to v0.3\n",
+    "(structured-covariance representation).\n\n",
     "Workaround: re-fit as (x || g) if the correlation is not of inferential\n",
     "interest, or use backend = \"greta\" via fb_brms() with a hand-rolled\n",
     "covariance prior.\n\n",

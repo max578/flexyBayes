@@ -184,7 +184,7 @@ carrying the IR, the routing decision, the representation plan,
 the aggregation plan, and the prediction plan, \emph{without} emitting
 backend code or fitting.  Equivalent to calling \code{\link[=fb_plan]{fb_plan()}} with
 the same formula triple --- exposed inline as \code{flexybayes(plan = TRUE)} so users can reach the planning object without re-typing
-the call.  ADR 0030 C1.  Default \code{FALSE} preserves the run-
+the call.  Default \code{FALSE} preserves the run-
 immediately semantics.  Mutually exclusive with \code{return_code} and
 \code{review_code}.}
 }

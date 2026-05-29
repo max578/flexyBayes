@@ -112,7 +112,7 @@ test_that("(x | g) raises ADR 0020 structured deferral", {
   expect_true(grepl("Correlated random slopes", msg))
   expect_true(grepl("v0\\.3", msg))
   expect_true(grepl("\\(x \\|\\| g\\)", msg))
-  expect_true(grepl("ADR 0025", msg))
+  expect_true(grepl("structured-covariance", msg))
 })
 
 
@@ -457,6 +457,6 @@ test_that("INLA path refuses (x || g) with v0.3 deferral when verification artef
   expect_identical(err$workaround,      "backend = \"greta\"")
   msg <- conditionMessage(err)
   expect_true(grepl("v0\\.3", msg))
-  expect_true(grepl("ADR 0020", msg))
+  expect_true(grepl("three-arbitrator verification test", msg, fixed = TRUE))
   expect_true(grepl("backend = \"greta\"", msg, fixed = TRUE))
 })

@@ -38,8 +38,7 @@ memory profile. A typical setting at large \code{newdata} is
 
 \item{allow_new_levels}{One of \code{"population"} (default), \code{"sample"},
 or \code{"refuse"}. Policy for handling factor levels in \code{newdata}
-that are not in the fit-time dictionary (Stage 3B; ADR 0023
-Decision 2). \code{"population"} sets unknown-level rows to NA on the
+that are not in the fit-time dictionary. \code{"population"} sets unknown-level rows to NA on the
 affected column and emits a warning naming the count; downstream
 prediction returns NA for these rows. \code{"refuse"} raises a
 structured stop on the first unknown level. \code{"sample"} (active
@@ -56,7 +55,7 @@ fits skip dictionary resolution entirely.}
 
 \item{output_file}{Optional character path. When supplied,
 prediction is written to disk under the format resolved by
-\code{format} (Stage 3B; ADR 0023 Decision 4). The file is a
+\code{format}. The file is a
 tabular structure with columns \code{point}, \code{lower}, \code{upper}
 (95\\% posterior credible bounds), optional \code{se.fit}, plus the
 columns of \code{newdata}. Refuses if \code{output_file} already exists

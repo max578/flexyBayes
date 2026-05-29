@@ -85,7 +85,7 @@
 #'   backend code or fitting.  Equivalent to calling [fb_plan()] with
 #'   the same formula triple --- exposed inline as `flexybayes(plan =
 #'   TRUE)` so users can reach the planning object without re-typing
-#'   the call.  ADR 0030 C1.  Default `FALSE` preserves the run-
+#'   the call.  Default `FALSE` preserves the run-
 #'   immediately semantics.  Mutually exclusive with `return_code` and
 #'   `review_code`.
 #' @param backend Character: one of `"greta"` (default; existing

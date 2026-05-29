@@ -45,7 +45,7 @@ ceiling (defaults to \code{flexyBayes.preflight_ceiling_gb} option, or
 \code{flexyBayes.preflight_ram_fraction} x available RAM).}
 
 \item{predict_plan}{optional \code{list(newdata = ..., chunk_size = ...)}
-to compute a prediction-shape plan (per ADR 0023). Plan-only;
+to compute a prediction-shape plan. Plan-only;
 does not fire \code{predict()}.}
 
 \item{...}{currently unused; reserved for future plan inputs.}

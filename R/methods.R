@@ -155,12 +155,12 @@ summary.flexybayes <- function(object, ...) {
   invisible(object$extras$summary)
 }
 
-#' Print a flexybayes_aggregated object (Stage 3A; ADR 0022)
+#' Print a flexybayes_aggregated object
 #'
 #' Brief one-screen summary of an aggregated-gaussian fit produced by
 #' `flexybayes(..., aggregate = "auto"/TRUE)` or `fb_brms(..., aggregate
-#' = ...)`. Includes the Stage 3A `exactness` field and the cell
-#' compression ratio (when N/K >= 2 per ADR 0022 Decision 6).
+#' = ...)`. Includes the `exactness` field and the cell
+#' compression ratio (when N/K >= 2).
 #'
 #' @param x   a `<flexybayes_aggregated>` object.
 #' @param ... unused.
@@ -198,11 +198,11 @@ print.flexybayes_aggregated <- function(x, ...) {
 }
 
 
-#' Summarise a flexybayes_aggregated object (Stage 3A; ADR 0022)
+#' Summarise a flexybayes_aggregated object
 #'
 #' Posterior summary read off the aggregated INLA fit's
-#' `summary.fixed` + `summary.hyperpar` slots. Shows the Stage 3A
-#' compression line (per ADR 0022 Decision 6) when N/K >= 2.
+#' `summary.fixed` + `summary.hyperpar` slots. Shows the
+#' compression line when N/K >= 2.
 #'
 #' @param object a `<flexybayes_aggregated>` object.
 #' @param ...    unused.
@@ -390,8 +390,7 @@ residuals.flexybayes <- function(object, ...) {
 #'   `chunk_size = 10000L`.
 #' @param allow_new_levels One of `"population"` (default), `"sample"`,
 #'   or `"refuse"`. Policy for handling factor levels in `newdata`
-#'   that are not in the fit-time dictionary (Stage 3B; ADR 0023
-#'   Decision 2). `"population"` sets unknown-level rows to NA on the
+#'   that are not in the fit-time dictionary. `"population"` sets unknown-level rows to NA on the
 #'   affected column and emits a warning naming the count; downstream
 #'   prediction returns NA for these rows. `"refuse"` raises a
 #'   structured stop on the first unknown level. `"sample"` (active
@@ -407,7 +406,7 @@ residuals.flexybayes <- function(object, ...) {
 #'   fits skip dictionary resolution entirely.
 #' @param output_file Optional character path. When supplied,
 #'   prediction is written to disk under the format resolved by
-#'   `format` (Stage 3B; ADR 0023 Decision 4). The file is a
+#'   `format`. The file is a
 #'   tabular structure with columns `point`, `lower`, `upper`
 #'   (95\% posterior credible bounds), optional `se.fit`, plus the
 #'   columns of `newdata`. Refuses if `output_file` already exists

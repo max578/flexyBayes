@@ -2,7 +2,7 @@
 % Please edit documentation in R/methods.R
 \name{summary.flexybayes_aggregated}
 \alias{summary.flexybayes_aggregated}
-\title{Summarise a flexybayes_aggregated object (Stage 3A; ADR 0022)}
+\title{Summarise a flexybayes_aggregated object}
 \usage{
 \method{summary}{flexybayes_aggregated}(object, ...)
 }
@@ -16,6 +16,6 @@ invisibly returns the posterior summary list.
 }
 \description{
 Posterior summary read off the aggregated INLA fit's
-\code{summary.fixed} + \code{summary.hyperpar} slots. Shows the Stage 3A
-compression line (per ADR 0022 Decision 6) when N/K >= 2.
+\code{summary.fixed} + \code{summary.hyperpar} slots. Shows the
+compression line when N/K >= 2.
 }

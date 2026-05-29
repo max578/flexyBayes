@@ -258,7 +258,7 @@
 
 #' Print method for an internal `<fb_aggregation_plan>` summary
 #'
-#' Diagnostic print of the Stage 3A model-level aggregation plan:
+#' Diagnostic print of the model-level aggregation plan:
 #' eligibility, reason codes, cell-key contributions, estimated cell
 #' count, and the compression ratio.
 #'

@@ -16,6 +16,6 @@ a length-1 character string.
 }
 \description{
 One-line summary of the internal dataset wrapper used by the
-Stage 2 preflight layer.
+preflight layer.
 }
 \keyword{internal}

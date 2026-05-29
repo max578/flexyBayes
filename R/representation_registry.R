@@ -303,9 +303,9 @@
     description       = paste0(
       "Indexed fixed-effect factor term --- integer level index ",
       "column plus (L - 1) dummy-contrast beta coefficients under ",
-      "the treatment-coding default. Per audit P1.4 (2026-05-24), ",
-      "NA level cardinality escalates to the `unknown` sentinel ",
-      "rather than silently sizing the dummy block at zero."),
+      "the treatment-coding default. NA level cardinality escalates ",
+      "to the `unknown` sentinel rather than silently sizing the ",
+      "dummy block at zero."),
     category          = "indexed_fixed",
     registered_in_adr = "ADR 0030 (C4)",
     since_version     = "0.3.6"
@@ -313,12 +313,11 @@
   .register_representation(
     name              = "indexed_fixed_factor_numeric",
     description       = paste0(
-      "Indexed fixed-effect factor:continuous interaction (ADR ",
-      "0019) --- integer factor index column + continuous column ",
+      "Indexed fixed-effect factor:continuous interaction --- ",
+      "integer factor index column + continuous column ",
       "+ (L - 1) per-level slope coefficients (reference level's ",
-      "slope pinned at zero, no coefficient slot). Per audit P1.4 ",
-      "(2026-05-24), NA level cardinality escalates to the ",
-      "`unknown` sentinel."),
+      "slope pinned at zero, no coefficient slot). NA level ",
+      "cardinality escalates to the `unknown` sentinel."),
     category          = "indexed_fixed",
     registered_in_adr = "ADR 0019 + ADR 0030 (C4)",
     since_version     = "0.3.6"
@@ -333,7 +332,7 @@
     name              = "low_rank",
     description       = paste0(
       "Rank-K low-rank truncation of a smooth basis (low_rank_smooth ",
-      "scheme; ADR 0027): the n x k dense mgcv basis B is replaced by ",
+      "scheme): the n x k dense mgcv basis B is replaced by ",
       "B_K = B V_K with V_K the top-K right singular vectors, so the ",
       "model carries K basis coefficients and prediction projects the ",
       "newdata basis through the same V_K."),

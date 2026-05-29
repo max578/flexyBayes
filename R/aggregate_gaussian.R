@@ -185,13 +185,13 @@
     .stop_aggregate_out_of_scope(
       reason_code = "non_gaussian_family",
       detail      = paste0("family = '", fb_ir$family,
-                            "'; Stage 3A requires gaussian.")
+                            "'; aggregated emit requires the gaussian family.")
     )
   if (!(is.null(fb_ir$link) || identical(fb_ir$link, "identity")))
     .stop_aggregate_out_of_scope(
       reason_code = "non_identity_link",
       detail      = paste0("link = '", fb_ir$link,
-                            "'; Stage 3A requires identity.")
+                            "'; aggregated emit requires the identity link.")
     )
 
   # Fixed-effect term scope: numeric + factor + interactions thereof.
@@ -240,7 +240,7 @@
 
 .stop_aggregate_out_of_scope <- function(reason_code, detail) {
   msg <- paste0(
-    "Stage 3A aggregation refused -- the model is out of scope.\n",
+    "Aggregated Gaussian emit refused -- the model is out of scope.\n",
     "Reason: ", reason_code, "\n",
     detail, "\n\n",
     "Out-of-scope IRs route to the standard per-observation emit ",
@@ -323,7 +323,7 @@
 
 #' Print method for an internal `<fb_aggregated>` summary
 #'
-#' Diagnostic print of the Stage 3A sufficient-statistics aggregation:
+#' Diagnostic print of the sufficient-statistics aggregation:
 #' compression ratio, cell count, total N, and the per-cell key
 #' columns.
 #'

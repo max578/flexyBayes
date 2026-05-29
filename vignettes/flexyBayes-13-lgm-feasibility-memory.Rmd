@@ -64,7 +64,7 @@ List of 4
  - attr(*, "class") = c("fb_memory_estimate", "list")
 ```
 
-The shape is stable per ADR 0030 §C4 closed-vocabulary discipline.
+The shape is stable: the field names follow a closed vocabulary.
 `as.numeric(plan$preflight$memory_estimate)` returns the total in
 bytes, so existing scalar-numeric consumers continue to work
 unchanged.
@@ -97,12 +97,11 @@ blocks) plus the indexed random-effect and dense-basis fixed-effect
 shapes. Two surfaces are explicitly out of scope:
 
 - **SPDE meshes.** INLA's `model = "spde2"` mesh allocations are
-  workflow-specific and not modelled here; Stage 5B (v0.4.1) ships
-  a tensor-smooth estimator that covers the relevant shapes.
+  workflow-specific and not modelled here; a future release (v0.4.1)
+  ships a tensor-smooth estimator that covers the relevant shapes.
 - **Approximate schemes** (low-rank covariance carriers, variational
-  stage-2). These refuse at the routing layer until
-  `validate_approximation()` lands at v0.4.0 Wave 1 Phase 1B per
-  ADR 0027.
+  stage-2). These refuse at the routing layer until validated
+  through `validate_approximation()` (added in v0.4.0).
 
 # 5. References
 

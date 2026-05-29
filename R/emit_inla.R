@@ -639,7 +639,7 @@ emit_inla <- function(fb,
   msg <- paste0(
     "INLA mapping for uncorrelated random slopes (x || g) is ",
     "deferred to v0.3.\n",
-    "Per ADR 0020 \u00a7Decision 5, the INLA mapper is registered ",
+    "The INLA mapper is registered ",
     "only when the\nthree-arbitrator verification test (INLA vs ",
     "greta vs lme4 on a simple fixture\nat J = 20 groups) passes ",
     "within the Wasserstein-1 \u2264 0.20 * tau_true\n",
@@ -650,14 +650,13 @@ emit_inla <- function(fb,
     "or records pass = FALSE for the current install.\n\n",
     "Workaround: re-route to the greta backend, which fits the ",
     "(x || g) form\n",
-    "natively per ADR 0020 \u00a7Decision 1. For example:\n",
+    "natively. For example:\n",
     "  fit <- flexybayes(y ~ x + (x || g), data = d, ",
     "backend = \"greta\")\n",
     "  fit <- fb_brms   (y ~ x + (x || g), data = d, ",
     "backend = \"greta\")\n\n",
-    "This refusal is mandatory under \u00a73.4 of plan-indexing-",
-    "bigdata-merged-2026-05-23-v2.md: \"no silent translation of an ",
-    "unverified mapping ships\"."
+    "This refusal is mandatory: no silent translation of an ",
+    "unverified mapping ships."
   )
   cond <- structure(
     class = c("flexybayes_inla_simple_slope_uncor_deferred",

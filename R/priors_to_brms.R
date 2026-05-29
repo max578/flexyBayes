@@ -290,7 +290,7 @@
        "sigma ~ uniform(lower, upper) | half_normal(scale) | pc(upper, prob); ",
        "sd(group) ~ uniform | half_normal | pc (intercept-variance row); ",
        "sd(group, coef = <slope>) ~ uniform | half_normal | pc ",
-       "(slope-variance row added per ADR 0020). ",
+       "(slope-variance row). ",
        "For unsupported priors, pass a brms `prior` object directly ",
        "via `...` (e.g. ",
        "`fb_brms(..., backend = \"brms\", prior = brms::prior(...))` -- ",

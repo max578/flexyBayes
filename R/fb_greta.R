@@ -340,9 +340,9 @@ fb_greta <- function(model,
 #'
 #' @param fit A `flexybayes` object.
 #' @return A list with the following components. The first four
-#'   (per ADR 0006) are present on every fit; the four Stage 4
-#'   fields (per ADR 0024) are present on v0.3.6+ fits and NULL
-#'   on pre-Stage-4 fits for backward compatibility.
+#'   are present on every fit; the four routing-trace
+#'   fields are present on v0.3.6+ fits and NULL
+#'   on earlier fits for backward compatibility.
 #'   \describe{
 #'     \item{`backend`}{Character; one of `"greta"`, `"inla"`,
 #'       `"brms"`, `"gretaR"`.}
@@ -358,8 +358,8 @@ fb_greta <- function(model,
 #'       derived from `preflight_summary`; NULL when no preflight.}
 #'     \item{`rejected_routes`}{List of `(backend, reason)` pairs
 #'       for the backends considered but not chosen. Empty for
-#'       explicit user requests (policy bypassed per ADR 0024
-#'       §6(g)).}
+#'       explicit user requests (the routing policy is bypassed
+#'       when the backend is named directly).}
 #'     \item{`routing_policy_version`}{Character; e.g.
 #'       `"stage5a_v1"`. The audit-anchor for reproducibility -- a
 #'       policy change bumps this string.}

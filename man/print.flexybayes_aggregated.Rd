@@ -2,7 +2,7 @@
 % Please edit documentation in R/methods.R
 \name{print.flexybayes_aggregated}
 \alias{print.flexybayes_aggregated}
-\title{Print a flexybayes_aggregated object (Stage 3A; ADR 0022)}
+\title{Print a flexybayes_aggregated object}
 \usage{
 \method{print}{flexybayes_aggregated}(x, ...)
 }
@@ -16,6 +16,6 @@ invisibly returns \code{x}.
 }
 \description{
 Brief one-screen summary of an aggregated-gaussian fit produced by
-\code{flexybayes(..., aggregate = "auto"/TRUE)} or \code{fb_brms(..., aggregate = ...)}. Includes the Stage 3A \code{exactness} field and the cell
-compression ratio (when N/K >= 2 per ADR 0022 Decision 6).
+\code{flexybayes(..., aggregate = "auto"/TRUE)} or \code{fb_brms(..., aggregate = ...)}. Includes the \code{exactness} field and the cell
+compression ratio (when N/K >= 2).
 }

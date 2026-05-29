@@ -184,7 +184,7 @@
         "Relative squared Frobenius error of the rank-K truncation",
         "B_K against the full smooth basis B. Bound = 1 -",
         "frobenius_capture; default pass threshold frobenius_capture",
-        ">= 0.99 (ADR 0026).")
+        ">= 0.99.")
     ),
     validation_fn = .validate_low_rank_smooth,
     fallback_hint = paste(

@@ -856,7 +856,7 @@
 
 #' Print method for an internal `<fb_preflight>` summary
 #'
-#' Diagnostic print of the Stage 2 design-memory preflight result:
+#' Diagnostic print of the design-memory preflight result:
 #' per-term `design_memory_bytes` (formatted with thousand-separator
 #' " "), `representation_class`, and the aggregate ceiling check.
 #' On refusal the binding term + numeric ceiling appear below the
@@ -1182,8 +1182,7 @@ as.double.fb_memory_estimate <- function(x, ...) {
 
 #' Print method for an internal `<fb_memory_estimate>` carrier
 #'
-#' Renders the per-term INLA memory breakdown introduced at v0.3.10
-#' (ADR 0024 §Consequences amendment (a)).
+#' Renders the per-term INLA memory breakdown introduced at v0.3.10.
 #'
 #' @param x   an `<fb_memory_estimate>` object.
 #' @param ... unused.
