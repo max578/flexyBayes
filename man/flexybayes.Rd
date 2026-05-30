@@ -24,7 +24,7 @@ flexybayes(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "brms", "auto"),
+  backend = c("auto", "greta", "inla", "brms"),
   aggregate = "auto",
   plan = FALSE
 )
@@ -48,7 +48,7 @@ fb(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "brms", "auto"),
+  backend = c("auto", "greta", "inla", "brms"),
   aggregate = "auto",
   plan = FALSE
 )
@@ -147,24 +147,25 @@ precedent: \code{\link[brms:stancode]{brms::make_stancode()}} plus the \code{cha
 for "do everything except sampling". \code{review_code = TRUE} and
 \code{return_code = TRUE} are mutually exclusive.}
 
-\item{backend}{Character: one of \code{"greta"} (default; existing
-behaviour --- emit to greta and fit via MCMC), \code{"inla"}
-(explicit INLA; calls \code{lgm_gate()} and raises a structured
-refusal if the model is not LGM-feasible), \code{"brms"} (Stan
-passthrough via brms; refuses asreml structured-covariance terms
---- \code{vm}/\code{ped}/\code{fa}/\code{us}/\code{ar1} --- that have no lossless Stan
-translation), or \code{"auto"} (calls
-\code{lgm_gate()} and routes to INLA on accept, greta on refuse).
-Under \code{"auto"}, falling back to greta emits a one-time
-silenceable note carrying the gate's primary failure rule;
-\code{options(flexyBayes.silence_auto_fallback_note = TRUE)}
-silences it. When INLA is not installed under \code{"auto"}, the
-call routes to greta with the note
-\code{auto_inla_unavailable} (silenceable via
-\code{options(flexyBayes.silence_auto_inla_missing_note = TRUE)}).
-\code{\link[=backend_decision]{backend_decision()}} surfaces the dispatch trace post-fit.
-\code{review_code = TRUE} is currently scoped to \code{backend = "greta"}
-only; combining with \code{backend = "inla"} / \code{"auto"} raises a
+\item{backend}{Character: one of \code{"auto"} (\strong{default}), \code{"greta"},
+\code{"inla"}, or \code{"brms"}. Under \code{"auto"} the call consults
+\code{lgm_gate()} and routes to INLA when the model is latent-Gaussian
+feasible (deterministic and faster on that certified class), and to
+greta (full MCMC, the universal fallback) otherwise --- so a
+no-\code{backend} call reaches every available engine the model supports.
+\code{"greta"} forces full MCMC; \code{"inla"} forces INLA and raises a
+structured refusal if the model is not LGM-feasible; \code{"brms"} is the
+Stan passthrough via brms (refuses asreml structured-covariance
+terms --- \code{vm}/\code{ped}/\code{fa}/\code{us}/\code{ar1} --- that have no lossless Stan
+translation). Under \code{"auto"}, falling back to greta (gate refusal,
+INLA not installed, or an INLA numerical failure) emits a one-time
+silenceable note; \code{options(flexyBayes.silence_auto_fallback_note = TRUE)} silences the gate-refusal / numerical-fallback note and
+\code{options(flexyBayes.silence_auto_inla_missing_note = TRUE)} the
+INLA-not-installed note. \code{\link[=backend_decision]{backend_decision()}} surfaces the full
+dispatch trace (including \code{rejected_routes}) post-fit. When
+\code{return_code = TRUE} or \code{review_code = TRUE} is requested under
+\code{"auto"}, the call resolves to greta (the code-producing engine);
+an explicit \code{backend = "inla"} with \code{review_code = TRUE} raises a
 structured refusal until INLA-side \code{code}-slot support lands.}
 
 \item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.

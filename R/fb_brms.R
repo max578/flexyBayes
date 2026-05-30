@@ -63,19 +63,19 @@
 #'   `"gaussian"`.
 #' @param link Character link override (e.g., `"probit"` for
 #'   binomial) or `NULL` to use the family default.
-#' @param backend One of `"greta"` (default; preserves the
-#'   additive-default behaviour of the existing entry), `"inla"`
-#'   (explicit LGM fast path; raises a structured refusal if the
-#'   model is not LGM-feasible), `"brms"` (Stan passthrough --
+#' @param backend One of `"auto"` (**default**; gate-driven routing ---
+#'   INLA when the model is LGM-feasible, greta otherwise, with a
+#'   one-time silenceable fallback note), `"greta"` (full MCMC),
+#'   `"inla"` (explicit LGM fast path; raises a structured refusal if
+#'   the model is not LGM-feasible), or `"brms"` (Stan passthrough ---
 #'   flexyBayes builds the IR, translates the prior, calls
-#'   `brms::brm()`, wraps the result), or `"auto"` (gate-driven
-#'   routing: INLA on accept, greta on refuse, with a silenceable
-#'   note carrying the gate's primary failure rule). The Stan
-#'   passthrough is opt-in only; `backend = "auto"` never routes
-#'   to Stan because brms's first-call compile latency (typically
-#'   30--60 seconds) is incompatible with the auto-dispatch
-#'   transparent-fast-path promise. See [backend_decision()] for
-#'   the recorded trace.
+#'   `brms::brm()`, wraps the result). The Stan passthrough is opt-in
+#'   only; `backend = "auto"` never routes to Stan because brms's
+#'   first-call compile latency (typically 30--60 seconds) is
+#'   incompatible with the auto-dispatch transparent-fast-path promise.
+#'   When `return_code = TRUE` / `review_code = TRUE` is requested under
+#'   `"auto"`, the call resolves to greta (the code-producing engine).
+#'   See [backend_decision()] for the recorded trace.
 #' @param prior An optional `fb_prior()` object specifying priors
 #'   via the PC-canonical hybrid DSL. When supplied it overrides
 #'   the default bounded-uniform-on-SD prior; otherwise the v0.1
@@ -176,8 +176,8 @@ fb_brms <- function(formula,
                     data,
                     family         = "gaussian",
                     link           = NULL,
-                    backend        = c("greta", "inla", "brms",
-                                       "auto"),
+                    backend        = c("auto", "greta", "inla",
+                                       "brms"),
                     prior          = NULL,
                     n_samples      = 1000L,
                     warmup         = 500L,
@@ -224,6 +224,13 @@ fb_brms <- function(formula,
   if (missing(review_code))
     review_code <- isTRUE(getOption("flexyBayes.review_code_default",
                                     FALSE))
+
+  # Q1 (ADR 0031 Phase 2b): code-inspection modes need a code-emitting
+  # engine. When backend resolves to "auto", pick greta (the default
+  # code path) rather than refusing or returning a non-code object.
+  if (identical(backend, "auto") &&
+      (isTRUE(return_code) || isTRUE(review_code)))
+    backend <- "greta"
 
   if (isTRUE(review_code) && !backend %in% c("greta", "brms"))
     stop("`review_code = TRUE` is currently supported with ",

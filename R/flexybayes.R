@@ -91,24 +91,26 @@
 #'   the call.  Default `FALSE` preserves the run-
 #'   immediately semantics.  Mutually exclusive with `return_code` and
 #'   `review_code`.
-#' @param backend Character: one of `"greta"` (default; existing
-#'   behaviour --- emit to greta and fit via MCMC), `"inla"`
-#'   (explicit INLA; calls `lgm_gate()` and raises a structured
-#'   refusal if the model is not LGM-feasible), `"brms"` (Stan
-#'   passthrough via brms; refuses asreml structured-covariance terms
-#'   --- `vm`/`ped`/`fa`/`us`/`ar1` --- that have no lossless Stan
-#'   translation), or `"auto"` (calls
-#'   `lgm_gate()` and routes to INLA on accept, greta on refuse).
-#'   Under `"auto"`, falling back to greta emits a one-time
-#'   silenceable note carrying the gate's primary failure rule;
-#'   `options(flexyBayes.silence_auto_fallback_note = TRUE)`
-#'   silences it. When INLA is not installed under `"auto"`, the
-#'   call routes to greta with the note
-#'   `auto_inla_unavailable` (silenceable via
-#'   `options(flexyBayes.silence_auto_inla_missing_note = TRUE)`).
-#'   [backend_decision()] surfaces the dispatch trace post-fit.
-#'   `review_code = TRUE` is currently scoped to `backend = "greta"`
-#'   only; combining with `backend = "inla"` / `"auto"` raises a
+#' @param backend Character: one of `"auto"` (**default**), `"greta"`,
+#'   `"inla"`, or `"brms"`. Under `"auto"` the call consults
+#'   `lgm_gate()` and routes to INLA when the model is latent-Gaussian
+#'   feasible (deterministic and faster on that certified class), and to
+#'   greta (full MCMC, the universal fallback) otherwise --- so a
+#'   no-`backend` call reaches every available engine the model supports.
+#'   `"greta"` forces full MCMC; `"inla"` forces INLA and raises a
+#'   structured refusal if the model is not LGM-feasible; `"brms"` is the
+#'   Stan passthrough via brms (refuses asreml structured-covariance
+#'   terms --- `vm`/`ped`/`fa`/`us`/`ar1` --- that have no lossless Stan
+#'   translation). Under `"auto"`, falling back to greta (gate refusal,
+#'   INLA not installed, or an INLA numerical failure) emits a one-time
+#'   silenceable note; `options(flexyBayes.silence_auto_fallback_note =
+#'   TRUE)` silences the gate-refusal / numerical-fallback note and
+#'   `options(flexyBayes.silence_auto_inla_missing_note = TRUE)` the
+#'   INLA-not-installed note. [backend_decision()] surfaces the full
+#'   dispatch trace (including `rejected_routes`) post-fit. When
+#'   `return_code = TRUE` or `review_code = TRUE` is requested under
+#'   `"auto"`, the call resolves to greta (the code-producing engine);
+#'   an explicit `backend = "inla"` with `review_code = TRUE` raises a
 #'   structured refusal until INLA-side `code`-slot support lands.
 #'
 #' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
@@ -191,7 +193,7 @@ flexybayes <- function(
     mcmc_verbose     = TRUE,
     return_code      = FALSE,
     review_code      = FALSE,
-    backend          = c("greta", "inla", "brms", "auto"),
+    backend          = c("auto", "greta", "inla", "brms"),
     aggregate        = "auto",
     plan             = FALSE
 ) {
@@ -228,6 +230,15 @@ flexybayes <- function(
   if (missing(review_code))
     review_code <- isTRUE(getOption("flexyBayes.review_code_default",
                                     FALSE))
+
+  # Q1 (ADR 0031 Phase 2b): the code-inspection modes return generated
+  # backend code, which only greta produces under this entry. When
+  # backend resolves to "auto", pick greta -- the engine that satisfies
+  # the request -- rather than refusing or returning a non-code INLA
+  # object. auto's contract is to resolve to a capable engine.
+  if (identical(backend, "auto") &&
+      (isTRUE(return_code) || isTRUE(review_code)))
+    backend <- "greta"
 
   # review_code = TRUE is currently scoped to the greta-emit path
   # (ADR 0011). Under backend = "inla" / "auto" with INLA accepted,

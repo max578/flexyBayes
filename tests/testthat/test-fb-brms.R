@@ -64,7 +64,7 @@ test_that("fb_brms() corpus 1: fixed-only Gaussian", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb_brms(
-    y ~ x, data = d,
+    y ~ x, data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
@@ -85,7 +85,7 @@ test_that("fb_brms() corpus 2: Gaussian + one random intercept", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb_brms(
-    y ~ x + (1 | g1), data = d,
+    y ~ x + (1 | g1), data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
@@ -106,7 +106,7 @@ test_that("fb_brms() corpus 3: crossed random intercepts", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb_brms(
-    y ~ x + (1 | g1) + (1 | g2), data = d,
+    y ~ x + (1 | g1) + (1 | g2), data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
@@ -128,7 +128,7 @@ test_that("fb_brms() corpus 4: binomial RI as single-column Bernoulli", {
   testthat::skip_on_ci()
   d <- mk_brms_binomial_data()
   fit <- suppressMessages(fb_brms(
-    y ~ x + (1 | g), data = d, family = "binomial",
+    y ~ x + (1 | g), data = d, family = "binomial", backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
@@ -148,7 +148,7 @@ test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
   testthat::skip_on_ci()
   d <- mk_brms_poisson_data()
   fit <- suppressMessages(fb_brms(
-    y ~ x + (1 | g), data = d, family = "poisson",
+    y ~ x + (1 | g), data = d, family = "poisson", backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))

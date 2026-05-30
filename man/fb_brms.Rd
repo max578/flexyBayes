@@ -9,7 +9,7 @@ fb_brms(
   data,
   family = "gaussian",
   link = NULL,
-  backend = c("greta", "inla", "brms", "auto"),
+  backend = c("auto", "greta", "inla", "brms"),
   prior = NULL,
   n_samples = 1000L,
   warmup = 500L,
@@ -44,19 +44,19 @@ interactions, \code{I()} expressions).}
 \item{link}{Character link override (e.g., \code{"probit"} for
 binomial) or \code{NULL} to use the family default.}
 
-\item{backend}{One of \code{"greta"} (default; preserves the
-additive-default behaviour of the existing entry), \code{"inla"}
-(explicit LGM fast path; raises a structured refusal if the
-model is not LGM-feasible), \code{"brms"} (Stan passthrough --
+\item{backend}{One of \code{"auto"} (\strong{default}; gate-driven routing ---
+INLA when the model is LGM-feasible, greta otherwise, with a
+one-time silenceable fallback note), \code{"greta"} (full MCMC),
+\code{"inla"} (explicit LGM fast path; raises a structured refusal if
+the model is not LGM-feasible), or \code{"brms"} (Stan passthrough ---
 flexyBayes builds the IR, translates the prior, calls
-\code{brms::brm()}, wraps the result), or \code{"auto"} (gate-driven
-routing: INLA on accept, greta on refuse, with a silenceable
-note carrying the gate's primary failure rule). The Stan
-passthrough is opt-in only; \code{backend = "auto"} never routes
-to Stan because brms's first-call compile latency (typically
-30--60 seconds) is incompatible with the auto-dispatch
-transparent-fast-path promise. See \code{\link[=backend_decision]{backend_decision()}} for
-the recorded trace.}
+\code{brms::brm()}, wraps the result). The Stan passthrough is opt-in
+only; \code{backend = "auto"} never routes to Stan because brms's
+first-call compile latency (typically 30--60 seconds) is
+incompatible with the auto-dispatch transparent-fast-path promise.
+When \code{return_code = TRUE} / \code{review_code = TRUE} is requested under
+\code{"auto"}, the call resolves to greta (the code-producing engine).
+See \code{\link[=backend_decision]{backend_decision()}} for the recorded trace.}
 
 \item{prior}{An optional \code{fb_prior()} object specifying priors
 via the PC-canonical hybrid DSL. When supplied it overrides

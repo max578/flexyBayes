@@ -559,13 +559,20 @@
       # Distinguish memory vs structural refusal for routing trace.
       is_memory <- identical(primary$rule_id, "memory_feasibility_inla")
       gate_outcome <- if (is_memory) "refuse_memory" else "refuse_structural"
+      # ADR 0031 Phase 2b: one-time per session (auto is now the default,
+      # so a per-call note on every non-LGM model would nag). Silenceable
+      # outright via the option; the routing trace always carries the
+      # decision on backend_decision()$rejected_routes.
       if (!isTRUE(getOption(
-            "flexyBayes.silence_auto_fallback_note", FALSE)))
+            "flexyBayes.silence_auto_fallback_note", FALSE)) &&
+          !.emit_state_get("auto_fallback_note")) {
         message("backend = \"auto\": lgm_gate() refused (",
                 primary$rule_id, ": ", primary$reason,
                 "); falling back to greta. Pass backend = ",
                 "\"greta\" to silence, or backend = \"inla\" ",
                 "to force the refusal as an error.")
+        .emit_state_set("auto_fallback_note", TRUE)
+      }
       routing <- .resolve_routing(
         user_request      = "auto",
         gate_outcome      = gate_outcome,
@@ -589,13 +596,16 @@
       if (!inla_installed) {
         if (backend == "auto") {
           if (!isTRUE(getOption(
-                "flexyBayes.silence_auto_inla_missing_note", FALSE)))
+                "flexyBayes.silence_auto_inla_missing_note", FALSE)) &&
+              !.emit_state_get("auto_inla_missing_note")) {
             message("backend = \"auto\": INLA is not installed; ",
                     "routing to greta. Install INLA from ",
                     "https://inla.r-inla-download.org for the LGM ",
                     "fast path. Silence via ",
                     "options(flexyBayes.silence_auto_inla_missing_note ",
                     "= TRUE).")
+            .emit_state_set("auto_inla_missing_note", TRUE)
+          }
           routing <- .resolve_routing(
             user_request      = "auto",
             gate_outcome      = "accept",
@@ -618,59 +628,87 @@
 
       if (backend == "inla" ||
           (backend == "auto" && inla_installed)) {
-        # ADR 0017: with the gate folded around emit_inla()'s
-        # structural refusals, lgm_gate(fb) == accept is a
-        # sufficient condition for .build_inla_formula(gated) to
-        # succeed structurally. We therefore no longer wrap the
-        # emit_inla() call in a tryCatch / emit_inla_failure
-        # fall-back: any error from this point is either (a) the
-        # internal contract-violation assertion (gate / emit
-        # drift bug -- a flexyBayes-side error that must surface,
-        # not silently fall back to greta), or (b) an INLA-side
-        # numerical / runtime failure independent of structural
-        # feasibility (also surfaces directly so the user sees
-        # the true diagnostic instead of a silent greta fit).
-        fit <- emit_inla(
-          fb             = gated,
-          data           = data,
-          known_matrices = known_matrices,
-          verbose        = verbose,
-          return_code    = return_code,
-          the_call       = the_call,
-          fixed          = fixed,
-          random         = random,
-          rcov           = rcov,
-          family         = family,
-          link           = link,
-          data_name      = data_name
-        )
-        if (return_code) return(fit)
-        if (!is.null(fit$extras)) {
-          inla_routing <- if (backend == "auto")
-            .resolve_routing(
-              user_request      = "auto",
-              gate_outcome      = "accept",
-              preflight_outcome = "clear",
-              inla_installed    = TRUE,
-              gretaR_activated  = gretaR_activated)
-            else
-              list(rejected_routes = list())  # explicit inla bypass
-          fit$extras$backend_decision <- .build_routing_decision(
-            backend     = "inla",
-            path        = if (backend == "auto") "auto_accept" else "explicit_inla_accept",
+        # ADR 0017 + ADR 0031 Q2: explicit backend = "inla" surfaces any
+        # emit_inla() error directly (the user asked for INLA; the true
+        # diagnostic must not be masked, and a flexyBayes-side contract
+        # assertion must surface). On the AUTO path -- now the default --
+        # an INLA-side numerical / runtime failure on a model the gate
+        # accepted structurally falls back to greta with a one-time note,
+        # because auto promised a working fit.
+        inla_fit <- tryCatch(
+          emit_inla(
+            fb             = gated,
+            data           = data,
+            known_matrices = known_matrices,
+            verbose        = verbose,
+            return_code    = return_code,
+            the_call       = the_call,
+            fixed          = fixed,
+            random         = random,
+            rcov           = rcov,
+            family         = family,
+            link           = link,
+            data_name      = data_name
+          ),
+          error = function(e)
+            if (identical(backend, "auto"))
+              structure(list(cond = e), class = "fb_auto_inla_failure")
+            else stop(e))
+
+        if (inherits(inla_fit, "fb_auto_inla_failure")) {
+          # Q2 fallback: numerical INLA failure on the auto path -> greta.
+          if (!isTRUE(getOption(
+                "flexyBayes.silence_auto_fallback_note", FALSE)) &&
+              !.emit_state_get("auto_inla_numerical_fallback_note")) {
+            message("backend = \"auto\": INLA failed numerically (",
+                    conditionMessage(inla_fit$cond),
+                    "); falling back to greta. Pass backend = \"inla\" ",
+                    "to surface the error as such, or backend = ",
+                    "\"greta\" to silence.")
+            .emit_state_set("auto_inla_numerical_fallback_note", TRUE)
+          }
+          decision <- .build_routing_decision(
+            backend     = "greta",
+            path        = "auto_inla_numerical_fallback",
             gate_checks = gated$capabilities,
-            reason      = "lgm_gate() accepted; INLA dispatch.",
+            reason      = paste0("lgm_gate() accepted but INLA failed ",
+                                 "numerically; auto fell back to greta."),
             preflight_summary   = preflight_result,
             representation_plan =
               .representation_plan_from_preflight(preflight_result),
-            rejected_routes     = inla_routing$rejected_routes
+            rejected_routes     = list()
           )
-          fit$extras$fb_terms <- gated
-          if (!is.null(fb_dataset_meta_for_fit))
-            fit$extras$fb_dataset <- fb_dataset_meta_for_fit
+          # fall through to the greta emit below (do not return).
+        } else {
+          fit <- inla_fit
+          if (return_code) return(fit)
+          if (!is.null(fit$extras)) {
+            inla_routing <- if (backend == "auto")
+              .resolve_routing(
+                user_request      = "auto",
+                gate_outcome      = "accept",
+                preflight_outcome = "clear",
+                inla_installed    = TRUE,
+                gretaR_activated  = gretaR_activated)
+              else
+                list(rejected_routes = list())  # explicit inla bypass
+            fit$extras$backend_decision <- .build_routing_decision(
+              backend     = "inla",
+              path        = if (backend == "auto") "auto_accept" else "explicit_inla_accept",
+              gate_checks = gated$capabilities,
+              reason      = "lgm_gate() accepted; INLA dispatch.",
+              preflight_summary   = preflight_result,
+              representation_plan =
+                .representation_plan_from_preflight(preflight_result),
+              rejected_routes     = inla_routing$rejected_routes
+            )
+            fit$extras$fb_terms <- gated
+            if (!is.null(fb_dataset_meta_for_fit))
+              fit$extras$fb_dataset <- fb_dataset_meta_for_fit
+          }
+          fit$exactness <- "exact"
+          return(fit)
         }
-        fit$exactness <- "exact"
-        return(fit)
       }
     }
   } else {

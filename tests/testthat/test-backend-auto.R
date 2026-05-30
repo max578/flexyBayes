@@ -181,9 +181,11 @@ test_that("ADR 0006 verification: explicit-greta + auto-accept + non-LGM refusal
   testthat::skip_on_ci()
   d <- mk_lgm_data()
 
-  # Explicit greta -- existing behaviour preserved.
+  # Explicit greta -- existing behaviour preserved. (ADR 0031: the
+  # default is now "auto", so the explicit-greta path must be requested
+  # by name; an unpinned call here would take the aggregated-INLA path.)
   fit_g <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env, random = ~ geno, data = d, backend = "greta",
     n_samples = 50L, warmup = 50L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
