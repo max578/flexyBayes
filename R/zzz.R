@@ -1,9 +1,22 @@
 # Package load hooks
 
 .onLoad <- function(libname, pkgname) {
-  # Register emmeans methods if emmeans is available
+  # Register emmeans methods if emmeans is available -- for both the
+  # greta (`flexybayes`) and INLA (`flexybayes_inla`) fit classes.
   if (requireNamespace("emmeans", quietly = TRUE)) {
-    emmeans::.emm_register("flexybayes", pkgname)
+    emmeans::.emm_register(c("flexybayes", "flexybayes_inla"), pkgname)
+  }
+
+  # marginaleffects gates on a class allow-list before dispatching its
+  # get_predict / get_coef / get_vcov methods, but exposes a custom-class
+  # hook via this option (see
+  # marginaleffects:::sanity_model_supported_class). Append the flexyBayes
+  # classes without clobbering a user's existing setting.
+  if (requireNamespace("marginaleffects", quietly = TRUE)) {
+    cur <- getOption("marginaleffects_model_classes", default = NULL)
+    options(marginaleffects_model_classes =
+              union(as.character(cur),
+                    c("flexybayes", "flexybayes_inla")))
   }
 
   # Register broom S3 methods if generics is available

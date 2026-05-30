@@ -51,6 +51,7 @@ Suggests:
     ggplot2,
     emmeans,
     marginaleffects,
+    insight,
     effectsize,
     loo,
     testthat (>= 3.0.0),

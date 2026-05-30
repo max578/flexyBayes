@@ -2,24 +2,27 @@
 % Please edit documentation in R/emmeans_support.R
 \name{emm_basis.flexybayes}
 \alias{emm_basis.flexybayes}
-\title{Compute emmeans basis}
+\alias{emm_basis.flexybayes_inla}
+\title{emmeans support: estimation basis (greta backend)}
 \usage{
-emm_basis.flexybayes(object, trms, xlev, grid, ...)
+\method{emm_basis}{flexybayes}(object, trms, xlev, grid, ...)
+
+\method{emm_basis}{flexybayes_inla}(object, trms, xlev, grid, ...)
 }
 \arguments{
-\item{object}{A flexybayes object}
+\item{object}{A \code{flexybayes_inla} fit.}
 
-\item{trms}{Terms object}
+\item{trms}{Fixed-effect terms supplied by emmeans.}
 
-\item{xlev}{Factor levels}
+\item{xlev}{Factor levels supplied by emmeans.}
 
-\item{grid}{Reference grid}
+\item{grid}{Reference grid supplied by emmeans.}
 
-\item{...}{Additional arguments}
+\item{...}{Ignored.}
 }
 \value{
-A list with X, bhat, V, dffun, dfargs
+A list with \code{X}, \code{bhat}, \code{nbasis}, \code{V}, \code{dffun}, \code{dfargs}.
 }
 \description{
-Compute emmeans basis
+emmeans support: estimation basis (greta backend)
 }

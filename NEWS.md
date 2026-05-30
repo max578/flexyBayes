@@ -1,5 +1,48 @@
 # flexyBayes 0.4.0 (in development)
 
+## `emmeans` and `marginaleffects` now work end-to-end
+
+Fits now expose the standard model interface that the downstream
+estimation ecosystem dispatches on, so estimated marginal means,
+contrasts, predictions, slopes, and comparisons work directly on both
+the greta and INLA backends.
+
+- **`emmeans::emmeans(fit, ~ f)` and `contrast()`** work on greta- and
+  INLA-backed fits. The estimation basis is built to match each
+  backend's fixed-effect parametrisation --- treatment contrasts on
+  INLA, the over-parameterised (intercept + all factor levels) basis on
+  greta, the latter handled through a non-estimability basis so only
+  estimable combinations are reported. Posterior summaries use
+  z-intervals.
+- **`marginaleffects::predictions()`, `avg_slopes()`, and
+  `avg_comparisons()`** work on both backends via the `get_coef()` /
+  `set_coef()` / `get_vcov()` / `get_predict()` accessors, with
+  population-level (fixed-effect) predictions on the identity link.
+- **Per-row INLA fits gain `coef()`, `vcov()`, `predict()`,
+  `formula()`, and `family()` methods.** `vcov()` returns a Monte-Carlo
+  estimate of the joint posterior covariance of the fixed effects (its
+  marginal standard deviations match the INLA fixed-effect summary);
+  `predict(newdata = ...)` returns fixed-effect predictions.
+- A model whose fixed-effect design cannot be reconciled one-to-one
+  with its fitted coefficients is refused with a clear message pointing
+  to the posterior-draws workflow, rather than silently mis-mapped.
+
+## Aggregated triangulation and matched-prior transparency
+
+- **`triangulate()` now works on greta-aggregated fits.** Aggregated
+  greta fits previously did not expose their posterior draws in the
+  layout the draw extractor expects, so `triangulate()`,
+  `canonical_names()`, `confint()`, `plot()`, and `predict()` failed on
+  them; they now work.
+- **Aggregated-gaussian fits report their prior parametrization.** A new
+  `prior_parametrization` field (`"per_row_equivalent"` under the
+  default precision prior, `"custom"` otherwise) is shown in the
+  aggregated `print()` / `summary()` and returned by
+  `canonical_names()`, so it is clear whether the aggregated posterior
+  matches the per-row posterior.
+- **`triangulate()` documents the matched-prior caveat** for aggregated
+  inputs, forward-linking `prior_summary()`.
+
 ## `fb_refusals()` --- a browsable registry of refusal reasons
 
 flexyBayes now ships a complete, locked vocabulary of the conditions

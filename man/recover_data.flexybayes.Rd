@@ -2,20 +2,21 @@
 % Please edit documentation in R/emmeans_support.R
 \name{recover_data.flexybayes}
 \alias{recover_data.flexybayes}
-\title{Recover data for emmeans}
+\alias{recover_data.flexybayes_inla}
+\title{emmeans support: recover model data (greta backend)}
 \usage{
-recover_data.flexybayes(object, data = NULL, ...)
+\method{recover_data}{flexybayes}(object, ...)
+
+\method{recover_data}{flexybayes_inla}(object, ...)
 }
 \arguments{
-\item{object}{A flexybayes object}
+\item{object}{A \code{flexybayes_inla} fit.}
 
-\item{data}{Optional data frame override (default uses stored data)}
-
-\item{...}{Additional arguments passed to emmeans}
+\item{...}{Passed to \code{\link[emmeans:extending-emmeans]{emmeans::recover_data()}}.}
 }
 \value{
-A data frame suitable for emmeans
+A data frame of predictors for the reference grid.
 }
 \description{
-Recover data for emmeans
+emmeans support: recover model data (greta backend)
 }
