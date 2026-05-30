@@ -6,7 +6,13 @@
 #' native greta output for Bayesian diagnostics, and extras for secondary
 #' analyses.
 #'
-#' @param fixed Two-sided formula: `response ~ fixed_effects`.
+#' @param fixed Two-sided formula `response ~ fixed_effects`. This is the
+#'   universal entry's model slot: it accepts the ASReml `fixed` form
+#'   (paired with `random` / `rcov`) **or** a brms / lme4-style
+#'   bar-grouped formula such as `response ~ x + (1 | g)` (in which case
+#'   the grouping lives in the formula and `random` / `rcov` must be
+#'   left `NULL`). The grammar is detected from the call shape; use
+#'   `syntax` to force it.
 #' @param random One-sided formula: `~ random_terms` using ASReml syntax.
 #'   Supports `vm()`, `at()`, `us()`, `fa()`, `ar1()`, `spl()`, `ped()`,
 #'   `dsum()`, `id()`, and nested colon terms.
@@ -129,6 +135,12 @@
 #'   uses dense-matrix per-row emit by default for predictable RAM,
 #'   and switching to the aggregated path silently would change the
 #'   posterior numerical profile without an explicit opt-in.
+#' @param syntax One of `"auto"` (default), `"asreml"`, `"brms"`, or
+#'   `"greta"`. Selects how `fixed` is interpreted. `"auto"` detects the
+#'   grammar from the call shape (a bar-grouped formula is read as brms,
+#'   otherwise ASReml); the other values force a grammar. `"greta"` (a
+#'   native `greta_model`) is reserved: pass such models to `fb_greta()`
+#'   in v0.4.x; direct ingest through the universal entry lands at v0.5.0.
 #'
 #' @return An object of class `"flexybayes"` — a list with three components:
 #' \describe{
@@ -195,7 +207,8 @@ flexybayes <- function(
     review_code      = FALSE,
     backend          = c("auto", "greta", "inla", "brms"),
     aggregate        = "auto",
-    plan             = FALSE
+    plan             = FALSE,
+    syntax           = c("auto", "asreml", "brms", "greta")
 ) {
   # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
   # before match.arg fires its generic "should be one of" error.
@@ -217,6 +230,7 @@ flexybayes <- function(
     if (!is.null(eng_opts$chains))    chains    <- eng_opts$chains
   }
   aggregate <- .normalise_aggregate(aggregate)
+  syntax    <- match.arg(syntax)
 
   # Defer the greta package check to the emit-greta branch. For
   # backend = "inla" we don't need greta installed; for backend =
@@ -277,9 +291,14 @@ flexybayes <- function(
   # supersedes ADR 0003 (PC).
   default_prior_active <- is.null(prior) && missing(prior_vc_sd)
 
-  # Build the flexyBayes intermediate representation (IR) via the
-  # asreml-format ingest path. See R/fb.R.
-  fb <- fb_from_asreml(
+  # Build the flexyBayes intermediate representation (IR). The universal
+  # entry detects the grammar from the call shape -- ASReml
+  # fixed/random/rcov, a brms-style bar-grouped formula, or (reserved) a
+  # greta_model -- and routes to the matching ingest adapter. ASReml
+  # ingest is byte-identical to the historical direct fb_from_asreml()
+  # call; `syntax = ` forces a grammar. See .build_ir_polymorphic() in
+  # R/fb.R (ADR 0031 Phase 3).
+  fb <- .build_ir_polymorphic(
     fixed          = fixed,
     random         = random,
     rcov           = rcov,
@@ -290,7 +309,8 @@ flexybayes <- function(
     known_matrices = known_matrices,
     prior          = prior,
     prior_fixed_sd = prior_fixed_sd,
-    prior_vc_sd    = prior_vc_sd
+    prior_vc_sd    = prior_vc_sd,
+    syntax         = syntax
   )
 
   if (default_prior_active) {

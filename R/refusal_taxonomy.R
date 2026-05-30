@@ -866,6 +866,51 @@
     since_version      = "0.5.0"
   )
 
+  # -- grammar polymorphism on the universal entry (ADR 0031 Phase 3) --
+  # fb() / flexybayes() detect the input grammar from the call shape.
+  # These three guard the brms-grammar and reserved-greta branches of
+  # .build_ir_polymorphic() (R/fb.R).
+  .register_refusal(
+    reason_code        = "grammar_brms_with_asreml_terms",
+    description        = paste0(
+      "A brms-style bar-grouped formula was combined with ASReml ",
+      "`random` / `rcov` arguments on the universal entry."),
+    message_template   = paste0(
+      "A brms-style formula (with `(... | g)` grouping) cannot be ",
+      "combined with `random` / `rcov` (ASReml grammar). Put every ",
+      "grouping term inside the formula, or use the ASReml form ",
+      "throughout."),
+    registered_in_adr  = "ADR 0031",
+    plan_field         = NA_character_,
+    since_version      = "0.4.1"
+  )
+  .register_refusal(
+    reason_code        = "grammar_brms_known_matrices_unsupported",
+    description        = paste0(
+      "`known_matrices` was supplied with brms-grammar ingest via the ",
+      "universal entry, which has no known-matrix carrier."),
+    message_template   = paste0(
+      "`known_matrices` is not supported with brms-grammar ingest via ",
+      "fb() / flexybayes(). Use the ASReml form for known-matrix ",
+      "carriers."),
+    registered_in_adr  = "ADR 0031",
+    plan_field         = NA_character_,
+    since_version      = "0.4.1"
+  )
+  .register_refusal(
+    reason_code        = "grammar_greta_via_fb_deferred",
+    description        = paste0(
+      "A native greta_model was passed to the universal entry; direct ",
+      "ingest is reserved until v0.5.0 (the engine-pin recast)."),
+    message_template   = paste0(
+      "A native greta_model is fit via fb_greta() in v0.4.x. Direct ",
+      "greta_model ingest through fb() / flexybayes() lands at v0.5.0. ",
+      "Pass a formula to fb(), or call fb_greta(model = ...)."),
+    registered_in_adr  = "ADR 0031",
+    plan_field         = NA_character_,
+    since_version      = "0.4.1"
+  )
+
   invisible(NULL)
 }
 

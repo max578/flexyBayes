@@ -123,6 +123,107 @@ fb_from_asreml <- function(fixed,
   )
 }
 
+# ---------------------------------------------------------------- #
+# Grammar polymorphism for the universal entry (ADR 0031 Phase 3)  #
+# ---------------------------------------------------------------- #
+
+# .detect_grammar() -- deterministic call-shape dispatch for the
+# universal entry (fb() / flexybayes()). The rule is by SHAPE, never by
+# guessing intent:
+#   - a forced `syntax` (anything but "auto") wins outright;
+#   - a greta_model object -> "greta" (native graph);
+#   - a brmsformula object  -> "brms";
+#   - a formula whose terms carry lme4 / brms bar-grouping ("(... | g)")
+#     -> "brms" (ASReml `fixed` formulae never contain a bar);
+#   - any other formula      -> "asreml" (the long-standing default; a
+#     bar-free `y ~ x` is identical under either grammar, so the safe
+#     default matches historical behaviour).
+# A non-formula, non-greta `spec` falls through to "asreml" so the
+# established fb_from_asreml() validation owns the error message
+# (behaviour-preserving for malformed input).
+.detect_grammar <- function(spec, random = NULL, rcov = NULL,
+                            syntax = "auto") {
+  if (!identical(syntax, "auto")) return(syntax)
+  if (inherits(spec, "greta_model"))  return("greta")
+  if (inherits(spec, "brmsformula"))  return("brms")
+  if (inherits(spec, "formula")) {
+    has_bar <- any(grepl("|", as.character(spec), fixed = TRUE))
+    if (has_bar) return("brms")
+  }
+  "asreml"
+}
+
+# .build_ir_polymorphic() -- the universal entry's ingest step. Detects
+# the grammar from the call shape and routes to the matching exported
+# adapter, producing the backend-agnostic fb_terms IR. ASReml ingest is
+# byte-identical to the historical direct fb_from_asreml() call;
+# brms-grammar ingest is added here (ADR 0031 Phase 3). A native
+# greta_model is reserved: its bespoke greta::mcmc() fit (fb_greta())
+# does not lower through the IR-emit path, so direct ingest via the
+# universal entry lands at v0.5.0 with the engine-pin recast -- until
+# then it refuses with a forward pointer rather than mis-route.
+.build_ir_polymorphic <- function(fixed, random, rcov, data, family, link,
+                                  weights, known_matrices, prior,
+                                  prior_fixed_sd, prior_vc_sd,
+                                  syntax = "auto") {
+  grammar <- .detect_grammar(fixed, random, rcov, syntax)
+  switch(grammar,
+    asreml = fb_from_asreml(
+      fixed          = fixed,
+      random         = random,
+      rcov           = rcov,
+      data           = data,
+      family         = family,
+      link           = link,
+      weights        = weights,
+      known_matrices = known_matrices,
+      prior          = prior,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd    = prior_vc_sd
+    ),
+    brms = {
+      if (!is.null(random) || !is.null(rcov))
+        stop(.fb_refusal_condition(
+          reason_code  = "grammar_brms_with_asreml_terms",
+          message      = paste0(
+            "A brms-style formula (with `(... | g)` grouping) cannot be ",
+            "combined with `random` / `rcov` (ASReml grammar). Put every ",
+            "grouping term inside the formula, or use the ASReml ",
+            "`fixed` / `random` / `rcov` form throughout."),
+          family_class = "flexybayes_grammar_brms_with_asreml_terms"))
+      if (length(known_matrices) > 0L)
+        stop(.fb_refusal_condition(
+          reason_code  = "grammar_brms_known_matrices_unsupported",
+          message      = paste0(
+            "`known_matrices` is not supported with brms-grammar ingest ",
+            "via fb() / flexybayes(). Use the ASReml form ",
+            "(flexybayes(fixed = , random = , known_matrices = ) or ",
+            "fb_from_asreml()) for known-matrix carriers."),
+          family_class =
+            "flexybayes_grammar_brms_known_matrices_unsupported"))
+      fb_from_brms(
+        formula        = fixed,
+        data           = data,
+        family         = family,
+        link           = link,
+        prior          = prior,
+        weights        = weights,
+        prior_fixed_sd = prior_fixed_sd,
+        prior_vc_sd    = prior_vc_sd
+      )
+    },
+    greta = stop(.fb_refusal_condition(
+      reason_code  = "grammar_greta_via_fb_deferred",
+      message      = paste0(
+        "A native greta_model is fit via fb_greta() in v0.4.x. Direct ",
+        "greta_model ingest through fb() / flexybayes() lands at v0.5.0, ",
+        "alongside the engine-pin recast (the native graph is fit by ",
+        "greta::mcmc(), not lowered through the shared IR-emit path). ",
+        "Pass a formula to fb(), or call fb_greta(model = ...)."),
+      family_class = "flexybayes_grammar_greta_via_fb_deferred"))
+  )
+}
+
 # Note: the `fb` alias for `flexybayes()` is defined at the bottom
 # of R/flexybayes.R so that the alias target is in scope at source
 # time (R sources files alphabetically; this file loads before

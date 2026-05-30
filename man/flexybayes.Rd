@@ -26,7 +26,8 @@ flexybayes(
   review_code = FALSE,
   backend = c("auto", "greta", "inla", "brms"),
   aggregate = "auto",
-  plan = FALSE
+  plan = FALSE,
+  syntax = c("auto", "asreml", "brms", "greta")
 )
 
 fb(
@@ -50,11 +51,18 @@ fb(
   review_code = FALSE,
   backend = c("auto", "greta", "inla", "brms"),
   aggregate = "auto",
-  plan = FALSE
+  plan = FALSE,
+  syntax = c("auto", "asreml", "brms", "greta")
 )
 }
 \arguments{
-\item{fixed}{Two-sided formula: \code{response ~ fixed_effects}.}
+\item{fixed}{Two-sided formula \code{response ~ fixed_effects}. This is the
+universal entry's model slot: it accepts the ASReml \code{fixed} form
+(paired with \code{random} / \code{rcov}) \strong{or} a brms / lme4-style
+bar-grouped formula such as \code{response ~ x + (1 | g)} (in which case
+the grouping lives in the formula and \code{random} / \code{rcov} must be
+left \code{NULL}). The grammar is detected from the call shape; use
+\code{syntax} to force it.}
 
 \item{random}{One-sided formula: \code{~ random_terms} using ASReml syntax.
 Supports \code{vm()}, \code{at()}, \code{us()}, \code{fa()}, \code{ar1()}, \code{spl()}, \code{ped()},
@@ -194,6 +202,13 @@ the same formula triple --- exposed inline as \code{flexybayes(plan = TRUE)} so 
 the call.  Default \code{FALSE} preserves the run-
 immediately semantics.  Mutually exclusive with \code{return_code} and
 \code{review_code}.}
+
+\item{syntax}{One of \code{"auto"} (default), \code{"asreml"}, \code{"brms"}, or
+\code{"greta"}. Selects how \code{fixed} is interpreted. \code{"auto"} detects the
+grammar from the call shape (a bar-grouped formula is read as brms,
+otherwise ASReml); the other values force a grammar. \code{"greta"} (a
+native \code{greta_model}) is reserved: pass such models to \code{fb_greta()}
+in v0.4.x; direct ingest through the universal entry lands at v0.5.0.}
 }
 \value{
 An object of class \code{"flexybayes"} — a list with three components:
