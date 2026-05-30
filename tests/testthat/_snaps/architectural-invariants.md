@@ -3,8 +3,9 @@
     Code
       sort(.FB_VERBS)
     Output
-      [1] "fb_brms"                "fb_greta"               "fb_plan"               
-      [4] "flexybayes"             "triangulate"            "validate_approximation"
+      [1] "fb_brms"                "fb_greta"               "fb_inla"               
+      [4] "fb_plan"                "flexybayes"             "triangulate"           
+      [7] "validate_approximation"
 
 # the constructor schemas are stable (snapshot)
 

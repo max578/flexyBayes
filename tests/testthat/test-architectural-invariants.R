@@ -12,9 +12,11 @@
 # (e.g. fb_engine()'s toolchain_status, which depends on whether the
 # backend package is installed), so they are stable across machines.
 
-# The six exported verbs (ADR 0030 §3). Closed list; a seventh requires
-# an ADR amendment.
-.FB_VERBS <- c("flexybayes", "fb_brms", "fb_greta", "fb_plan",
+# The exported verbs (ADR 0030 §3, roster grown by ADR 0031 Phase 3:
+# fb_inla() added as the INLA engine pin). Closed list; a further verb
+# requires an ADR amendment. fb_from_*() are ingest adapters, not verbs,
+# and are tracked separately.
+.FB_VERBS <- c("flexybayes", "fb_brms", "fb_greta", "fb_inla", "fb_plan",
                "triangulate", "validate_approximation")
 
 # The four constructor nouns (ADR 0030 §2).
@@ -56,7 +58,7 @@ test_that("exactly six verbs are exported (ADR 0030 §3)", {
   exports <- getNamespaceExports("flexyBayes")
   for (v in .FB_VERBS)
     expect_true(v %in% exports, info = paste("verb not exported:", v))
-  expect_length(.FB_VERBS, 6L)
+  expect_length(.FB_VERBS, 7L)
 })
 
 test_that("the verb list is stable (snapshot)", {
