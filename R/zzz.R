@@ -139,16 +139,17 @@
   # and the per-pair records are immutable to user code once loaded.
   .lock_backend_independence_registry()
 
-  # ADR 0031 (v0.5.0 backend-axis recovery, Phase 1): populate the
-  # backend registry --- the fifth closed-vocabulary registry, modelling
-  # backend as a first-class axis (the one concept ADR 0030 left
-  # hard-coded). Registers the three active backends reachable today
-  # (greta, inla, brms) plus the dormant gretaR slot. Phase 1 is
-  # additive and behaviour-neutral: the registry is the single source of
-  # truth for legitimate backend names, guarded by test-backend-registry.R
-  # against the existing match.arg vocabularies and .routing_policy_table();
-  # dispatch switches to consume it (capability_predicate gating) in
-  # Phase 2.
+  # ADR 0031 (v0.5.0 backend-axis recovery): populate the backend
+  # registry --- the fifth closed-vocabulary registry, modelling backend
+  # as a first-class axis (the one concept ADR 0030 left hard-coded).
+  # Registers the three active backends (greta, inla, brms) plus the
+  # dormant gretaR slot. By Phase 3 the registry is the single source of
+  # truth for backend facts and dispatch CONSUMES them: availability via
+  # .available_backend_names(), capability via .backend_can_fit(), the
+  # emit entry-point via .backend_emit_fn(). The per-paradigm routing
+  # order / fallback policy stays explicit in dispatch by design
+  # (Option A, 2026-05-31). test-backend-registry.R guards consistency
+  # against the match.arg vocabularies and .routing_policy_table().
   .populate_backend_registry_v050()
 
   # Lock the backend registry. Further .register_backend() calls beyond

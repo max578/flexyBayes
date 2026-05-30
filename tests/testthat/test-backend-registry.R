@@ -45,8 +45,9 @@ test_that("the v0.5.0 population registers the expected backends", {
   expect_identical(flexyBayes:::.lookup_backend("inla")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("brms")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("gretaR")$status, "dormant")
-  # The "brms" engine label records its Phase-3 rename target.
-  expect_identical(flexyBayes:::.lookup_backend("brms")$rename_to, "stan")
+  # brms is retained as the engine label (the brms -> stan rename was
+  # reversed 2026-05-31); no backend carries a rename target.
+  expect_true(is.na(flexyBayes:::.lookup_backend("brms")$rename_to))
 })
 
 test_that("CONSISTENCY: routing-policy-table engines are all registered", {

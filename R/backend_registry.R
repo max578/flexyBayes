@@ -16,20 +16,32 @@
 # immediately after by .lock_backend_registry(). parent = emptyenv() so a
 # key miss cannot fall through to the package namespace.
 #
-# PHASE BOUNDARY (honest scoping). This Phase-1 registry is *additive and
-# behaviour-neutral*: it is the single source of truth for legitimate
-# backend names and their metadata, and a consistency test (test-backend-
-# registry.R) proves the existing hard-coded routing references no
-# unregistered engine. It does NOT yet drive dispatch. Two fields named in
-# ADR 0031 are deliberately deferred to later phases, openly (not silently):
-#   - `capability_predicate` -- the per-backend "can this engine represent
-#     this model?" function that REPLACES the current special-cased gates
-#     (low_rank_requires_greta, at_units, the lgm_gate rules) lands in
-#     Phase 2, where dispatch switches to consume it.
-#   - the user-facing "brms" -> "stan" engine rename lands in Phase 3 with
-#     a lifecycle deprecation window. Phase 1 registers the engine under
-#     its CURRENT dispatch label "brms" so routing is byte-for-byte
-#     unchanged; `rename_to` records the Phase-3 target for traceability.
+# DISPATCH ROLE (v0.5.0 Phase 3; ADR 0031, Option A decided 2026-05-31).
+# The registry is the single source of truth for backend *facts*:
+# legitimate names, per-backend capability_predicate, auto-membership
+# (default_in_auto), availability (available_pkg), and the emit
+# entry-point (engine). Dispatch (R/dispatch.R) CONSUMES these facts ---
+# backend availability via .available_backend_names(); per-backend
+# capability via .backend_can_fit(); the emit function via the `engine`
+# field. The brms structured-cov gate and the INLA lgm_gate reconcile with
+# the registry predicates (the predicates delegate to the same authorities,
+# so refusal semantics cannot drift).
+#
+# What stays EXPLICIT, by design: the per-paradigm routing ORDER and
+# fallback policy (INLA Laplace fast-path; brms/Stan compile-latency
+# opt-out from auto; greta universal HMC fallback) is genuine policy, not
+# mechanical iteration, so dispatch keeps it as code rather than deriving
+# it. Consequence (the honest extensibility claim): a new same-paradigm
+# formula engine is added by registration plus an emit hookup; a new
+# inference paradigm additionally needs an orchestration step.
+#
+# NAMING. The proposed user-facing "brms" -> "stan" engine rename was
+# REVERSED (2026-05-31): brms is retained as the engine label so the
+# backend axis stays consistent (greta / inla / brms are all front-ends)
+# and gretaR is a natural front-end sibling; the Stan/HMC sampler is
+# recorded as the paradigm attribute (paradigm = "hmc_nuts") so
+# triangulate() / the backend-independence registry grade pairs honestly.
+# `rename_to` is therefore NA for every backend.
 #
 # Internal -- not exported.
 
@@ -78,7 +90,9 @@
 #   capability_predicate function(fb) -> TRUE (capable) or a single
 #                           reason-code string naming why the engine
 #                           cannot represent the model. Default permissive.
-#   rename_to       chr(1)  Phase-3 user-facing rename target, or NA.
+#   rename_to       chr(1)  reserved for a future user-facing rename; NA
+#                           for every backend today (the proposed
+#                           brms -> stan rename was reversed 2026-05-31).
 #   registered_in_adr chr(1)
 .register_backend <- function(name, status, engine, grammars, paradigm,
                               available_pkg, default_in_auto,
@@ -248,16 +262,38 @@
   else list(ok = FALSE, reason_code = res)
 }
 
+# .backend_emit_fn() --- dispatch-facing resolver for a backend's emit
+# entry-point. The registry stores the emit function by NAME (a string,
+# e.g. "emit_greta") rather than as a closure, so a load-time reference
+# cannot fail; this resolves the name to the function within the package
+# namespace at dispatch time. Errors loudly on an unregistered backend or
+# one whose engine is NA (a dormant slot reached in error) -- the caller
+# is expected to have handled dormancy upstream (.gretaR_dormant_refusal).
+# This is the seam that lets a newly-registered same-paradigm engine be
+# dispatched without hard-coding its emit symbol at the call site.
+.backend_emit_fn <- function(name) {
+  e <- .lookup_backend(name)
+  if (is.null(e))
+    stop(".backend_emit_fn(): backend '", name, "' is not registered.",
+         call. = FALSE)
+  if (is.na(e$engine))
+    stop(".backend_emit_fn(): backend '", name, "' has no emit engine ",
+         "(status '", e$status, "'); it cannot be dispatched.",
+         call. = FALSE)
+  get(e$engine, envir = asNamespace("flexyBayes"), inherits = FALSE)
+}
+
 # --- v0.5.0 population --------------------------------------------- #
 
 # .populate_backend_registry_v050() --- registers the three active
-# backends reachable today plus the dormant gretaR slot. Names + labels
-# mirror the CURRENT dispatch reality (engine "brms" not yet renamed to
-# "stan"; rename lands Phase 3) so this phase is byte-for-byte behaviour-
-# neutral. `default_in_auto` encodes the current candidate list
-# c("inla", "greta", "gretaR") from .resolve_routing(): greta + inla +
-# gretaR are auto-considered, brms is opt-in only (its 30--60 s Stan
-# compile would break the auto fast-path promise -- ADR 0024).
+# backends reachable today plus the dormant gretaR slot. brms is retained
+# as the engine label (the brms -> stan rename was reversed 2026-05-31);
+# the Stan/HMC sampler is the paradigm attribute, not the name.
+# `default_in_auto` encodes the auto candidate set
+# c("greta", "gretaR", "inla"): greta + inla + gretaR are auto-considered,
+# brms is opt-in only (its 30--60 s Stan compile would break the auto
+# fast-path promise -- ADR 0024). Dispatch reads this set via
+# .available_backend_names() / .auto_default_backend_names().
 .populate_backend_registry_v050 <- function() {
   .register_backend(
     name = "greta", status = "active", engine = "emit_greta",
@@ -273,8 +309,7 @@
     name = "brms", status = "active", engine = "emit_brms",
     grammars = c("asreml", "brms"), paradigm = "hmc_nuts",
     available_pkg = "brms", default_in_auto = FALSE,
-    capability_predicate = .capability_brms,
-    rename_to = "stan")
+    capability_predicate = .capability_brms)
   .register_backend(
     name = "gretaR", status = "dormant", engine = NA_character_,
     grammars = "greta", paradigm = "hmc_nuts",

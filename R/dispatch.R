@@ -491,7 +491,9 @@
           "Re-fit with backend = \"greta\" (full MCMC), or backend = ",
           "\"inla\" when the model is latent-Gaussian feasible."),
         family_class = "flexybayes_stan_cannot_represent_structured_cov"))
-    fit <- emit_brms(
+    # ADR 0031 Phase 3 (Option A): emit entry-point resolved through the
+    # registry `engine` field rather than a hard-coded symbol.
+    fit <- .backend_emit_fn("brms")(
       fb             = fb,
       data           = data,
       known_matrices = known_matrices,
@@ -537,7 +539,12 @@
   }
 
   decision <- NULL
-  inla_installed <- requireNamespace("INLA", quietly = TRUE)
+  # ADR 0031 Phase 3 (Option A): availability is a registry fact, not a
+  # raw requireNamespace() here. .available_backend_names() returns the
+  # active backends whose required package is installed -- for inla that
+  # is the INLA namespace check, so this is behaviour-equivalent while
+  # sourcing the fact from the single registry authority.
+  inla_installed <- "inla" %in% .available_backend_names()
   gretaR_activated <- isTRUE(getOption("flexyBayes.gretaR_activated",
                                         FALSE))
   if (backend %in% c("inla", "auto")) {
@@ -636,7 +643,7 @@
         # accepted structurally falls back to greta with a one-time note,
         # because auto promised a working fit.
         inla_fit <- tryCatch(
-          emit_inla(
+          .backend_emit_fn("inla")(
             fb             = gated,
             data           = data,
             known_matrices = known_matrices,
@@ -732,7 +739,9 @@
          "  greta::install_greta_deps()",
          call. = FALSE)
 
-  fit <- emit_greta(
+  # ADR 0031 Phase 3 (Option A): emit entry-point resolved through the
+  # registry `engine` field rather than a hard-coded symbol.
+  fit <- .backend_emit_fn("greta")(
     fb             = fb,
     data           = data,
     known_matrices = known_matrices,
