@@ -845,6 +845,27 @@
     since_version      = "0.4.0"
   )
 
+  # -- backend capability gates (ADR 0031 Phase 2b; dispatch.R) -------
+  # Raised when flexybayes(backend = "brms") meets an asreml structured-
+  # covariance term (vm/ped/fa/us/ar1) that Stan cannot represent. The
+  # brms capability predicate (R/backend_registry.R, .capability_brms)
+  # is the declarative source; the dispatch brms branch raises this code.
+  .register_refusal(
+    reason_code        = "stan_cannot_represent_structured_cov",
+    description        = paste0(
+      "backend = \"brms\" (Stan) cannot represent an asreml structured-",
+      "covariance term (vm/ped/fa/us/ar1)."),
+    message_template   = paste0(
+      "backend = \"brms\" (Stan) cannot represent this model: it ",
+      "contains an asreml structured-covariance term (one of ",
+      "vm/ped/fa/us/ar1) with no lossless brms/Stan translation. Re-fit ",
+      "with backend = \"greta\", or backend = \"inla\" when latent-",
+      "Gaussian feasible."),
+    registered_in_adr  = "ADR 0031",
+    plan_field         = "rejected_routes",
+    since_version      = "0.5.0"
+  )
+
   invisible(NULL)
 }
 

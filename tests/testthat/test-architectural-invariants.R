@@ -20,9 +20,10 @@
 # The four constructor nouns (ADR 0030 §2).
 .FB_CONSTRUCTORS <- c("fb_prior", "fb_cov", "fb_approx", "fb_engine")
 
-# The four closed-vocabulary registries (ADR 0030 §6).
+# The five closed-vocabulary registries (ADR 0030 §6 + ADR 0031 backend).
 .FB_REGISTRIES <- c(".representation_registry", ".approximation_registry",
-                    ".backend_independence_registry", ".refusal_registry")
+                    ".backend_independence_registry", ".refusal_registry",
+                    ".backend_registry")
 
 # Build one instance of each constructor for schema inspection.
 .fb_constructor_instances <- function() {
@@ -102,7 +103,7 @@ test_that("the constructor schemas are stable (snapshot)", {
 # (c) Closed-vocabulary registry-locked invariant                   #
 # ---------------------------------------------------------------- #
 
-test_that("all four registries are locked after .onLoad()", {
+test_that("all five registries are locked after .onLoad()", {
   for (r in .FB_REGISTRIES) {
     reg <- get(r, envir = asNamespace("flexyBayes"))
     expect_true(environmentIsLocked(reg),

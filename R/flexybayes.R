@@ -94,7 +94,10 @@
 #' @param backend Character: one of `"greta"` (default; existing
 #'   behaviour --- emit to greta and fit via MCMC), `"inla"`
 #'   (explicit INLA; calls `lgm_gate()` and raises a structured
-#'   refusal if the model is not LGM-feasible), or `"auto"` (calls
+#'   refusal if the model is not LGM-feasible), `"brms"` (Stan
+#'   passthrough via brms; refuses asreml structured-covariance terms
+#'   --- `vm`/`ped`/`fa`/`us`/`ar1` --- that have no lossless Stan
+#'   translation), or `"auto"` (calls
 #'   `lgm_gate()` and routes to INLA on accept, greta on refuse).
 #'   Under `"auto"`, falling back to greta emits a one-time
 #'   silenceable note carrying the gate's primary failure rule;
@@ -188,7 +191,7 @@ flexybayes <- function(
     mcmc_verbose     = TRUE,
     return_code      = FALSE,
     review_code      = FALSE,
-    backend          = c("greta", "inla", "auto"),
+    backend          = c("greta", "inla", "brms", "auto"),
     aggregate        = "auto",
     plan             = FALSE
 ) {

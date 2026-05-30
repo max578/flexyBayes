@@ -24,7 +24,7 @@ flexybayes(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "auto"),
+  backend = c("greta", "inla", "brms", "auto"),
   aggregate = "auto",
   plan = FALSE
 )
@@ -48,7 +48,7 @@ fb(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("greta", "inla", "auto"),
+  backend = c("greta", "inla", "brms", "auto"),
   aggregate = "auto",
   plan = FALSE
 )
@@ -150,7 +150,10 @@ for "do everything except sampling". \code{review_code = TRUE} and
 \item{backend}{Character: one of \code{"greta"} (default; existing
 behaviour --- emit to greta and fit via MCMC), \code{"inla"}
 (explicit INLA; calls \code{lgm_gate()} and raises a structured
-refusal if the model is not LGM-feasible), or \code{"auto"} (calls
+refusal if the model is not LGM-feasible), \code{"brms"} (Stan
+passthrough via brms; refuses asreml structured-covariance terms
+--- \code{vm}/\code{ped}/\code{fa}/\code{us}/\code{ar1} --- that have no lossless Stan
+translation), or \code{"auto"} (calls
 \code{lgm_gate()} and routes to INLA on accept, greta on refuse).
 Under \code{"auto"}, falling back to greta emits a one-time
 silenceable note carrying the gate's primary failure rule;

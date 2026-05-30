@@ -138,6 +138,25 @@ test_that("capability predicates: greta universal, brms refuses structured-cov",
   expect_true(flexyBayes:::.capability_greta(fb_lr))
 })
 
+test_that("flexybayes(backend='brms') refuses an asreml structured-cov model", {
+  # ADR 0031 Phase 2b: flexybayes() can now select brms, so an asreml
+  # structured-covariance term must be refused structurally (no lossless
+  # Stan translation) rather than fail mid-emit.
+  d <- data.frame(
+    y    = rnorm(40),
+    env  = factor(rep(letters[1:4], each = 10L)),
+    geno = factor(rep(seq_len(10L), times = 4L)))
+  G <- diag(10L)
+  dimnames(G) <- list(as.character(seq_len(10L)), as.character(seq_len(10L)))
+  expect_error(
+    flexybayes(y ~ env, random = ~ vm(geno, G), data = d,
+               known_matrices = list(G = G), backend = "brms",
+               verbose = FALSE, mcmc_verbose = FALSE),
+    regexp = "structured-covariance term")
+  # brms is reachable from flexybayes() now (vocabulary widened).
+  expect_true("brms" %in% eval(formals(flexyBayes::flexybayes)$backend))
+})
+
 test_that(".register_backend() refuses unknown status / grammar / duplicate", {
   # These run against the locked registry, so the vocabulary checks
   # (validated before the lock check) are what must fire first.

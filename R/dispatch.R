@@ -471,6 +471,26 @@
   # not advertise the value because asreml structured-covariance
   # terms (fa, us, ar1) do not translate losslessly to brms.
   if (identical(backend, "brms")) {
+    # ADR 0031 Phase 2b capability gate. With flexybayes() (asreml entry)
+    # now able to select backend = "brms", an asreml structured-covariance
+    # term (vm/ped/fa/us/ar1) can reach this branch -- brms/Stan has no
+    # lossless translation for it. Refuse structurally before the emit
+    # rather than fail mid-translation. The low_rank case is already
+    # handled upstream by the .collect_approx() check, so structured-cov
+    # is the only capability failure that reaches here; gating explicitly
+    # on that reason_code keeps the raised code registered.
+    cap <- .backend_can_fit("brms", fb)
+    if (!isTRUE(cap$ok) &&
+        identical(cap$reason_code, "stan_cannot_represent_structured_cov"))
+      stop(.fb_refusal_condition(
+        reason_code  = "stan_cannot_represent_structured_cov",
+        message      = paste0(
+          "backend = \"brms\" (Stan) cannot represent this model: it ",
+          "contains an asreml structured-covariance term (one of ",
+          "vm/ped/fa/us/ar1) that has no lossless brms/Stan translation. ",
+          "Re-fit with backend = \"greta\" (full MCMC), or backend = ",
+          "\"inla\" when the model is latent-Gaussian feasible."),
+        family_class = "flexybayes_stan_cannot_represent_structured_cov"))
     fit <- emit_brms(
       fb             = fb,
       data           = data,

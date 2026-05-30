@@ -118,7 +118,7 @@
       [1] TRUE
       
       $.refusal_registry$n_keys
-      [1] 42
+      [1] 43
       
       $.refusal_registry$keys
        [1] "approximate_route_not_yet_registered"         
@@ -160,9 +160,24 @@
       [37] "response_not_in_data"                         
       [38] "review_code_backend_unsupported"              
       [39] "smooth_variable_not_in_data"                  
-      [40] "tensor_smooth_unsupported"                    
-      [41] "unsupported_family"                           
-      [42] "vm_redundant_specification"                   
+      [40] "stan_cannot_represent_structured_cov"         
+      [41] "tensor_smooth_unsupported"                    
+      [42] "unsupported_family"                           
+      [43] "vm_redundant_specification"                   
+      
+      
+      $.backend_registry
+      $.backend_registry$registry
+      [1] ".backend_registry"
+      
+      $.backend_registry$locked
+      [1] TRUE
+      
+      $.backend_registry$n_keys
+      [1] 4
+      
+      $.backend_registry$keys
+      [1] "brms"   "greta"  "gretaR" "inla"  
       
       
 
