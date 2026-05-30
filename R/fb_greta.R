@@ -123,6 +123,24 @@ fb_greta <- function(model,
                      return_code     = FALSE,
                      review_code     = FALSE) {
 
+  # ADR 0031 Phase 3 (two-step-clean migration). fb_greta()'s native
+  # greta_model fitting signature is deprecated at v0.4.1. At v0.5.0
+  # fb_greta() becomes the greta engine pin (a formula verb, equivalent
+  # to fb(backend = "greta")); native graphs are then fit through fb()
+  # directly, and fb_from_greta() builds the IR from one. Warns now so
+  # the meaning-change has a deprecation window. Deduped once per session
+  # by id; the dedicated deprecation test forces it via
+  # lifecycle_verbosity = "warning".
+  lifecycle::deprecate_warn(
+    when    = "0.4.1",
+    what    = I("fb_greta(model = <greta_model>), the native-graph fitting signature"),
+    details = c(
+      i = "Build the flexyBayes IR from a native greta model with fb_from_greta().",
+      i = paste0("At v0.5.0, fb_greta() becomes the greta engine pin and ",
+                 "native greta_model graphs are fit through fb() directly.")),
+    id      = "flexybayes_fb_greta_native_signature"
+  )
+
   # ------- 0. Validation. ----------------------------------------- #
 
   if (!requireNamespace("greta", quietly = TRUE))

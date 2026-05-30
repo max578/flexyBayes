@@ -211,6 +211,29 @@ fb_brms <- function(formula,
   }
   aggregate <- .normalise_aggregate(aggregate)
 
+  # ADR 0031 Phase 3 (two-step-clean migration). Only the MULTI-BACKEND
+  # grammar role is deprecated: fb_brms(backend = "brms") is forward-
+  # compatible with the v0.5.0 brms engine pin (same meaning), so it does
+  # not warn. fb_brms() reaching greta / inla / auto is the grammar-verb
+  # usage that moves to fb(), which now detects brms grammar and spans
+  # every backend. The name is reused at v0.5.0 for the engine pin -- so
+  # the old meaning warns now and is removed before the new meaning lands.
+  # Deduped once per session by id; the dedicated test forces it via
+  # lifecycle_verbosity = "warning".
+  if (!identical(backend, "brms"))
+    lifecycle::deprecate_warn(
+      when    = "0.4.1",
+      what    = I(paste0("Using fb_brms() to fit a non-brms backend (the ",
+                         "multi-backend brms-grammar role)")),
+      details = c(
+        i = paste0("Pass the same formula to fb() / flexybayes(), which now ",
+                   "detects brms grammar and reaches every available ",
+                   "backend (including the same auto / greta / inla routing)."),
+        i = paste0("At v0.5.0, fb_brms() is repurposed as the brms engine ",
+                   "pin (equivalent to fb(backend = \"brms\")).")),
+      id      = "flexybayes_fb_brms_grammar_verb"
+    )
+
   if (missing(formula))
     stop("`formula` is required: a brms-style two-sided formula.",
          call. = FALSE)
