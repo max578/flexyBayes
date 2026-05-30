@@ -1,0 +1,115 @@
+# Backend registry (ADR 0031; v0.5.0 backend-axis recovery, Phase 1).
+#
+# The registry is additive and behaviour-neutral in Phase 1. These tests
+# pin two things: (a) the registry's own shape + lock invariants, mirrored
+# from the other four registries' test posture; and (b) the CONSISTENCY
+# guard that makes the registry the single source of truth -- every
+# backend name the current hard-coded dispatch references (the match.arg
+# vocabularies + .routing_policy_table()) must be a registered name, and
+# auto's default candidate set must match the registry's default_in_auto
+# flags. This guard is what lets Phase 2 rewire dispatch onto the registry
+# without silent drift.
+
+test_that("backend registry is locked after .onLoad()", {
+  expect_true(environmentIsLocked(flexyBayes:::.backend_registry))
+  # A post-load registration must raise, not mutate.
+  expect_error(
+    flexyBayes:::.register_backend(
+      name = "jags", status = "active", engine = "emit_jags",
+      grammars = "brms", paradigm = "mcmc_gibbs",
+      available_pkg = "rjags", default_in_auto = FALSE),
+    "locked")
+})
+
+test_that("every backend entry carries the full field schema", {
+  required <- c("name", "status", "engine", "grammars", "paradigm",
+                "available_pkg", "default_in_auto", "rename_to",
+                "registered_in_adr")
+  for (nm in flexyBayes:::.registered_backend_names()) {
+    e <- flexyBayes:::.lookup_backend(nm)
+    expect_true(all(required %in% names(e)), info = nm)
+    expect_identical(e$name, nm)
+    expect_true(e$status %in% flexyBayes:::.BACKEND_STATUS_VOCABULARY,
+                info = nm)
+    expect_true(all(e$grammars %in%
+                      flexyBayes:::.BACKEND_GRAMMAR_VOCABULARY), info = nm)
+    expect_true(is.logical(e$default_in_auto) &&
+                  !is.na(e$default_in_auto), info = nm)
+  }
+})
+
+test_that("the v0.5.0 population registers the expected backends", {
+  expect_setequal(flexyBayes:::.registered_backend_names(),
+                  c("greta", "inla", "brms", "gretaR"))
+  expect_identical(flexyBayes:::.lookup_backend("greta")$status, "active")
+  expect_identical(flexyBayes:::.lookup_backend("inla")$status, "active")
+  expect_identical(flexyBayes:::.lookup_backend("brms")$status, "active")
+  expect_identical(flexyBayes:::.lookup_backend("gretaR")$status, "dormant")
+  # The "brms" engine label records its Phase-3 rename target.
+  expect_identical(flexyBayes:::.lookup_backend("brms")$rename_to, "stan")
+})
+
+test_that("CONSISTENCY: routing-policy-table engines are all registered", {
+  tbl <- flexyBayes:::.routing_policy_table()
+  reg <- flexyBayes:::.registered_backend_names()
+  # user_request values: backend names plus the meta-value "auto".
+  ureq <- setdiff(unique(tbl$user_request), "auto")
+  expect_true(all(ureq %in% reg),
+              info = paste("unregistered user_request:",
+                           paste(setdiff(ureq, reg), collapse = ", ")))
+  # chosen_backend values (drop the NA explicit-inla-refusal row).
+  chosen <- stats::na.omit(unique(tbl$chosen_backend))
+  expect_true(all(chosen %in% reg),
+              info = paste("unregistered chosen_backend:",
+                           paste(setdiff(chosen, reg), collapse = ", ")))
+})
+
+test_that("CONSISTENCY: verb match.arg vocabularies are all registered", {
+  reg <- flexyBayes:::.registered_backend_names()
+  fx <- setdiff(eval(formals(flexyBayes::flexybayes)$backend), "auto")
+  fb <- setdiff(eval(formals(flexyBayes::fb_brms)$backend), "auto")
+  expect_true(all(fx %in% reg),
+              info = paste("flexybayes:", paste(fx, collapse = ", ")))
+  expect_true(all(fb %in% reg),
+              info = paste("fb_brms:", paste(fb, collapse = ", ")))
+})
+
+test_that("CONSISTENCY: auto candidate set matches default_in_auto flags", {
+  # The current dispatch candidate list lives in .resolve_routing();
+  # the registry's default_in_auto-TRUE names must equal it.
+  expect_setequal(flexyBayes:::.auto_default_backend_names(),
+                  c("greta", "inla", "gretaR"))
+  # brms is deliberately NOT auto-default (opt-in only; Stan compile
+  # latency would break the auto fast-path promise -- ADR 0024).
+  expect_false(flexyBayes:::.lookup_backend("brms")$default_in_auto)
+})
+
+test_that(".available_backend_names() are active and installed", {
+  avail <- flexyBayes:::.available_backend_names()
+  for (nm in avail) {
+    e <- flexyBayes:::.lookup_backend(nm)
+    expect_identical(e$status, "active", info = nm)
+    if (!is.na(e$available_pkg))
+      expect_true(requireNamespace(e$available_pkg, quietly = TRUE),
+                  info = nm)
+  }
+  # gretaR (dormant) is never available.
+  expect_false("gretaR" %in% avail)
+})
+
+test_that(".register_backend() refuses unknown status / grammar / duplicate", {
+  # These run against the locked registry, so the vocabulary checks
+  # (validated before the lock check) are what must fire first.
+  expect_error(
+    flexyBayes:::.register_backend(
+      name = "x", status = "experimental", engine = NA_character_,
+      grammars = "brms", paradigm = "p", available_pkg = NA_character_,
+      default_in_auto = FALSE),
+    "unknown status")
+  expect_error(
+    flexyBayes:::.register_backend(
+      name = "x", status = "active", engine = "e", grammars = "pymc",
+      paradigm = "p", available_pkg = NA_character_,
+      default_in_auto = FALSE),
+    "unknown grammar")
+})

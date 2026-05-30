@@ -138,6 +138,23 @@
   # Lock the backend-independence registry. The closed axis vocabulary
   # and the per-pair records are immutable to user code once loaded.
   .lock_backend_independence_registry()
+
+  # ADR 0031 (v0.5.0 backend-axis recovery, Phase 1): populate the
+  # backend registry --- the fifth closed-vocabulary registry, modelling
+  # backend as a first-class axis (the one concept ADR 0030 left
+  # hard-coded). Registers the three active backends reachable today
+  # (greta, inla, brms) plus the dormant gretaR slot. Phase 1 is
+  # additive and behaviour-neutral: the registry is the single source of
+  # truth for legitimate backend names, guarded by test-backend-registry.R
+  # against the existing match.arg vocabularies and .routing_policy_table();
+  # dispatch switches to consume it (capability_predicate gating) in
+  # Phase 2.
+  .populate_backend_registry_v050()
+
+  # Lock the backend registry. Further .register_backend() calls beyond
+  # this point raise rather than mutate the locked environment; future
+  # engines (gretaR activation, NIMBLE) register here in later releases.
+  .lock_backend_registry()
 }
 
 .onAttach <- function(libname, pkgname) {
