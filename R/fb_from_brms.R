@@ -45,24 +45,56 @@
 # smoothers via INLA's rw1/rw2, GP via SPDE, distributional
 # regression refusal hooks, and the addition-form family.
 
-# ---------------------------------------------------------------- #
-# Public-style entry -- internal in v0.1                            #
-# ---------------------------------------------------------------- #
-
-# Construct an fb_terms object from a brms-style formula.
-#
-# @param formula a base-R formula (recommended) or a `brmsformula`
-#   object. brmsformula support requires `brms` to be installed.
-# @param data data.frame containing all referenced variables.
-# @param family character family name or a base-R `family()` object.
-# @param link character link override or NULL.
-# @param prior an fb_prior object (deliverable 3) or NULL.
-# @param weights optional numeric weights vector of length
-#   nrow(data). Mapped to a single addition_term with
-#   type = "weights".
-# @param ... currently unused; reserved for v0.2+ brms-ingest
-#   options (e.g., specials, autocor handling).
-# @return an fb_terms object with source = "brms".
+#' Ingest a brms-format formula into the flexyBayes IR
+#'
+#' Parses a brms / lme4-style two-sided formula
+#' (`response ~ fixed + (1 | g)`) into a `fb_terms` object --
+#' flexyBayes's backend-agnostic intermediate representation (IR). The IR
+#' is what every engine emits from, so building it explicitly lets a
+#' power user inspect the parsed model, cache it, or hand it to a fitting
+#' verb. Most users never call this directly: [fb()] and [flexybayes()]
+#' detect a brms-style `formula` argument and build the IR internally.
+#'
+#' Linear fixed effects, random intercepts (`(1 | g)`, `(1 || g)`) and
+#' uncorrelated random intercept+slope (`(x || g)`) are supported;
+#' correlated random slopes (`(x | g)`), smoothers, Gaussian processes
+#' and autocorrelation terms refuse at ingest with a structured message.
+#'
+#' @param formula A base-R formula (recommended) or a `brmsformula`
+#'   object. `brmsformula` support requires \pkg{brms} to be installed.
+#' @param data A data.frame containing every referenced variable. May be
+#'   `NULL` only on the advanced metadata-only path (see `carry_n_rows`).
+#' @param family Character family name or a base-R `family()` object.
+#' @param link Character link override, or `NULL` for the family default.
+#' @param prior An [fb_prior()] object, or `NULL`.
+#' @param weights Optional numeric weights vector of length `nrow(data)`,
+#'   mapped to a single addition term with `type = "weights"`.
+#' @param prior_fixed_sd Numeric SD for fixed-effect normal priors when
+#'   `prior` is `NULL`.
+#' @param prior_vc_sd Numeric hyperparameter for the variance-component
+#'   priors when `prior` is `NULL`.
+#' @param carry_n_rows Advanced: a positive integer enabling the
+#'   metadata-only IR path (`data = NULL`). The formula's variables are
+#'   realised as a one-row placeholder and the row count is recorded as
+#'   `carry_n_rows`, for stress-testing the preflight layer without
+#'   materialising the full data. Leave `NULL` for ordinary use.
+#' @param ... Reserved for future brms-ingest options (specials, autocor
+#'   handling); currently unused.
+#'
+#' @return An `fb_terms` object with `source = "brms"`.
+#'
+#' @family flexyBayes ingest adapters
+#' @seealso [fb()] and [flexybayes()] for the universal fitting entry;
+#'   [fb_from_asreml()] and [fb_from_greta()] for the other dialects.
+#' @examples
+#' df <- data.frame(
+#'   y = rnorm(30),
+#'   x = rnorm(30),
+#'   g = factor(rep(letters[1:5], 6))
+#' )
+#' ir <- fb_from_brms(y ~ x + (1 | g), data = df)
+#' class(ir)
+#' @export
 fb_from_brms <- function(formula,
                          data,
                          family         = "gaussian",

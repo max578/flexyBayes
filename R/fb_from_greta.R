@@ -100,30 +100,49 @@
 }
 
 
-# ---------------------------------------------------------------- #
-# Public-internal constructor                                       #
-# ---------------------------------------------------------------- #
-
-# Build an fb_terms object from a user-supplied greta_model.
-#
-# @param model A greta_model returned by `greta::model(...)`.
-# @param data Optional data.frame used to build the model (recorded on
-#   the IR for downstream methods; not required for fitting since
-#   greta has already captured data into its TF graph at `as_data()`
-#   time).
-# @param prior Optional fb_prior object. When supplied, this function
-#   validates that every name resolves to a target greta_array;
-#   semantic match against the graph's encoded priors is the caller's
-#   responsibility (raised at fb_greta() entry).
-# @param canonical_names Optional named character vector mapping
-#   greta-side parameter names to canonical names. NULL falls back to
-#   the verbatim greta names.
-# @param known_matrices Named list -- mirror of the asreml entry;
-#   recorded on data_summary$known_matrices.
-#
-# @return An fb_terms object with `source = "greta"`, `intercept = NA`,
-#   empty fixed/random/rcov term lists, and the populated
-#   `greta_meta` slot per ADR 0012 §2.
+#' Ingest a user-built greta model into the flexyBayes IR
+#'
+#' Wraps a `greta_model` (built with `greta::model(...)`) in a `fb_terms`
+#' object -- flexyBayes's backend-agnostic intermediate representation
+#' (IR) -- so a natively-specified greta graph can flow through the same
+#' downstream machinery (summaries, [triangulate()], canonical-name
+#' mapping) as a formula-ingested model. Unlike the formula adapters this
+#' is a post-hoc wrapper around an already-built graph, so the resulting
+#' IR is greta-only by construction: it carries no fixed / random / rcov
+#' term lists, only the populated `greta_meta` slot.
+#'
+#' @param model A `greta_model` returned by `greta::model(...)`.
+#' @param data Optional data.frame used to build the model, recorded on
+#'   the IR for downstream methods. Not required for fitting -- greta has
+#'   already captured the data into its TensorFlow graph.
+#' @param prior Optional [fb_prior()] object. When supplied, every name
+#'   must resolve to a target greta_array; semantic agreement with the
+#'   graph's encoded priors is the caller's responsibility.
+#' @param canonical_names Optional named character vector mapping
+#'   greta-side parameter names to canonical names. `NULL` falls back to
+#'   the verbatim greta names (with a one-time silenceable note, since
+#'   [triangulate()] against a non-greta backend needs canonical names).
+#' @param known_matrices Named list, mirroring the ASReml entry; recorded
+#'   in `data_summary$known_matrices`.
+#'
+#' @return An `fb_terms` object with `source = "greta"`, `intercept = NA`,
+#'   empty fixed / random / rcov term lists, and the populated
+#'   `greta_meta` slot.
+#'
+#' @family flexyBayes ingest adapters
+#' @seealso [fb()] and [flexybayes()] for the universal fitting entry;
+#'   [fb_from_asreml()] and [fb_from_brms()] for the formula dialects.
+#' @examples
+#' \dontrun{
+#' library(greta)
+#' mu    <- normal(0, 10)
+#' sigma <- normal(0, 5, truncation = c(0, Inf))
+#' y     <- as_data(rnorm(20))
+#' distribution(y) <- normal(mu, sigma)
+#' m  <- model(mu, sigma)
+#' ir <- fb_from_greta(m, canonical_names = c(mu = "(Intercept)"))
+#' }
+#' @export
 fb_from_greta <- function(model,
                           data            = NULL,
                           prior           = NULL,

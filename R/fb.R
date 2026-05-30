@@ -13,35 +13,53 @@
 # Asreml-format ingest -> fb_terms                                 #
 # ---------------------------------------------------------------- #
 
-# Construct an fb_terms object from asreml-format formula arguments.
-#
-# Argument names and defaults mirror flexybayes() one-for-one so the
-# wrapper is a drop-in for the parsing portion of that function.
-#
-# @param fixed Two-sided formula: response ~ fixed_effects.
-# @param random One-sided formula ~ random_terms (asreml syntax) or
-#   NULL.
-# @param rcov One-sided formula ~ residual_structure or NULL. NULL
-#   defaults to list(list(type = "units")) -- iid residuals -- to
-#   match flexybayes()'s behaviour.
-# @param data data.frame containing all variables referenced.
-# @param family character family name; resolved via .resolve_family
-#   (gaussian, binomial, binary, poisson, negative_binomial,
-#   negbinom, gamma, beta).
-# @param link character or NULL: link override.
-# @param weights optional numeric vector of length nrow(data). If
-#   non-NULL, mapped to a single addition_term with type="weights".
-# @param known_matrices named list of known matrices (e.g.
-#   list(Gmat = G)). Names recorded in data_summary$known_matrices.
-# @param prior an fb_prior object (deliverable 3) or NULL. NULL
-#   falls back to legacy scalar priors prior_fixed_sd /
-#   prior_vc_sd. Forward-compat hook -- fb_prior is wired in
-#   deliverable 3.
-# @param prior_fixed_sd numeric: SD for fixed-effect normal priors
-#   (legacy).
-# @param prior_vc_sd numeric: hyperparameter for lognormal variance-
-#   component priors (legacy).
-# @return an fb_terms object with source = "asreml".
+#' Ingest an ASReml-format model specification into the flexyBayes IR
+#'
+#' Parses an ASReml-style `fixed` / `random` / `rcov` specification into
+#' a `fb_terms` object -- flexyBayes's backend-agnostic intermediate
+#' representation (IR) of a model. The IR is what every engine emits
+#' from, so building it explicitly lets a power user inspect the parsed
+#' model, cache it, or hand it to a fitting verb. Most users never call
+#' this directly: [flexybayes()] and [fb()] build the IR internally from
+#' the same arguments. Argument names and defaults mirror [flexybayes()]
+#' one-for-one, so this is a drop-in for that function's parsing step.
+#'
+#' @param fixed Two-sided formula: `response ~ fixed_effects`.
+#' @param random One-sided formula `~ random_terms` (ASReml syntax), or
+#'   `NULL`.
+#' @param rcov One-sided formula `~ residual_structure`, or `NULL`. `NULL`
+#'   defaults to iid residuals (`list(list(type = "units"))`), matching
+#'   [flexybayes()].
+#' @param data A data.frame containing every variable referenced.
+#' @param family Character family name (`gaussian`, `binomial`, `binary`,
+#'   `poisson`, `negative_binomial`, `negbinom`, `gamma`, `beta`).
+#' @param link Character link override, or `NULL` for the family default.
+#' @param weights Optional numeric vector of length `nrow(data)`. When
+#'   non-`NULL`, mapped to a single addition term with `type = "weights"`.
+#' @param known_matrices Named list of known matrices (e.g.
+#'   `list(Gmat = G)`); names are recorded in
+#'   `data_summary$known_matrices`.
+#' @param prior An [fb_prior()] object, or `NULL`. `NULL` falls back to
+#'   the scalar priors `prior_fixed_sd` / `prior_vc_sd`.
+#' @param prior_fixed_sd Numeric SD for fixed-effect normal priors when
+#'   `prior` is `NULL`.
+#' @param prior_vc_sd Numeric hyperparameter for the variance-component
+#'   priors when `prior` is `NULL`.
+#'
+#' @return An `fb_terms` object with `source = "asreml"`.
+#'
+#' @family flexyBayes ingest adapters
+#' @seealso [flexybayes()] and [fb()] for the universal fitting entry;
+#'   [fb_from_brms()] and [fb_from_greta()] for the other ingest dialects.
+#' @examples
+#' df <- data.frame(
+#'   yield = rnorm(20),
+#'   geno  = factor(rep(letters[1:4], 5)),
+#'   env   = factor(rep(c("a", "b"), 10))
+#' )
+#' ir <- fb_from_asreml(yield ~ env, random = ~ geno, data = df)
+#' class(ir)
+#' @export
 fb_from_asreml <- function(fixed,
                            random         = NULL,
                            rcov           = NULL,
