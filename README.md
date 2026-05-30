@@ -52,7 +52,7 @@ install.packages("brms")
 # flexyBayes -- install from the local checkpoint tarball
 # (installation from the public repository will be available once
 # the package is published there).
-R CMD INSTALL release_tarballs/flexyBayes_0.3.10.tar.gz
+R CMD INSTALL release_tarballs/flexyBayes_0.4.0.tar.gz
 
 # Once published, install directly from the repository:
 # install.packages("remotes")

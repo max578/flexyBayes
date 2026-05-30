@@ -2,7 +2,7 @@
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package is currently a 0.3.x release build (`0.3.10`).
+The package is currently a 0.4.x release build (`0.4.0`).
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and

@@ -38,6 +38,8 @@ suppressPackageStartupMessages(library(testthat))
 test_that("marginaleffects accessors work on an INLA fit", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("marginaleffects")
+  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_ci()
   .mfx_silence()
   d <- .mfx_data()
   fit <- suppressMessages(fb_brms(
@@ -58,6 +60,8 @@ test_that("marginaleffects accessors work on an INLA fit", {
 test_that("predictions() / avg_slopes() on an INLA fit recover the DGP", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("marginaleffects")
+  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_ci()
   .mfx_silence()
   d <- .mfx_data()
   fit <- suppressMessages(fb_brms(

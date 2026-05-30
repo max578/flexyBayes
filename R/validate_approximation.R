@@ -134,12 +134,12 @@ validate_approximation <- function(fit, ...) {
   entry$validation_fn(fit, ...)
 }
 
-#' @export
+#' @exportS3Method validate_approximation low_rank_smooth
 validate_approximation.low_rank_smooth <- function(fit, ...) {
   .validate_low_rank_smooth(fit, ...)
 }
 
-#' @export
+#' @exportS3Method validate_approximation default
 validate_approximation.default <- function(fit, ...) {
   exactness <- fit$exactness %||% "exact"
   stop(.fb_refusal_condition(

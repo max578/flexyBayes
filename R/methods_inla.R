@@ -32,12 +32,19 @@
          call. = FALSE)
 
   fixed_names <- rownames(object$inla$summary.fixed)
+  # Force single-threaded sampling. inla.posterior.sample() otherwise
+  # spawns one worker per requested sample, which (a) trips the core
+  # limit R CMD check enforces via _R_CHECK_LIMIT_CORES_ and (b) is
+  # wasteful for the modest sample counts the accessor draws. The fit
+  # is built with control.compute = list(config = TRUE) (see
+  # R/emit_inla.R), so config is not the failure mode here.
   samples <- tryCatch(
-    INLA::inla.posterior.sample(as.integer(n_samples), object$inla),
+    INLA::inla.posterior.sample(as.integer(n_samples), object$inla,
+                                num.threads = "1:1"),
     error = function(e)
       stop("INLA::inla.posterior.sample() failed: ",
            conditionMessage(e),
-           ". The fit must be built with ",
+           ". Ensure the fit was built with ",
            "control.compute = list(config = TRUE).", call. = FALSE)
   )
 
@@ -132,8 +139,8 @@ family.flexybayes_inla <- function(object, ...) {
 #' Fixed-effect (population-level) predictions: the linear predictor is
 #' `X beta` with random effects held at their population mean (zero).
 #' On the identity link the response- and link-scale predictions
-#' coincide. This is the prediction surface [marginaleffects] uses for
-#' average predictions and slopes.
+#' coincide. This is the prediction surface \pkg{marginaleffects} uses
+#' for average predictions and slopes.
 #'
 #' @param object A `flexybayes_inla` fit.
 #' @param newdata Optional data frame; defaults to the fit data.

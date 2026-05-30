@@ -32,6 +32,6 @@ when \code{se.fit = TRUE}.
 Fixed-effect (population-level) predictions: the linear predictor is
 \verb{X beta} with random effects held at their population mean (zero).
 On the identity link the response- and link-scale predictions
-coincide. This is the prediction surface \link{marginaleffects} uses for
-average predictions and slopes.
+coincide. This is the prediction surface \pkg{marginaleffects} uses
+for average predictions and slopes.
 }

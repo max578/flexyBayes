@@ -38,6 +38,8 @@ suppressPackageStartupMessages(library(testthat))
 test_that("emmeans(fit, ~ f) works on an INLA fit and recovers cell means", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("emmeans")
+  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_ci()
   .emm_silence()
   d <- .emm_data()
   fit <- suppressMessages(fb_brms(
@@ -59,6 +61,8 @@ test_that("emmeans(fit, ~ f) works on an INLA fit and recovers cell means", {
 test_that("emmeans pairwise contrasts on an INLA fit recover the DGP gaps", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("emmeans")
+  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_ci()
   .emm_silence()
   d <- .emm_data()
   fit <- suppressMessages(fb_brms(

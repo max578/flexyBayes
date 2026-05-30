@@ -23,12 +23,18 @@
 
 suppressPackageStartupMessages(library(testthat))
 
-withr::local_options(
-  flexyBayes.silence_default_prior_note     = TRUE,
-  flexyBayes.silence_uniform_inla_approx    = TRUE,
-  flexyBayes.silence_auto_fallback_note     = TRUE,
-  flexyBayes.silence_auto_inla_missing_note = TRUE,
-  .local_envir = teardown_env())
+# Silence the fit-time notes, scoped to the CALLING test_that frame so
+# the option never leaks into other test files. (A session-wide
+# teardown_env() scope would silence the default-prior note that
+# test-smooth.R asserts fires.)
+.fbe_quiet <- function(envir = parent.frame()) {
+  withr::local_options(
+    flexyBayes.silence_default_prior_note     = TRUE,
+    flexyBayes.silence_uniform_inla_approx    = TRUE,
+    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_auto_inla_missing_note = TRUE,
+    .local_envir = envir)
+}
 
 # (1) in-memory point == file point; (2) chunked file == unchunked file.
 .expect_file_equiv <- function(fit, newdata, ...) {
@@ -64,6 +70,7 @@ withr::local_options(
 
 test_that("file output matches the in-memory kernel for a fixed-only model", {
   skip_if_not_installed("greta")
+  .fbe_quiet()
   set.seed(101L)
   dat <- data.frame(x = rnorm(60L), y = rnorm(60L))
   fit <- suppressMessages(fb_brms(
@@ -79,6 +86,7 @@ test_that("file output matches the in-memory kernel for a fixed-only model", {
 
 test_that("file output matches the in-memory kernel for a smooth s(x) model", {
   skip_if_not_installed("greta")
+  .fbe_quiet()
   skip_if_not_installed("mgcv")
   set.seed(102L)
   dat <- data.frame(x = sort(rnorm(60L)))
@@ -99,6 +107,7 @@ test_that("file output matches the in-memory kernel for a smooth s(x) model", {
 
 test_that("file output matches the in-memory kernel for a population-level RI prediction", {
   skip_if_not_installed("greta")
+  .fbe_quiet()
   set.seed(103L)
   dat <- data.frame(
     x = rnorm(80L),
@@ -125,6 +134,7 @@ test_that("file output matches the in-memory kernel for a population-level RI pr
 
 test_that("the sampled-new-level file path is reproducible under a fixed seed and well-formed", {
   skip_if_not_installed("greta")
+  .fbe_quiet()
   set.seed(104L)
   dat <- data.frame(
     x = rnorm(80L),
