@@ -206,15 +206,27 @@ triangulate <- function(fit_a, fit_b,
     .triangulate_empty_table()
   }
 
+  # ADR 0029: label the pair with its independence axis vocabulary.
+  # The lookup is symmetric (sorted pair key); an unregistered pair
+  # (same backend, or a backend with no registered claims) yields an
+  # empty axis set and the report renders without the label rather than
+  # refusing.
+  src_a <- .triangulate_source(fit_a)
+  src_b <- .triangulate_source(fit_b)
+  indep <- .lookup_pair_independence(c(src_a, src_b))
+
   structure(
     list(
-      metrics  = metrics,
-      common   = common,
-      only_a   = only_a,
-      only_b   = only_b,
-      n_common = length(common),
-      source_a = .triangulate_source(fit_a),
-      source_b = .triangulate_source(fit_b)
+      metrics            = metrics,
+      common             = common,
+      only_a             = only_a,
+      only_b             = only_b,
+      n_common           = length(common),
+      source_a           = src_a,
+      source_b           = src_b,
+      independence       = if (is.null(indep)) character(0) else indep$axes,
+      axis_justification = if (is.null(indep)) NA_character_ else
+                             indep$justification
     ),
     class = c("triangulate_result", "list")
   )
@@ -452,6 +464,15 @@ print.triangulate_result <- function(x, ...) {
   cat("<triangulate_result>\n")
   cat("  source_a: ", x$source_a, "\n", sep = "")
   cat("  source_b: ", x$source_b, "\n", sep = "")
+  # ADR 0029: the independence axis labels the kind of convergence
+  # claim this pair underwrites. Absent (empty) for same-backend or
+  # unregistered pairs.
+  if (length(x$independence) > 0L) {
+    cat("  independence: ", .format_independence_axes(x$independence),
+        "\n", sep = "")
+    if (!is.null(x$axis_justification) && !is.na(x$axis_justification))
+      cat("    (", x$axis_justification, ")\n", sep = "")
+  }
   cat("  n_common: ", x$n_common, "\n", sep = "")
   .print_only(x$only_a, "only_a")
   .print_only(x$only_b, "only_b")
@@ -465,6 +486,20 @@ print.triangulate_result <- function(x, ...) {
         sep = "")
   }
   invisible(x)
+}
+
+# Render the independence axes as a " + "-joined string. ADR 0029
+# Decision 3: colour grades match the methodological strength of the
+# convergence claim -- algorithmic (strongest) blue, implementation
+# plain, specification dim. Colour is additive: a monochrome / dumb
+# terminal sees the same labels in plain text (cli degrades to identity
+# off a dynamic TTY), so the label is never colour-load-bearing.
+.format_independence_axes <- function(axes) {
+  graded <- vapply(axes, function(a) switch(a,
+    algorithmic    = cli::col_blue(a),
+    specification  = cli::col_grey(a),
+    a), character(1L))
+  paste(graded, collapse = " + ")
 }
 
 .print_only <- function(names_vec, label) {

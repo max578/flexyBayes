@@ -70,6 +70,27 @@ the greta and INLA backends.
   with its fitted coefficients is refused with a clear message pointing
   to the posterior-draws workflow, rather than silently mis-mapped.
 
+## Triangulation now labels its convergence claim by independence axis
+
+`triangulate()` reports gain an `independence` axis label, so a
+cross-engine agreement says *what kind* of convergence it is, not just
+how close. A small distance between two HMC fits ("implementation"
+independence) underwrites a weaker claim than the same distance between
+an HMC fit and a Laplace-approximation fit ("algorithmic"
+independence).
+
+- Every `triangulate()` result carries `independence` (a vector from the
+  closed vocabulary `algorithmic` / `implementation` / `specification`)
+  and `axis_justification` (a one-line explanation). The print method
+  surfaces the label, colour-graded by methodological strength on a
+  colour terminal (plain text everywhere else). The Wasserstein columns
+  are unchanged, so existing consumers keep working. The label follows
+  Gelman et al. (2020, *Bayesian Workflow*, arXiv:2011.01808) §6 on
+  cross-checks across implementations.
+- The three v0.3.x backend pairs (greta--inla, greta--brms, brms--inla)
+  are labelled; same-backend or unregistered pairs render without the
+  label rather than refusing.
+
 ## Aggregated triangulation and matched-prior transparency
 
 - **`triangulate()` now works on greta-aggregated fits.** Aggregated

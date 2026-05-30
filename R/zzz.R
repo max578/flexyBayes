@@ -126,6 +126,18 @@
   # than mutate the locked environment; further schemes (inla_laplace,
   # predictive_process, vb) register here in subsequent releases.
   .lock_approximation_registry()
+
+  # ADR 0029 (v0.4.0 Wave 2 Phase 2B): populate the backend-independence
+  # registry with the three pairs among the v0.3.x triangulatable
+  # backends (greta, inla, brms). triangulate() consumes this to label
+  # each cross-engine comparison with its independence axis
+  # (algorithmic / implementation / specification). The stan_brms
+  # backend (ADR 0028) registers its own pairs when it lands at v0.4.1.
+  .populate_backend_independence_registry_v0400()
+
+  # Lock the backend-independence registry. The closed axis vocabulary
+  # and the per-pair records are immutable to user code once loaded.
+  .lock_backend_independence_registry()
 }
 
 .onAttach <- function(libname, pkgname) {
