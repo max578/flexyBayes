@@ -197,8 +197,18 @@ fb_brms <- function(formula,
   # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
   # before match.arg's generic message fires. Structured refusal
   # carries the ADR-0027 pointer + the exact-route alternatives.
+  # v0.4.0 Wave 1 Phase 1D: accept backend = fb_engine(...) directly,
+  # then apply the engine's sampler-control opts.
+  engine_in <- backend
+  backend   <- .resolve_engine_string(engine_in)
   .check_approximate_scheme(backend)
   backend   <- match.arg(backend)
+  eng_opts  <- .fb_engine_opts(engine_in)
+  if (!is.null(eng_opts)) {
+    if (!is.null(eng_opts$n_samples)) n_samples <- eng_opts$n_samples
+    if (!is.null(eng_opts$warmup))    warmup    <- eng_opts$warmup
+    if (!is.null(eng_opts$chains))    chains    <- eng_opts$chains
+  }
   aggregate <- .normalise_aggregate(aggregate)
 
   if (missing(formula))

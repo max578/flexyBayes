@@ -1,5 +1,27 @@
 # flexyBayes 0.4.0 (in development)
 
+## New constructor nouns: `fb_engine()` and `fb_approx()`
+
+Two named constructors join `fb_prior()`, so a model's inference engine
+and any approximation are specified as explicit, printable objects
+rather than bare strings.
+
+- **`fb_engine(name, opts)`** names an inference engine (`"greta"`,
+  `"inla"`, `"brms"`) and its sampler tuning, and is passed as the
+  `backend` argument: `flexybayes(..., backend = fb_engine("greta",
+  chains = 4L))`. It records the engine's inference `paradigm` and a
+  `toolchain_status` reflecting whether the engine's package is
+  installed. The bare-string form (`backend = "greta"`) continues to
+  work unchanged.
+- **`fb_approx(scheme, ...)`** names an approximation scheme --- validated
+  against the approximation registry --- and its tuning, and is passed as
+  a smooth representation: `s(x, representation =
+  fb_approx("low_rank_smooth", rank = 5L))`. It carries a
+  literature-referenced description of the scheme's bias bound. An
+  unregistered scheme is refused with the supported vocabulary.
+- Both come with `is_fb_engine()` / `is_fb_approx()` predicates and
+  print methods.
+
 ## `emmeans` and `marginaleffects` now work end-to-end
 
 Fits now expose the standard model interface that the downstream

@@ -67,6 +67,29 @@
 # divergence between the table-resolved chosen backend and the
 # code-resolved chosen backend surfaces as a test failure in
 # tests/testthat/test-backend-routing-trace.R subtest (n).
+
+
+# ---------------------------------------------------------------- #
+# Constructor-noun resolution (v0.4.0 Wave 1 Phase 1D)              #
+# ---------------------------------------------------------------- #
+# Resolve a `backend` argument to its engine-name string. An
+# `fb_engine()` object resolves to its `name`; a bare string (or the
+# multi-value default vector) passes through unchanged for match.arg().
+.resolve_engine_string <- function(backend) {
+  if (inherits(backend, "fb_engine")) return(backend$name)
+  backend
+}
+
+# The tuning options carried by a `backend = fb_engine(...)` argument,
+# or NULL for the bare-string form. Consumed by the fitting verbs to
+# override the corresponding sampler controls.
+.fb_engine_opts <- function(backend) {
+  if (inherits(backend, "fb_engine") && length(backend$opts))
+    backend$opts
+  else NULL
+}
+
+
 .routing_policy_table <- function() {
   data.frame(
     user_request      = c("greta", "brms", "inla",
