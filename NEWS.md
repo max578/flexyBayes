@@ -1,4 +1,40 @@
-# flexyBayes 0.4.0 (in development)
+# flexyBayes 0.4.1
+
+## One universal entry across every grammar and backend
+
+`fb()` / `flexybayes()` becomes the single entry for any input grammar
+and any backend, with single-engine pins alongside it.
+
+- **Grammar polymorphism.** `fb()` / `flexybayes()` now accept a
+  brms / lme4-style bar-grouped formula (`response ~ x + (1 | g)`) in
+  addition to the ASReml `fixed` / `random` / `rcov` form. The grammar is
+  detected from the call shape; the new `syntax` argument forces it. A
+  brms-style model now reaches every available backend through the
+  universal entry, not just one.
+- **Engine pins.** `fb_inla()` joins `fb_greta()` as a single-engine
+  fitting verb: `fb_inla(...)` is exactly `fb(..., backend = "inla")`,
+  and accepts the same grammars.
+- **Exported ingest adapters.** `fb_from_asreml()`, `fb_from_brms()` and
+  `fb_from_greta()` are now exported. They turn a model specification
+  into the backend-agnostic intermediate representation, for inspection,
+  caching, or hand-off to a fitting verb.
+- **Registry-driven backend selection.** Backend availability,
+  capability, and the `auto` candidate set are sourced from a single
+  locked backend registry, so the dispatch facts have one home.
+
+## Deprecations
+
+- **`fb_brms()` with a non-brms backend is deprecated.** Pass the same
+  formula to `fb()` / `flexybayes()`, which now detects brms grammar and
+  reaches every backend (including the same `auto` / `greta` / `inla`
+  routing). `fb_brms(backend = "brms")` is unaffected. The multi-backend
+  form is removed at 0.5.0, when `fb_brms()` becomes the brms engine pin.
+- **The `fb_greta(model = )` native-graph signature is deprecated.**
+  Build the intermediate representation from a native greta model with
+  `fb_from_greta()`. The signature is removed at 0.5.0, when `fb_greta()`
+  becomes the greta engine pin.
+
+# flexyBayes 0.4.0
 
 ## Covariance carriers: the `fb_cov()` constructor (breaking change)
 
