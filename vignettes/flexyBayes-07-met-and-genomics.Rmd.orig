@@ -236,7 +236,7 @@ fit_ped
 GBLUP and pedigree BLUP are structurally identical; only the
 relationship matrix changes. When both markers and pedigree are
 available, the genomic-pedigree blend (`H` matrix; Christensen &
-Lund, 2010) is on the v0.3 roadmap.
+Lund, 2010) is on the roadmap.
 
 # 7. Genomic prediction error
 

@@ -88,6 +88,33 @@ posteriors agree to four decimal places across $n$ from 100 to 25,000
 *when priors are matched*. Any disagreement is therefore a *signal*,
 not noise.
 
+## Reading the independence-axis label
+
+Agreement is not one thing. From v0.4.0 each `triangulate()` report
+carries an `independence` label naming *what kind* of convergence the
+agreement underwrites, drawn from a closed three-axis vocabulary that
+follows Gelman et al.'s (2020) *Bayesian Workflow* taxonomy of
+cross-checks:
+
+- **algorithmic** — the two engines use different inference paradigms
+  (here HMC versus Laplace approximation). Agreement on this axis is
+  the strongest claim: it rules out algorithm-specific failure modes
+  such as mixing pathologies or tail-approximation error.
+- **implementation** — the same paradigm through different code bases
+  (different automatic-differentiation framework, code generation, or
+  numerical regime). Agreement catches numerical and prior-translation
+  bugs.
+- **specification** — the same likelihood through different
+  parameterisations. No current backend pair exercises this axis alone;
+  it is reserved for future within-backend reparameterisation checks.
+
+A greta-versus-INLA comparison is labelled `algorithmic +
+implementation` (the engines differ on both paradigm and code base), so
+a small Wasserstein-1 distance there is a stronger convergence statement
+than the same distance between two HMC engines. The print method
+colour-grades the label by methodological strength on a colour terminal;
+the labels are plain text everywhere else.
+
 # 3. The eight common disagreement patterns
 
 | # | Cause | Symptom | First diagnostic |

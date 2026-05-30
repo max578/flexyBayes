@@ -42,7 +42,7 @@ data, the stochastic partial differential equation (SPDE) approach
 for irregular geography, and the Hilbert-space approximate Gaussian
 process (HSGP) for fast continuous-domain approximations —
 substantially more powerful for irregular geographies — is on the
-v0.3 roadmap.
+roadmap.
 
 # 2. The spatial AR1×AR1 model: `stroup.nin`
 
@@ -217,14 +217,14 @@ the agronomy-textbook decomposition (Gilmour, Cullis, & Verbyla,
 *not* cover:
 
 - **irregular geography** — the SPDE / Matérn approach (Lindgren,
-  Rue, & Lindström, 2011) is on the v0.3 roadmap;
+  Rue, & Lindström, 2011) is on the roadmap;
 - **areal data** — the BYM2 model (Riebler, Sørbye, Simpson, & Rue,
-  2016) is on the v0.3 roadmap;
+  2016) is on the roadmap;
 - **continuous-time temporal correlation** — the
   Ornstein–Uhlenbeck and continuous-AR processes are on the v0.3
   roadmap;
 - **spatio-temporal interaction** — separable space-time covariance
-  is on the v0.3 roadmap.
+  is on the roadmap.
 
 For these models in the current release, route directly through
 `R-INLA` or `mgcv::gam(s = bs = "re")` with the relevant spatial

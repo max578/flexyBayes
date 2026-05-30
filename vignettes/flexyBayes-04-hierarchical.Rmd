@@ -235,7 +235,7 @@ canonical_names(fit_ris_uncor)$map
 The correlated form `(Days | Subject)` (with a free correlation
 parameter between the subject-level intercept and slope) is not yet
 supported on the brms ingest path. Attempting it raises a
-structured refusal with a v0.3 deferral pointer -- the workaround
+structured refusal with a deferral pointer -- the workaround
 text suggests the `(Days || Subject)` form when the correlation is
 not of inferential interest, or the asreml-style structured
 covariance entry above when it is. The refusal carries a typed

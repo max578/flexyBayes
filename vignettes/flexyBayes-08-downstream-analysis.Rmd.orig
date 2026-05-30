@@ -135,23 +135,25 @@ summaries.
 - `slopes()` evaluates *partial derivatives* of predictions with
   respect to a continuous predictor.
 
-`marginaleffects` does not yet list `flexyBayes` in its supported
-model classes; integration is queued for a subsequent release. The
-expected call shapes — once integration lands — are:
+As of v0.4.0 `marginaleffects` works directly on `flexyBayes` fits on
+both the greta and INLA backends. The functions dispatch through the
+package's `get_predict()` / `get_coef()` / `get_vcov()` accessors and
+return population-level (fixed-effect) predictions on the identity
+link:
 
 ```r
 predictions(fit, newdata = data.frame(Days = c(0, 5, 9), Subject = "308"))
 
-comparisons(fit,
-            variables = list(Days = c(0, 9)),
-            newdata   = data.frame(Days = NA, Subject = "308"))
+avg_comparisons(fit,
+                variables = list(Days = c(0, 9)),
+                newdata   = data.frame(Days = NA, Subject = "308"))
 
-slopes(fit, variables = "Days",
-       newdata = data.frame(Days = 5, Subject = "308"))
+avg_slopes(fit, variables = "Days",
+           newdata = data.frame(Days = 5, Subject = "308"))
 ```
 
-For now, the manual route through `fb_as_draws_simple()` covers the
-same ground:
+The manual route through `fb_as_draws_simple()` remains available and
+covers the same ground with full posterior draws:
 
 ```{r me-manual, eval = greta_ok}
 draws <- flexyBayes::fb_as_draws_simple(fit)
@@ -168,9 +170,9 @@ c(diff = mean(diff_9_0), q025 = quantile(diff_9_0, 0.025),
   q975 = quantile(diff_9_0, 0.975))
 ```
 
-For full posterior propagation through complex counterfactuals — the
-strength of `marginaleffects` once integration lands — the manual
-draws-based route is the v0.1 idiom.
+For full posterior propagation through complex counterfactuals — where
+`marginaleffects` summarises to population means while the draws carry
+the entire posterior — the manual draws-based route stays useful.
 
 `marginaleffects` and `emmeans` overlap in scope. The rule of thumb:
 `emmeans` for grouped means and pairwise contrasts on factors;

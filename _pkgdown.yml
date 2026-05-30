@@ -61,13 +61,38 @@ navbar:
           href: articles/flexyBayes-12-backend-internals.html
 
 reference:
-  - title: User-facing entry points
-    desc: Top-level functions for fitting, specifying, and comparing models.
+  - title: Verbs
+    desc: >
+      The six exported verbs (architecturally final at v0.4.0, ADR 0030):
+      fitting surfaces, the feasibility planner, cross-engine
+      triangulation, and approximation validation.
     contents:
       - flexybayes
       - fb
-      - fb_prior
+      - fb_brms
+      - fb_greta
+      - fb_plan
       - triangulate
+      - validate_approximation
+  - title: Constructor nouns
+    desc: >
+      The four classed input constructors: priors, covariance carriers,
+      approximation schemes, and engine selections.
+    contents:
+      - fb_prior
+      - fb_cov
+      - fb_approx
+      - fb_engine
+      - is_fb_cov
+      - is_fb_approx
+      - is_fb_engine
+  - title: Accessors and discovery
+    desc: Routing trace, refusal vocabulary, prior summary, and status.
+    contents:
+      - backend_decision
+      - fb_refusals
+      - prior_summary
+      - gretaR_status
   - title: Cross-package interop
     desc: Tidiers, emmeans, and draws conversion.
     contents:
