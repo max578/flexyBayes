@@ -51,6 +51,24 @@
 #' fit_b's *original* parameter names, not the post-`name_map`
 #' canonical names.
 #'
+#' @section Matched priors:
+#' When one of the inputs is an aggregated-gaussian fit (cell-level
+#' sufficient statistics rather than the per-row likelihood), the
+#' posteriors being compared are only directly comparable when the two
+#' fits share priors. The aggregated path combines the cell-mean
+#' likelihood with a precision prior carrying a closed-form correction
+#' that absorbs the within-cell sum-of-squares; under the *default*
+#' prior this recovers the per-row posterior to numerical precision, so
+#' the aggregated fit is tagged `prior_parametrization =
+#' "per_row_equivalent"` (visible in the aggregated `print()` / `summary()`
+#' and in [canonical_names()]). When an explicit prior is supplied the
+#' fit is tagged `"custom"`: the equivalence against a *default-prior*
+#' per-row fit no longer holds, and on the aggregated INLA path the
+#' observation-precision prior is not plumbed through, so a custom
+#' residual prior is silently not applied there. Before reading the
+#' agreement metrics on a custom-prior aggregated fit, confirm both
+#' inputs carry the same prior with [prior_summary()].
+#'
 #' @param fit_a a fit object with a `fb_as_draws_simple` method
 #'   (e.g., `flexybayes` from greta, `flexybayes_inla` from INLA).
 #' @param fit_b a second fit object, typically from a different

@@ -155,6 +155,21 @@ summary.flexybayes <- function(object, ...) {
   invisible(object$extras$summary)
 }
 
+# Human-readable label for the aggregated-fit prior parametrization,
+# shared by the aggregated print + summary methods. The
+# "per_row_equivalent" case reassures the user that the matched-prior
+# guarantee holds (aggregated posterior == per-row posterior under the
+# default prior); the "custom" case flags that an explicit prior was
+# supplied and points at prior_summary().
+.agg_prior_label <- function(pp) {
+  switch(pp,
+    per_row_equivalent =
+      "per-row-equivalent (default prior; aggregated posterior matches per-row)",
+    custom =
+      "custom (explicit prior supplied; see prior_summary())",
+    pp)
+}
+
 #' Print a flexybayes_aggregated object
 #'
 #' Brief one-screen summary of an aggregated-gaussian fit produced by
@@ -190,6 +205,8 @@ print.flexybayes_aggregated <- function(x, ...) {
                 format(am$N, big.mark = " ", scientific = FALSE),
                 format(am$K, big.mark = " ", scientific = FALSE),
                 am$N / am$K))
+  if (!is.null(am$prior_parametrization))
+    cat("  priors:    ", .agg_prior_label(am$prior_parametrization), "\n")
   cat(strrep("-", 60), "\n")
   cat("  $glm      -- per-row reconstructed fitted values + coef shim\n")
   cat("  $inla     -- raw aggregated INLA fit (use INLA's summary etc.)\n")
@@ -220,6 +237,8 @@ summary.flexybayes_aggregated <- function(object, ...) {
   cat("  N =", mi$n_obs, ", K =", mi$n_cells, "\n")
   cat("  backend:   ", bd$backend, "\n")
   cat("  exactness: ", object$exactness, "\n")
+  if (!is.null(am$prior_parametrization))
+    cat("  priors:    ", .agg_prior_label(am$prior_parametrization), "\n")
   if (!is.null(am) && am$N / am$K >= 2)
     cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
                 format(am$N, big.mark = " ", scientific = FALSE),

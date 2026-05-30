@@ -79,6 +79,12 @@
 #'       `"registry_fallback_verbatim"`, or `"legacy_inferred"`.}
 #'     \item{`unmapped`}{Character vector of backend-native names
 #'       not in the map (when `drop = FALSE`).}
+#'     \item{`prior_parametrization`}{Character, present only on
+#'       aggregated-gaussian fits: `"per_row_equivalent"` when the
+#'       default precision prior is in force (the aggregated posterior
+#'       then matches the per-row posterior to numerical precision) or
+#'       `"custom"` when an explicit prior was supplied (see the
+#'       "Matched priors" note on [triangulate()]).}
 #'   }
 #' @export
 canonical_names <- function(fit, drop = FALSE, ...)
@@ -198,6 +204,14 @@ register_canonical_mapper <- function(backend, mapper) {
 # Predictor.* linear-predictor samples, or greta-side tracked-
 # latent BLUPs) that the registry doesn't translate.
 .maybe_attach_unmapped <- function(res, fit, drop, backend) {
+  # Surface the aggregated-fit prior parametrization on the result so a
+  # consumer can tell whether the matched-prior (per-row-equivalent)
+  # guarantee holds without reaching into the fit internals. Absent on
+  # non-aggregated fits (the meta slot is NULL), so the field simply does
+  # not appear there. Attached on both the drop = TRUE and drop = FALSE
+  # paths since it is independent of the unmapped-draws logic.
+  pp <- fit$extras$aggregation_meta$prior_parametrization
+  if (!is.null(pp)) res$prior_parametrization <- pp
   if (isTRUE(drop)) return(res)
   draws_names <- tryCatch(.backend_draw_names(fit, backend),
                           error = function(e) character(0))

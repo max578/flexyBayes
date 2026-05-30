@@ -72,6 +72,25 @@ fit_a's canonical names. Names in \code{transform_b} therefore refer to
 fit_b's \emph{original} parameter names, not the post-\code{name_map}
 canonical names.
 }
+\section{Matched priors}{
+
+When one of the inputs is an aggregated-gaussian fit (cell-level
+sufficient statistics rather than the per-row likelihood), the
+posteriors being compared are only directly comparable when the two
+fits share priors. The aggregated path combines the cell-mean
+likelihood with a precision prior carrying a closed-form correction
+that absorbs the within-cell sum-of-squares; under the \emph{default}
+prior this recovers the per-row posterior to numerical precision, so
+the aggregated fit is tagged \code{prior_parametrization = "per_row_equivalent"} (visible in the aggregated \code{print()} / \code{summary()}
+and in \code{\link[=canonical_names]{canonical_names()}}). When an explicit prior is supplied the
+fit is tagged \code{"custom"}: the equivalence against a \emph{default-prior}
+per-row fit no longer holds, and on the aggregated INLA path the
+observation-precision prior is not plumbed through, so a custom
+residual prior is silently not applied there. Before reading the
+agreement metrics on a custom-prior aggregated fit, confirm both
+inputs carry the same prior with \code{\link[=prior_summary]{prior_summary()}}.
+}
+
 \examples{
 # Live INLA posterior sampling can fail in restricted-process
 # check environments (the `inla.posterior.sample` parallelism

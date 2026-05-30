@@ -248,3 +248,72 @@ test_that("triangulate() runs end-to-end on greta vs INLA", {
   # (Intercept) and x across the two engines.
   expect_true(any(c("(Intercept)", "x") %in% tri$common))
 })
+
+# ---------------------------------------------------------------- #
+# Live aggregated path: triangulate() on an aggregated INLA fit     #
+# ---------------------------------------------------------------- #
+
+test_that("triangulate() runs on an aggregated INLA fit and agrees with per-row (< 0.1 SD)", {
+  # The aggregated dispatch path was previously exercised only by code
+  # inspection -- no live test ran triangulate() on an aggregated fit.
+  # The aggregated INLA posterior is, by construction, the per-row
+  # posterior under the default prior: the precision-prior closed-form
+  # correction absorbs the within-cell sum-of-squares so the cell-mean
+  # likelihood recovers the per-row likelihood up to scale-independent
+  # constants. Triangulating the per-row and aggregated INLA fits is the
+  # live confirmation of that equivalence and of the aggregated fit's
+  # draw-extraction path (the class-vector design that routes the
+  # aggregated INLA fit to fb_as_draws_simple.flexybayes_inla). Kept
+  # same-engine so the comparison is deterministic and MCMC-free; the
+  # cross-engine greta-aggregated extractor is guarded in
+  # test-emit-gaussian-aggregated.R.
+  skip_on_cran()
+  skip_if_no_inla()
+  withr::local_options(
+    flexyBayes.silence_default_prior_note     = TRUE,
+    flexyBayes.silence_uniform_inla_approx    = TRUE,
+    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_auto_inla_missing_note = TRUE
+  )
+  set.seed(1L)
+  N <- 300L; J <- 8L
+  d <- data.frame(
+    f1 = factor(sample(letters[1:3], N, replace = TRUE)),
+    f2 = factor(sample(letters[1:3], N, replace = TRUE)),
+    g  = factor(sample.int(J, N, replace = TRUE))
+  )
+  d$y <- 1 + 0.5 * as.integer(d$f1) - 0.3 * as.integer(d$f2) +
+    rnorm(J, 0, 0.3)[as.integer(d$g)] + rnorm(N, 0, 0.7)
+
+  fit_row <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
+    aggregate = FALSE, prior_vc_sd = 1, verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
+  fit_agg <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
+    aggregate = "auto", prior_vc_sd = 1, verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
+  expect_s3_class(fit_agg, "flexybayes_aggregated")
+  expect_identical(backend_decision(fit_agg)$path, "aggregated_gaussian")
+
+  # 4000 posterior samples keeps the per-fit Monte-Carlo error on each
+  # mean well below the 0.1-SD band (the underlying posterior means
+  # agree to ~1e-3; see the stress-strict test in
+  # test-emit-gaussian-aggregated.R). The drift band is the audit's
+  # acceptance criterion for the aggregated triangulate path.
+  set.seed(20260530L)
+  tri <- triangulate(fit_row, fit_agg, n_samples = 4000L)
+  expect_s3_class(tri, "triangulate_result")
+  expect_gt(tri$n_common, 0L)
+
+  fx <- c("(Intercept)", "f1b", "f1c", "f2b", "f2c")
+  m  <- tri$metrics[tri$metrics$param %in% fx, ]
+  expect_identical(nrow(m), length(fx))
+  drift <- abs(m$mean_diff) / pmax(m$sd_a, m$sd_b)
+  expect_true(
+    all(drift < 0.1),
+    info = sprintf("max fixed-effect drift = %.3f SD", max(drift))
+  )
+})

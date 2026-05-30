@@ -698,7 +698,19 @@ emit_gaussian_aggregated <- function(fb,
         N           = fb_aggregated$N,
         K           = fb_aggregated$K,
         compression = fb_aggregated$compression,
-        residual    = rcov_plan$kind
+        residual    = rcov_plan$kind,
+        # Whether the posterior the user sees is the per-row-equivalent
+        # one. The aggregated likelihood plus the default precision prior
+        # recover the per-row posterior to numerical precision, so the
+        # default path is tagged "per_row_equivalent". When the user
+        # supplies an explicit prior object, the matched-prior
+        # equivalence against a default-prior per-row fit no longer holds
+        # (and on the INLA aggregated path the residual prior is moreover
+        # not plumbed through -- see the "Matched priors" note on
+        # triangulate()), so the fit is tagged "custom". Surfaced via
+        # canonical_names() and the aggregated print / summary.
+        prior_parametrization = if (inherits(fb$priors, "fb_prior"))
+          "custom" else "per_row_equivalent"
       ),
       the_call        = the_call,
       formula         = the_call
@@ -706,7 +718,16 @@ emit_gaussian_aggregated <- function(fb,
     class = "flexybayes_extras"
   )
 
-  raw_slot <- if (identical(backend, "greta")) engine_out$draws
+  # The greta raw slot mirrors the per-row emit_greta() shape --
+  # `$greta$draws` holding the coda mcmc object -- so every consumer
+  # that reads `fit$greta$draws` (fb_as_draws_simple / canonical_names /
+  # confint / plot / predict) works identically on the aggregated greta
+  # path. Storing the draws bare at `fit$greta` (the pre-v0.4.0 layout)
+  # left `fit$greta$draws` NULL, so triangulate() and canonical_names()
+  # on a greta-aggregated fit failed with "fit$greta$draws is missing".
+  # The INLA slot holds the raw inla fit object directly, matching
+  # fb_as_draws_simple.flexybayes_inla()'s `fit$inla` contract.
+  raw_slot <- if (identical(backend, "greta")) list(draws = engine_out$draws)
               else engine_out$inla
   raw_name <- if (identical(backend, "greta")) "greta" else "inla"
 

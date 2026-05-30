@@ -405,6 +405,66 @@ test_that("flexybayes_aggregated on greta has no flexybayes_inla label", {
   )
 })
 
+test_that("aggregation_meta carries prior_parametrization, surfaced by canonical_names", {
+  testthat::skip_if_not_installed("INLA")
+  dat <- mk_agg_data()
+  # Default prior -> per-row-equivalent (the matched-prior guarantee).
+  fit_def <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = dat,
+    backend = "inla", aggregate = "auto",
+    prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
+  expect_identical(
+    fit_def$extras$aggregation_meta$prior_parametrization,
+    "per_row_equivalent")
+  expect_identical(
+    canonical_names(fit_def)$prior_parametrization,
+    "per_row_equivalent")
+  # Explicit prior -> custom (equivalence against a default-prior per-row
+  # fit no longer holds; flagged so the user does not misread agreement).
+  fit_cus <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = dat,
+    backend = "inla", aggregate = "auto",
+    prior = fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5)),
+    verbose = FALSE, mcmc_verbose = FALSE))
+  expect_identical(
+    fit_cus$extras$aggregation_meta$prior_parametrization,
+    "custom")
+  expect_identical(
+    canonical_names(fit_cus)$prior_parametrization,
+    "custom")
+  # The label reaches the user-facing print surface.
+  out <- utils::capture.output(print(fit_def))
+  expect_true(any(grepl("per-row-equivalent", out)))
+})
+
+test_that("greta-aggregated fit exposes $greta$draws for triangulate / extractors", {
+  # Regression guard for the v0.4.0 fix: the greta-aggregated path
+  # stored the coda draws bare at fit$greta, leaving fit$greta$draws
+  # NULL, so fb_as_draws_simple() / canonical_names() / confint() /
+  # plot() / predict() -- and hence triangulate() -- all failed on
+  # greta-aggregated fits with "fit$greta$draws is missing". Surfaced
+  # by adding the live aggregated-path triangulate test; the fix wraps
+  # the draws as list(draws = ...) to mirror the per-row emit_greta()
+  # slot shape.
+  testthat::skip_if_not_installed("greta")
+  testthat::skip_on_cran()
+  testthat::skip_on_ci()
+  dat <- mk_agg_data(seed = 3L, N = 200L, J = 6L)
+  fit <- suppressMessages(fb_brms(
+    y ~ f1 + f2 + (1 | g), data = dat,
+    backend = "greta", aggregate = TRUE,
+    n_samples = 60L, warmup = 60L, chains = 1L,
+    prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
+  expect_false(is.null(fit$greta$draws))
+  draws <- flexyBayes:::fb_as_draws_simple(fit)
+  expect_true(is.list(draws) && length(draws) >= 1L)
+  expect_true(all(vapply(draws, is.numeric, logical(1))))
+  # Self-triangulation is exact: every parameter common, zero drift.
+  tri <- triangulate(fit, fit)
+  expect_identical(tri$n_common, length(draws))
+  expect_equal(max(abs(tri$metrics$mean_diff)), 0)
+})
+
 test_that("$glm shim carries per-row reconstructed fitted values", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
