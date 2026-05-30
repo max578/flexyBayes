@@ -75,10 +75,14 @@
 #   available_pkg   chr(1)  the R package whose presence makes the
 #                           backend usable, or NA (dormant / always-on).
 #   default_in_auto lgl(1)  whether `auto` considers it by default.
+#   capability_predicate function(fb) -> TRUE (capable) or a single
+#                           reason-code string naming why the engine
+#                           cannot represent the model. Default permissive.
 #   rename_to       chr(1)  Phase-3 user-facing rename target, or NA.
 #   registered_in_adr chr(1)
 .register_backend <- function(name, status, engine, grammars, paradigm,
                               available_pkg, default_in_auto,
+                              capability_predicate = function(fb) TRUE,
                               rename_to = NA_character_,
                               registered_in_adr = "0031") {
   # Validate inputs before checking mutability, so a caller passing an
@@ -124,6 +128,7 @@
            paradigm          = paradigm,
            available_pkg     = available_pkg,
            default_in_auto   = default_in_auto,
+           capability_predicate = capability_predicate,
            rename_to         = rename_to,
            registered_in_adr = registered_in_adr
          ),
@@ -186,6 +191,63 @@
   invisible(NULL)
 }
 
+# --- capability predicates (ADR 0031 Phase 2) --------------------- #
+
+# Each predicate takes the fb_terms IR and returns TRUE (the engine can
+# represent the model) or a single reason-code string naming why it
+# cannot. The registry stores them; .backend_can_fit() is the
+# dispatch-facing accessor. The predicates are the systematic
+# replacement for the special-cased gates (low_rank_requires_greta,
+# lgm_gate) -- they delegate to the existing authorities rather than
+# duplicate them, so refusal semantics do not drift.
+
+# greta fits every model currently in scope -- the universal fallback.
+.capability_greta <- function(fb) TRUE
+
+# inla is capable iff lgm_gate() accepts the model. The 11-rule gate is
+# INLA's capability predicate; the closure delegates to it (single
+# authority, no duplication).
+.capability_inla <- function(fb) {
+  gated <- tryCatch(lgm_gate(fb), error = function(e) NULL)
+  if (is.null(gated) || is_lgm_refusal(gated))
+    return("inla_not_lgm_feasible")
+  TRUE
+}
+
+# The asreml structured-covariance term types with no lossless brms /
+# Stan translation (dispatch.R names fa / us / ar1; vm / ped add
+# known-matrix and pedigree carriers). Closed set; extending it is an
+# ADR 0031 amendment.
+.STRUCTURED_COV_TYPES <- c("vm", "ped", "fa", "us", "ar1")
+
+# brms / Stan cannot represent the asreml structured-covariance terms or
+# a low_rank_smooth approximation (a greta-only basis truncation).
+.capability_brms <- function(fb) {
+  rt <- fb$random_terms %||% list()
+  has_structured <- any(vapply(
+    rt, function(t) (t$type %||% "") %in% .STRUCTURED_COV_TYPES,
+    logical(1L)))
+  if (has_structured)
+    return("stan_cannot_represent_structured_cov")
+  if (length(.collect_approx(rt)) > 0L)
+    return("stan_cannot_represent_low_rank_approx")
+  TRUE
+}
+
+# .backend_can_fit() --- dispatch-facing capability check. Returns
+# list(ok = TRUE) or list(ok = FALSE, reason_code = <chr>). An
+# unregistered backend or one without a predicate returns ok = TRUE
+# (its own dispatch-side handling owns the outcome -- e.g. the gretaR
+# dormant refusal).
+.backend_can_fit <- function(backend, fb) {
+  e <- .lookup_backend(backend)
+  pred <- if (!is.null(e)) e$capability_predicate else NULL
+  if (is.null(pred)) return(list(ok = TRUE))
+  res <- pred(fb)
+  if (isTRUE(res)) list(ok = TRUE)
+  else list(ok = FALSE, reason_code = res)
+}
+
 # --- v0.5.0 population --------------------------------------------- #
 
 # .populate_backend_registry_v050() --- registers the three active
@@ -200,15 +262,18 @@
   .register_backend(
     name = "greta", status = "active", engine = "emit_greta",
     grammars = c("asreml", "brms", "greta"), paradigm = "hmc_nuts",
-    available_pkg = "greta", default_in_auto = TRUE)
+    available_pkg = "greta", default_in_auto = TRUE,
+    capability_predicate = .capability_greta)
   .register_backend(
     name = "inla", status = "active", engine = "emit_inla",
     grammars = c("asreml", "brms"), paradigm = "laplace_approximation",
-    available_pkg = "INLA", default_in_auto = TRUE)
+    available_pkg = "INLA", default_in_auto = TRUE,
+    capability_predicate = .capability_inla)
   .register_backend(
     name = "brms", status = "active", engine = "emit_brms",
     grammars = c("asreml", "brms"), paradigm = "hmc_nuts",
     available_pkg = "brms", default_in_auto = FALSE,
+    capability_predicate = .capability_brms,
     rename_to = "stan")
   .register_backend(
     name = "gretaR", status = "dormant", engine = NA_character_,

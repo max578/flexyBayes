@@ -23,8 +23,8 @@ test_that("backend registry is locked after .onLoad()", {
 
 test_that("every backend entry carries the full field schema", {
   required <- c("name", "status", "engine", "grammars", "paradigm",
-                "available_pkg", "default_in_auto", "rename_to",
-                "registered_in_adr")
+                "available_pkg", "default_in_auto", "capability_predicate",
+                "rename_to", "registered_in_adr")
   for (nm in flexyBayes:::.registered_backend_names()) {
     e <- flexyBayes:::.lookup_backend(nm)
     expect_true(all(required %in% names(e)), info = nm)
@@ -95,6 +95,47 @@ test_that(".available_backend_names() are active and installed", {
   }
   # gretaR (dormant) is never available.
   expect_false("gretaR" %in% avail)
+})
+
+test_that("capability predicates: greta universal, brms refuses structured-cov", {
+  d <- data.frame(
+    y    = rnorm(40),
+    env  = factor(rep(letters[1:4], each = 10L)),
+    geno = factor(rep(seq_len(10L), times = 4L)))
+  fb_ri <- flexyBayes:::fb_from_asreml(y ~ env, random = ~ geno, data = d)
+
+  # A plain Gaussian random-intercept model: every active backend capable.
+  expect_true(flexyBayes:::.capability_greta(fb_ri))
+  expect_true(flexyBayes:::.capability_brms(fb_ri))
+  expect_true(flexyBayes:::.capability_inla(fb_ri))
+  expect_true(flexyBayes:::.backend_can_fit("greta", fb_ri)$ok)
+  expect_true(flexyBayes:::.backend_can_fit("brms", fb_ri)$ok)
+  expect_true(flexyBayes:::.backend_can_fit("inla", fb_ri)$ok)
+
+  # Inject an asreml structured-covariance term: brms/Stan cannot
+  # represent it; greta still can.
+  fb_struct <- fb_ri
+  fb_struct$random_terms <- c(fb_struct$random_terms,
+                              list(list(type = "fa", var = "env")))
+  expect_identical(flexyBayes:::.capability_brms(fb_struct),
+                   "stan_cannot_represent_structured_cov")
+  expect_true(flexyBayes:::.capability_greta(fb_struct))
+  cf <- flexyBayes:::.backend_can_fit("brms", fb_struct)
+  expect_false(cf$ok)
+  expect_identical(cf$reason_code, "stan_cannot_represent_structured_cov")
+
+  # Inject a low_rank approximation: .collect_approx() keys off
+  # `approx_spec`, so a term carrying one is what brms/Stan must refuse.
+  fb_lr <- fb_ri
+  fb_lr$random_terms <- list(list(type = "spl", var = "x",
+                                  approx_spec = list(scheme = "low_rank")))
+  expect_length(flexyBayes:::.collect_approx(fb_lr$random_terms), 1L)
+  expect_identical(flexyBayes:::.capability_brms(fb_lr),
+                   "stan_cannot_represent_low_rank_approx")
+  expect_identical(
+    flexyBayes:::.backend_can_fit("brms", fb_lr)$reason_code,
+    "stan_cannot_represent_low_rank_approx")
+  expect_true(flexyBayes:::.capability_greta(fb_lr))
 })
 
 test_that(".register_backend() refuses unknown status / grammar / duplicate", {
