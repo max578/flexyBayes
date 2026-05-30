@@ -1,11 +1,13 @@
-# huge_n_probe.R -- shape-only probe of the preflight + aggregation +
+# huge_n_probe.R -- shape probe of the preflight + aggregation +
 # prediction kernel paths at N = 5e6.
 #
-# Skeleton at v0.3.8.  Full N = 5e6 MCMC runs land at v0.4.0 per the
-# trust-release gate (ADR 0027).  This script exercises the data-shape
-# code paths (preflight, aggregation plan, prediction kernel dispatch)
-# without materialising the impossible MCMC fit -- the point is to
-# detect a regression in the metadata layer before the v0.4.0 push.
+# Active at v0.4.0 (Wave 2 Phase 2C trust-release gate, v040-plan
+# section 9.3 + section 11). The script exercises the three data-shape
+# code paths -- preflight, aggregation plan, and prediction-kernel
+# file-output format resolution -- at N = 5e6 without materialising the
+# (intractable) full MCMC fit. The point is to confirm the metadata /
+# dispatch layer handles the huge-N data shape: a regression here would
+# invert the v0.4.0 trust narrative, so a fault is a release blocker.
 #
 # Env-gated by FLEXYBAYES_RUN_HUGE_N=true.  Run from the workspace root:
 #   FLEXYBAYES_RUN_HUGE_N=true Rscript flexyBayes/tools/profiles/huge_n_probe.R
@@ -79,7 +81,28 @@ if (!is.null(plan)) {
               if (is.null(plan$n_cells)) "NA" else plan$n_cells))
 }
 
+# ---- Prediction-kernel file-output shape probe -----------------------
+#
+# At N = 5e6 the prediction kernel routes its output through the
+# file-backed path (ADR 0023): format = "auto" resolves to fst when fst
+# is installed, rds otherwise, csv under interop = TRUE. The probe
+# confirms the format-resolution dispatch handles the huge-N shape
+# without materialising the 5e6-row payload.
+
+cat("\n-- prediction-kernel format resolution --\n")
+fst_ok <- requireNamespace("fst", quietly = TRUE)
+fmt_auto   <- flexyBayes:::.resolve_format("auto", n_rows, FALSE, fst_ok)
+fmt_interop <- flexyBayes:::.resolve_format("auto", n_rows, TRUE, fst_ok)
+cat(sprintf("fst installed: %s\n", fst_ok))
+cat(sprintf("format(auto, N=%g): %s  (expected %s)\n",
+            n_rows, fmt_auto, if (fst_ok) "fst" else "rds"))
+cat(sprintf("format(auto, N=%g, interop): %s  (expected csv)\n",
+            n_rows, fmt_interop))
+stopifnot(identical(fmt_auto, if (fst_ok) "fst" else "rds"))
+stopifnot(identical(fmt_interop, "csv"))
+
 elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-cat(sprintf("\n=== huge_n_probe SKELETON COMPLETE (v0.3.8) -- %.1fs ===\n",
+cat(sprintf("\n=== huge_n_probe COMPLETE (v0.4.0) -- %.1fs ===\n",
             elapsed))
-cat("Full N = 5e6 MCMC runs land at v0.4.0 per ADR 0027 trust-release gate.\n")
+cat("All three huge-N shape paths (preflight, aggregation, prediction ",
+    "format resolution) handled the N = 5e6 data shape.\n", sep = "")

@@ -260,6 +260,36 @@ build_skip_ledger <- function(
   invisible(dt[])
 }
 
+# Taxonomy-lock assertion ----------------------------------------------
+
+# .assert_taxonomy_lock() --- the v0.4.0 section-11 gate. Classifies
+# every skip site in `test_dir` and asserts each resolves to exactly one
+# of the seven reason classes (the five audit classes plus the two
+# in-portfolio extensions). Returns the classified table invisibly on
+# success; stops with the offending sites listed on failure. The
+# classifier's catch-all (deliberately_deferred_feature) makes an
+# out-of-vocabulary class structurally impossible, so this gate is a
+# standing guarantee: an edit that broadened the vocabulary without
+# ratifying it -- e.g. a classifier branch returning a new class string
+# not added to .skip_ledger_reason_classes -- would trip here.
+.assert_taxonomy_lock <- function(test_dir) {
+  tmp <- tempfile(fileext = ".md")
+  on.exit(unlink(tmp), add = TRUE)
+  dt  <- build_skip_ledger(test_dir = test_dir, output_path = tmp)
+  if (!nrow(dt)) return(invisible(dt))
+  valid <- names(.skip_ledger_reason_classes)
+  bad   <- dt[!dt$reason_class %in% valid, ]
+  if (nrow(bad)) {
+    msg <- paste(sprintf("  %s:%d (%s) -> '%s'",
+                         bad$file, bad$line, bad$call, bad$reason_class),
+                 collapse = "\n")
+    stop(call. = FALSE,
+         "skip_ledger: ", nrow(bad), " skip site(s) classify outside the ",
+         "seven-class taxonomy:\n", msg)
+  }
+  invisible(dt)
+}
+
 # Standalone CLI --------------------------------------------------------
 
 if (sys.nframe() == 0L) {
@@ -272,11 +302,24 @@ if (sys.nframe() == 0L) {
          "skip_ledger.R: could not locate tests/testthat; ",
          "run from package root or workspace root")
   }
-  out <- build_skip_ledger(
-    test_dir    = file.path(pkg_root, "tests/testthat"),
-    output_path = file.path(pkg_root, "inst/skip-ledger.md")
-  )
-  cat(sprintf("skip_ledger: %d sites across %d files -> %s\n",
-              nrow(out), length(unique(out$file)),
-              file.path(pkg_root, "inst/skip-ledger.md")))
+  args     <- commandArgs(trailingOnly = TRUE)
+  test_dir <- file.path(pkg_root, "tests/testthat")
+
+  if ("--assert-taxonomy-lock" %in% args) {
+    dt     <- .assert_taxonomy_lock(test_dir)
+    counts <- table(factor(dt$reason_class,
+                           levels = names(.skip_ledger_reason_classes)))
+    cat("skip_ledger taxonomy-lock: PASS --",
+        nrow(dt), "sites, all within the seven-class taxonomy.\n")
+    for (cls in names(counts))
+      cat(sprintf("  %-32s %d\n", cls, counts[[cls]]))
+  } else {
+    out <- build_skip_ledger(
+      test_dir    = test_dir,
+      output_path = file.path(pkg_root, "inst/skip-ledger.md")
+    )
+    cat(sprintf("skip_ledger: %d sites across %d files -> %s\n",
+                nrow(out), length(unique(out$file)),
+                file.path(pkg_root, "inst/skip-ledger.md")))
+  }
 }

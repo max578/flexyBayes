@@ -130,3 +130,23 @@ test_that(".skip_ledger_reason_classes lists all seven classes", {
       "stochastic_rng_dependent")
   )
 })
+
+# ---------------------------------------------------------------- #
+# v0.4.0 section-11 gate: taxonomy lock over the real suite.        #
+# ---------------------------------------------------------------- #
+
+test_that("every real skip site classifies within the seven-class taxonomy", {
+  env <- .source_skip_ledger()
+  expect_true(is.function(env$.assert_taxonomy_lock))
+
+  # Resolve the live testthat directory (the dir holding this file).
+  candidates <- c(testthat::test_path(), "tests/testthat",
+                  "flexyBayes/tests/testthat")
+  test_dir <- candidates[dir.exists(candidates)][1L]
+  skip_if(is.na(test_dir), "testthat dir not resolvable")
+
+  dt <- env$.assert_taxonomy_lock(test_dir)   # stops on any out-of-class site
+  expect_true(nrow(dt) >= 1L)
+  expect_true(all(dt$reason_class %in%
+                    names(env$.skip_ledger_reason_classes)))
+})
