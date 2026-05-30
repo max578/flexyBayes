@@ -137,16 +137,28 @@
     # blocks, low-rank reserves the slot for ADR 0027.
     "vm"   = {
       var_name <- .dep(expr, 2)
-      mat_expr <- .extract_vm_dense_arg(expr)
-      cov_rep  <- .cov_representation_from_call(
-        fn              = "vm",
-        mat             = mat_expr,
-        chol            = .dep_named(expr, "chol"),
-        precision       = .dep_named(expr, "precision"),
-        blocks          = .dep_named(expr, "blocks"),
-        low_rank_factor = .dep_named(expr, "low_rank_factor"),
-        low_rank_scheme = .dep_named(expr, "low_rank_scheme")
-      )
+      # v0.4.0 (ADR 0030 C3): the fb_cov() constructor front door takes
+      # precedence. `cov = fb_cov(...)` is the canonical form; the four
+      # legacy keyword carriers (chol / precision / blocks /
+      # low_rank_factor) continue to work with a deprecation warning.
+      if (!is.null(expr[["cov"]])) {
+        cov_rep  <- .fb_cov_call_to_representation(expr[["cov"]], "vm",
+                                                   var_name)
+        mat_expr <- if (identical(cov_rep$format, "dense"))
+          cov_rep$data else NA_character_
+      } else {
+        .warn_legacy_vm_kwargs(expr, "vm", var_name)
+        mat_expr <- .extract_vm_dense_arg(expr)
+        cov_rep  <- .cov_representation_from_call(
+          fn              = "vm",
+          mat             = mat_expr,
+          chol            = .dep_named(expr, "chol"),
+          precision       = .dep_named(expr, "precision"),
+          blocks          = .dep_named(expr, "blocks"),
+          low_rank_factor = .dep_named(expr, "low_rank_factor"),
+          low_rank_scheme = .dep_named(expr, "low_rank_scheme")
+        )
+      }
       list(list(type = "vm", var = var_name, mat = mat_expr,
                 cov_representation = cov_rep))
     },
@@ -157,13 +169,25 @@
     # Phase A captures the flag; emit activation is Phase B.
     "ped"  = {
       var_name <- .dep(expr, 2)
-      mat_expr <- .extract_vm_dense_arg(expr)
-      use_sp   <- .dep_named(expr, "use_sparse_precision")
-      cov_rep  <- .cov_representation_from_call(
-        fn                   = "ped",
-        mat                  = mat_expr,
-        use_sparse_precision = use_sp
-      )
+      # v0.4.0 (ADR 0030 C3): ped() also accepts the fb_cov() front
+      # door, e.g. ped(animal, cov = fb_cov(A, type = "precision",
+      # sparse_precision = TRUE)). The legacy positional A +
+      # use_sparse_precision form continues to work unchanged (it is
+      # not part of the ADR 0030 §5 deprecated keyword set).
+      if (!is.null(expr[["cov"]])) {
+        cov_rep  <- .fb_cov_call_to_representation(expr[["cov"]], "ped",
+                                                   var_name)
+        mat_expr <- if (identical(cov_rep$format, "dense"))
+          cov_rep$data else NA_character_
+      } else {
+        mat_expr <- .extract_vm_dense_arg(expr)
+        use_sp   <- .dep_named(expr, "use_sparse_precision")
+        cov_rep  <- .cov_representation_from_call(
+          fn                   = "ped",
+          mat                  = mat_expr,
+          use_sparse_precision = use_sp
+        )
+      }
       list(list(type = "ped", var = var_name, mat = mat_expr,
                 cov_representation = cov_rep))
     },

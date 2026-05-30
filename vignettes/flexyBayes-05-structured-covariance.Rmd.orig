@@ -228,12 +228,20 @@ let the caller skip a redundant factorisation, route through INLA's
 sparse-precision interface, or declare a sparse pedigree precision
 directly. The choice changes the computational path, not the model.
 
+The covariance carrier is declared with the `fb_cov()` constructor
+inside the random term: `vm(group, cov = fb_cov(M, type = ...))`. The
+`type` selects how the carrier is interpreted -- `"dense"`, `"chol"`,
+`"precision"`, `"blocks"`, or `"low_rank"`. The matrix `M` names an
+entry in `known_matrices`, resolved at fit time.
+
 **Dense $V$ (default; both backends).** Pass a covariance matrix
-directly. flexyBayes computes its Cholesky factor at fit time:
+directly. flexyBayes computes its Cholesky factor at fit time. The
+bare `vm(geno, Gmat)` form is the dense default; `fb_cov(Gmat,
+type = "dense")` is the explicit equivalent:
 
 ```{r vm-dense, eval=FALSE}
 fit_dense <- flexybayes(
-  yield ~ env, random = ~ vm(geno, Gmat),
+  yield ~ env, random = ~ vm(geno, cov = fb_cov(Gmat, type = "dense")),
   data = met_example, known_matrices = list(Gmat = G_mat),
   backend = "greta"
 )
@@ -242,12 +250,13 @@ fit_dense <- flexybayes(
 **User-supplied Cholesky factor (greta backend).** If the
 lower-triangular Cholesky factor of $V$ is already available
 (serialised from a prior step, or computed once across many fits),
-pass it via `chol = L` to skip the `t(chol(V))` recomputation:
+declare it with `fb_cov(L, type = "chol")` to skip the `t(chol(V))`
+recomputation:
 
 ```{r vm-chol, eval=FALSE}
 L_user <- t(chol(G_mat))   # build once, reuse across fits
 fit_chol <- flexybayes(
-  yield ~ env, random = ~ vm(geno, chol = L_user),
+  yield ~ env, random = ~ vm(geno, cov = fb_cov(L_user, type = "chol")),
   data = met_example, known_matrices = list(L_user = L_user),
   backend = "greta"
 )
@@ -267,7 +276,7 @@ avoids dense intermediates:
 ```{r vm-precision, eval=FALSE}
 Q <- solve(G_mat)   # or build sparse Q directly via ICAR / BYM2
 fit_prec <- flexybayes(
-  yield ~ env, random = ~ vm(geno, precision = Q),
+  yield ~ env, random = ~ vm(geno, cov = fb_cov(Q, type = "precision")),
   data = met_example, known_matrices = list(Q = Q),
   backend = "inla"
 )
@@ -296,8 +305,9 @@ without a redundant inversion:
 ```{r ped-sparse, eval=FALSE}
 A_inv <- solve(A_mat)   # or pedigreemm::getAInv(ped_obj)
 fit_ped_sparse <- flexybayes(
-  yield ~ env, random = ~ ped(animal, A_inv,
-                              use_sparse_precision = TRUE),
+  yield ~ env,
+  random = ~ ped(animal, cov = fb_cov(A_inv, type = "precision",
+                                      sparse_precision = TRUE)),
   data = animal_data, known_matrices = list(A_inv = A_inv),
   backend = "inla"
 )
@@ -308,18 +318,27 @@ library; the user constructs $A^{-1}$ and passes it. The level
 ordering of the grouping factor must match the row/column order
 of the supplied precision matrix.
 
-**Mutual exclusion.** At most one of `V` / `chol` / `precision` /
-`blocks` / `low_rank_factor` may be supplied to a single `vm()`
-call; the parser raises `vm_redundant_specification` on a
-double-supply. The dense default activates when none of the
-opt-in arguments is present.
+**One carrier per term.** A single `vm()` term carries exactly one
+`fb_cov()` declaration. The five carrier types -- `"dense"`,
+`"chol"`, `"precision"`, `"blocks"`, `"low_rank"` -- are mutually
+exclusive within a carrier. The bare dense form `vm(geno, Gmat)`
+remains available as the default when no `cov =` is supplied.
+
+> **Deprecation (v0.4.0).** The legacy keyword carriers
+> `vm(group, chol = L)`, `vm(group, precision = Q)`,
+> `vm(group, blocks = list(...))`, and
+> `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` are
+> deprecated in favour of `fb_cov()` and emit a migration warning.
+> They continue to work through this release and are removed at
+> v0.5.0.
 
 **Backend mapping.** With `backend = "auto"`, dispatch routes
-precision-format vm/ped to INLA (preferred for sparsity); chol-
-and dense-format vm/ped to greta. With explicit `backend = "inla"`,
+precision-type vm/ped to INLA (preferred for sparsity); chol-
+and dense-type vm/ped to greta. With explicit `backend = "inla"`,
 chol and dense vm/ped raise a structured `lgm_gate` refusal naming
-the actionable workaround (re-express as `vm(group, precision = solve(V))`,
-or route via `backend = "greta"`).
+the actionable workaround (re-express as
+`vm(group, cov = fb_cov(solve(V), type = "precision"))`, or route
+via `backend = "greta"`).
 
 # 8. Comparing covariance structures
 

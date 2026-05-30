@@ -1,5 +1,26 @@
 # flexyBayes 0.4.0 (in development)
 
+## Covariance carriers: the `fb_cov()` constructor (breaking change)
+
+Structured covariance is now declared with the `fb_cov()` constructor
+noun inside a random term, completing the four-constructor surface
+(`fb_prior()`, `fb_engine()`, `fb_approx()`, `fb_cov()`).
+
+- **`fb_cov(M, type)`** wraps a covariance carrier and is passed via the
+  `cov` argument: `vm(geno, cov = fb_cov(L, type = "chol"))`. The five
+  carrier types are `"dense"`, `"chol"`, `"precision"`, `"blocks"`, and
+  `"low_rank"` (the last is a reserved vocabulary entry at this release).
+  The constructor returns a classed object carrying its
+  `representation_class` and a construction-time `validation_summary`;
+  it comes with `is_fb_cov()` and a print method.
+- **The legacy `vm()` / `ped()` keyword carriers are deprecated.** The
+  four forms introduced in v0.3.7 --- `vm(group, chol = L)`,
+  `vm(group, precision = Q)`, `vm(group, blocks = list(...))`, and
+  `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` --- now emit
+  a `lifecycle` migration warning naming the `fb_cov()` replacement.
+  They continue to work in 0.4.0 and will be **removed at 0.5.0**. The
+  bare dense forms `vm(group, V)` / `ped(group, A)` are unchanged.
+
 ## New constructor nouns: `fb_engine()` and `fb_approx()`
 
 Two named constructors join `fb_prior()`, so a model's inference engine

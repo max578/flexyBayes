@@ -72,15 +72,18 @@ Supports \code{vm()}, \code{at()}, \code{us()}, \code{fa()}, \code{ar1()}, \code
 (e.g., \code{"probit"} for binomial).}
 
 \item{known_matrices}{Named list of matrices referred to in the random
-formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}). As of v0.3.7,
-each matrix may be supplied either as a dense base-R \code{matrix}
-(passed via \code{vm(group, V = ...)} or \code{ped(group, A = ...)}, the
-legacy default), a user-supplied lower-triangular Cholesky
-factor (\code{vm(group, chol = L)}; greta backend only), or a sparse
-precision matrix \code{Matrix::dgCMatrix} (\code{vm(group, precision = Q)}
-or \code{ped(group, A_inv, use_sparse_precision = TRUE)}; greta and
-INLA backends). See the structured-covariance vignette for
-per-format worked examples.}
+formula (e.g., \code{list(Gmat = G_mat, Amat = A_mat)}). The carrier is
+declared with the \code{\link[=fb_cov]{fb_cov()}} constructor inside the random term:
+a dense covariance (\code{vm(group, cov = fb_cov(G, type = "dense"))}),
+a user-supplied lower-triangular Cholesky factor
+(\code{vm(group, cov = fb_cov(L, type = "chol"))}; greta backend only),
+or a sparse precision matrix \code{Matrix::dgCMatrix}
+(\code{vm(group, cov = fb_cov(Q, type = "precision"))}; greta and INLA
+backends). The bare dense forms \code{vm(group, V = ...)} /
+\code{ped(group, A = ...)} remain the default; the legacy v0.3.7
+keyword carriers (\verb{chol = }, \verb{precision = }, \verb{blocks = },
+\verb{low_rank_factor = }) are deprecated and emit a migration warning.
+See the structured-covariance vignette for per-type worked examples.}
 
 \item{weights}{Optional numeric weight vector (length N); sets
 Var = sigma^2 / w.}

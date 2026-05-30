@@ -41,7 +41,11 @@
 .STAGE5A_VM_RESERVED_NAMES <- c(
   "chol", "precision", "blocks",
   "low_rank_factor", "low_rank_scheme",
-  "use_sparse_precision"
+  "use_sparse_precision",
+  # v0.4.0 (ADR 0030 C3): the fb_cov() constructor front door. Reserved
+  # so a `cov = fb_cov(...)` argument is never swept into the dense-V
+  # bucket by .extract_vm_dense_arg().
+  "cov"
 )
 
 # Recover a literal scalar string from its deparsed form. The formula
@@ -141,6 +145,138 @@
   list(format = "dense", data = mat, scheme = NULL)
 }
 
+# v0.4.0 (ADR 0030 C3): build the cov_representation IR slot from an
+# inline `cov = fb_cov(...)` argument on a vm() / ped() term. The
+# formula parser does NOT evaluate the carrier -- it deparse-extracts
+# the matrix symbol and the `type` literal so the matrix continues to
+# resolve via known_matrices at fit time, identical to the legacy
+# keyword forms. The resulting slot shape (format / data / scheme) is
+# unchanged from .cov_representation_from_call(), so the downstream
+# emit / codegen / preflight path needs no fb_cov-specific branch.
+.fb_cov_call_to_representation <- function(cov_expr, fn, var) {
+  if (!is.call(cov_expr) ||
+      !identical(as.character(cov_expr[[1L]]), "fb_cov"))
+    .stop_structured_cov_refusal(
+      reason_code = "cov_arg_not_fb_cov",
+      message     = paste0(
+        fn, "(", var, ", cov = ...): the `cov` argument must be written ",
+        "inline as an fb_cov() carrier, for example ",
+        "cov = fb_cov(G, type = \"chol\"). Got: ", deparse(cov_expr), "."
+      )
+    )
+
+  args <- as.list(cov_expr)[-1L]
+  anms <- names(args)
+  if (is.null(anms)) anms <- rep("", length(args))
+
+  # Carrier matrix: named M = or the first positional fb_cov() argument.
+  m_expr <- if ("M" %in% anms) args[["M"]] else {
+    pos <- which(anms == "")
+    if (length(pos)) args[[pos[[1L]]]] else NULL
+  }
+  if (is.null(m_expr))
+    .stop_structured_cov_refusal(
+      reason_code = "fb_cov_missing_matrix",
+      message     = paste0(
+        fn, "(", var, ", cov = fb_cov(...)): the carrier matrix is ",
+        "required as the first fb_cov() argument."
+      )
+    )
+  m_sym <- deparse(m_expr)
+
+  type <- if ("type" %in% anms)
+    .strip_string_literal(deparse(args[["type"]])) else "dense"
+  if (!type %in% names(.FB_COV_TYPE_TO_FORMAT))
+    .stop_structured_cov_refusal(
+      reason_code = "fb_cov_type_unknown",
+      message     = paste0(
+        fn, "(", var, ", cov = fb_cov(..., type = \"", type, "\")): ",
+        "unknown carrier type. Supported types: ",
+        paste(names(.FB_COV_TYPE_TO_FORMAT), collapse = ", "), "."
+      )
+    )
+
+  scheme <- if ("scheme" %in% anms)
+    .strip_string_literal(deparse(args[["scheme"]])) else NA_character_
+  fmt <- .FB_COV_TYPE_TO_FORMAT[[type]]
+
+  # ped(animal, cov = fb_cov(A, type = "precision", sparse_precision =
+  # TRUE)) folds into the dedicated pedigree sparse-precision emit
+  # route, matching the legacy ped(animal, A, use_sparse_precision =
+  # TRUE) behaviour.
+  sparse <- if ("sparse_precision" %in% anms)
+    toupper(deparse(args[["sparse_precision"]])) else "NA"
+  if (identical(fn, "ped") && identical(fmt, "precision") &&
+      identical(sparse, "TRUE"))
+    return(list(format = "pedigree_sparse_precision", data = m_sym,
+                scheme = NULL))
+
+  if (identical(fmt, "low_rank")) {
+    if (is.na(scheme))
+      .stop_structured_cov_refusal(
+        reason_code = "low_rank_scheme_required",
+        message     = paste0(
+          fn, "(", var, ", cov = fb_cov(..., type = \"low_rank\")): a ",
+          "`scheme` naming a registered approximation is required. ",
+          "See ?validate_approximation for the available schemes."
+        )
+      )
+    return(list(format = "low_rank", data = m_sym, scheme = scheme))
+  }
+
+  list(format = fmt, data = m_sym,
+       scheme = if (is.na(scheme)) NULL else scheme)
+}
+
+# v0.4.0 (ADR 0030 C3 / ADR 0030 §5): the four v0.3.7 ADR 0025 legacy
+# vm() keyword carrier forms deprecate at v0.4.0 (warn) and are removed
+# at v0.5.0 (error). The warning names the fb_cov() migration with a
+# worked example. lifecycle::deprecate_warn() dedupes to once per
+# session per form by default; the dedicated deprecation tests force
+# it via lifecycle_verbosity = "warning".
+.warn_legacy_vm_kwargs <- function(expr, fn, var) {
+  legacy <- list(
+    chol = list(
+      what = I("The legacy `vm(chol = )` covariance keyword"),
+      ex   = "vm(geno, chol = L) -> vm(geno, cov = fb_cov(L, type = \"chol\"))"),
+    precision = list(
+      what = I("The legacy `vm(precision = )` covariance keyword"),
+      ex   = paste0("vm(geno, precision = Q) -> ",
+                    "vm(geno, cov = fb_cov(Q, type = \"precision\"))")),
+    blocks = list(
+      what = I("The legacy `vm(blocks = )` covariance keyword"),
+      ex   = paste0("vm(geno, blocks = Bs) -> ",
+                    "vm(geno, cov = fb_cov(Bs, type = \"blocks\"))")),
+    low_rank_factor = list(
+      what = I("The legacy `vm(low_rank_factor = )` covariance keyword"),
+      ex   = paste0("vm(geno, low_rank_factor = U, low_rank_scheme = \"pca\")",
+                    " -> vm(geno, cov = fb_cov(U, type = \"low_rank\", ",
+                    "scheme = \"pca\"))"))
+  )
+  for (kw in names(legacy)) {
+    if (!is.na(.dep_named(expr, kw))) {
+      info <- legacy[[kw]]
+      # The keyword is written by the user inside a model formula, so
+      # this is a *direct* deprecation from the user's perspective even
+      # though deprecate_warn() fires deep in the parser. Pinning
+      # user_env to the global environment classifies it as direct and
+      # suppresses lifecycle's indirect "please report the issue"
+      # footer, which would misrepresent an intentional deprecation as
+      # a bug to report.
+      lifecycle::deprecate_warn(
+        when     = "0.4.0",
+        what     = info$what,
+        details  = c(
+          i = paste0("Use the fb_cov() constructor instead: ", info$ex, "."),
+          i = "The legacy keyword carriers are removed at v0.5.0."),
+        id       = paste0("flexybayes_vm_", kw, "_kwarg"),
+        user_env = globalenv()
+      )
+    }
+  }
+  invisible(NULL)
+}
+
 # Stage 5A route guard. Runs at setup_env time on the greta dispatch
 # path (setup_env is greta-only; emit_inla() runs its own allowlist
 # check via lgm_gate). Dispatches:
@@ -209,14 +345,14 @@
     .stop_structured_cov_refusal(
       reason_code = "approximate_route_not_yet_registered",
       message     = paste0(
-        "vm(", term$var, ", low_rank_factor = ", cov$data,
-        ", low_rank_scheme = '", cov$scheme,
-        "'): low-rank covariance carriers require the approximation ",
-        "registry, which lands at flexyBayes v0.4.0 as ",
-        "validate_approximation(). Until then, ",
-        "materialise the rank-K matrix and route through the dense ",
-        "path: vm(", term$var, ", V = ", cov$data, " %*% t(",
-        cov$data, "))."
+        "vm(", term$var, ", cov = fb_cov(", cov$data,
+        ", type = \"low_rank\", scheme = \"", cov$scheme,
+        "\")): the low-rank covariance carrier is a reserved type at ",
+        "v0.4.0 -- its vocabulary is registered but the approximate-",
+        "covariance fit route activates in a later release. Until ",
+        "then, materialise the rank-K matrix and route through the ",
+        "dense carrier: vm(", term$var, ", cov = fb_cov(", cov$data,
+        " %*% t(", cov$data, "), type = \"dense\"))."
       ),
       format = "low_rank",
       scheme = cov$scheme

@@ -805,6 +805,46 @@
     since_version      = "0.4.0"
   )
 
+  # -- fb_cov() constructor (ADR 0030 C3; Wave 2 Phase 2A) ----------
+  # Carrier-construction refusals reachable from both the standalone
+  # fb_cov() constructor and the inline `cov = fb_cov(...)` formula
+  # front door.
+  .register_refusal(
+    reason_code        = "fb_cov_type_unknown",
+    description        = paste0(
+      "fb_cov(): the requested carrier `type` is not one of the five ",
+      "known types (dense / chol / precision / blocks / low_rank)."),
+    message_template   = paste0(
+      "fb_cov(): '%s' is not a known carrier type. Supported types: ",
+      "dense, chol, precision, blocks, low_rank."),
+    registered_in_adr  = "ADR 0030 (C3)",
+    plan_field         = "representation_plan",
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "fb_cov_missing_matrix",
+    description        = paste0(
+      "fb_cov(): the carrier matrix `M` (the first argument) was not ",
+      "supplied."),
+    message_template   = paste0(
+      "fb_cov(type = \"%s\"): the carrier matrix `M` is required."),
+    registered_in_adr  = "ADR 0030 (C3)",
+    plan_field         = "representation_plan",
+    since_version      = "0.4.0"
+  )
+  .register_refusal(
+    reason_code        = "cov_arg_not_fb_cov",
+    description        = paste0(
+      "vm() / ped(): the `cov` argument must be written inline as an ",
+      "fb_cov() carrier."),
+    message_template   = paste0(
+      "%s(%s, cov = ...): the `cov` argument must be an inline fb_cov() ",
+      "carrier, e.g. cov = fb_cov(G, type = \"chol\")."),
+    registered_in_adr  = "ADR 0030 (C3)",
+    plan_field         = "representation_plan",
+    since_version      = "0.4.0"
+  )
+
   invisible(NULL)
 }
 

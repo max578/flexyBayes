@@ -18,15 +18,18 @@
 #' @param link Character or NULL: override the default link function
 #'   (e.g., `"probit"` for binomial).
 #' @param known_matrices Named list of matrices referred to in the random
-#'   formula (e.g., `list(Gmat = G_mat, Amat = A_mat)`). As of v0.3.7,
-#'   each matrix may be supplied either as a dense base-R `matrix`
-#'   (passed via `vm(group, V = ...)` or `ped(group, A = ...)`, the
-#'   legacy default), a user-supplied lower-triangular Cholesky
-#'   factor (`vm(group, chol = L)`; greta backend only), or a sparse
-#'   precision matrix `Matrix::dgCMatrix` (`vm(group, precision = Q)`
-#'   or `ped(group, A_inv, use_sparse_precision = TRUE)`; greta and
-#'   INLA backends). See the structured-covariance vignette for
-#'   per-format worked examples.
+#'   formula (e.g., `list(Gmat = G_mat, Amat = A_mat)`). The carrier is
+#'   declared with the [fb_cov()] constructor inside the random term:
+#'   a dense covariance (`vm(group, cov = fb_cov(G, type = "dense"))`),
+#'   a user-supplied lower-triangular Cholesky factor
+#'   (`vm(group, cov = fb_cov(L, type = "chol"))`; greta backend only),
+#'   or a sparse precision matrix `Matrix::dgCMatrix`
+#'   (`vm(group, cov = fb_cov(Q, type = "precision"))`; greta and INLA
+#'   backends). The bare dense forms `vm(group, V = ...)` /
+#'   `ped(group, A = ...)` remain the default; the legacy v0.3.7
+#'   keyword carriers (`chol = `, `precision = `, `blocks = `,
+#'   `low_rank_factor = `) are deprecated and emit a migration warning.
+#'   See the structured-covariance vignette for per-type worked examples.
 #' @param weights Optional numeric weight vector (length N); sets
 #'   Var = sigma^2 / w.
 #' @param n_samples Integer: number of posterior samples per chain.

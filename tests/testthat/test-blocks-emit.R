@@ -113,7 +113,7 @@ test_that("codegen: blocks path emits t(chol(as.matrix(Matrix::bdiag(...)))) sqr
   )
   Bs <- list(diag(2), diag(3) + 0.1)
   code <- flexybayes(
-    yield ~ 1, random = ~ vm(geno, blocks = Bs),
+    yield ~ 1, random = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
     data            = dat,
     known_matrices  = list(Bs = Bs),
     return_code     = TRUE,
@@ -139,7 +139,7 @@ test_that(".build_inla_formula() blocks path emits K f() calls, one per block", 
   Bs <- list(diag(2), diag(3) + 0.1)
   fb <- flexyBayes:::fb_from_asreml(
     fixed          = yield ~ 1,
-    random         = ~ vm(geno, blocks = Bs),
+    random         = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
     data           = dat,
     family         = "gaussian",
     known_matrices = list(Bs = Bs)
@@ -171,7 +171,7 @@ test_that("flexybayes(plan = TRUE) Representation label renders 'exact (block-di
   Bs   <- list(diag(2), diag(3) + 0.1)
   plan <- flexybayes(
     fixed          = yield ~ 1,
-    random         = ~ vm(geno, blocks = Bs),
+    random         = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
     data           = dat,
     known_matrices = list(Bs = Bs),
     backend        = "greta",
@@ -194,7 +194,7 @@ test_that("flexybayes(plan = TRUE) representation_plan carries block_diagonal cl
   Bs   <- list(diag(2), diag(3) + 0.1)
   plan <- flexybayes(
     fixed          = yield ~ 1,
-    random         = ~ vm(geno, blocks = Bs),
+    random         = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
     data           = dat,
     known_matrices = list(Bs = Bs),
     backend        = "greta",
@@ -221,7 +221,7 @@ test_that("lgm_gate accepts vm() with cov_representation$format = 'blocks'", {
   Bs <- list(diag(2), diag(3) + 0.1)
   fb <- flexyBayes:::fb_from_asreml(
     fixed          = yield ~ 1,
-    random         = ~ vm(geno, blocks = Bs),
+    random         = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
     data           = dat,
     family         = "gaussian",
     known_matrices = list(Bs = Bs)
@@ -235,7 +235,11 @@ test_that("lgm_gate accepts vm() with cov_representation$format = 'blocks'", {
 # (i) low_rank refusal upgrade names the registry + workaround      #
 # ---------------------------------------------------------------- #
 
-test_that("low_rank refusal message names the approximation registry, validate_approximation(), v0.4.0, and the dense materialisation workaround", {
+test_that("low_rank refusal message names the reserved fb_cov() carrier, v0.4.0, and the dense materialisation workaround", {
+  # Legacy keyword carrier (deprecated v0.4.0); quiet the lifecycle
+  # warning -- the deprecation itself is asserted in
+  # test-fb-cov-constructor.R.
+  withr::local_options(lifecycle_verbosity = "quiet")
   dat <- data.frame(geno = factor(1:5))
   random_terms <- flexyBayes:::.parse_formula(
     ~ vm(geno, low_rank_factor = U, low_rank_scheme = "pca"), dat
@@ -248,8 +252,8 @@ test_that("low_rank refusal message names the approximation registry, validate_a
                             dat, list(U = matrix(0, 5, 2)), NULL),
     flexybayes_structured_cov_refusal = identity
   )
-  expect_match(err$message, "approximation registry")
-  expect_match(err$message, "validate_approximation\\(\\)")
+  expect_match(err$message, "reserved type")
+  expect_match(err$message, "fb_cov\\(")
   expect_match(err$message, "v0\\.4\\.0")
   expect_match(err$message, "U %\\*% t\\(U\\)")
 })
