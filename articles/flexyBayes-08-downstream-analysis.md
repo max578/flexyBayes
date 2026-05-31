@@ -1,0 +1,506 @@
+# Tutorial 08: Downstream analysis: emmeans, marginaleffects, bayesplot, loo
+
+## 1. Once the fit is in hand
+
+A fitted `flexybayes` object is the input to the standard R modelling
+ecosystem: [`summary()`](https://rdrr.io/r/base/summary.html),
+[`predict()`](https://rdrr.io/r/stats/predict.html),
+`emmeans::emmeans()`, `marginaleffects::predictions()`, `bayesplot::*`,
+`posterior::*`, `loo::loo()`, `effectsize::standardize_parameters()`.
+Each of these downstream tools answers a different question. This
+vignette walks through the most common ones using a single fit as the
+running example.
+
+The pedagogical point is that *the same posterior supports many
+different summaries*. Choosing the right summary is part of the
+analysis, not a clerical step at the end of it.
+
+## 2. The running example
+
+We re-fit the random-intercept model from the *getting started* vignette
+and retain it for the rest of this vignette.
+
+``` r
+
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+fit <- fb_brms(
+  Reaction ~ Days + (1 | Subject),
+  data         = sleepstudy,
+  backend      = "greta",
+  n_samples    = 500,
+  warmup       = 500,
+  chains       = 2,
+  verbose      = FALSE,
+  mcmc_verbose = FALSE
+)
+fit
+#> Bayesian mixed model  [flexyBayes]
+#> ------------------------------------------------------- 
+#>   Fixed  : Reaction ~ Days 
+#>   Random : ~Subject 
+#>   Family : gaussian ( identity link )
+#>   MCMC   : 2 chain(s) x 500 samples (warmup = 500 ) -- 3.3 sec
+#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   Max Rhat: 2.817  [!] 
+#>   Min ESS: 12 
+#> ------------------------------------------------------- 
+#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
+#>   $greta  -- native greta (draws, model, calculate)
+#>   $extras -- diagnostics, BLUPs, variance components
+```
+
+`fit` is of class `flexybayes`. Its
+[`summary()`](https://rdrr.io/r/base/summary.html) method gives the
+posterior digest; its [`coef()`](https://rdrr.io/r/stats/coef.html)
+method returns the posterior means of the fixed effects; its
+[`predict()`](https://rdrr.io/r/stats/predict.html) method computes
+posterior predictions on a `newdata` of your choice.
+
+``` r
+
+summary(fit)
+#> Bayesian mixed model summary  [flexyBayes]
+#> ============================================================ 
+#>   Fixed  : Reaction ~ Days 
+#>   Random : ~Subject 
+#>   Family : gaussian / identity 
+#>   N = 180 , chains = 2 , samples = 500 
+#> 
+#> -- Fixed effects (posterior)  --------------------------------- 
+#>             Estimate Post.SD     2.5%    97.5%
+#> (Intercept) 240.6139  9.7609 220.6458 257.5031
+#> Days         10.5709  0.7740   9.0495  12.1071
+#> 
+#> -- Variance components  -------------------------------------- 
+#>       Component Estimate     SD    2.5%   97.5%
+#> 1 sigma_Subject  46.8006 7.6385 33.1607 62.5053
+#> 2   sigma_e_atg  31.1512 1.7157 27.9847 34.7769
+#> 
+#> -- Convergence  --------------------------------------------- 
+#>   Rhat range: 1.007 - 2.817 
+#>   ESS  range: 12 - 1000 
+#>   Run time  : 3.3 sec
+coef(fit)
+#> (Intercept)        Days 
+#>   240.61394    10.57089
+```
+
+## 3. `emmeans` — marginal means and contrasts
+
+`emmeans` (Lenth, 2022) computes *estimated marginal means*: the
+predicted response (or any link-scale linear combination) evaluated at a
+chosen reference grid, averaged appropriately over the other variables.
+The integration with `flexyBayes` is via two S3 methods,
+[`recover_data.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/recover_data.flexybayes.md)
+and
+[`emm_basis.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/emm_basis.flexybayes.md),
+which feed `emmeans` the posterior-mean coefficient vector
+([`coef()`](https://rdrr.io/r/stats/coef.html)) and the posterior
+covariance matrix ([`vcov()`](https://rdrr.io/r/stats/vcov.html)).
+
+The resulting credible interval on each marginal mean is therefore a
+**Gaussian approximation** to the true posterior of the linear
+combination. For well-behaved fits the approximation is excellent
+(linear combinations of approximately-jointly-Gaussian posteriors are
+themselves approximately Gaussian); for skewed posteriors — small group
+counts, boundary problems — it can understate the tail.
+
+A typical first call estimates the predicted reaction time at three days
+of the experiment:
+
+``` r
+
+library(emmeans)
+em <- emmeans(fit, ~ Days, at = list(Days = c(0, 5, 9)))
+em
+#>  Days emmean   SE  df lower.CL upper.CL
+#>     0    241 6.76 178      227      254
+#>     5    293 3.69 178      286      301
+#>     9    336 6.76 178      322      349
+#> 
+#> Confidence level used: 0.95
+```
+
+For pairwise contrasts:
+
+``` r
+
+pairs(em)
+#>  contrast      estimate    SE  df t.ratio p.value
+#>  Days0 - Days5    -52.9  6.34 178  -8.342 <0.0001
+#>  Days0 - Days9    -95.1 11.40 178  -8.342 <0.0001
+#>  Days5 - Days9    -42.3  5.07 178  -8.342 <0.0001
+#> 
+#> P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+For full posterior propagation through marginal means — the version that
+reports an exact equal-tailed credible interval rather than a
+Gaussian-approximate one — drop down to
+[`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
+and compute the linear combination per draw:
+
+``` r
+
+draws <- flexyBayes::fb_as_draws_simple(fit)
+# mu_at_day_d = global intercept + d * beta_Days (greta naming)
+mu_d <- function(d) draws$mu_atg + d * draws$beta_Days
+sapply(c(0, 5, 9), function(d) {
+  s <- mu_d(d)
+  c(mean = mean(s), q025 = quantile(s, 0.025), q975 = quantile(s, 0.975))
+})
+#>                [,1]     [,2]     [,3]
+#> mean       240.6139 293.4684 335.7519
+#> q025.2.5%  220.6458 273.0784 313.9702
+#> q975.97.5% 257.5031 309.1911 353.4371
+```
+
+## 4. `marginaleffects` — predictions, comparisons, and slopes
+
+`marginaleffects` (Arel-Bundock, 2024) provides three closely-related
+summaries.
+
+- `predictions()` evaluates the *response* on a grid of predictors;
+- `comparisons()` evaluates *differences in predictions* across
+  user-specified contrasts;
+- `slopes()` evaluates *partial derivatives* of predictions with respect
+  to a continuous predictor.
+
+As of v0.4.0 `marginaleffects` works directly on `flexyBayes` fits on
+both the greta and INLA backends. The functions dispatch through the
+package’s `get_predict()` / `get_coef()` / `get_vcov()` accessors and
+return population-level (fixed-effect) predictions on the identity link:
+
+``` r
+
+predictions(fit, newdata = data.frame(Days = c(0, 5, 9), Subject = "308"))
+
+avg_comparisons(fit,
+                variables = list(Days = c(0, 9)),
+                newdata   = data.frame(Days = NA, Subject = "308"))
+
+avg_slopes(fit, variables = "Days",
+           newdata = data.frame(Days = 5, Subject = "308"))
+```
+
+The manual route through
+[`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
+remains available and covers the same ground with full posterior draws:
+
+``` r
+
+draws <- flexyBayes::fb_as_draws_simple(fit)
+# Predicted reaction time at days 0, 5, 9 (population-level — omits
+# subject offset)
+predict_pop <- function(d) draws$mu_atg + d * draws$beta_Days
+sapply(c(0, 5, 9), function(d) {
+  s <- predict_pop(d)
+  c(pred = mean(s), q025 = quantile(s, 0.025), q975 = quantile(s, 0.975))
+})
+#>                [,1]     [,2]     [,3]
+#> pred       240.6139 293.4684 335.7519
+#> q025.2.5%  220.6458 273.0784 313.9702
+#> q975.97.5% 257.5031 309.1911 353.4371
+# Comparison: difference between day 9 and day 0
+diff_9_0 <- predict_pop(9) - predict_pop(0)
+c(diff = mean(diff_9_0), q025 = quantile(diff_9_0, 0.025),
+  q975 = quantile(diff_9_0, 0.975))
+#>       diff  q025.2.5% q975.97.5% 
+#>   95.13797   81.44569  108.96415
+```
+
+For full posterior propagation through complex counterfactuals — where
+`marginaleffects` summarises to population means while the draws carry
+the entire posterior — the manual draws-based route stays useful.
+
+`marginaleffects` and `emmeans` overlap in scope. The rule of thumb:
+`emmeans` for grouped means and pairwise contrasts on factors;
+`marginaleffects` for derivative-based summaries and complex
+counterfactuals (when v0.2 lands).
+
+## 5. `bayesplot` — diagnostic and posterior plots
+
+`bayesplot` (Gabry, Simpson, Vehtari, Betancourt, & Gelman, 2019)
+provides the canonical posterior visualisations. The bridge from
+`flexyBayes` to `bayesplot` is the `posterior::draws_array` interface,
+exposed via
+[`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md).
+
+``` r
+
+library(bayesplot)
+draws <- flexyBayes::fb_as_draws_simple(fit)
+# Greta names: mu_atg (intercept), beta_Days (slope), sigma_Subject
+# (random-effect SD), sigma_e_atg (residual SD).
+da <- do.call(cbind, draws[c("mu_atg", "beta_Days",
+                             "sigma_Subject", "sigma_e_atg")])
+colnames(da) <- c("intercept", "beta_Days", "sigma_Subject", "sigma_e")
+mcmc_areas(da, prob = 0.9)
+```
+
+![plot of chunk
+bp-areas](flexyBayes-08-downstream-analysis-figs/bp-areas-1.png)
+
+plot of chunk bp-areas
+
+Diagnostic plots — trace, autocorrelation, rank — are equally
+straightforward:
+
+``` r
+
+mcmc_trace(da, pars = c("beta_Days", "sigma_Subject"))
+```
+
+![plot of chunk
+bp-trace](flexyBayes-08-downstream-analysis-figs/bp-trace-1.png)
+
+plot of chunk bp-trace
+
+A trustworthy fit shows trace plots that look like *fuzzy caterpillars*,
+autocorrelations that decay rapidly, and rank histograms close to
+uniform. Departure from any of these is a diagnostic prompt — see the
+*cross-engine triangulation* vignette for what to do.
+
+## 6. `loo` — predictive performance and model comparison
+
+`loo::loo()` (Vehtari, Gelman, & Gabry, 2017; Vehtari, Simpson, Gelman,
+Yao, & Gabry, 2024) computes *Pareto-smoothed importance- sampling
+leave-one-out cross-validation* (PSIS-LOO), an estimator of
+out-of-sample predictive log-density. Each observation receives a
+Pareto-shape estimate $`\hat{k}`$, with $`\hat{k} > 0.7`$ indicating an
+overly-influential observation that the importance-sampling
+approximation cannot trust.
+
+A canonical `loo` integration requires a `log_lik` method that returns
+the pointwise log-likelihood draws array (S × N for S posterior draws
+and N observations). `flexyBayes` ships
+[`logLik.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/logLik.flexybayes.md)
+(a single-scalar method for likelihood-ratio tests) but does not yet
+ship `log_lik.flexybayes()` (the pointwise draws-array method that `loo`
+requires). The pointwise version is queued for a subsequent release.
+
+For now, the manual path is to construct the pointwise log-likelihood
+from the posterior draws and the observed responses:
+
+``` r
+
+draws <- flexyBayes::fb_as_draws_simple(fit)
+# Approximate the per-draw fitted mean for each observation. With
+# random intercepts, we approximate by the population-level prediction
+# (omitting subject offsets); for a more accurate version, retain the
+# full per-subject draws.
+n_draws <- length(draws$mu_atg)
+n_obs   <- nrow(sleepstudy)
+ll_mat  <- matrix(NA_real_, nrow = n_draws, ncol = n_obs)
+for (s in seq_len(n_draws)) {
+  mu_s    <- draws$mu_atg[s] + draws$beta_Days[s] * sleepstudy$Days
+  sigma_s <- draws$sigma_e_atg[s]
+  ll_mat[s, ] <- dnorm(sleepstudy$Reaction, mu_s, sigma_s, log = TRUE)
+}
+loo_pop <- loo::loo(ll_mat)
+loo_pop
+#> 
+#> Computed from 1000 by 180 log-likelihood matrix.
+#> 
+#>          Estimate   SE
+#> elpd_loo  -1044.7 29.7
+#> p_loo        53.8  7.2
+#> looic      2089.4 59.3
+#> ------
+#> MCSE of elpd_loo is NA.
+#> MCSE and ESS estimates assume independent draws (r_eff=1).
+#> 
+#> Pareto k diagnostic values:
+#>                           Count Pct.    Min. ESS
+#> (-Inf, 0.67]   (good)     175   97.2%   66      
+#>    (0.67, 1]   (bad)        5    2.8%   <NA>    
+#>     (1, Inf)   (very bad)   0    0.0%   <NA>    
+#> See help('pareto-k-diagnostic') for details.
+```
+
+The Pareto-$`\hat{k}`$ diagnostic is reported per observation. For two
+competing models on the same data, `loo_compare()` returns the expected
+log pointwise predictive density (ELPD) difference and its standard
+error:
+
+``` r
+
+loo_compare(loo_a, loo_b)
+```
+
+The right interpretation of `loo_compare` is *predictive*: model A is
+predicted to do better than model B by `elpd_diff` log-points per
+observation, with uncertainty `se_diff`. It is *not* a hypothesis test.
+
+## 7. `effectsize` — standardised contrasts and partial $`R^2`$
+
+`effectsize` (Ben-Shachar, Lüdecke, & Makowski, 2020) standardises
+contrasts to a common scale (Cohen’s $`d`$, partial $`R^2`$) and is
+useful when reporting effect magnitudes across studies that use
+different response scales.
+
+The package’s `flexybayes`-class method dispatches via
+`parameters::model_parameters()`, which does not yet recognise the
+`flexybayes` class — `effectsize` integration is queued for a subsequent
+release. For now, the manual standardisation path is straightforward:
+
+``` r
+
+draws  <- flexyBayes::fb_as_draws_simple(fit)
+sd_y   <- sd(sleepstudy$Reaction)
+beta_std <- draws$beta_Days * sd(sleepstudy$Days) / sd_y
+c(mean = mean(beta_std),
+  q025 = quantile(beta_std, 0.025),
+  q975 = quantile(beta_std, 0.975))
+#>       mean  q025.2.5% q975.97.5% 
+#>  0.5405276  0.4627348  0.6190813
+```
+
+The `beta_std` values are interpretable as Cohen’s $`d`$-style
+standardised slopes — one standard-deviation change in `Days` shifts
+standardised reaction time by `mean(beta_std)`.
+
+## 8. Pareto-$`\hat{k}`$ in interpretation
+
+The Pareto-shape estimate $`\hat{k}`$ is more than a regularity check —
+it identifies *which observations dominate the posterior*. When an
+observation has $`\hat{k} > 0.7`$, the importance-sampling approximation
+to its leave-one-out density is unreliable, but more fundamentally it
+tells you that this observation is doing a lot of work. Removing it
+would visibly change the posterior.
+
+In practice:
+
+- Plot $`\hat{k}`$ values; expect the right tail to thin quickly.
+- For each $`\hat{k} > 0.7`$ observation, ask: is this observation a
+  leverage point we should investigate, an outlier we should refit with
+  a robust likelihood, or a routine high-information observation?
+
+The cross-engine triangulation vignette uses the high-$`\hat{k}`$
+observations from a Poisson fit as the trigger for refitting with a
+heavier-tailed likelihood.
+
+## 9. Pitfalls
+
+**`emmeans` defaults assume balanced data.** When cell counts are
+unbalanced or random effects are unequally represented, the default
+weighting may not be what you want. Read `?emmeans::weights.emmGrid` and
+pass `weights = "proportional"` or `weights = "equal"` as appropriate.
+
+**`marginaleffects` predictions on the link versus response scale.** For
+non-Gaussian families, `predictions(type = "link")` and
+`predictions(type = "response")` give different scales. Always state the
+scale you are reporting.
+
+**`loo` requires pointwise log-likelihood.** Some `flexyBayes` fits ship
+a per-observation log-likelihood draws array; others require it to be
+computed from [`predict()`](https://rdrr.io/r/stats/predict.html). Check
+`fit$extras$log_lik` and compute it yourself if absent.
+
+**Bayes factors are not implemented.** `flexyBayes` does not estimate
+marginal likelihoods directly. PSIS-LOO is the recommended
+model-comparison instrument. Bayes factors via bridge sampling are
+queued for a subsequent release.
+
+## 10. Active prompts
+
+1.  Refit the model on a subset (e.g., the first 12 subjects) and
+    compare `emmeans` outputs with the full fit. How much does removing
+    subjects change the best linear unbiased predictor (BLUP) intervals?
+2.  Run `loo()` on two fits — the random-intercept and a
+    fixed-effect-only model. Does the random-intercept model win on
+    ELPD? By how much?
+3.  Use `marginaleffects::comparisons()` to compute the predicted
+    increase in `Reaction` from day 0 to day 9 for an *average* subject
+    (set `Subject = NA`). Compare with the per-subject prediction.
+
+## 11. Session information
+
+``` r
+
+sessionInfo()
+#> R version 4.5.2 (2025-10-31)
+#> Platform: aarch64-apple-darwin20
+#> Running under: macOS Tahoe 26.4.1
+#> 
+#> Matrix products: default
+#> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
+#> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+#> 
+#> locale:
+#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> 
+#> time zone: Australia/Adelaide
+#> tzcode source: internal
+#> 
+#> attached base packages:
+#> [1] stats     graphics  grDevices utils     datasets  methods   base     
+#> 
+#> other attached packages:
+#> [1] bayesplot_1.15.0      emmeans_2.0.2         ggplot2_4.0.3        
+#> [4] flexyBayes_0.2.0.9000
+#> 
+#> loaded via a namespace (and not attached):
+#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
+#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
+#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
+#>  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          
+#>  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             
+#>  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           
+#>  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       
+#>  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        
+#>  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    
+#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
+#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
+#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
+#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     
+#>  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    
+#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
+#>  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          
+#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
+#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
+#>  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        
+#>  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
+#>  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       
+#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
+#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
+#>  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         
+#>  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    
+#>  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         
+#>  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  
+#>  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          
+#>  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          
+#>  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           
+#>  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         
+#>  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      
+#>  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
+#> [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           
+#> [103] gtable_0.3.6           greta_0.5.1            digest_0.6.39         
+#> [106] classInt_0.4-11        TH.data_1.1-5          farver_2.1.2          
+#> [109] lifecycle_1.0.5        MASS_7.3-65
+```
+
+## References
+
+Arel-Bundock, V. (2024). marginaleffects: Predictions, comparisons,
+slopes, marginal means, and hypothesis tests. R package.
+
+Ben-Shachar, M. S., Lüdecke, D., & Makowski, D. (2020). effectsize:
+Estimation of effect size indices and standardized parameters. *Journal
+of Open Source Software*, 5(56), 2815.
+
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A.
+(2019). Visualization in Bayesian workflow. *Journal of the Royal
+Statistical Society: Series A*, 182(2), 389–402.
+
+Lenth, R. V. (2022). emmeans: Estimated marginal means, aka
+least-squares means. R package.
+
+Vehtari, A., Gelman, A., & Gabry, J. (2017). Practical Bayesian model
+evaluation using leave-one-out cross-validation and WAIC. *Statistics
+and Computing*, 27(5), 1413–1432.
+
+Vehtari, A., Simpson, D., Gelman, A., Yao, Y., & Gabry, J. (2024).
+Pareto smoothed importance sampling. *Journal of Machine Learning
+Research*, 25(72), 1–58.
