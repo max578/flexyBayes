@@ -36,10 +36,15 @@ skip_if_no_greta_quiet <- function() {
         x = stats::rnorm(40L),
         g = factor(rep(seq_len(5L), length.out = 40L))
       )
+      # backend = "greta" explicitly: these snapshots read the greta
+      # surface (MCMC draws, fitted / residuals, the variance-component
+      # table). A bare flexybayes(fixed, random) routes via auto to INLA,
+      # which does not expose those slots, so the backend is pinned here.
       fit <<- flexybayes(
         fixed     = y ~ x,
         random    = ~ g,
         data      = d,
+        backend   = "greta",
         n_samples = 100L,
         warmup    = 100L,
         chains    = 1L,

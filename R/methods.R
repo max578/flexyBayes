@@ -736,7 +736,14 @@ logLik.flexybayes <- function(object, ...) {
     } else {
       NA_real_
     }
-  }, error = function(e) NA_real_)
+  }, error = function(e) {
+    # Surface the failure rather than silently returning NA (charter:
+    # never swallow an error). Downstream anova() / AIC() see the NA and
+    # the user sees why.
+    warning("logLik() could not be computed (", conditionMessage(e),
+            "); returning NA.", call. = FALSE)
+    NA_real_
+  })
 
   structure(ll,
     df = object$extras$model_info$n_params,

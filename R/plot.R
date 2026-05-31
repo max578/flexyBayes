@@ -27,8 +27,52 @@ plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
   )
 }
 
+# Backend fit objects are sibling classes rather than subclasses of
+# "flexybayes", so the plot method must be registered for each one. The
+# shared body above is backend-aware: types that read a slot a given
+# backend does not populate (for example MCMC draws on an INLA fit)
+# degrade to an informative message via .plot_unavailable() instead of
+# erroring. "effects" works on every backend that exposes coef() and
+# confint().
+
+#' @rdname plot.flexybayes
+#' @export
+plot.flexybayes_inla <- function(x, ...) plot.flexybayes(x, ...)
+
+#' @rdname plot.flexybayes
+#' @export
+plot.flexybayes_brms <- function(x, ...) plot.flexybayes(x, ...)
+
+#' @rdname plot.flexybayes
+#' @export
+plot.flexybayes_aggregated <- function(x, ...) plot.flexybayes(x, ...)
+
+#' @rdname plot.flexybayes
+#' @export
+plot.flexybayes_direct_greta <- function(x, ...) plot.flexybayes(x, ...)
+
+#' @rdname plot.flexybayes
+#' @export
+plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
+
+# Emit a non-silent, non-erroring notice that a plot type is not
+# available for this fit's backend, then return invisibly. Backends
+# differ in which slots they expose (greta carries MCMC draws, fitted
+# values and a variance-component table; INLA does not), so a plot type
+# that reads a slot the backend never populates degrades to a message
+# rather than crashing through to graphics::plot.default().
+.plot_unavailable <- function(type, reason) {
+  message("plot(type = \"", type, "\") is not available for this fit: ",
+          reason)
+  invisible(NULL)
+}
+
 # MCMC diagnostics: trace + density
 .plot_diagnostics <- function(x, ...) {
+  if (is.null(x$greta$draws))
+    return(.plot_unavailable(
+      "diagnostics",
+      "trace / density plots require MCMC draws (greta or brms backend)."))
   if (requireNamespace("bayesplot", quietly = TRUE)) {
     draws <- x$greta$draws
     p1 <- bayesplot::mcmc_trace(draws, ...)
@@ -66,8 +110,14 @@ plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
 
 # Residual diagnostics
 .plot_residuals <- function(x, ...) {
-  fitted_vals <- fitted(x)
-  resid_vals  <- residuals(x)
+  fitted_vals <- tryCatch(stats::fitted(x), error = function(e) NULL)
+  resid_vals  <- tryCatch(stats::residuals(x), error = function(e) NULL)
+
+  if (is.null(fitted_vals) || is.null(resid_vals) ||
+      length(fitted_vals) == 0L || length(resid_vals) == 0L)
+    return(.plot_unavailable(
+      "residuals",
+      "fitted values and residuals are not available for this backend."))
 
   if (any(is.na(fitted_vals)) || any(is.na(resid_vals))) {
     message("Cannot plot residuals: fitted values contain NA.")
@@ -103,13 +153,17 @@ plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
 
 # Forest plot of fixed effects
 .plot_effects <- function(x, level = 0.95, ...) {
-  beta <- coef(x)
-  if (length(beta) == 0) {
+  beta <- tryCatch(stats::coef(x), error = function(e) NULL)
+  if (is.null(beta) || length(beta) == 0L) {
     message("No fixed effects to plot.")
     return(invisible(NULL))
   }
 
-  ci <- confint(x, level = level)
+  ci <- tryCatch(stats::confint(x, level = level), error = function(e) NULL)
+  if (is.null(ci) || nrow(ci) != length(beta))
+    return(.plot_unavailable(
+      "effects",
+      "fixed-effect credible intervals are not available for this backend."))
 
   n <- length(beta)
   y_pos <- seq_len(n)
@@ -185,7 +239,12 @@ plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
 # Posterior predictive check
 .plot_pp_check <- function(x, ...) {
   y <- x$glm$y
-  fitted_vals <- fitted(x)
+  fitted_vals <- tryCatch(stats::fitted(x), error = function(e) NULL)
+
+  if (is.null(y) || is.null(fitted_vals) || length(fitted_vals) == 0L)
+    return(.plot_unavailable(
+      "pp_check",
+      "observed response and fitted values are not available for this backend."))
 
   if (any(is.na(fitted_vals))) {
     message("Cannot produce posterior predictive check: fitted values contain NA.")

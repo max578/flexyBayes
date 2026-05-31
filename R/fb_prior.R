@@ -187,6 +187,39 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
 # Parse distribution side of a prior spec formula. Returns:
 #   list(family = "pc", args = list(upper = 1, prob = 0.01))
+# Canonical parameter order for each supported prior family. The names
+# match exactly what the emit paths read (e.g. legacy reads `sd` for
+# normal, `scale` for half_normal; INLA / brms read `upper` / `prob` for
+# pc), so naming positional arguments to these keys makes the by-name
+# reads downstream see the same thing whether the user wrote the call
+# positionally or with names.
+.prior_family_params <- list(
+  normal      = c("mean", "sd"),
+  half_normal = "scale",
+  half_cauchy = "scale",
+  cauchy      = c("location", "scale"),
+  student_t   = c("df", "location", "scale"),
+  exponential = "rate",
+  gamma       = c("shape", "rate"),
+  lkj         = "eta",
+  pc          = c("upper", "prob"),
+  uniform     = c("lower", "upper")
+)
+
+# Rewrite a prior-distribution call so positional arguments carry their
+# canonical names, using base R's own argument-matching via match.call()
+# against a stub function whose formals are the family's parameters. An
+# unmatchable call (e.g. an unexpected extra argument) is returned
+# unchanged so the existing validators surface the error.
+.name_prior_args <- function(expr, fn) {
+  params <- .prior_family_params[[fn]]
+  if (is.null(params)) return(expr)
+  stub <- function() NULL
+  fm <- stats::setNames(rep(list(quote(expr = )), length(params)), params)
+  formals(stub) <- fm
+  tryCatch(match.call(stub, expr), error = function(e) expr)
+}
+
 .parse_prior_distribution <- function(expr, envir = baseenv()) {
   if (!is.call(expr))
     stop("Prior distribution must be a call (e.g., ",
@@ -202,6 +235,17 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
     stop("Unsupported prior distribution: ", fn,
          ". v0.1 supports: ",
          paste(supported, collapse = ", "), call. = FALSE)
+
+  # Name positional arguments by the family's canonical parameter order
+  # *before* evaluating, so that `normal(0, 50)` and `normal(0, sd = 50)`
+  # carry identical names downstream. Every emit path (legacy / greta,
+  # INLA, brms) reads these arguments by name; without this step a
+  # positional call silently drops to the default scale on the
+  # by-name paths. Matching is delegated to base R via match.call() on a
+  # stub with the canonical formals, so named + positional binding
+  # follows the usual rules; an unmatchable call falls back to the raw
+  # (unnamed) form rather than erroring.
+  expr <- .name_prior_args(expr, fn)
 
   # Evaluate distribution arguments in the formula's calling
   # environment so users can pass data-driven scales like

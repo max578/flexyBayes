@@ -115,13 +115,13 @@ test_that("flexybayes() rejects backend = 'gretaR' via match.arg (slot not adver
 
 
 # ---------------------------------------------------------------- #
-# (5) fb_brms(backend = 'gretaR') -> standard match.arg error      #
+# (5) fb(backend = 'gretaR') -> standard match.arg error      #
 # ---------------------------------------------------------------- #
 
 test_that("fb_brms() rejects backend = 'gretaR' via match.arg (slot not advertised in v0.2)", {
   d <- mk_lgm_data()
   err <- tryCatch(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "gretaR"),
+    fb(y ~ x + (1 | g), data = d, backend = "gretaR"),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("'arg'.*should be one of|match.arg",
@@ -183,7 +183,7 @@ test_that("activation boolean transitions dormancy reason from not-activated to 
                    "slot_provisioned_not_activated")
   expect_false(gs_off$activated)
 
-  options(flexyBayes.gretaR_activated = TRUE)
+  withr::local_options(flexyBayes.gretaR_activated = TRUE)
   gs_on <- gretaR_status()
   # v0.2 ships no audit mechanism, so flipping the boolean alone
   # moves the reason to "gretaR_not_audit_clean" rather than to

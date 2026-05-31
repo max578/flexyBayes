@@ -101,12 +101,20 @@ test_that("canonical_names() on an INLA fit translates Precision-for and attache
     cn$map[["Precision for the Gaussian observations"]], "sigma")
   expect_identical(cn$map[["Precision for geno"]], "sd_geno")
 
-  expect_true(is.function(cn$transform[["sigma"]]))
-  expect_true(is.function(cn$transform[["sd_geno"]]))
+  # The transform is keyed by the *native* hyperpar name, not the
+  # canonical target. triangulate() applies transforms to each fit's
+  # draws while they still carry native names (before renaming), so a
+  # canonical key would silently no-op and leave INLA precision draws
+  # un-converted. Guard the native keying explicitly.
+  prec_g <- "Precision for the Gaussian observations"
+  expect_true(is.function(cn$transform[[prec_g]]))
+  expect_true(is.function(cn$transform[["Precision for geno"]]))
+  expect_null(cn$transform[["sigma"]])     # NOT keyed by canonical name
+  expect_null(cn$transform[["sd_geno"]])
 
   # sqrt(1/4) = 0.5 -- the transform is the precision-to-SD form.
-  expect_equal(cn$transform[["sigma"]](4),     0.5)
-  expect_equal(cn$transform[["sd_geno"]](100), 0.1)
+  expect_equal(cn$transform[[prec_g]](4),               0.5)
+  expect_equal(cn$transform[["Precision for geno"]](100), 0.1)
 })
 
 
@@ -229,9 +237,13 @@ test_that("fb_greta(canonical_names = ...) takes precedence over the verbatim fa
   greta::distribution(y) <- greta::normal(b0, sigma)
   m <- greta::model(b0, sigma)
 
-  fit <- suppressMessages(fb_greta(
+  # v0.5.0: a canonical-name map is attached at IR-build time via
+  # fb_from_greta(); the greta pin then fits the IR.
+  ir <- suppressMessages(fb_from_greta(
     m, data = d,
-    canonical_names = c(b0 = "(Intercept)", sigma = "sigma"),
+    canonical_names = c(b0 = "(Intercept)", sigma = "sigma")))
+  fit <- suppressMessages(fb_greta(
+    ir,
     n_samples = 50L, warmup = 50L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))

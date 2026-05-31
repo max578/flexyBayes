@@ -434,21 +434,27 @@ register_canonical_mapper <- function(backend, mapper) {
     map[paste0(nm, ":1")]    <- nm
   }
 
-  # Hyperparameters -- precision-side names; rename + sqrt(1/prec).
+  # Hyperparameters -- precision-side names; rename + sqrt(1/prec). The
+  # transform is keyed by the *native* hyperpar name (not the canonical
+  # target), because triangulate() applies transforms to each fit's
+  # draws while they still carry their backend-native names, before any
+  # renaming (see triangulate.R "Apply per-parameter transforms before
+  # any renaming"). Keying by the canonical name silently no-ops, which
+  # would leave INLA precision draws un-converted and make a cross-engine
+  # comparison pit precision against standard deviation.
   # Hyperpar names do not carry the ":1" suffix.
   prec_to_sd <- function(prec) sqrt(1 / prec)
   hyper_names <- rownames(fit$inla$summary.hyperpar) %||% character(0)
   for (nm in hyper_names) {
     if (identical(nm, "Precision for the Gaussian observations")) {
-      map[nm]              <- "sigma"
-      transform[["sigma"]] <- prec_to_sd
+      map[nm]         <- "sigma"
+      transform[[nm]] <- prec_to_sd
       next
     }
     if (startsWith(nm, "Precision for ")) {
       grp <- sub("^Precision for ", "", nm)
-      canon <- paste0("sd_", grp)
-      map[nm]            <- canon
-      transform[[canon]] <- prec_to_sd
+      map[nm]         <- paste0("sd_", grp)
+      transform[[nm]] <- prec_to_sd
       next
     }
     # Other hyperparameters (e.g., rho-for-ar1) left un-mapped for

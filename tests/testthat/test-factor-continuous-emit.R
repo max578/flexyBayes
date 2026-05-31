@@ -416,11 +416,10 @@ test_that("parse_info$factor_continuous_emit records the emit path", {
 # the fallback path even when Option C ships.
 
 test_that("Option D fallback emits per-observation lookup vectors", {
-  options(flexyBayes.force_option_d = TRUE)
   withr::local_options(list(
+    flexyBayes.force_option_d             = TRUE,
     flexyBayes.silence_default_prior_note = TRUE
   ))
-  on.exit(options(flexyBayes.force_option_d = FALSE), add = TRUE)
   set.seed(20260523L)
   n <- 60L
   d <- data.frame(

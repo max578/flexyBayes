@@ -548,12 +548,18 @@
     } else {
       ctx <- .add(ctx, "p_atg <- iprobit(mu_i_atg)")
     }
+    # greta emits a Bernoulli likelihood, which requires a binary (0/1)
+    # response. Trial-count (aggregated binomial) responses have no
+    # lossless Bernoulli encoding here, so refuse rather than silently
+    # fit the wrong likelihood.
     y_vals <- data[[resp]]
-    if (all(y_vals %in% c(0, 1))) {
-      ctx <- .add(ctx, "distribution(y_atg_obs) <- bernoulli(p_atg)")
-    } else {
-      ctx <- .add(ctx, "distribution(y_atg_obs) <- bernoulli(p_atg)")
-    }
+    if (!all(y_vals %in% c(0, 1)))
+      stop("A binomial model on the greta backend requires a binary ",
+           "(0/1) response; trial-count (aggregated binomial) responses ",
+           "are not yet supported on this backend. The response `", resp,
+           "` has ", length(unique(y_vals)), " distinct values.",
+           call. = FALSE)
+    ctx <- .add(ctx, "distribution(y_atg_obs) <- bernoulli(p_atg)")
 
   } else if (fl$family == "poisson") {
     ctx <- .add(ctx, "lam_atg <- exp(mu_i_atg)")

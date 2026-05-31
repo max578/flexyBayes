@@ -120,8 +120,9 @@ lgm_gate <- function(fb,
     return(fb)
   }
 
-  # Override path -- two-key armed; non-overridable check 7 (numerical)
-  # is not yet implemented so all v0.1 failures are structural.
+  # Override path -- two-key armed. The structural checks are
+  # user-overridable here; the numerical-confirm check runs post-fit in
+  # the INLA emitter (see emit_inla.R) and is not overridable.
   if (identical(force, "inla") && isTRUE(acknowledge_silent_bias_risk)) {
     if (is.null(reason) || !is.character(reason) ||
         length(reason) != 1L || !nzchar(reason))
@@ -336,8 +337,9 @@ print.lgm_refusal <- function(x, ...) {
 #
 # Legacy asreml priors (lognormal scalar wrapped via
 # fb$priors$legacy = TRUE) map to Gaussian-equivalent on sigma and pass
-# trivially. fb_prior() declarations (deliverable 3) will be
-# inspected term-by-term; v0.1 placeholder accepts.
+# trivially. fb_prior() declarations are inspected term-by-term below:
+# an explicit non-Gaussian random-effect prior fails the check, since
+# INLA's latent field is Gaussian by construction.
 .lgm_check_re_prior <- function(fb) {
   if (isTRUE(fb$priors$legacy))
     return(.lgm_pass("re_gaussian_prior"))

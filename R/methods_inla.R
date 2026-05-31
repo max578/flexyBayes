@@ -119,7 +119,17 @@ formula.flexybayes_inla <- function(x, ...) {
   if (is.null(f))
     stop("The INLA fit does not carry a fixed-effect formula.",
          call. = FALSE)
-  stats::as.formula(f)
+  f <- stats::as.formula(f)
+  # Enforce the documented contract: this is the *fixed-effect* formula.
+  # A brms-grammar fit (`y ~ x + (1 | g)`) is stored whole in
+  # call_info$fixed, so strip any random-effect bar terms here. The
+  # downstream model-matrix reconstruction (predict / emmeans /
+  # marginaleffects) must see only the fixed-effect basis; a leftover
+  # `(1 | g)` evaluates as `1 | g` (a logical op on the factor) and
+  # injects a spurious column that fails coefficient reconciliation.
+  # Idempotent on an already-fixed-only formula.
+  if (length(f) == 3L) f <- .brms_fixed_only_formula(f)
+  f
 }
 
 #' Response family of a per-row INLA fit

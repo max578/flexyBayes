@@ -22,9 +22,9 @@
 # Anything not in the supported set raises an INLA-side refusal
 # pointing the user back to backend = "greta".
 #
-# Per project CLAUDE.md and design notes Q5, post-fit numerical-
-# confirm gate (check 7) lives here: assert mode.status == 0;
-# mlik finite. Failures escalate to a structured warning.
+# The post-fit numerical-confirm gate lives here: assert
+# mode.status == 0 and a finite marginal likelihood (mlik). Failures
+# escalate to a structured warning.
 #
 # INLA is not on CRAN; ships via inla.r-inla-download.org. Added to
 # DESCRIPTION:Suggests with Additional_repositories declaration.

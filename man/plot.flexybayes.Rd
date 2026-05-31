@@ -2,6 +2,11 @@
 % Please edit documentation in R/plot.R
 \name{plot.flexybayes}
 \alias{plot.flexybayes}
+\alias{plot.flexybayes_inla}
+\alias{plot.flexybayes_brms}
+\alias{plot.flexybayes_aggregated}
+\alias{plot.flexybayes_direct_greta}
+\alias{plot.flexybayes_glm}
 \title{Plot diagnostics for a flexybayes model}
 \usage{
 \method{plot}{flexybayes}(
@@ -9,6 +14,16 @@
   type = c("diagnostics", "residuals", "effects", "variance", "blups", "pp_check"),
   ...
 )
+
+\method{plot}{flexybayes_inla}(x, ...)
+
+\method{plot}{flexybayes_brms}(x, ...)
+
+\method{plot}{flexybayes_aggregated}(x, ...)
+
+\method{plot}{flexybayes_direct_greta}(x, ...)
+
+\method{plot}{flexybayes_glm}(x, ...)
 }
 \arguments{
 \item{x}{A flexybayes object}
