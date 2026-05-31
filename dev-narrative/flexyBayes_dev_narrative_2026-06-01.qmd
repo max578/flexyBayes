@@ -1,0 +1,1430 @@
+---
+title: "flexyBayes — a development narrative"
+subtitle: "From concept through v0.6.0 — a trustworthy instrument that now scales to billions of rows"
+author:
+  - name: "Max Moldovan, on behalf of the AAGI-AUS collective"
+date: "2026-06-01"
+abstract: |
+  flexyBayes is a multi-backend Bayesian mixed-model framework
+  for the R ecosystem. The package's main contribution is
+  cross-engine triangulation — a posterior-agreement diagnostic
+  that reports where greta, INLA, and brms-via-Stan agree, where
+  they differ, and on which hyperparameter scale the
+  disagreement lives. This document records the development of
+  the package from concept through the v0.6.0 release. The
+  foundational chapters cover the triangulation thesis and the
+  design work behind the v0.2 cut; later chapters carry the
+  narrative through the staged v0.3 and v0.4 capability releases,
+  the v0.5.0 verb-surface finalisation, and the v0.6.0 streaming
+  exact-aggregation work that lets the package fit its core model
+  family to datasets far larger than memory — measured to five
+  billion rows at a bounded memory footprint. The intended
+  audience is methodologists, software-management committees, and
+  reviewers who need a view of the design work behind the
+  artefact rather than a release summary.
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-fold: false
+    code-tools: false
+    code-overflow: wrap
+    theme: cosmo
+    fontsize: "1.0rem"
+    linkcolor: "#0366d6"
+    mainfont: "Inter, system-ui, sans-serif"
+    monofont: "JetBrains Mono, Menlo, monospace"
+    number-sections: true
+    number-depth: 2
+    citations-hover: true
+    fig-cap-location: bottom
+    smooth-scroll: true
+execute:
+  eval: false
+  echo: true
+  warning: false
+  message: false
+---
+
+# Why this document exists
+
+A proposal to expand a research-software project benefits from a
+view of the design work behind the artefact: how the problem was
+framed, which decisions were made, what trade-offs were weighed,
+how iteration responded to feedback, and what practices keep the
+software usable. This document supplies that view for
+**flexyBayes**, covering research impact, design thinking, the
+development cycle, testing and verification practice,
+implementation patterns, issues resolved during development, and
+the forward look.
+
+The document does not summarise the package; it records how the
+package came to be in its present state.
+
+## How to read this document
+
+The full read is about twenty-five minutes. Readers short on time
+can jump to §3 (Design thinking), §6 (Implementation patterns),
+and §7 (Issues resolved during development) and pick up the
+remaining sections as needed.
+
+User-facing documentation lives elsewhere: the twelve numbered
+vignettes for tutorials; `NEWS.md` for release notes; the
+pkgdown reference at `aagi-aus.github.io/flexyBayes/` (once the
+upstream rename ships) for the API.
+
+---
+
+# Research impact and significance
+
+## The user problem
+
+Agricultural-statistics workflows — multi-environment trials
+(METs), genomic selection (GBLUP), pedigree-based animal models,
+spatial field-trial analysis — sit on a tradition of restricted-
+maximum-likelihood (REML) fits via `asreml`, `lme4`, `nlme`, and
+`mgcv`. The Bayesian alternative is methodologically attractive
+(full posteriors instead of Wald approximations; explicit prior-
+encoded shrinkage on boundary-prone variance components) but
+spread across three competing R ecosystems: greta (Hamiltonian
+Monte Carlo via TensorFlow Probability), INLA (integrated nested
+Laplace approximation for latent Gaussian models), and brms
+(Stan-NUTS, the most general). Each engine has strengths and
+limitations the others do not share. The cost of this
+fragmentation is the cost of choosing wrongly without evidence.
+
+## Three failure modes
+
+Three patterns recur in consulting work and in the ag-stats
+literature.
+
+1. *Silent disagreement.* A user fits the same model in greta and
+   INLA, gets two answers, and has no principled way to surface
+   the disagreement. The answers might differ by 1% on the main
+   effect and 30% on a variance component; the user reports the
+   first and never inspects the second.
+2. *Silent approximation.* A user requests INLA's fast Laplace
+   approximation on a structurally-incompatible model (a finite
+   mixture; a non-Gaussian random-effect prior; a hyperparameter
+   budget over 15). INLA produces a posterior; the posterior is
+   wrong; the user receives no in-band signal.
+3. *Engine-selection-as-art.* A senior statistician picks the
+   engine by intuition. The intuition is often correct, but it
+   does not transfer to junior collaborators, and it is not a
+   substitute for evidence.
+
+## What flexyBayes contributes
+
+flexyBayes treats the engine-disagreement signal as a first-class
+output of the fit. Three exports carry the contribution.
+
+- `triangulate(fit_a, fit_b)` — pairwise cross-engine comparison;
+  mean difference, SD ratio, tail drift, Wasserstein-1, R-hat-on-
+  means on every parameter the two fits share. Backend-native
+  parameter names are auto-resolved via the canonical-name
+  registry, so the user does not maintain the name map.
+- `lgm_gate(fb)` — a pre-flight feasibility check for INLA
+  dispatch. Refuses structurally-incompatible models with a
+  structured `lgm_refusal` object naming the rule that fired, the
+  diagnostic, the suggested re-route, and a two-key-armed
+  override path. Silent approximation is not part of the dispatch
+  surface.
+- `backend_decision(fit)` — the dispatch trace on every fit:
+  which backend ran, why, what the gate decided, and what
+  fall-back path (if any) was taken.
+
+Together these answer the questions a methodologically-careful
+user asks before reading the posterior: which engine ran, why
+this engine, and how much should the answer be trusted relative
+to the alternatives.
+
+## Beyond agricultural statistics
+
+The cross-engine diagnostic discipline is not limited to
+agricultural statistics. Any community that fits Bayesian models
+with more than one engine — clinical-trials biostatistics,
+ecological state-space models, epidemiological hierarchical
+models — faces the same fragmentation. The ASReml-syntax surface
+is the first illustrative entry point, not the limit of the
+approach.
+
+---
+
+# Conceptual genesis — the triangulation thesis
+
+## The thesis
+
+The package is built on a single claim: engines disagree in
+interesting ways, and the disagreement is evidence about the
+model and the data rather than noise to hide behind a single
+engine's headline number. That claim took shape across three
+weeks of design work in late April and early May 2026, against
+the backdrop of an audit of the predecessor package (bayesreml,
+an ASReml-syntax-to-greta translator). The audit documented a
+viable v0.1 product, but one committed to greta as the sole
+backend. The pivot to triangulation reframed the package: not as
+another Bayesian mixed-model frontend, but as an instrument that
+exposes engine-induced disagreement.
+
+## Two-lane delivery
+
+The thesis informs a deliberate two-lane delivery: a *Ship lane*
+(v0.2 trustworthy-instrument) and an *Ambition lane* (v0.2.5 +
+v0.3 capability extension). The Ship lane prioritises
+verifiability of the current claim; the Ambition lane prioritises
+breadth of the engine repertoire. The two lanes are decoupled so
+that capability work does not destabilise the Ship-lane claim.
+
+This is not the v1-stable / v2-features pattern. It is closer to
+the brms vs cmdstanr distinction: a stable user surface (Ship)
+and a methodologically-active extension surface (Ambition) that
+co-evolve.
+
+## Verifiability before breadth
+
+The audit-baseline package had 25 vignettes, most of them with
+unevaluated chunks. Capability without verifiability is not yet
+trustworthy. The Ship-lane discipline reduced the deck to 12
+fully-evaluated examples, accepting that the missing thirteen
+would re-enter as Ambition-lane work when they could be verified.
+The initial advertised surface is smaller; every advertised claim
+is testable on a clean R installation.
+
+---
+
+# Design thinking — Architecture Decision Records as a design language
+
+## ADRs as the form of design argument
+
+flexyBayes' design lives in 18 Architecture Decision Records
+(ADRs) in `design-notes-priors-brms-lgm.md`. ADRs are not
+documentation after the fact; they are the form in which design
+arguments are made. Each ADR follows the same six-section
+template:
+
+1. *Status* — proposed / accepted / implemented; gate references.
+2. *Context* — what problem this decision addresses and what the
+   constraint surface looks like.
+3. *Decision* — the actual decision, numbered for unambiguous
+   reference downstream.
+4. *Justification (four-point derivation)* — empirical scale
+   check; literature anchoring; consequence check; sensitivity
+   bracketing across alternatives.
+5. *Consequences* — what changes in the codebase, in the test
+   suite, in the documentation, and what compatibility surface
+   moves.
+6. *Verification* — a paste-and-run snippet demonstrating the
+   decision is implemented correctly.
+
+The four-point justification is the part most relevant to a
+reviewer. Every decision is required to (a) say who benefits
+from it, (b) cite at least one external work or package that
+does something analogous, (c) name the consequence on existing
+users, and (d) compare the chosen option against the rejected
+alternatives.
+
+## The 18-ADR register at v0.2 close
+
+| ADR | Title | Status |
+|---|---|---|
+| 0004 | Uniform default supersedes PC default; v0.1 API consolidation | Implemented |
+| 0005 | Canonical parameter-name registry (greta + INLA + brms-passthrough) | Implemented |
+| 0006 | `backend = "auto"` argument + decision trace | Implemented |
+| 0008 | PESTO → prior bridge | Drafting required |
+| 0009 | Contract H — APSIM prior translation | Drafted |
+| 0010 | `prior_fixed_sd` default raised to 100 with scale-aware propagation | Implemented |
+| 0011 | `review_code = FALSE` option on the three formula verbs | Implemented |
+| 0012 | `fb_greta()` direct-greta-model entry semantics | Implemented |
+| 0013 | gretaR slot scaffold (provision-only at v0.2; v0.3 activation) | Implemented (dormant) |
+| 0014 | `fb_brms()` brms-formula entry verb semantics | Implemented |
+| 0015 | Stan passthrough emit on `fb_brms(backend = "brms")` | Implemented |
+| 0017 | Gate truth = emit truth: fold INLA emit refusals into `lgm_gate()` | Drafted (v0.2.5) |
+| 0018 | Smooth basis retention on the IR for `predict()` with newdata | Drafted (v0.2.5) |
+
+The unlisted ADR numbers — 0001 / 0002 / 0003 / 0007 / 0016 —
+cover earlier IR design, prior-DSL semantics, brms-formula
+ingest, and Stan passthrough scoping; they are accepted and
+implemented at v0.2.
+
+## The four-verb scope
+
+The user-facing API has four entries. Each exists because a
+specific user has a specific grammar and a specific backend
+preference; the constraint is that every entry has a named user
+profile.
+
+| Verb | Grammar | Backend choices | User profile |
+|---|---|---|---|
+| `flexybayes()` | ASReml | `greta` · `inla` · `auto` | Agricultural-statistics workflows; structured-covariance random effects; ASReml syntax familiarity. |
+| `fb_brms()` | brms / lme4 | `greta` · `inla` · `brms` · `auto` | brms / lme4 syntax users; opt-in Stan via `backend = "brms"`. |
+| `fb_greta()` | direct greta model graph | `greta` only | Expert escape hatch; priors declaration-only. |
+| `triangulate()` | n/a | n/a | Cross-engine comparison on two already-fitted models. |
+
+An entry without a defined user profile gets struck from the
+plan; an entry with a defined profile earns its complexity. The
+discipline keeps the API from drifting toward completeness for
+its own sake.
+
+## The dispatch claim
+
+A claim runs through the codebase: the backend you request is the
+backend you get, and the trace says which. Every fit carries a
+`backend_decision(fit)` record with four fields:
+
+```r
+backend_decision(fit_a)
+#> $backend     "inla"
+#> $path        "auto_accept"
+#> $gate_checks <list of lgm_gate rules + pass/fail>
+#> $reason      "lgm_gate() accepted; INLA is the LGM fast path"
+```
+
+The trace exists because silent dispatch is a category of bug
+that ag-stats users have lived with for years. A user who fits
+"the same model" in two sessions and gets two backends without a
+visible reason cannot reproduce their own analysis. The trace
+documents the dispatch decision on every call.
+
+The `lgm_gate()` filter — six structural checks at v0.2,
+expanding to nine in v0.2.5 per ADR 0017 — is the structural
+basis for the dispatch claim. Acceptance means the model is LGM-
+compatible and INLA can fit it without silent approximation.
+Refusal returns a structured `lgm_refusal` object naming the rule
+that fired and the suggested re-route. There is no path through
+the dispatcher that bypasses the gate without an audit trail.
+
+---
+
+# Development cycle — the timeline from audit to v0.2 close
+
+## Trajectory in one paragraph
+
+flexyBayes' current state was reached in roughly six weeks of
+concentrated work between an audit baseline (2026-04-18) and the
+v0.2 audit-truthfulness pass (2026-05-22). The path was not
+linear: foundational IR work landed in a single dense day
+(2026-04-26, deliverables 0.A through 5); the package was
+renamed locally the following day; the planning phase consumed
+two weeks (2026-05-08 to 2026-05-21, four plan versions
+converging on the "locked-final"); Ship-lane execution closed in
+two further weeks. Eighteen ADRs were drafted in this window.
+Thirty-five commits land the work.
+
+## The phases
+
+```
+2026-04-18    Audit baseline — bayesreml package state inventoried.
+              30 audit gaps catalogued; vignettes flagged as
+              25-blanket-disabled; package committed to greta-only.
+
+2026-04-26    Day-one foundation. Eleven commits land deliverables
+              0.A (fb_terms IR skeleton), 0.B (asreml ingest →
+              fb_terms), 0.C (emit_greta shim through the IR),
+              1 (brms-format public entry + fb_from_brms), 2
+              (lgm_gate structural-first filter), 3 (fb_prior PC-
+              canonical DSL), 4 (triangulate cross-engine
+              diagnostic), 5 partial (emit_inla + fb backend=inla
+              dispatch). The triangulation framing becomes the
+              package identity in a single concentrated session.
+
+2026-04-27    Audit-driven polish. Vignette deck halved from 25
+              to 12 (the .Rmd.orig precompile pattern adopted);
+              governance + lifecycle docs added; CI matrix
+              committed locally; .zenodo.json stub added;
+              vdiffr snapshots; lme4 numerical validation;
+              CITATION + codemeta + SECURITY + cran-comments
+              refreshed. Then the local rename: bayesreml →
+              flexyBayes (Stage 4 commit; "chore!: rename").
+
+2026-05-08 to Planning phase. Four plan versions (v1, v2, v3,
+2026-05-21    v3-Ambitious, synthesis, locked-final). The two-
+              lane delivery model (Ship vs Ambition) is settled.
+              Eighteen decisions (D0 through D18) resolved or
+              deferred to team conversation. D0 (package name)
+              locked verbatim: "flexyBayes confirmed 100%".
+
+2026-05-21    Ship-lane execution opens. Week-1 work:
+              prior_fixed_sd default raised from 10 → 100;
+              codegen scaled with prior_fixed_sd on three
+              continuous-covariate emit paths; validation
+              against lme4::lmer on sleepstudy passes within 5.1
+              units of the REML intercept.
+
+2026-05-22    Ship-lane execution closes. Three governance gates
+              (G2 statistical correctness; G3 dispatch truth via
+              backend = "auto"; G4 documentation truth via the
+              12-vignette deck rebuild). ADR 0015 Stan
+              passthrough implementation; loose-end cleanup
+              pass. Ship-lane priority-1 closed.
+
+2026-05-22    Audit-truthfulness pass. An independent audit
+              flagged seven release-cleanup items before v0.2.5
+              could begin. Six of the seven landed in this
+              session; the seventh (the URL 404) is gated on the
+              upstream rename, D8. Eight themed commits land the
+              accumulated v0.2 worktree plus the audit-driven
+              cleanup. ADR 0017 + ADR 0018 drafted for the
+              v0.2.5 sprint.
+```
+
+## What the timeline shows
+
+Three patterns are visible in retrospect.
+
+1. Foundational work compresses; polish stretches. Day one
+   delivered eight foundational deliverables; the next four
+   weeks were planning, polishing, and audit-driven refinement.
+2. Audits are first-class inputs rather than final-pass
+   checkboxes. Two audits drove substantial rework — the
+   2026-04-18 bayesreml audit drove the IR pivot; the 2026-05-22
+   audit drove the v0.2 truthfulness pass.
+3. Planning preceded execution by two full weeks. The
+   locked-final plan went through four versions before
+   commitments were made; the cost of avoiding mid-flight pivot.
+
+---
+
+# Testing and verification discipline
+
+## Three test tiers
+
+The test suite is organised into three implicit tiers via
+`testthat::skip_*` guards. The tiering separates engine-free
+unit tests from heavier integration paths.
+
+| Tier | Trigger | What it covers | Wall-time | Expected tally |
+|---|---|---|---|---|
+| Tier 1 — CRAN-fast | default `devtools::test()` | IR parsing, prior DSL, refusal templates, registry lookups, canonical-name transforms, dispatch trace shape, review-code workflow, gretaR dormant scaffold. Engine-free path only. | ~30 s | PASS 700+ / FAIL 0 |
+| Tier 2 — local integration | `Sys.setenv(NOT_CRAN = "true")` | Tier 1 + greta + INLA round-trips on the reference corpus. brms / Stan still skipped. | 3–5 min | PASS 850+ / FAIL 0 |
+| Tier 3 — full triangulation | `Sys.setenv(NOT_CRAN = "true", FLEXYBAYES_RUN_BRMS = "true")` | Tier 2 + brms / Stan compile + three-engine triangulation tests. | 10–20 min | PASS 888+ / FAIL 0 / SKIP ≤ 5 |
+
+The tiering is documented in `CONTRIBUTING.md` so that
+contributors can match their toolchain to the appropriate tier.
+
+## `R CMD check --as-cran` baseline
+
+The package is held to CRAN's incoming-feasibility check on every
+meaningful change. The current `--as-cran` status is two NOTEs:
+
+- NOTE 1 — `checking CRAN incoming feasibility`. Four sub-items,
+  itemised in `cran-comments.md`. The principal sub-item is a
+  documented 404 on the GitHub URL, gated on the upstream rename
+  decision (D8). Every other CRAN-incoming sub-item is intrinsic
+  to first submission and resolves on upload.
+- NOTE 2 — `checking HTML version of manual`. The local HTML
+  Tidy binary on the development machine is older than the
+  version `R CMD check` is happy with; the NOTE does not appear
+  on CRAN's check farm.
+
+A third NOTE (`unable to verify current time`) fires on offline
+check hosts where R cannot reach a network time source;
+documented as such in `cran-comments.md`.
+
+There are no WARNINGS and no ERRORS.
+
+## Vignette precompile pattern
+
+Twelve numbered vignettes ship with the package. Each carries a
+`.Rmd.orig` live source and a `.Rmd` static output; the static
+output is the artefact in the package tarball, and the live
+source is `.Rbuildignore`-excluded. The driver
+(`vignettes/_precompile.R`) knits every `.orig` against the
+installed package and writes the static `.Rmd` plus the figure
+directory.
+
+The pattern is the conventional remedy for heavy-MCMC vignettes
+that would otherwise re-fit the model on every build. The
+vignette `sessionInfo()` chunks also record which package
+version produced the output, which is useful for reproducibility
+audits.
+
+## Verification against reference implementations
+
+flexyBayes' fits are verified against external reference
+implementations on every meaningful change:
+
+- `lme4::lmer()` for Gaussian random-intercept fits. The
+  flexyBayes posterior-mean intercept on the `sleepstudy`
+  dataset agrees with `lme4::fixef()` to within 5.1 units on the
+  Reaction scale (mean response ≈ 298 ms; the gap reflects MCMC
+  noise on a 2 × 2000-sample chain rather than bias).
+- `mgcv::gam()` for smooth-spline fits. The flexyBayes
+  posterior-mean smoother agrees with `mgcv::predict.gam()`
+  in-sample on a sinusoidal simulation (the v0.2.5 §1.3 work
+  extends this to `newdata`).
+- `INLA::inla()` direct calls for LGM-feasible fits. The
+  hyperparameter posteriors agree on the precision scale before
+  the canonical-name registry flips them to the SD scale for
+  cross-engine triangulation.
+
+These checks are encoded in the test suite with expected-value
+assertions; they fail if the package drifts from the reference.
+
+---
+
+# Implementation patterns
+
+The four patterns below describe how the v0.2 user surface is
+actually realised. Each is brief; together they cover the parts
+of the implementation that a reviewer typically asks about.
+
+## Pattern 1 — the LGM gate as a structural-first hybrid filter
+
+The latent-Gaussian-model (LGM) class is the class INLA can fit
+without silent approximation. Not every model written in
+flexyBayes' formula DSL is in LGM: finite mixtures, non-Gaussian
+random-effect priors, and unstructured covariance with too many
+hyperparameters fall outside the class.
+
+A try-and-recover pattern (ask INLA to fit; catch the error;
+fall back to greta) is not appropriate here. The output INLA
+returns on a structurally-incompatible model is a posterior
+rather than a failure: the Laplace approximation produces values,
+the values are wrong, and the user receives no in-band signal.
+
+The package's answer is a structural-first hybrid filter. Before
+any backend machinery runs, the IR passes through six (soon
+nine, per ADR 0017) structural checks:
+
+```r
+# R/lgm_gate.R --- the dispatch entry, abbreviated
+lgm_gate <- function(fb, ...) {
+  checks <- list(
+    .lgm_check_family(fb),              # family in INLA's roster
+    .lgm_check_predictor(fb),           # linearity in latent field
+    .lgm_check_distributional(fb),      # no auxiliary-param dpars
+    .lgm_check_re_prior(fb),            # RE prior Gaussian / MVN
+    .lgm_check_latent_class(fb),        # no finite mixtures / HMM
+    .lgm_check_hyperparam_budget(fb)    # hyperparam count <= 15
+  )
+
+  failures <- Filter(function(r) !isTRUE(r$pass), checks)
+  if (length(failures) == 0L) return(fb)        # pass
+  new_lgm_refusal(failures, ...)                # structured refusal
+}
+```
+
+The refusal carries the rule_id that fired, a one-line gloss, a
+diagnostic, the suggested re-route, and a two-key-armed override
+path. The user sees why the filter refused.
+
+## Pattern 2 — the canonical-name registry as the triangulation backbone
+
+`triangulate(fit_a, fit_b)` compares posteriors per parameter,
+which requires the two fits to name parameters the same way.
+They do not. greta names a random-effect SD `sigma_g`; INLA
+names the same quantity `Precision for g` on the precision
+scale; brms names it `sd_g__Intercept`. Asking the user to
+maintain the name map by hand is slow, error-prone, and breaks
+on every new model class.
+
+The canonical-name registry resolves this. Every backend has a
+registered mapper that takes a fit and returns a table of
+`(native_name, canonical_name, transform)` triples:
+
+```r
+# Conceptual shape; actual implementation in R/canonical_names.R
+canonical_names(fit_inla)
+#>   native                                     canonical    transform
+#>   "(Intercept)"                              "(Intercept)" identity
+#>   "Days"                                     "Days"        identity
+#>   "Precision for Subject"                    "sd_Subject"  1/sqrt(.)
+#>   "Precision for the Gaussian observations" "sigma"       1/sqrt(.)
+```
+
+`triangulate()` consumes the registry: it reads each fit's
+native names, applies the per-row transform to the draws to
+move them onto the canonical scale, and computes the comparison
+metrics on the canonical names. The native names are exposed
+only via the registry; the work that previously lived in user
+notebooks ("translate INLA precision to greta sigma; then
+compare") now lives in the package and is testable.
+
+## Pattern 3 — the brms passthrough `$glm` shim
+
+The fourth backend `fb_brms(backend = "brms")` runs Stan via
+brms. brms returns a `brmsfit` object, but the rest of the R
+modelling ecosystem expects a `glm`-shaped object (`coef()`,
+`vcov()`, `fitted()`, etc.). Without a bridge, a flexyBayes fit
+on the brms backend would not interoperate with `emmeans`,
+`marginaleffects`, `effectsize`, or `broom`.
+
+The `flexybayes_brms` subclass carries three slots:
+
+- `$brms` — the live `brmsfit` object. Users keep access to the
+  full brms posterior-tooling surface (`loo()`,
+  `posterior_predict()`, `bayes_factor()`).
+- `$glm` — a synthesised GLM-shaped object built from the brms
+  draws: `coefficients` (posterior means), `vcov` (the
+  posterior covariance via `posterior::as_draws_matrix`),
+  `fitted.values`, `linear.predictors`, `residuals`, `y`,
+  `family`, `formula`, `data`. The standard ecosystem packages
+  consume this shim without modification.
+- `$extras` — the parsed IR, the convergence diagnostic, the
+  run time, the captured call.
+
+The shim is about a hundred lines of plumbing in
+`R/emit_brms.R`. It exposes a substantial part of the R
+modelling ecosystem to the brms backend without modifying any
+of those packages.
+
+## Pattern 4 — the prior DSL on the SD scale
+
+flexyBayes priors are always on the standard-deviation scale,
+never on precision or variance. The DSL accepts targets such as
+`sigma`, `sd(group)`, `b(name)`, `cor(group)`, and
+`smooth(var)`:
+
+```r
+fb_prior(
+  sigma                ~ pc(upper = 2, prob = 0.05),
+  sd(group = "Subject") ~ half_normal(scale = 1),
+  b("treatment")        ~ student_t(df = 4, scale = 2.5)
+)
+```
+
+Priors on the SD scale are interpretable in the units the user
+thinks in. A user who knows the response varies on a ±5 scale
+can write `pc(upper = 2, prob = 0.05)` and read it as
+*Pr(σ > 2) = 5%*. Equivalent statements on the precision scale
+require additional translation that users routinely get wrong.
+
+The DSL admits two idioms: distributional
+(`half_normal(scale = 1)`) and tail-quantile / PC
+(`pc(upper = 1, prob = 0.01)`). The PC idiom is the cross-engine
+interlingua per Simpson et al. (2017); it survives every backend
+because it is a probability statement rather than a
+distributional name. Cross-engine compilation through the PC
+closed form `rate = -log(prob) / upper` is exact on the Gaussian
+families; the INLA and brms emits both honour the declaration.
+
+The auto-default for variance components is bounded uniform on
+SD per Gelman (2006). The PC prior remains an explicit option;
+it is no longer the auto-default. ADR 0004 documents the change:
+the legacy lognormal default was producing biased posteriors on
+natural-scale data, and the uniform-on-SD default with a
+family-aware upper bound behaves predictably without requiring
+users to reason about precision.
+
+---
+
+# Issues resolved during development
+
+Four representative issues, each with symptom, root cause, fix,
+verification, and the reason the resolution matters.
+
+## Issue 1 — the `prior_fixed_sd` default was too tight
+
+*Symptom.* The Ship-lane week-1 validation against `lme4::lmer`
+on `sleepstudy` was failing: the flexyBayes posterior-mean
+intercept was around 246 ms; the REML reference was around 251
+ms. A 5-unit gap is not catastrophic, but it is also larger than
+the expected MCMC noise.
+
+*Root cause.* The default for `prior_fixed_sd` was 10 — too
+tight for responses on the natural data scale. `sleepstudy`'s
+Reaction has mean ≈ 298 ms and SD ≈ 56 ms; a `normal(0, 10)`
+prior on the intercept is a strong push toward zero, and the
+posterior mean pulled with it.
+
+*Fix.* Raise `prior_fixed_sd` default from 10 to 100 (per ADR
+0010). Three continuous-covariate emit branches in the codegen
+were also hard-coded to `normal(0, 2)` rather than scaling with
+`prior_fixed_sd`; those were patched to scale.
+
+*Verification.* The post-fix intercept is 246.30 ms; the REML
+reference is 251.41 ms; |Δ| = 5.10, within the 2-chain × 2000-
+sample MCMC tolerance. The `test-validation-lmer.R` first test
+is now active (was `skip()` before the fix); the package's
+posterior agrees with the REML reference to the documented
+tolerance.
+
+*Why it matters.* A default prior that produces a visible bias
+against the reference fit is the wrong default. ADR 0010's
+four-point justification (empirical scale check; Gelman 2006
+literature anchoring; consequence check; sensitivity bracketing)
+is the longer-form argument for the same point.
+
+## Issue 2 — `emit_inla()` was never injecting user priors
+
+*Symptom.* A user-supplied `fb_prior()` argument to
+`flexybayes(..., backend = "inla")` produced the same posterior
+as the default; the user's prior had no effect.
+
+*Root cause.* `priors_to_inla()` produced the right INLA
+hyperparameter list, but the helper output was not threaded into
+the INLA call. The `f(group, model = "iid")` call was
+constructed without the `hyper = list(prec = ...)` argument;
+`control.family$hyper$prec` was similarly absent. The helper was
+computed but never reached INLA, which fell back to its
+loggamma defaults on every prior the user supplied.
+
+*Fix.* Splice the helper output into both the f() construction
+and the control.family$hyper construction. The patch landed in
+commit `48b265c` (2026-04-26) — "feat(prior+inla): … emit_inla
+fix".
+
+*Verification.* Tests in `test-emit-inla.R` exercise three
+specific cases. A user `pc(upper = 2, prob = 0.05)` on
+`sd(group)` lands as `hyper = list(prec = list(prior = "pc.prec",
+param = c(2, 0.05)))` on the relevant f() call. A user
+`pc(upper = 1, prob = 0.01)` on `sigma` lands on
+`control.family$hyper$prec`. The default-uniform-on-SD prior
+lands cleanly on both.
+
+*Why it matters.* Silent prior-loss is the worst class of
+Bayesian-software bug: the user specifies a prior, the software
+disagrees silently, and the reported posterior does not reflect
+the stated model. The fix predated the package rename and was a
+critical predecessor-package debt that needed to clear before
+the v0.1.0.9000 development tag.
+
+## Issue 3 — the third-engine triangulation gap
+
+*Symptom.* The eight-pattern cross-engine triangulation
+protocol (in the methodology paper draft) needs three engines
+for decisive resolution: when greta and INLA disagree on a
+parameter, agreement of a third engine with one of the two
+declares the agreeing pair the reference. Until late May 2026,
+the third engine — brms / Stan — was outside the package. The
+user had to fit the Stan side separately and pass the draws into
+`triangulate()` by hand.
+
+*Root cause.* Not a bug; an architectural gap. The Stan
+passthrough required: (a) an IR-to-brms-formula reconstruction;
+(b) a prior translation onto brms's prior surface; (c) result
+wrapping into the four-verb subclass system; (d) a canonical-
+name mapper for the brms native names; (e) `triangulate()`
+integration.
+
+*Fix.* ADR 0015 — Stan passthrough on
+`fb_brms(backend = "brms")`. The implementation landed in the
+2026-05-22 v0.2 finalisation session as around 290 + 440 lines
+of new code across two new files (`R/priors_to_brms.R`,
+`R/emit_brms.R`) plus modifications to dispatch, canonical
+names, triangulate, and prior_summary.
+
+*Verification.* Fourteen new subtests in `test-fb-brms-stan.R`:
+seven pure-spec tests on the prior translation table (run
+without brms installed), five brms-gated round-trip tests, two
+dispatch tests. `triangulate(fit_brms, fit_greta)` and
+`triangulate(fit_brms, fit_inla)` both auto-resolve canonical
+parameter names via the new identity mapper without a user-
+supplied `name_map`.
+
+*Why it matters.* The closure of this gap is what allows the
+cross-engine triangulation diagnostic to be decisive in the
+eight-pattern protocol. Without it, the diagnostic is
+suggestive on disagreement cases but cannot adjudicate.
+
+## Issue 4 — the v0.2 documentation-truth drift
+
+*Symptom.* An independent audit on 2026-05-22 documented seven
+release-cleanup items. README claimed 25 vignettes (actual: 12).
+NEWS led with a "PC prior is the new default" claim (actual
+default: bounded uniform on SD per ADR 0004). Refusal-text in
+`R/lgm_gate.R` suggested `backend = "stan"` / `"nimble"`
+reroutes that did not exist (the Stan passthrough is
+`backend = "brms"` via `fb_brms()`). Vignettes 06 / 07 / 09 / 11
+carried "on the v0.2 roadmap" wording for capabilities now in
+v0.2. `cran-comments.md` claimed 1 NOTE (actual: 2). The
+worktree was dirty with 142 file changes.
+
+*Root cause.* A common pattern in research-software development:
+capability work landed faster than documentation could catch
+up. Each individual drift was small; the aggregate was a
+release-blocking truthfulness gap.
+
+*Fix.* A single dedicated truthfulness pass (the 2026-05-22 H99
+session). Eight themed commits land the documentation refresh:
+version aligned to 0.2.0.9000; NEWS rewritten to the current-
+essence; README rewritten for the four-verb surface;
+API_STABILITY rewritten with the truthful prior contract;
+`R/lgm_gate.R` refusal text replaced; all 12 vignettes re-
+precompiled against the installed 0.2.0.9000; `cran-comments`
+itemises 2 NOTEs structurally and 1 environmental; the worktree
+collapses to a clean tree.
+
+*Verification.* No residual `flexyBayes_0.1.0.9000`,
+`backend = "stan"`, `scheduled for v0.2`, or `v0.2 roadmap`
+strings remain in the package. `R CMD check --as-cran` returns
+the documented 2-NOTE structural baseline. Tests 888 / 0 / 5
+preserved.
+
+*Why it matters.* User-facing documentation that contradicts the
+source code is a category of defect; the truthfulness pass
+removes it. The audit-driven cycle (independent audit →
+truthfulness pass → audit-clean state) is visible evidence that
+user feedback shapes the artefact.
+
+---
+
+# Scaling to billions of rows — the v0.6.0 streaming work
+
+## The capability arc from v0.2 to v0.6.0
+
+The v0.2 cut delivered a trustworthy instrument on small-to-moderate
+data. The releases that followed widened the model surface and the data
+scale without changing the thesis. v0.3 staged an indexing-to-big-data
+line: exact sufficient-statistic aggregation for the gaussian-identity
+case, chunked file-backed prediction, and known-covariance input
+formats. v0.4 added a term-representation registry and an approximation
+registry that names every approximate route rather than hiding it.
+v0.5.0 finalised the verb surface — one universal entry across every
+backend, single-engine pins, and exported ingest adapters. v0.6.0 is
+the subject of this chapter: it lets the package fit its core model
+family to datasets that do not fit in memory, exactly, with a memory
+footprint that does not grow with the row count.
+
+## The design problem
+
+A collaborator shares a dataset of hundreds of millions to a billion
+rows, already written to disk in a columnar format. The data is
+massively replicated -- the same handful of environments crossed with
+the same genotypes, over and over. Fitting a mixed model by pushing
+every row through greta's TensorFlow graph or INLA's latent field runs
+out of memory long before a billion rows, and buys little statistically,
+because the replication means the data carries far less information than
+its row count suggests.
+
+## The method -- additive sufficient statistics
+
+The observation that resolves this is exact and long-standing. For the
+exponential-family models flexyBayes targets, the likelihood of a
+*cell* -- a set of rows sharing the same linear predictor -- depends on
+the rows only through a small vector of sufficient statistics, and those
+statistics are additive across any partition of the rows.
+
+- Gaussian (identity): the cell needs $n_k$, $\sum y_i$, and
+  $\sum y_i^2$; the cell log-likelihood equals the per-row sum exactly.
+- Poisson (log): the cell needs $\sum y_i$ and the summed exposure,
+  because independent Poissons with a shared rate add.
+- Binomial (logit): the cell needs the summed successes and the summed
+  trials, because independent Binomials with a shared probability add.
+
+Because each statistic is a sum, the total over the dataset is the sum
+of the per-chunk totals. The data can therefore be read one row-range
+chunk at a time, each chunk reduced to its per-cell contributions and
+discarded, with only one chunk and a small cell accumulator ever
+resident. The fitted posterior is the full-data posterior, not an
+approximation. `flexybayes_stream()` is the entry point; it reads from
+an `.fst` file, a set of partitioned `.fst` shards, a delimited file, an
+in-memory frame, or a chunk generator, and fits the resulting
+cell-level model through INLA or greta. When the data does fit in
+memory, `flexybayes(aggregate = "auto")` reaches the same aggregation.
+
+## The principle -- the cost is the cell count, not the row count
+
+The cost of the fit is set by the number of distinct design cells $K$,
+not the row count $N$. A replicated factorial design has $K$ fixed by
+the factor combinations: six environments by two hundred genotypes is
+twelve hundred cells whether $N$ is one million or five billion, and the
+aggregated model has twelve hundred rows. This is also exactly where the
+method stops applying, and the package says so before reading any data.
+A continuous fixed covariate gives one cell per distinct value, so there
+is no compression; random slopes, structured covariance, and smooth
+terms make the linear predictor vary within a cell. Each is refused with
+a named reason code rather than silently approximated. The discipline is
+the one the v0.2 design adopted -- preserve the model's meaning, and
+refuse where an exact answer is not available rather than substitute an
+unlabelled approximation.
+
+## Measured behaviour
+
+The streaming path was exercised on partitioned `.fst` shards on a
+single 32 GB machine, on a 1200-cell design. Peak resident memory was
+708 MB at ten million rows and 846 MB at five billion -- a five-hundred-
+fold increase in data through a roughly flat memory envelope. A
+five-billion-row gaussian mixed model fitted in about two and a half
+minutes of streaming, reading 47 GB of shards once from disk, and the
+recovered intercept was stable across all scales. The reproducing
+scripts are in the package's `tools/` directory and the companion
+big-data research note.
+
+## Issues surfaced by extreme-scale testing
+
+Pushing the streaming path to five billion rows, and running the full
+multi-platform continuous-integration suite, exposed four defects. None
+was in the new streaming code; each was a latent issue in pre-existing
+code or infrastructure that only extreme scale or a clean CI environment
+reveals. They are recorded here in the same form as the earlier issues.
+
+### Issue 5 -- triangulate sampled with one process per core
+
+*Symptom.* Under `R CMD check --as-cran`, several `triangulate()` tests
+failed with an INLA error reporting many simultaneous processes spawned.
+
+*Root cause.* The triangulate draw extractor called
+`INLA::inla.posterior.sample()` without constraining the thread count,
+so it spawned one process per core -- which the two-core limit that
+`--as-cran` enforces rejects. The summary path in `methods_inla.R`
+already forced single-threaded sampling; the triangulate path did not.
+
+*Fix.* Pass `num.threads = "1:1"`, matching the summary path.
+
+*Why it matters.* The defect was invisible on an unconstrained machine
+and surfaced only under the CRAN core limit, where the additional INLA
+fits in the new tests pushed the process count over the edge.
+
+### Issue 6 -- the multi-shard row total overflowed at two billion
+
+*Symptom.* A one-billion-row streamed fit was correct; a five-billion-
+row fit returned a corrupted result.
+
+*Root cause.* The accumulators carried counts and sums as doubles
+(exact for integer counts to $2^{53}$), but the partitioned-source
+descriptor reported its total row count through a 32-bit integer
+coercion, which silently caps at $2^{31}$ (about 2.147 billion). One
+billion is below the cap; five billion is not.
+
+*Fix.* Carry the total as a double throughout, with a regression test
+that pins the type.
+
+*Why it matters.* This is the canonical large-data footgun. The fix
+moved the exactness ceiling from two billion rows to roughly nine
+quadrillion.
+
+### Issue 7 -- the aggregated-gaussian prior destabilised INLA at extreme N
+
+*Symptom.* The five-billion-row gaussian fit returned an intercept of
+about half the value the smaller scales agreed on.
+
+*Root cause.* The aggregated-gaussian path injects the within-cell sum
+of squares through a custom log-precision prior whose constants scale
+with $N$. At five billion rows the log-density reached about
+$-2.5 \times 10^9$ at its mode; at that magnitude INLA's hyperparameter
+integration became numerically unstable and corrupted the fixed-effect
+posterior.
+
+*Fix.* Recentre the log-density to approximately zero at its mode by
+subtracting a constant. The subtraction is an exact reparametrisation --
+an additive constant is absorbed in the prior's normalisation -- so
+every small-data fit is unchanged. The defect was reproduced cheaply by
+scaling a small aggregation's sufficient statistics to the five-billion-
+row shape, which confirmed the fix without regenerating the data; the
+recentred prior was then stable to ten billion rows.
+
+*Why it matters.* The aggregation is exact, but the inference engine it
+feeds has its own numerical envelope. Surfacing and correcting that
+envelope is part of the honesty the package claims about its scaling.
+
+### Issue 8 -- the documentation site lacked a system library on CI
+
+*Symptom.* The `pkgdown` continuous-integration job failed building the
+reference site.
+
+*Root cause.* `pkgdown` runs the `\donttest` examples that `R CMD check`
+skips on CI; one reference topic loads the `units` package, whose shared
+object needs the `libudunits2` system library, which the documentation
+runner did not have. A second, smaller cause: the new streaming vignette
+and the new exported verb were not yet listed in the `pkgdown` reference
+and article indices, which the completeness check requires.
+
+*Fix.* Install the spatial system libraries on the documentation runner
+and complete the indices. `pkgdown::check_pkgdown()` then reports no
+problems.
+
+*Why it matters.* A green check on one environment is not a green check
+everywhere; the fix brought the documentation build to parity with the
+package check across the full CI matrix.
+
+---
+
+# Forward look — the roadmap the later releases fulfilled
+
+> Note (v0.6.0, 2026-06-01). The roadmap in this section was written at
+> the v0.2 cut. The v0.2.5 hardening sprint, the staged v0.3 indexing-
+> to-big-data releases, the v0.4 registries, the v0.5.0 verb-surface
+> finalisation, and the v0.6.0 streaming work described above have since
+> shipped. The section is retained as the contemporaneous record of what
+> was then planned; read it as history that the later releases fulfilled,
+> and see the chapter above for what scaling to billions of rows
+> actually required.
+
+## v0.2.5 — four-item hardening sprint
+
+The 2026-05-22 audit's "First v0.2.5 Sprint" recommendation
+locked the next four items:
+
+1. Fold `emit_inla()` structural refusals into `lgm_gate()` (ADR
+   0017). Tightens the dispatch claim so `lgm_gate(fb) ==
+   accept` is a sufficient condition for `emit_inla(gated)` to
+   succeed structurally. One session.
+2. `predict.flexybayes()` on `s()` smooths (ADR 0018). Retain
+   the `mgcv::Smooth` basis on the IR; use
+   `mgcv::Predict.matrix()` at `predict()` time. Closes a
+   silent-wrong-prediction bug. Two sessions.
+3. Numerical-snapshot tier for plot regression tests. Replace
+   the unconditional `test-plot-vdiffr.R` skip with numerical-
+   data snapshots (rounded `ggplot$data` slices), which are
+   immune to SVG drift from MCMC noise. One session.
+4. Structured-covariance default priors — `vm` and `ped` first
+   (extends ADR 0004). Closes the documented inconsistency where
+   simple / ide / id RE SDs default to uniform-on-SD while
+   structured-cov forms fall back to legacy lognormal. Two
+   sessions.
+
+Stop-gate: PASS ≥ 905 / FAIL 0 / SKIP ≤ 5 on Tier 3; `R CMD
+check --as-cran` retains the 2-NOTE structural baseline; the
+affected vignettes (03 regression for smooths; 11 LGM-
+feasibility for the gate fold) re-precompiled.
+
+## v0.3 — the AAGI Symposium November 2026 cut
+
+Seven capability items are lined up for v0.3, with cross-cutting
+variables (owner, dependencies, exit criteria, paper alignment,
+risk register) documented in `AMBITION_STAGE.md` §7. Each item
+carries a `[TBD team]` marker for the upcoming AAGI-AUS team
+conversation. The package's user-facing surface remains
+additive; no v0.2.x export is removed or renamed.
+
+A two-line summary of the seven items:
+
+1. `triangulate_all()` — automatic peer enumeration over a list
+   of already-fitted models. One session; an orchestrator on the
+   existing registry.
+2. Tensor smooths `te()` / `ti()` / `t2()` — bivariate smoother
+   coverage; depends on v0.2.5 §1.3 landing.
+3. BYM2 spatial random effects — INLA-only first; greta-via-
+   Cholesky later; opens the spatial-ag-stats Ambition lane.
+4. NIMBLE HMM proof — a narrow one-class proof rather than a
+   general NIMBLE backend, intended to demonstrate that the
+   triangulation discipline applies beyond LGM.
+5. PESTO → prior bridge (Contract E). Draft ADR 0008 first;
+   implementation second.
+6. posteriordb ≥ 40-paired test corpus. Closer in scope to a
+   benchmark suite than to a CRAN-test extension; the threshold-
+   calibration analysis on its own is publishable as a companion
+   note.
+7. gretaR slot activation. Gated on external preconditions
+   (gretaR public + audit-clean). The scaffold is dormant at
+   v0.2.
+
+The 2026-05-23 decision-answers reply on the indexing-to-big-
+data roadmap (next section) locked **parallel pace** as the
+planning baseline. Under that lock, the realistic AAGI Symposium
+November 2026 deliverable lands in the `v0.3.0` -- `v0.3.2`
+band — Stage 2 MVP (representation + preflight) through Stage 3A
+(gaussian-identity aggregation), not the earlier `v0.3.4`
+anchor. The team selects the exact symposium tag from the
+eligible band at the review checkpoint immediately before the
+submission window.
+
+## Indexing-to-big-data roadmap (v0.2.6 through v0.4.0)
+
+A second body of work was scoped post-v0.2.5: extend the package
+from the v0.2 trustworthy-instrument shape into a multi-stage
+roadmap covering indexing correctness, big-data representation,
+aggregated likelihoods, and approximation discipline. The
+roadmap was scoped across three planning artefacts during a
+single 2026-05-23 planning session and was approved on the same
+day after one round of decision-point review.
+
+### Three planning artefacts
+
+The decision was scoped across three documents at three layers,
+each with its own decision-point appendix:
+
+1. `plan-benchmark-v2-2026-05-23-v2.md` — the stress-benchmark
+   plan. Specifies the $n = 5 \times 10^6$ tentative feasibility
+   probe (INLA-only fit; MCMC engines run a 5-minute timed probe
+   + extrapolated-full-fit-hours diagnostic), an eight-plot
+   visualisation suite, a ten-rule improvement-spot
+   identification protocol emitting `attention.csv`, and a RAM
+   watchdog on cores 9--10 for unsupervised overnight runs.
+2. `plan-v026-indexing-uplift-2026-05-23.md` — the narrow v0.2.6
+   plan at ~14 person-days. Reserves ADRs 0019 (factor:continuous
+   emit with treatment-coded indexed slopes) and 0020
+   (uncorrelated random slopes `(x || g)`).
+3. `plan-indexing-bigdata-merged-2026-05-23-v2.md` — the
+   controlling sequencing document above the other two. Six
+   release-bounded stages (Stage 0 v0.2.5 closure through Stage 6
+   v0.4.0 approximation registry), nine ADR slots reserved
+   0019--0027, §3.4 INLA verification policy as the generic
+   conditional-INLA gate, §5.2 four-condition descriptive test
+   gate (replacing brittle absolute PASS counts), §9 month-
+   precision scenario calendar with per-stage review checkpoints.
+
+The merged-v2 plan was iterated through a v2.1 in-text fix pass
+closing ten author-identified corrections (ADR-range consistency
+`0019--0027`; decision-point cross-references; an INLA-policy
+named anchor; replacing the matrix-shape acceptance test with a
+linear-predictor equivalence test on length-$N$ numeric vectors;
+explicit three-sufficient-statistics gaussian aggregation with
+the within-cell sum-of-squares term and an explicit prohibition
+on the cell-mean shortcut; the minimal `exactness` field moved
+from Stage 6 to Stage 3A; deterministic design-size memory
+acceptance replacing post-fit RAM; descriptive test-gate
+replacing PASS-count thresholds; csv + rds default for Stage 3B
+file-backed output (subsequently revised — see below); a lazy
+file-backed metadata-only descriptor for the 100M-row preflight;
+scenario-calendar framing with per-stage review checkpoints).
+
+### Decision-points reply (2026-05-23)
+
+Thirteen numbered decision points were carried in
+merged-v2 §10. The reply at
+`decision_answers_indexing_bigdata_v2_2026-05-23.md` answered
+all thirteen and amended one design choice. The substantive
+locks:
+
+- **Parallel pace (Scenario B) is the planning baseline**;
+  sprint bursts only on bounded stages. Realistic symposium
+  target `v0.3.0` -- `v0.3.2`, not `v0.3.4`.
+- **No GitHub or `Max578` mirror push** for v0.2.6 / v0.3.x
+  tags until D8 (upstream rename) closes. The mirror remains
+  pre-cleared as a fallback but requires per-push confirmation.
+- **Stage 1A emit policy** = treatment-coded indexed slopes
+  (Option C primary, Option D fallback); custom contrasts and
+  ordered factors refuse until the representation IR exists.
+- **Stage 1 INLA-mapping** = refuse for new term classes unless
+  test arbitration proves faithful mapping. The merged-v2 §3.4
+  verification policy is the generic conditional-INLA gate for
+  every new term class after v0.2.5.
+- **Stage 2 effort acceptance** = 16--27 person-days; Stage 1C
+  representation benchmarks are not droppable.
+- **Stage 2 MVP partition** = 4 deliverables in v0.3.0 + 4
+  follow-on in v0.3.1 (not all 8 in one v0.3.0 cycle).
+- **`.fb_dataset()` export gate** = internal-only at v0.3.0;
+  export only after at least two stable workflows prove the
+  contract.
+- **Stage 3A aggregation scope** = gaussian identity only; no
+  smooths; no random slopes. Heterogeneous residual aggregation
+  only with an explicit sufficient-statistics proof.
+- **Version-bump policy** = clean release tag at every stage
+  close (v0.2.6, v0.3.0, ...); development continues as `.9000`
+  after each tag.
+- **Memory-table vignette freeze** = at v0.2.6 close, but only
+  after benchmark-backed values exist. The paper can cite the
+  frozen vignette; paper deadlines must not distort the package
+  roadmap.
+
+### One design amendment — the Stage 3B output format
+
+The v2.1 fix pass left Stage 3B's file-backed output defaulting
+to csv + rds with `fst` deferred to a future Suggests. The
+decision-answers reply pushed back: the deferral was a
+dependency-cost guard, not a structural rejection, and the use
+case — a chunked prediction emitting prediction grids at
+$N \geq 10^6$ — is exactly the shape `fst` is designed for.
+A benchmark was requested before finalising the policy.
+
+The benchmark (script at `tools/benchmark_fst_stage3b_2026-05-23.R`;
+persisted at `benchmark_results/fst_stage3b_2026-05-23.{csv,rds,log}`)
+measured single-run round-trip wall-time and on-disk size at
+$N \in \{10^5, 10^6, 5 \times 10^6, 10^7\}$ for csv
+(`data.table::fwrite` defaults), rds (`base::saveRDS` defaults),
+and fst (`fst::write_fst`, `compress = 50`). The Stage-3B-shape
+grid carried six columns: an integer id, a factor `group` with
+1000 levels, a numeric covariate `x`, and three numeric output
+columns (`point`, `lower`, `upper`).
+
+| N | format | write (s) | read (s) | on-disk (MB) |
+|---:|:---|---:|---:|---:|
+| $10^5$ | csv | 0.007 | 0.005 | 8.0 |
+| $10^5$ | rds | 0.124 | 0.009 | 3.3 |
+| $10^5$ | fst | 0.004 | 0.001 | 3.4 |
+| $10^6$ | csv | 0.056 | 0.046 | 81.1 |
+| $10^6$ | rds | 1.210 | 0.090 | 33.1 |
+| $10^6$ | fst | 0.029 | 0.024 | 33.5 |
+| $5 \times 10^6$ | csv | 0.278 | 0.179 | 409.8 |
+| $5 \times 10^6$ | rds | 6.024 | 0.393 | 165.3 |
+| $5 \times 10^6$ | fst | 0.156 | 0.079 | 167.2 |
+| $10^7$ | csv | 0.547 | 0.342 | 820.6 |
+| $10^7$ | rds | 12.148 | 0.787 | 330.6 |
+| $10^7$ | fst | 0.309 | 0.127 | 334.4 |
+
+Three findings drove the policy. First, rds and fst compress to
+within 1% of the same on-disk size at every $N$ tier — the
+compression argument for fst over rds is null. Second, fst
+writes 30--40$\times$ faster than rds at $N \geq 10^6$ (at
+$N = 10^7$: 0.31 s vs 12.15 s); read is 3--6$\times$ faster on
+the same range. In a chunked predict loop emitting 100 chunks,
+the rds path is 20 minutes of pure I/O and the fst path is 30
+seconds. Third, csv is 2.4$\times$ larger on disk than fst/rds
+at every $N$ tier and loses factor types — interop currency
+costs disk space and round-trip semantics, an explicit trade,
+not a default.
+
+ADR 0023 absorbs the policy. `fst >= 0.9.0` lands in
+`DESCRIPTION:Suggests` at v0.3.3, gated by
+`requireNamespace("fst", quietly = TRUE)`. The default
+`format = "auto"` resolves on $N$, fst availability, and an
+interoperability flag; an explicit `format = "fst"` with `fst`
+not installed raises a structured refusal naming
+`install.packages("fst")` and offering a one-line override to
+fall back to rds. No silent fall-back. The discipline matches
+the package's broader posture from ADR 0017 (gate truth = emit
+truth) and the G2--G4 governance gates: refusals are explicit
+and informative; silent re-routes are forbidden.
+
+### A note on methodology
+
+The episode is a small one but illustrates how planning
+decisions get made on this project. The starting position
+(`fst` deferred to future Suggests) was conservative and
+defensible. A pushback on dependency philosophy was raised; the
+response was to run a numerical experiment on the actual use-
+case shape rather than re-argue from first principles; the
+experiment took five minutes of wall-time and produced an
+unambiguous answer. ADR 0023 cites the experiment by file, not
+by re-derivation, so future readers can re-run the script if
+the platform or fst version changes. This is the same pattern
+applied to G2 (`prior_fixed_sd = 100`, ADR 0010), G3
+(`backend = "auto"`, ADR 0006), and the smooth-prediction bug
+(ADR 0018): a position is held until a numerical observation
+forces an update, then the update lands with the observation
+attached as evidence.
+
+## The path to v1.0
+
+| Milestone | Posture | Calendar (parallel-pace baseline) |
+|---|---|---|
+| v0.2.5 | Hardening; no new user surface. | Q3 2026 |
+| v0.3.0 -- v0.3.2 | AAGI Symposium November 2026 deliverable band. | November 2026 |
+| v0.3.3 -- v0.3.6 | Chunked prediction, backend routing, structured-cov priors, tensor smooths. | 2027 (parallel pace) |
+| v0.4.0 | Approximation registry + scaling claim. | Q1 2028 (parallel pace) |
+| v0.9 | Release rehearsal; lift exports from experimental to maturing. | TBD post-v0.4 |
+| v1.0 | Stable; core exports promoted. | TBD post-v0.9 |
+
+The release cadence is intentionally measured. Each minor
+release earns its place by closing a defined set of items
+rather than by hitting a calendar date. The parallel-pace lock
+in November 2026 stretches the v0.4.0 horizon from the earlier
+Q1 2027 anchor to roughly Q1 2028; the §9.2 review checkpoints
+in the merged-v2 plan refresh the next-stage date at each
+stage close.
+
+---
+
+# Governance, reproducibility, and the collaborative model
+
+## The AAGI-AUS collective
+
+flexyBayes is an AAGI-AUS collective effort. The `CITATION.cff`
+and `DESCRIPTION` files name four coauthors: Max Moldovan
+(creator + author), Emi Tanaka (author), Francis K.C. Hui
+(author), Beata Sznajder (author). The methods paper coauthor
+list (decision D5), the paper venue (D10), the upstream rename
+(D8), and the timing of Stage 4 (the rename milestone) are
+collective decisions deferred to a team conversation; they are
+not single-author calls.
+
+The artefact carries multiple contributors with explicit roles,
+the deferred decisions are documented as deferred to a named
+group, and the conversation that resolves them is a planned
+event rather than an after-the-fact rationalisation.
+
+## Reproducibility commitments
+
+- *Pinned-version snapshots.* `renv` is supported on the
+  development side; `CITATION.cff` carries the version and
+  release date; `codemeta.json` carries the SoftwareSourceCode
+  metadata. Production users who need stability pin to a
+  specific 0.2.x patch (see `API_STABILITY.md`).
+- *Random-seed discipline.* `flexybayes()` and `fb_brms()`
+  accept a `seed` argument; greta's MCMC threads it through to
+  TensorFlow Probability; brms threads it through to Stan. The
+  `review_code` workflow snapshots `.Random.seed` so a direct
+  call and a review-then-proceed pair reproduce the same R-RNG
+  state.
+- *Cross-engine verification.* Fits are verified against
+  external references (`lme4::lmer`, `mgcv::gam`, `INLA::inla`
+  direct) on every meaningful change. The verification lives in
+  the test suite rather than in a one-off notebook.
+- *Sustained development history.* Thirty-five commits across
+  six weeks of development, conventional-commits style themed
+  by area (`feat(api):`, `test:`, `docs(release):`, etc.). The
+  public history will become visible when the upstream rename
+  ships.
+
+## Open-source practices
+
+- *Test discipline.* Three tiers documented in
+  `CONTRIBUTING.md` with the exact commands and the expected
+  PASS / FAIL / SKIP counts per tier.
+- *Documentation tiers.* README for the overview; twelve
+  numbered vignettes for the tutorial deck; pkgdown for the API
+  reference; `NEWS.md` for the release diary; `API_STABILITY.md`
+  for the lifecycle ladder; this narrative for the development
+  walkthrough.
+- *Lifecycle clarity.* Every export is
+  `lifecycle::badge("experimental")` at v0.2.x; the promotion
+  ladder reaches "maturing" at v0.9. Deprecations follow
+  `lifecycle::deprecate_warn()` cycles of at least one minor
+  release.
+- *Governance documents.* `CODE_OF_CONDUCT.md`,
+  `CONTRIBUTING.md`, `SECURITY.md`, `SUPPORT.md` ship with the
+  repository. Items pending the collective decision are flagged
+  as `Pending AAGI-AUS collective decision` rather than as
+  TODOs.
+
+## Evaluation framework
+
+A committee evaluating the package against the four standard
+software-paper criteria can locate the evidence as follows.
+
+1. *Research impact.* Documented in §2. The user community
+   (agricultural-statistics and the broader Bayesian-mixed-
+   model crowd) is real and is presently served by single-
+   backend tools. The triangulation diagnostic is a contribution
+   distinct from any single engine.
+2. *Design rationale.* Eighteen ADRs in
+   `design-notes-priors-brms-lgm.md`, each with a four-point
+   justification including literature anchoring and sensitivity
+   bracketing. The four-verb scope is enforced.
+3. *Open-source practices.* Three-tier test discipline; CRAN-
+   ready `R CMD check --as-cran` baseline; vignette precompile
+   pattern; governance documents; lifecycle ladder.
+4. *Development authenticity.* Six weeks of concentrated work,
+   thirty-five commits, eighteen ADRs, two independent audits
+   driving substantial rework, four named coauthors with defined
+   paper-contribution roles. Decisions are deferred to the
+   collective rather than stamped by the lead.
+
+The development model is structured: plan, decide (ADR),
+implement, audit, revise, document. The sections above record
+that cadence end to end.
+
+---
+
+# Appendix A — code snippets
+
+The package code is at `flexyBayes/` in this workspace. Four
+snippets below illustrate the patterns described in §6.
+
+## A.1 The four-verb decision
+
+```r
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+
+# (a) ASReml-style entry
+fit_a <- flexybayes(
+  fixed  = Reaction ~ Days,
+  random = ~ Subject,
+  data   = sleepstudy,
+  backend = "auto"             # gate-driven INLA or greta
+)
+backend_decision(fit_a)
+
+# (b) brms / lme4 entry with the Stan passthrough
+fit_b <- fb_brms(
+  Reaction ~ Days + (1 | Subject),
+  data = sleepstudy,
+  backend = "brms"             # explicit Stan via brms
+)
+
+# (c) Cross-engine triangulation
+triangulate(fit_a, fit_b)
+```
+
+## A.2 The LGM gate refusal template
+
+```r
+# A structurally-incompatible model: family outside INLA's roster.
+fb_bad <- flexyBayes:::fb_from_asreml(
+  fixed = y ~ x, random = ~ g,
+  data  = data.frame(y = rnorm(20),
+                     x = rnorm(20),
+                     g = factor(rep(1:4, 5))),
+  family = "imaginary_family"
+)
+
+ref <- flexyBayes:::lgm_gate(fb_bad)
+ref
+#> flexyBayes: INLA backend refused for this model.
+#> Reasons (1 structural failure):
+#>   - [family_allowlist] family "imaginary_family" is not in the
+#>     INLA likelihood allowlist (no built-in Laplace machinery).
+#>     Diagnostic: fb$family = "imaginary_family"
+#> Re-route: try backend = "brms" via fb_brms() for the Stan
+#>   passthrough (model must be in the brms corpus), or
+#>   backend = "greta" for the broader flexyBayes formula path.
+#>   NIMBLE is planned future work, not yet implemented.
+#> For mixtures with <= 2 components, the planned INLA-within-MCMC
+#>   escape (Gomez-Rubio & Rue 2018) is on the roadmap.
+#> Override (not recommended): lgm_gate(fb, force = "inla",
+#>   acknowledge_silent_bias_risk = TRUE, reason = "<your reason>")
+#> Docs: vignette("flexyBayes-11-lgm-feasibility").
+```
+
+## A.3 The canonical-name registry on an INLA fit
+
+```r
+fit_inla <- flexybayes(Reaction ~ Days, random = ~ Subject,
+                       data = sleepstudy, backend = "inla")
+
+canonical_names(fit_inla)
+#>   native                                     canonical      transform
+#>   "(Intercept)"                              "(Intercept)"  identity
+#>   "Days"                                     "Days"         identity
+#>   "Precision for Subject"                    "sd_Subject"   1/sqrt(.)
+#>   "Precision for the Gaussian observations" "sigma"        1/sqrt(.)
+```
+
+## A.4 The prior DSL
+
+```r
+# PC-canonical SD-scale prior DSL. The PC idiom is the cross-engine
+# interlingua; the distributional idiom is engine-direct.
+my_prior <- fb_prior(
+  sigma                 ~ pc(upper = 2, prob = 0.05),
+  sd(group = "Subject") ~ half_normal(scale = 1),
+  b("Days")             ~ student_t(df = 4, scale = 2.5)
+)
+
+# Inspect the resolved prior at fit time
+fit <- flexybayes(Reaction ~ Days, random = ~ Subject,
+                  data = sleepstudy, prior = my_prior)
+prior_summary(fit)
+```
+
+---
+
+# Appendix B — document index
+
+Reference artefacts for a reviewer who wants to verify the
+claims in this document.
+
+| Artefact | Path | Purpose |
+|---|---|---|
+| Package source | `flexyBayes/` | The package itself. `git log` on `main` carries the 35-commit revision history. |
+| ADR ledger | `design-notes-priors-brms-lgm.md` | 18 ADRs at v0.2 close; ADRs 0017 + 0018 drafted for v0.2.5. |
+| Locked plan | `plan-final-2026-05-21.md` | The canonical Ship + Ambition plan. |
+| Ambition register | `AMBITION_STAGE.md` | Every deferred item past v0.2, with §5 (locked v0.2.5 sequence) and §7 (v0.3 missing variables). |
+| Work log | `PROJECT_LOG.md` | Compressed Project Context + dated entries from 2026-05-21 onwards. Pre-2026-05-21 archived to `PROJECT_LOG_ARCHIVE.md`. |
+| Audit | `flexyBayes_package_audit_2026-05-22.md` | Independent 2026-05-22 audit that drove the truthfulness pass. |
+| Paper draft | `paper/` | R Journal manuscript scaffold + empirical-study driver. |
+| Coauthor action note | `paper/beata_action_2026-05-22.md` | Beata's specific action items; parallel notes for Emi / Francis / Anabel follow the team meeting. |
+| Team conversation plan | `team_conversation_plan_2026-05-22.md` | Agenda for the AAGI-AUS team meeting introducing v0.2.5 + v0.3. |
+
+---
+
+# References
+
+- Gelman, A. (2006). Prior distributions for variance parameters
+  in hierarchical models. *Bayesian Analysis* 1(3): 515–534.
+- Gomez-Rubio, V., & Rue, H. (2018). Markov chain Monte Carlo
+  with the Integrated Nested Laplace Approximation. *Statistics
+  and Computing* 28: 1033–1051.
+- Rue, H., Martino, S., & Chopin, N. (2009). Approximate Bayesian
+  inference for latent Gaussian models by using integrated
+  nested Laplace approximations. *Journal of the Royal
+  Statistical Society: Series B* 71(2): 319–392.
+- Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S.
+  H. (2017). Penalising model component complexity: a
+  principled, practical approach to constructing priors.
+  *Statistical Science* 32(1): 1–28.
+- Talts, S., Betancourt, M., Simpson, D., Vehtari, A., & Gelman,
+  A. (2018). Validating Bayesian inference algorithms with
+  simulation-based calibration. *arXiv:1804.06788*.
+- Bürkner, P.-C. (2017). brms: An R package for Bayesian
+  multilevel models using Stan. *Journal of Statistical
+  Software* 80(1): 1–28.
+- Wood, S. N. (2017). *Generalized Additive Models: An
+  Introduction with R* (2nd ed.). Chapman & Hall/CRC.
+
+— end of narrative

@@ -36,3 +36,5 @@
 ^tools$
 ^ledger$
 ^ledger/.*$
+^dev-narrative$
+^dev-narrative/.*$
