@@ -159,6 +159,10 @@ test_that("(j) aggregate = TRUE on out-of-scope IR raises refusal", {
 
 test_that("(j) aggregate = TRUE on backend = 'greta' now succeeds (v0.3.3)", {
   testthat::skip_if_not_installed("greta")
+  # Fits via greta -> needs a usable TensorFlow backend, which CI does
+  # not set up (absent on Windows even with the greta R package present).
+  # Matches the skip_on_ci() guard on the suite's other greta-fit tests.
+  testthat::skip_on_ci()
   dat <- mk_agg_data()
   fit <- suppressMessages(fb(
     y ~ f1 + (1 | g), data = dat,
