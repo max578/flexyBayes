@@ -48,7 +48,12 @@ jobs:
       # `greta-integration` workflow (separate, slow, manual trigger).
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          # knitr + rmarkdown are the VignetteBuilder; install them
+          # explicitly because `dependencies: "hard"` skips Suggests,
+          # yet R CMD build still loads the builder for the (static,
+          # precompiled) vignettes -- without them the build fails with
+          # "vignette builder 'knitr' not found".
+          extra-packages: any::rcmdcheck, any::knitr, any::rmarkdown
           needs: check
           # INLA is in Additional_repositories; install only on Linux
           # where the precompiled binaries are reliable.

@@ -22,7 +22,9 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # cyclocomp is a lintr extra; declare to avoid the v0.4.3 gotcha.
-          extra-packages: any::lintr, any::cyclocomp, local::.
+          # knitr + rmarkdown are the VignetteBuilder, needed to build
+          # local::. (the package) for linting.
+          extra-packages: any::lintr, any::cyclocomp, any::knitr, any::rmarkdown, local::.
           needs: lint
 
       - name: Lint

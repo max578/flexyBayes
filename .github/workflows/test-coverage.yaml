@@ -21,7 +21,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::covr, any::xml2
+          # knitr + rmarkdown are the VignetteBuilder, needed to build
+          # the package for covr instrumentation.
+          extra-packages: any::covr, any::xml2, any::knitr, any::rmarkdown
           needs: coverage
 
       - name: Test coverage

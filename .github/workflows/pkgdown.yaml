@@ -30,7 +30,9 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, local::.
+          # knitr + rmarkdown are the VignetteBuilder, needed to build
+          # local::. (the package) for the pkgdown site.
+          extra-packages: any::pkgdown, any::knitr, any::rmarkdown, local::.
           needs: website
 
       - name: Build site
