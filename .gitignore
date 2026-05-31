@@ -31,3 +31,6 @@ inst/extdata/inla-verification/
 # Decision-knowledge ledger (cairns) -- local dev artefact, kept out of
 # package git history (untracked 2026-05-30); already in .Rbuildignore.
 ledger/
+
+# pkgdown output (rebuilt by CI; not committed)
+docs/
