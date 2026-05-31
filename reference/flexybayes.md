@@ -229,18 +229,22 @@ fb(
 
 - aggregate:
 
-  One of `"auto"` (default), `TRUE`, or `FALSE`. Aggregated-gaussian
-  sufficient-statistics gate. `"auto"` consults the aggregation plan and
-  routes through the per-cell emit path when the IR is in scope
-  (gaussian-identity, fixed + random-intercept, productive compression)
-  **on `backend = "inla"`**; on `backend = "greta"`, `"auto"` falls
-  through to the per-row path even when the plan is eligible (`TRUE` is
-  required to activate the greta aggregated emit explicitly). `TRUE`
-  forces aggregation on either backend – raises a structured refusal
-  when the plan declares ineligibility. `FALSE` skips the gate entirely.
+  One of `"auto"` (default), `TRUE`, or `FALSE`. Exact
+  sufficient-statistics aggregation gate. `"auto"` consults the
+  aggregation plan and routes through the per-cell emit path when the IR
+  is in scope (gaussian-identity, binomial-logit, or poisson-log;
+  fixed + random-intercept; productive compression) **on
+  `backend = "inla"`**; on `backend = "greta"`, `"auto"` falls through
+  to the per-row path even when the plan is eligible (`TRUE` is required
+  to activate the greta aggregated emit explicitly). `TRUE` forces
+  aggregation on either backend – raises a structured refusal when the
+  plan declares ineligibility. `FALSE` skips the gate entirely.
   Aggregated fits carry `$exactness == "aggregated_exact"` and the
-  dispatch trace's `path` slot reads `"aggregated_gaussian"`. The
-  asymmetry is documented behaviour rather than a bug: greta uses
+  dispatch trace's `path` slot reads `"aggregated_gaussian"` (gaussian)
+  or `"aggregated_count"` (binomial / poisson). For out-of-core datasets
+  that do not fit in memory, see
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md).
+  The asymmetry is documented behaviour rather than a bug: greta uses
   dense-matrix per-row emit by default for predictable RAM, and
   switching to the aggregated path silently would change the posterior
   numerical profile without an explicit opt-in.
@@ -283,7 +287,8 @@ An object of class `"flexybayes"` — a list with three components:
 - `$greta`:
 
   Native greta output: `model`, `draws` (mcmc.list), `greta_arrays`, and
-  `env`. Use with `bayesplot`, `greta::calculate()`,
+  `env`. Use with `bayesplot`,
+  [`greta::calculate()`](https://rdrr.io/pkg/greta/man/calculate.html),
   `posterior::as_draws()`.
 
 - `$extras`:
@@ -311,5 +316,28 @@ if (requireNamespace("greta", quietly = TRUE)) {
   summary(fit)
   coef(fit)
 }
+#> Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]
+#> ================================================================= 
+#>   family:     gaussian / identity 
+#>   N = 120 , K = 40 
+#>   backend:    inla 
+#>   exactness:  aggregated_exact 
+#>   priors:     custom (explicit prior supplied; see prior_summary()) 
+#>   aggregation: N = 120 rows -> K = 40 cells (ratio 3:1)
+#> 
+#> -- Fixed effects (posterior)  ----------------------------------- 
+#>             Estimate Post.SD
+#> (Intercept)  47.9118  0.6641
+#> envE2         2.1194  0.4599
+#> envE3         3.4470  0.4599
+#> envE4         6.0062  0.4599
+#> 
+#> -- Variance components  ---------------------------------------- 
+#>   sigma (residual SD): 1.7653
+#>   tau_1  (random SD): 1.6055
+#> 
+#>   Run time: 0.45 sec
+#> (Intercept)       envE2       envE3       envE4 
+#>   47.911802    2.119431    3.447017    6.006215 
 # }
 ```

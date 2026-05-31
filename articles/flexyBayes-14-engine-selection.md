@@ -112,7 +112,8 @@ fits a different model than the one asked for.
 ## Native greta models
 
 If you have already built a model with native greta primitives, pass the
-`greta::model()` object straight to
+[`greta::model()`](https://rdrr.io/pkg/greta/man/model.html) object
+straight to
 [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md).
 It is fit directly by `greta::mcmc()` and returned with the standard
 post-fit surface ([`summary()`](https://rdrr.io/r/base/summary.html),

@@ -51,5 +51,5 @@ e <- fb_engine("greta", chains = 4L)
 e$paradigm
 #> [1] "mcmc"
 e$toolchain_status
-#> [1] "requires_install"
+#> [1] "ready"
 ```

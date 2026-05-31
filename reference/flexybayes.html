@@ -15,7 +15,7 @@ analyses."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,6 +48,7 @@ analyses."></head><body>
     <li><a class="dropdown-item" href="../articles/flexyBayes-12-backend-internals.html">12 — Backend internals</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-14-engine-selection.html">14 — Choosing an engine</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-15-extending-backends.html">15 — Extending with a backend</a></li>
+    <li><a class="dropdown-item" href="../articles/flexyBayes-16-big-data-streaming.html">16 — Big data — streaming aggregation</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -291,18 +292,21 @@ structured refusal until INLA-side <code>code</code>-slot support lands.</p></dd
 
 <dt id="arg-aggregate">aggregate<a class="anchor" aria-label="anchor" href="#arg-aggregate"></a></dt>
 <dd><p>One of <code>"auto"</code> (default), <code>TRUE</code>, or <code>FALSE</code>.
-Aggregated-gaussian sufficient-statistics gate. <code>"auto"</code>
+Exact sufficient-statistics aggregation gate. <code>"auto"</code>
 consults the aggregation plan and routes through the per-cell
-emit path when the IR is in scope (gaussian-identity, fixed +
-random-intercept, productive compression) <strong>on <code>backend = "inla"</code></strong>;
-on <code>backend = "greta"</code>, <code>"auto"</code> falls through to the per-row
-path even when the plan is eligible (<code>TRUE</code> is required to
-activate the greta aggregated emit explicitly). <code>TRUE</code> forces
-aggregation on either backend – raises a structured refusal
-when the plan declares ineligibility. <code>FALSE</code> skips the gate
+emit path when the IR is in scope (gaussian-identity, binomial-logit,
+or poisson-log; fixed + random-intercept; productive compression)
+<strong>on <code>backend = "inla"</code></strong>; on <code>backend = "greta"</code>, <code>"auto"</code> falls
+through to the per-row path even when the plan is eligible (<code>TRUE</code>
+is required to activate the greta aggregated emit explicitly).
+<code>TRUE</code> forces aggregation on either backend – raises a structured
+refusal when the plan declares ineligibility. <code>FALSE</code> skips the gate
 entirely. Aggregated fits carry <code>$exactness == "aggregated_exact"</code>
-and the dispatch trace's <code>path</code> slot reads <code>"aggregated_gaussian"</code>.
-The asymmetry is documented behaviour rather than a bug: greta
+and the dispatch trace's <code>path</code> slot reads <code>"aggregated_gaussian"</code>
+(gaussian) or <code>"aggregated_count"</code> (binomial / poisson). For
+out-of-core datasets that do not fit in memory, see
+<code><a href="flexybayes_stream.html">flexybayes_stream()</a></code>. The asymmetry is documented behaviour rather
+than a bug: greta
 uses dense-matrix per-row emit by default for predictable RAM,
 and switching to the aggregated path silently would change the
 posterior numerical profile without an explicit opt-in.</p></dd>
@@ -338,7 +342,7 @@ etc. Works with <code><a href="https://rdrr.io/r/base/summary.html" class="exter
 
 <dt><code>$greta</code></dt>
 <dd><p>Native greta output: <code>model</code>, <code>draws</code> (mcmc.list),
-<code>greta_arrays</code>, and <code>env</code>. Use with <code>bayesplot</code>, <code>greta::calculate()</code>,
+<code>greta_arrays</code>, and <code>env</code>. Use with <code>bayesplot</code>, <code><a href="https://rdrr.io/pkg/greta/man/calculate.html" class="external-link">greta::calculate()</a></code>,
 <code>posterior::as_draws()</code>.</p></dd>
 
 <dt><code>$extras</code></dt>
@@ -365,6 +369,29 @@ diagnostics, <code>variance_comps</code>, <code>blups</code>, <code>predictions<
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ================================================================= </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   family:     gaussian / identity </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   N = 120 , K = 40 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   backend:    inla </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   exactness:  aggregated_exact </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   priors:     custom (explicit prior supplied; see prior_summary()) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   aggregation: N = 120 rows -&gt; K = 40 cells (ratio 3:1)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -- Fixed effects (posterior)  ----------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Post.SD</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  47.9118  0.6641</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE2         2.1194  0.4599</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE3         3.4470  0.4599</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE4         6.0062  0.4599</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -- Variance components  ---------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma (residual SD): 1.7653</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   tau_1  (random SD): 1.6055</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Run time: 0.45 sec</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)       envE2       envE3       envE4 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   47.911802    2.119431    3.447017    6.006215 </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

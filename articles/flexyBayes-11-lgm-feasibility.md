@@ -140,9 +140,11 @@ see the *hierarchical models* and *asreml-shaped formulas* vignettes.
 ### 4.2 Refusal pattern B — family outside the INLA roster (check 1)
 
 INLA carries an internal roster of supported likelihoods (around 100
-families when `INLA::inla.models()` is queried live). A family not in
-that roster cannot be Laplace-approximated by INLA. We construct a
-fictitious family name to make the refusal visible:
+families when
+[`INLA::inla.models()`](https://rdrr.io/pkg/INLA/man/models.html) is
+queried live). A family not in that roster cannot be
+Laplace-approximated by INLA. We construct a fictitious family name to
+make the refusal visible:
 
 ``` r
 

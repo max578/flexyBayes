@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,6 +55,7 @@
     <li><a class="dropdown-item" href="../articles/flexyBayes-12-backend-internals.html">12 — Backend internals</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-14-engine-selection.html">14 — Choosing an engine</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-15-extending-backends.html">15 — Extending with a backend</a></li>
+    <li><a class="dropdown-item" href="../articles/flexyBayes-16-big-data-streaming.html">16 — Big data — streaming aggregation</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -224,7 +225,7 @@ the fit, and wrap the result.</p>
 <p><code>emit_inla()</code> is new in v0.1: it builds an INLA formula
 with <code>f(group, model = "iid", hyper = ...)</code> for each random
 effect, plumbs <code>priors_to_inla()</code> into the hyperparameter
-slot, calls <code>INLA::inla()</code>, and then runs <em>check 7</em> —
+slot, calls <code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code>, and then runs <em>check 7</em> —
 the post-fit numerical- confirm gate.</p>
 <p>The literal greta program is available after a fit:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -253,11 +254,11 @@ the post-fit numerical- confirm gate.</p>
 <span><span class="co">#&gt; # -- Model and MCMC -----------------------------------------</span></span>
 <span><span class="co">#&gt; atg_model &lt;- greta::model(mu_atg, beta_Days, sigma_Subject, sigma_e_atg)</span></span>
 <span><span class="co">#&gt; atg_draws &lt;- greta::mcmc(atg_model, n_samples = 200, warmup = 200, chains = 1, verbose = FALSE)</span></span></code></pre></div>
-<p>The output is a literal greta program: <code>greta::normal()</code>,
-<code>greta::uniform()</code>, the model definition, and the
+<p>The output is a literal greta program: <code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">greta::normal()</a></code>,
+<code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">greta::uniform()</a></code>, the model definition, and the
 <code>greta::mcmc()</code> call. Reading it once removes much of the
 magic.</p>
-<p>For INLA, the formula passed to <code>INLA::inla()</code> is in
+<p>For INLA, the formula passed to <code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code> is in
 <code>fit_inla$inla$.args$formula</code>:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_inla</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_brms.html">fb_brms</a></span><span class="op">(</span></span>
@@ -361,27 +362,27 @@ dispatch context.</p>
 </h2>
 <p><code><a href="../reference/fb_greta.html">fb_greta()</a></code> is the expert / power-user entry. Use it when
 the model is already expressed in native greta primitives
-(<code>as_data()</code>, <code>normal()</code>, <code>uniform()</code>,
-<code>distribution()&lt;-</code>, <code>model()</code>) and you want the
+(<code><a href="https://rdrr.io/pkg/greta/man/as_data.html" class="external-link">as_data()</a></code>, <code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal()</a></code>, <code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">uniform()</a></code>,
+<code>distribution()&lt;-</code>, <code><a href="https://rdrr.io/pkg/greta/man/model.html" class="external-link">model()</a></code>) and you want the
 flexyBayes post-fit surface — <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>,
 <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>, <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code>, <code><a href="../reference/prior_summary.html">prior_summary()</a></code>,
 <code><a href="../reference/triangulate.html">triangulate()</a></code> — without rewriting the model in asreml or
 brms-style formula grammar.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">greta</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://greta-stats.org" class="external-link">greta</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">sleepstudy</span>, package <span class="op">=</span> <span class="st">"lme4"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">y</span>      <span class="op">&lt;-</span> <span class="fu">as_data</span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span></span>
-<span><span class="va">x_days</span> <span class="op">&lt;-</span> <span class="fu">as_data</span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Days</span><span class="op">)</span></span>
+<span><span class="va">y</span>      <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/as_data.html" class="external-link">as_data</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span></span>
+<span><span class="va">x_days</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/as_data.html" class="external-link">as_data</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Days</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">b0</span>    <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="va">b1</span>    <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="va">sigma</span> <span class="op">&lt;-</span> <span class="fu">uniform</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">b0</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">b1</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">sigma</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">uniform</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">mu</span> <span class="op">&lt;-</span> <span class="va">b0</span> <span class="op">+</span> <span class="va">b1</span> <span class="op">*</span> <span class="va">x_days</span></span>
-<span><span class="fu">distribution</span><span class="op">(</span><span class="va">y</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="va">mu</span>, <span class="va">sigma</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/greta/man/distribution.html" class="external-link">distribution</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="va">mu</span>, <span class="va">sigma</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu">model</span><span class="op">(</span><span class="va">b0</span>, <span class="va">b1</span>, <span class="va">sigma</span><span class="op">)</span></span>
+<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/model.html" class="external-link">model</a></span><span class="op">(</span><span class="va">b0</span>, <span class="va">b1</span>, <span class="va">sigma</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_dg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_greta.html">fb_greta</a></span><span class="op">(</span></span>
 <span>  <span class="va">m</span>,</span>

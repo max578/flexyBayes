@@ -21,6 +21,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-13-lgm-feasibility-memory.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-14-engine-selection.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-15-extending-backends.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-16-big-data-streaming.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/articles/index.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/authors.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/index.html</loc></url>
@@ -57,6 +58,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/fitted.flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/flexyBayes-package.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/flexybayes.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/format.fb_dataset.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/format.fb_terms.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/reference/formula.flexybayes.html</loc></url>

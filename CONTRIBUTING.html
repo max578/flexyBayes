@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">flexyBayes</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,6 +40,7 @@
     <li><a class="dropdown-item" href="articles/flexyBayes-12-backend-internals.html">12 — Backend internals</a></li>
     <li><a class="dropdown-item" href="articles/flexyBayes-14-engine-selection.html">14 — Choosing an engine</a></li>
     <li><a class="dropdown-item" href="articles/flexyBayes-15-extending-backends.html">15 — Extending with a backend</a></li>
+    <li><a class="dropdown-item" href="articles/flexyBayes-16-big-data-streaming.html">16 — Big data — streaming aggregation</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -84,7 +85,7 @@
 <div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="ex">R</span> CMD build flexyBayes</span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="ex">R</span> CMD check <span class="at">--as-cran</span> <span class="at">--no-manual</span> flexyBayes_<span class="pp">*</span>.tar.gz</span></code></pre></div>
 <p><code>R CMD check</code> against the raw source directory fails immediately with <code>Required fields missing or empty: 'Author' 'Maintainer'</code>. The <code>Author</code> / <code>Maintainer</code> fields are materialised from <code>Authors@R</code> by <code>R CMD build</code>; this is the canonical check path for the project. <code>devtools::check()</code> calls <code>R CMD build</code> internally, so the R-side workflow is unaffected.</p>
-<p>The package depends on <code>greta</code> (default MCMC backend) and <code>INLA</code> (Laplace backend). <code>greta</code> requires a working Python + TensorFlow install — see <code>greta::install_greta_deps()</code>. <code>INLA</code> is hosted at <a href="https://inla.r-inla-download.org/R/stable" class="external-link uri">https://inla.r-inla-download.org/R/stable</a>.</p>
+<p>The package depends on <code>greta</code> (default MCMC backend) and <code>INLA</code> (Laplace backend). <code>greta</code> requires a working Python + TensorFlow install — see <code><a href="https://rdrr.io/pkg/greta/man/install_greta_deps.html" class="external-link">greta::install_greta_deps()</a></code>. <code>INLA</code> is hosted at <a href="https://inla.r-inla-download.org/R/stable" class="external-link uri">https://inla.r-inla-download.org/R/stable</a>.</p>
 </div>
 <div class="section level3">
 <h3 id="code-style">Code style<a class="anchor" aria-label="anchor" href="#code-style"></a></h3>

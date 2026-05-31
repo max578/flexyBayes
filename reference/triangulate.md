@@ -46,7 +46,8 @@ triangulate(
 - n_samples:
 
   integer: number of posterior samples to draw for fits whose extractor
-  needs sampling (e.g., INLA via `INLA::inla.posterior.sample`).
+  needs sampling (e.g., INLA via
+  [`INLA::inla.posterior.sample`](https://rdrr.io/pkg/INLA/man/posterior.sample.html)).
 
 ## Value
 

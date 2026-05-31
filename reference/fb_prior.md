@@ -33,10 +33,12 @@ fb_prior(...)
 
   Supported distribution families: `pc`, `half_normal`, `half_cauchy`,
   `student_t`, `normal`, `exponential`, `lkj`, `cauchy`, `gamma`,
-  `uniform`. Note that `uniform()` on a variance component sits outside
-  the PC-canonical interlingua: the INLA backend honours it exactly via
-  an expression-prior on the log-precision; the legacy greta scalar
-  bridge cannot represent it and will refuse with a redirect.
+  `uniform`. Note that
+  [`uniform()`](https://rdrr.io/pkg/greta/man/distributions.html) on a
+  variance component sits outside the PC-canonical interlingua: the INLA
+  backend honours it exactly via an expression-prior on the
+  log-precision; the legacy greta scalar bridge cannot represent it and
+  will refuse with a redirect.
 
 ## Value
 

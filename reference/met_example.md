@@ -142,5 +142,26 @@ if (requireNamespace("greta", quietly = TRUE)) {
   )
   summary(fit)
 }
+#> Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]
+#> ================================================================= 
+#>   family:     gaussian / identity 
+#>   N = 120 , K = 40 
+#>   backend:    inla 
+#>   exactness:  aggregated_exact 
+#>   priors:     custom (explicit prior supplied; see prior_summary()) 
+#>   aggregation: N = 120 rows -> K = 40 cells (ratio 3:1)
+#> 
+#> -- Fixed effects (posterior)  ----------------------------------- 
+#>             Estimate Post.SD
+#> (Intercept)  47.9118  0.6675
+#> envE2         2.1194  0.4600
+#> envE3         3.4470  0.4600
+#> envE4         6.0062  0.4600
+#> 
+#> -- Variance components  ---------------------------------------- 
+#>   sigma (residual SD): 1.7651
+#>   tau_1  (random SD): 1.6054
+#> 
+#>   Run time: 0.45 sec
 # }
 ```

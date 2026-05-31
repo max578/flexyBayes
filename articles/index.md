@@ -43,3 +43,5 @@
   pins](https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-14-engine-selection.md):
 - [Architecture: how the backend registry works and how a new engine
   joins](https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-15-extending-backends.md):
+- [Big data: streaming exact aggregation to a billion
+  rows](https://aagi-aus.github.io/flexyBayes/articles/flexyBayes-16-big-data-streaming.md):

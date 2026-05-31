@@ -349,7 +349,8 @@ precision.** PC priors and the v0.1 uniform default are stated on the
 precision; `priors_to_inla()` handles the change of variables, and the
 [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
 user does not need to think about it. If you write priors directly into
-`INLA::inla()`, *do* think about it.
+[`INLA::inla()`](https://rdrr.io/pkg/INLA/man/inla.html), *do* think
+about it.
 
 **Setting the upper bound of a uniform / PC prior to a multiple of
 $`\mathrm{sd}(y)`$ without thinking about the scale.** $`U =

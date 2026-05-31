@@ -15,7 +15,7 @@ agree, when they differ, and why a backend was refused.
 |----|----|----|
 | ASReml syntax (`fixed` / `random` / `rcov`) | [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) / [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) | Variance-component / agricultural workflows. |
 | brms or lme4 syntax (`y ~ x + (1 \| g)`) | [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) / [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) | The grammar is detected from the call; `syntax =` forces it. |
-| A pre-built greta model | [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) | Pass the `greta::model()` object (or its [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md) representation) straight in. |
+| A pre-built greta model | [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) | Pass the [`greta::model()`](https://rdrr.io/pkg/greta/man/model.html) object (or its [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md) representation) straight in. |
 | To force one engine | [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md) / [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md) / [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md) | Single-engine pins; a conflicting `backend` is refused. |
 | Two fits you want to compare across engines | [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md) | Auto-resolves canonical parameter names. |
 

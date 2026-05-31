@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,6 +55,7 @@
     <li><a class="dropdown-item" href="../articles/flexyBayes-12-backend-internals.html">12 — Backend internals</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-14-engine-selection.html">14 — Choosing an engine</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-15-extending-backends.html">15 — Extending with a backend</a></li>
+    <li><a class="dropdown-item" href="../articles/flexyBayes-16-big-data-streaming.html">16 — Big data — streaming aggregation</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -201,19 +202,19 @@ fits a different model than the one asked for.</p>
 <h2 id="native-greta-models">Native greta models<a class="anchor" aria-label="anchor" href="#native-greta-models"></a>
 </h2>
 <p>If you have already built a model with native greta primitives, pass
-the <code>greta::model()</code> object straight to <code><a href="../reference/flexybayes.html">fb()</a></code>. It
+the <code><a href="https://rdrr.io/pkg/greta/man/model.html" class="external-link">greta::model()</a></code> object straight to <code><a href="../reference/flexybayes.html">fb()</a></code>. It
 is fit directly by <code>greta::mcmc()</code> and returned with the
 standard post-fit surface (<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, <code><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef()</a></code>,
 <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code>, <code><a href="../reference/triangulate.html">triangulate()</a></code>).</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">greta</span><span class="op">)</span></span>
-<span><span class="va">y</span>     <span class="op">&lt;-</span> <span class="fu">as_data</span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span></span>
-<span><span class="va">x</span>     <span class="op">&lt;-</span> <span class="fu">as_data</span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Days</span><span class="op">)</span></span>
-<span><span class="va">b0</span>    <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="va">b1</span>    <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="va">sigma</span> <span class="op">&lt;-</span> <span class="fu">uniform</span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu">distribution</span><span class="op">(</span><span class="va">y</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu">normal</span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">b1</span> <span class="op">*</span> <span class="va">x</span>, <span class="va">sigma</span><span class="op">)</span></span>
-<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu">model</span><span class="op">(</span><span class="va">b0</span>, <span class="va">b1</span>, <span class="va">sigma</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://greta-stats.org" class="external-link">greta</a></span><span class="op">)</span></span>
+<span><span class="va">y</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/as_data.html" class="external-link">as_data</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span></span>
+<span><span class="va">x</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/as_data.html" class="external-link">as_data</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Days</span><span class="op">)</span></span>
+<span><span class="va">b0</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">b1</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="va">sigma</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">uniform</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html" class="external-link">sd</a></span><span class="op">(</span><span class="va">sleepstudy</span><span class="op">$</span><span class="va">Reaction</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/greta/man/distribution.html" class="external-link">distribution</a></span><span class="op">(</span><span class="va">y</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">normal</a></span><span class="op">(</span><span class="va">b0</span> <span class="op">+</span> <span class="va">b1</span> <span class="op">*</span> <span class="va">x</span>, <span class="va">sigma</span><span class="op">)</span></span>
+<span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/model.html" class="external-link">model</a></span><span class="op">(</span><span class="va">b0</span>, <span class="va">b1</span>, <span class="va">sigma</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_native</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">fb</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span></code></pre></div>
 <p>To align a native fit with an INLA or Stan fit under

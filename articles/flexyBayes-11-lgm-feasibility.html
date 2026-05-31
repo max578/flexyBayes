@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,6 +55,7 @@
     <li><a class="dropdown-item" href="../articles/flexyBayes-12-backend-internals.html">12 — Backend internals</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-14-engine-selection.html">14 — Choosing an engine</a></li>
     <li><a class="dropdown-item" href="../articles/flexyBayes-15-extending-backends.html">15 — Extending with a backend</a></li>
+    <li><a class="dropdown-item" href="../articles/flexyBayes-16-big-data-streaming.html">16 — Big data — streaming aggregation</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -276,7 +277,7 @@ vignettes.</p>
 1)<a class="anchor" aria-label="anchor" href="#refusal-pattern-b-family-outside-the-inla-roster-check-1"></a>
 </h3>
 <p>INLA carries an internal roster of supported likelihoods (around 100
-families when <code>INLA::inla.models()</code> is queried live). A
+families when <code><a href="https://rdrr.io/pkg/INLA/man/models.html" class="external-link">INLA::inla.models()</a></code> is queried live). A
 family not in that roster cannot be Laplace-approximated by INLA. We
 construct a fictitious family name to make the refusal visible:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">

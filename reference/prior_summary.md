@@ -99,5 +99,6 @@ if (requireNamespace("greta", quietly = TRUE)) {
                  verbose = FALSE, mcmc_verbose = FALSE)
   prior_summary(fit)
 }
+#> Error in find.package(package, lib.loc, verbose = verbose): there is no package called ‘lme4’
 # }
 ```

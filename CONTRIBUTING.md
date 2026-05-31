@@ -53,8 +53,9 @@ workflow is unaffected.
 
 The package depends on `greta` (default MCMC backend) and `INLA`
 (Laplace backend). `greta` requires a working Python + TensorFlow
-install — see `greta::install_greta_deps()`. `INLA` is hosted at
-<https://inla.r-inla-download.org/R/stable>.
+install — see
+[`greta::install_greta_deps()`](https://rdrr.io/pkg/greta/man/install_greta_deps.html).
+`INLA` is hosted at <https://inla.r-inla-download.org/R/stable>.
 
 ### Code style
 

@@ -5,9 +5,11 @@ only. This is sugar for
 [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)`(..., backend = "greta")`
 and accepts the same grammars — an ASReml `fixed` / `random` / `rcov`
 specification, a brms-style bar-grouped formula, or a native
-`greta_model` graph built with `greta::model()`. A formula is lowered
-through the shared emit path; a native graph is fit directly by
-`greta::mcmc()` and returned as a `flexybayes_direct_greta` object.
+`greta_model` graph built with
+[`greta::model()`](https://rdrr.io/pkg/greta/man/model.html). A formula
+is lowered through the shared emit path; a native graph is fit directly
+by [`greta::mcmc()`](https://rdrr.io/pkg/greta/man/inference.html) and
+returned as a `flexybayes_direct_greta` object.
 
 ## Usage
 
@@ -70,5 +72,6 @@ if (requireNamespace("greta", quietly = TRUE)) {
                   verbose = FALSE, mcmc_verbose = FALSE)
   coef(fit)
 }
+#> Error in find.package(package, lib.loc, verbose = verbose): there is no package called ‘lme4’
 # }
 ```

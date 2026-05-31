@@ -143,8 +143,9 @@ the result.
 
 `emit_inla()` is new in v0.1: it builds an INLA formula with
 `f(group, model = "iid", hyper = ...)` for each random effect, plumbs
-`priors_to_inla()` into the hyperparameter slot, calls `INLA::inla()`,
-and then runs *check 7* — the post-fit numerical- confirm gate.
+`priors_to_inla()` into the hyperparameter slot, calls
+[`INLA::inla()`](https://rdrr.io/pkg/INLA/man/inla.html), and then runs
+*check 7* — the post-fit numerical- confirm gate.
 
 The literal greta program is available after a fit:
 
@@ -177,11 +178,14 @@ cat(fit$extras$code, sep = "\n")
 #> atg_draws <- greta::mcmc(atg_model, n_samples = 200, warmup = 200, chains = 1, verbose = FALSE)
 ```
 
-The output is a literal greta program: `greta::normal()`,
-`greta::uniform()`, the model definition, and the `greta::mcmc()` call.
-Reading it once removes much of the magic.
+The output is a literal greta program:
+[`greta::normal()`](https://rdrr.io/pkg/greta/man/distributions.html),
+[`greta::uniform()`](https://rdrr.io/pkg/greta/man/distributions.html),
+the model definition, and the `greta::mcmc()` call. Reading it once
+removes much of the magic.
 
-For INLA, the formula passed to `INLA::inla()` is in
+For INLA, the formula passed to
+[`INLA::inla()`](https://rdrr.io/pkg/INLA/man/inla.html) is in
 `fit_inla$inla$.args$formula`:
 
 ``` r
@@ -289,9 +293,14 @@ cross-engine comparisons disclose the dispatch context.
 
 [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
 is the expert / power-user entry. Use it when the model is already
-expressed in native greta primitives (`as_data()`, `normal()`,
-`uniform()`, `distribution()<-`, `model()`) and you want the flexyBayes
-post-fit surface — [`summary()`](https://rdrr.io/r/base/summary.html),
+expressed in native greta primitives
+([`as_data()`](https://rdrr.io/pkg/greta/man/as_data.html),
+[`normal()`](https://rdrr.io/pkg/greta/man/distributions.html),
+[`uniform()`](https://rdrr.io/pkg/greta/man/distributions.html),
+`distribution()<-`,
+[`model()`](https://rdrr.io/pkg/greta/man/model.html)) and you want the
+flexyBayes post-fit surface —
+[`summary()`](https://rdrr.io/r/base/summary.html),
 [`coef()`](https://rdrr.io/r/stats/coef.html),
 [`vcov()`](https://rdrr.io/r/stats/vcov.html),
 [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md),

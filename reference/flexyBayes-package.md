@@ -32,8 +32,8 @@ Two ingest paths share a single internal model representation
   [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   — the universal entry. Accepts an ASReml (`fixed` / `random` / `rcov`)
   or brms-style (`y ~ x + (1 | g)`) formula, or a native
-  `greta::model()`, and any `backend` (`"greta"`, `"inla"`, `"brms"`, or
-  `"auto"`).
+  [`greta::model()`](https://rdrr.io/pkg/greta/man/model.html), and any
+  `backend` (`"greta"`, `"inla"`, `"brms"`, or `"auto"`).
 
 - [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
   /
@@ -79,6 +79,8 @@ Bayesian workflow. *arXiv* 2011.01808.
 Useful links:
 
 - <https://github.com/AAGI-AUS/flexyBayes>
+
+- <https://aagi-aus.github.io/flexyBayes/>
 
 - Report bugs at <https://github.com/AAGI-AUS/flexyBayes/issues>
 

@@ -8,6 +8,8 @@ cross-engine triangulation, and approximation validation.
 - [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   : Bayesian Mixed Models with ASReml Syntax
+- [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  : Fit a mixed model to an out-of-core dataset by streaming aggregation
 - [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
   : Fit a flexyBayes model via the greta engine
 - [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md)

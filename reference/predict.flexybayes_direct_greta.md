@@ -6,7 +6,8 @@ apply the model matrix to `newdata`. The user must supply an explicit
 predictor function `f(theta, newdata)` mapping a length-`p` named
 parameter vector and a data frame to a length-`nrow(newdata)` vector of
 predicted values. Posterior-mean prediction is computed by applying
-`f()` to each posterior draw and averaging.
+[`f()`](https://rdrr.io/pkg/greta/man/distributions.html) to each
+posterior draw and averaging.
 
 ## Usage
 
