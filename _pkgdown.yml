@@ -59,6 +59,10 @@ navbar:
           href: articles/flexyBayes-11-lgm-feasibility.html
         - text: 12 — Backend internals
           href: articles/flexyBayes-12-backend-internals.html
+        - text: 14 — Choosing an engine
+          href: articles/flexyBayes-14-engine-selection.html
+        - text: 15 — Extending with a backend
+          href: articles/flexyBayes-15-extending-backends.html
 
 reference:
   - title: Verbs
@@ -132,3 +136,5 @@ articles:
       - flexyBayes-10-triangulation
       - flexyBayes-11-lgm-feasibility
       - flexyBayes-12-backend-internals
+      - flexyBayes-14-engine-selection
+      - flexyBayes-15-extending-backends

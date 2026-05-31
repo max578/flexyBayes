@@ -1,3 +1,75 @@
+# flexyBayes 0.5.0
+
+## The verb surface, finalised (breaking change)
+
+The fitting surface now has one consistent shape: a universal entry that
+spans every backend, single-engine pins, and exported ingest adapters.
+The deprecation windows opened at 0.4.1 are now closed.
+
+- **Engine pins are single-engine, by name.** `fb_greta()`, `fb_inla()`,
+  and `fb_brms()` each fit via exactly one engine --- `fb_<engine>(...)`
+  is sugar for `fb(..., backend = "<engine>")`. Passing a conflicting
+  `backend` to a pin is now a clear error rather than being silently
+  overridden. `fb_brms(backend = "brms")` (the redundant self-pin) is
+  still accepted.
+- **`fb_brms()` no longer takes a non-brms backend.** The multi-backend
+  role moved to `fb()` / `flexybayes()` at 0.4.1; at 0.5.0 `fb_brms()` is
+  the brms engine pin. Pass the same formula to `fb()` to reach `greta`,
+  `inla`, or `auto`.
+- **`fb()` / `flexybayes()` fit a native greta model directly.** Pass a
+  `greta::model()` object (or a `fb_from_greta()` intermediate
+  representation) straight to `fb()`; it is fit via greta and returned
+  with the full post-fit surface. To keep a canonical-name map for
+  cross-engine `triangulate()`, build the representation once and reuse
+  it: `fb(fb_from_greta(model, canonical_names = c(...)))`.
+- **`fb_greta(model = )` is no longer a separate native-graph verb.** The
+  `model =` argument still works (it is mapped to the universal model
+  slot), so existing native-graph calls keep fitting; the recommended
+  form is `fb_greta(model)` or, with a canonical map,
+  `fb_greta(fb_from_greta(model, canonical_names = c(...)))`.
+
+## Backend selection has one home
+
+Backend availability, per-engine capability, and the `auto` candidate set
+are all sourced from a single locked registry, so an unsupported
+(model x engine) pair always yields a registered, structured refusal
+naming the offending construct.
+
+## Bug fixes
+
+- **`triangulate()` now compares INLA variance components on the standard-
+  deviation scale.** The automatic precision-to-standard-deviation
+  conversion for an INLA fit was keyed so that it silently did not fire,
+  so a cross-engine comparison (for example greta versus INLA) reported
+  the INLA precision against the other engine's standard deviation on the
+  `sigma` and `sd_<group>` rows. The conversion now fires by default, with
+  no need to pass `transform_b` by hand.
+- **`plot()` works on every backend fit.** Previously only a greta fit had
+  a `plot()` method, so `plot()` on an INLA, brms, aggregated, or
+  native-greta fit fell through to `graphics::plot.default()` and errored.
+  `plot(fit, type = "effects")` now works on any backend, and plot types
+  that need quantities a backend does not expose (trace plots without MCMC
+  draws, residual plots without fitted values) report that clearly instead
+  of erroring.
+- **Positional and named prior arguments behave identically.** A prior
+  written positionally (for example `normal(0, 50)`) is now read the same
+  as the named form (`normal(0, sd = 50)`) on every emit path; previously
+  a positional scale could be silently dropped to the default on the
+  greta and INLA paths.
+- **`predict()`, `emmeans()`, and `marginaleffects` work on an INLA fit
+  of a brms-grammar mixed model.** A model written as
+  `y ~ x + (1 | g)` and fitted via INLA previously refused these
+  downstream calls, because the random-effect bar term leaked into the
+  fixed-effect design matrix. `formula()` on an INLA fit now returns the
+  fixed-effect formula only, as documented, so the design matrix matches
+  the fitted coefficients. Aggregated INLA fits are covered too.
+- **A non-binary binomial response is refused on the greta backend**
+  rather than being silently fitted as a Bernoulli model.
+- **Internal faults are no longer swallowed.** A genuine fault in the
+  latent-Gaussian gate during aggregated `auto` routing, and a failure to
+  compute `logLik()`, now surface rather than being silently turned into a
+  fallback or `NA`.
+
 # flexyBayes 0.4.1
 
 ## One universal entry across every grammar and backend

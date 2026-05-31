@@ -19,18 +19,23 @@
 #' * [flexybayes()] — asreml-format entry: `fixed` / `random` / `rcov`
 #'   formulas, `known_matrices` for kinship / pedigree, `weights` for
 #'   pre-aggregated observations.
-#' * [fb()] — brms-format entry: a single `formula` plus `backend`
-#'   (`"greta"`, `"inla"`, or `"auto"`).
+#' * [fb()] / [flexybayes()] — the universal entry. Accepts an ASReml
+#'   (`fixed` / `random` / `rcov`) or brms-style (`y ~ x + (1 | g)`)
+#'   formula, or a native `greta::model()`, and any `backend`
+#'   (`"greta"`, `"inla"`, `"brms"`, or `"auto"`).
+#' * [fb_greta()] / [fb_inla()] / [fb_brms()] — single-engine pins.
 #' * [fb_prior()] — penalised-complexity-canonical prior DSL.
 #' * [triangulate()] — cross-engine posterior comparison.
 #'
 #' @section Vignettes:
-#' Twelve vignettes ship with the package, covering: getting started,
-#' asreml-shaped formulas reference, downstream analysis, backend
-#' internals, priors and regularisation, cross-engine triangulation,
-#' LGM feasibility, foundational regression, hierarchical models,
-#' structured covariance, spatio-temporal, and multi-environment trials
-#' and genomics.
+#' Fifteen vignettes ship with the package, covering: getting started,
+#' asreml-shaped formulas reference, foundational regression,
+#' hierarchical models, structured covariance, priors and
+#' regularisation, multi-environment trials and genomics, downstream
+#' analysis, spatio-temporal models, cross-engine triangulation, LGM
+#' feasibility, backend internals, LGM feasibility and memory, choosing
+#' an engine (the universal entry and the engine pins), and the backend
+#' registry architecture.
 #'
 #' @section References:
 #' Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H.

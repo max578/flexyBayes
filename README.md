@@ -13,26 +13,31 @@ agree, when they differ, and why a backend was refused.
 
 | If you have… | Use | Notes |
 |---|---|---|
-| ASReml syntax (`fixed` / `random` / `rcov`) | `flexybayes()` | Variance-component / agricultural workflows. |
-| brms or lme4 syntax (`y ~ x + (1 \| g)`) | `fb_brms()` | Also the Stan passthrough on `backend = "brms"`. |
-| A pre-built greta model | `fb_greta()` | Expert escape hatch; priors are declaration-only. |
+| ASReml syntax (`fixed` / `random` / `rcov`) | `fb()` / `flexybayes()` | Variance-component / agricultural workflows. |
+| brms or lme4 syntax (`y ~ x + (1 \| g)`) | `fb()` / `flexybayes()` | The grammar is detected from the call; `syntax =` forces it. |
+| A pre-built greta model | `fb()` | Pass the `greta::model()` object (or its `fb_from_greta()` representation) straight in. |
+| To force one engine | `fb_greta()` / `fb_inla()` / `fb_brms()` | Single-engine pins; a conflicting `backend` is refused. |
 | Two fits you want to compare across engines | `triangulate()` | Auto-resolves canonical parameter names. |
 
-`fb()` is a literal alias for `flexybayes()`.
+`fb()` is the short alias for `flexybayes()`; either name is the
+universal entry that spans every backend.
 
 ## Which backend will I get?
 
 | Verb | `greta` | `inla` | `brms` (Stan) | `auto` |
 |---|:-:|:-:|:-:|:-:|
-| `flexybayes()` | ✓ | ✓ | – | ✓ (greta or INLA via `lgm_gate()`) |
-| `fb_brms()` | ✓ | ✓ | ✓ | ✓ (greta or INLA — **never** Stan) |
+| `fb()` / `flexybayes()` | ✓ | ✓ | ✓ | ✓ (greta or INLA via `lgm_gate()`) |
 | `fb_greta()` | ✓ | – | – | – |
+| `fb_inla()` | – | ✓ | – | – |
+| `fb_brms()` | – | – | ✓ | – |
 
-`backend = "auto"` runs the LGM feasibility gate; on acceptance it
-routes to INLA, otherwise to greta. It never routes to Stan, because
-brms's first-call Stan compile (typically 30–60 s) is incompatible
-with the auto-fast-path promise. Stan is opt-in only via explicit
-`backend = "brms"` on `fb_brms()`.
+The universal entry reaches any backend: name one with `backend =`, or
+let `backend = "auto"` choose. Each `fb_<engine>()` pin fits exactly one
+engine and refuses a conflicting `backend`. `backend = "auto"` runs the
+LGM feasibility gate and routes to INLA on acceptance, otherwise to
+greta; it never routes to Stan, because brms's first-call Stan compile
+(typically 30–60 s) is incompatible with the auto-fast-path promise.
+Reach Stan explicitly with `fb_brms()` or `fb(..., backend = "brms")`.
 
 ## Installation
 
@@ -52,7 +57,7 @@ install.packages("brms")
 # flexyBayes -- install from the local checkpoint tarball
 # (installation from the public repository will be available once
 # the package is published there).
-R CMD INSTALL release_tarballs/flexyBayes_0.4.0.tar.gz
+R CMD INSTALL release_tarballs/flexyBayes_0.5.0.tar.gz
 
 # Once published, install directly from the repository:
 # install.packages("remotes")
@@ -184,7 +189,7 @@ family = "gaussian" | "binomial" | "poisson" | "negative_binomial" |
 
 ## Vignettes
 
-Twelve numbered vignettes ship with the package:
+Fifteen numbered vignettes ship with the package:
 
 1. Getting started
 2. ASReml-shaped formulas
@@ -198,6 +203,9 @@ Twelve numbered vignettes ship with the package:
 10. Cross-engine triangulation
 11. LGM feasibility filter
 12. Backend internals
+13. LGM feasibility and memory
+14. Choosing an engine: the universal entry and the engine pins
+15. Architecture: the backend registry and how a new engine joins
 
 Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern; the `.Rmd`
 that ships in the package tarball is the pre-evaluated static output.

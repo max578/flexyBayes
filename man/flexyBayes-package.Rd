@@ -27,8 +27,11 @@ Two ingest paths share a single internal model representation
 \item \code{\link[=flexybayes]{flexybayes()}} — asreml-format entry: \code{fixed} / \code{random} / \code{rcov}
 formulas, \code{known_matrices} for kinship / pedigree, \code{weights} for
 pre-aggregated observations.
-\item \code{\link[=fb]{fb()}} — brms-format entry: a single \code{formula} plus \code{backend}
-(\code{"greta"}, \code{"inla"}, or \code{"auto"}).
+\item \code{\link[=fb]{fb()}} / \code{\link[=flexybayes]{flexybayes()}} — the universal entry. Accepts an ASReml
+(\code{fixed} / \code{random} / \code{rcov}) or brms-style (\code{y ~ x + (1 | g)})
+formula, or a native \code{greta::model()}, and any \code{backend}
+(\code{"greta"}, \code{"inla"}, \code{"brms"}, or \code{"auto"}).
+\item \code{\link[=fb_greta]{fb_greta()}} / \code{\link[=fb_inla]{fb_inla()}} / \code{\link[=fb_brms]{fb_brms()}} — single-engine pins.
 \item \code{\link[=fb_prior]{fb_prior()}} — penalised-complexity-canonical prior DSL.
 \item \code{\link[=triangulate]{triangulate()}} — cross-engine posterior comparison.
 }
@@ -36,12 +39,14 @@ pre-aggregated observations.
 
 \section{Vignettes}{
 
-Twelve vignettes ship with the package, covering: getting started,
-asreml-shaped formulas reference, downstream analysis, backend
-internals, priors and regularisation, cross-engine triangulation,
-LGM feasibility, foundational regression, hierarchical models,
-structured covariance, spatio-temporal, and multi-environment trials
-and genomics.
+Fifteen vignettes ship with the package, covering: getting started,
+asreml-shaped formulas reference, foundational regression,
+hierarchical models, structured covariance, priors and
+regularisation, multi-environment trials and genomics, downstream
+analysis, spatio-temporal models, cross-engine triangulation, LGM
+feasibility, backend internals, LGM feasibility and memory, choosing
+an engine (the universal entry and the engine pins), and the backend
+registry architecture.
 }
 
 \section{References}{

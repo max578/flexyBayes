@@ -123,7 +123,7 @@ a working Stan toolchain. Stan-dependent tests gate via
 
 ## Vignette compute
 
-Twelve vignettes ship with the package. Heavy MCMC fits inside
+Fifteen vignettes ship with the package. Heavy MCMC fits inside
 vignettes use small `n_samples` budgets and conditional evaluation
 (`requireNamespace("greta")`, `requireNamespace("INLA")`); failures
 of the live INLA + greta integration during CRAN's clean re-render
