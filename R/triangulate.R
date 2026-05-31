@@ -387,8 +387,13 @@ fb_as_draws_simple.flexybayes_inla <- function(fit, n_samples = 1000L, ...) {
     stop("Cannot extract draws: fit$inla is missing.", call. = FALSE)
 
   n_samples <- as.integer(n_samples)
+  # Force single-threaded sampling, matching the summary path in
+  # methods_inla.R. inla.posterior.sample() otherwise spawns one process
+  # per core, which fails under the two-core limit `R CMD check --as-cran`
+  # enforces (the worker count is reported as "N simultaneous processes
+  # spawned").
   samples <- tryCatch(
-    INLA::inla.posterior.sample(n_samples, fit$inla),
+    INLA::inla.posterior.sample(n_samples, fit$inla, num.threads = "1:1"),
     error = function(e)
       stop("INLA::inla.posterior.sample() failed: ",
            conditionMessage(e),
