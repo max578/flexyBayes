@@ -52,10 +52,23 @@
   reason_codes <- character(0L)
 
   # ---- Family / link scope check ---- #
-  if (!identical(fb_ir$family, "gaussian"))
-    reason_codes <- c(reason_codes, "non_gaussian_family")
-  if (!(is.null(fb_ir$link) || identical(fb_ir$link, "identity")))
-    reason_codes <- c(reason_codes, "non_identity_link")
+  # Aggregation is exact for gaussian-identity, binomial-logit, and
+  # poisson-log. Other families are refused; a non-canonical link is
+  # refused because the aggregated emit fits the canonical link. Count
+  # families carrying observation weights are refused -- the per-row
+  # weights are not recoverable from the cell sums.
+  canon <- c(gaussian = "identity", binomial = "logit", poisson = "log")
+  fam   <- fb_ir$family
+  if (!fam %in% names(canon)) {
+    reason_codes <- c(reason_codes, "non_aggregatable_family")
+  } else if (!(is.null(fb_ir$link) || identical(fb_ir$link, canon[[fam]]))) {
+    reason_codes <- c(reason_codes,
+                      if (identical(fam, "gaussian")) "non_identity_link"
+                      else "non_canonical_link")
+  }
+  if (fam %in% c("binomial", "poisson") &&
+      length(fb_ir$addition_terms) > 0L)
+    reason_codes <- c(reason_codes, "count_weights_not_aggregatable")
 
   # ---- Fixed-effect term scope ---- #
   any_data_dependent_cell <- FALSE

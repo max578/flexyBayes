@@ -939,29 +939,73 @@
     return(NULL)
   }
 
-  fb_aggregated <- .fb_aggregate_gaussian(fb, fb_dataset_meta)
-
-  fit <- emit_gaussian_aggregated(
-    fb             = fb,
-    fb_aggregated  = fb_aggregated,
-    data           = data,
-    backend        = eff_backend,
-    n_samples      = n_samples,
-    warmup         = warmup,
-    chains         = chains,
-    prior_fixed_sd = prior_fixed_sd,
-    prior_vc_sd    = prior_vc_sd,
-    verbose        = verbose,
-    mcmc_verbose   = mcmc_verbose,
-    return_code    = FALSE,
-    the_call       = the_call,
-    fixed          = fixed,
-    random         = random,
-    rcov           = rcov,
-    family         = family,
-    link           = link,
-    data_name      = data_name
-  )
+  # Family branch. Gaussian uses the dedicated sufficient-statistics
+  # aggregator + gaussian emit; the binomial / poisson families use the
+  # family-generic streaming aggregator over the in-memory data (one
+  # chunk) + the count emit. Both produce the same <fb_aggregated> shape
+  # downstream methods consume.
+  if (identical(fb$family, "gaussian")) {
+    fb_aggregated <- .fb_aggregate_gaussian(fb, fb_dataset_meta)
+    fit <- emit_gaussian_aggregated(
+      fb             = fb,
+      fb_aggregated  = fb_aggregated,
+      data           = data,
+      backend        = eff_backend,
+      n_samples      = n_samples,
+      warmup         = warmup,
+      chains         = chains,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd    = prior_vc_sd,
+      verbose        = verbose,
+      mcmc_verbose   = mcmc_verbose,
+      return_code    = FALSE,
+      the_call       = the_call,
+      fixed          = fixed,
+      random         = random,
+      rcov           = rcov,
+      family         = family,
+      link           = link,
+      data_name      = data_name
+    )
+  } else {
+    # Exact aggregation for the count families requires unit-trial
+    # binomial (a 0/1 numeric response); a non-Bernoulli binomial needs
+    # per-row trial counts the cell sums cannot recover.
+    if (identical(fb$family, "binomial")) {
+      yv <- data[[fb$response]]
+      if (!(is.numeric(yv) && all(yv %in% c(0, 1)))) {
+        if (isTRUE(aggregate))
+          stop("`aggregate = TRUE` refused: a binomial response that is ",
+               "not a 0/1 numeric vector needs per-row trial counts the ",
+               "cell sums cannot recover. Pass aggregate = FALSE.",
+               call. = FALSE)
+        return(NULL)
+      }
+    }
+    src <- .fb_stream_source(data, chunk_rows = max(nrow(data), 1L))
+    fb_aggregated <- .fb_stream_aggregate(
+      fb, src, trials = NULL, exposure = NULL, verbose = FALSE)
+    fit <- emit_count_aggregated(
+      fb             = fb,
+      fb_aggregated  = fb_aggregated,
+      data           = data,
+      backend        = eff_backend,
+      n_samples      = n_samples,
+      warmup         = warmup,
+      chains         = chains,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd    = prior_vc_sd,
+      verbose        = verbose,
+      mcmc_verbose   = mcmc_verbose,
+      the_call       = the_call,
+      fixed          = fixed,
+      random         = random,
+      rcov           = rcov,
+      family         = family,
+      link           = link,
+      data_name      = data_name
+    )
+  }
 
   fit$exactness <- "aggregated_exact"
   if (!is.null(fit$extras)) {
@@ -976,7 +1020,8 @@
     # it as legitimately absent.
     fit$extras$backend_decision <- .build_routing_decision(
       backend     = eff_backend,
-      path        = "aggregated_gaussian",
+      path        = if (identical(fb$family, "gaussian"))
+                      "aggregated_gaussian" else "aggregated_count",
       gate_checks = NULL,
       reason      = sprintf(
         "aggregation plan eligible (N = %d, K = %d, ratio = %.2f:1)",
