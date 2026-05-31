@@ -54,12 +54,14 @@ jobs:
           # the test suite and the VignetteBuilder need are listed
           # explicitly; backend-specific tests skip via skip_on_ci() /
           # skip_if_not_installed().
-          # greta is archived from CRAN, so it cannot be resolved here;
-          # the codegen tests skip_if_not_installed("greta") instead.
-          # Backend-fitting tests skip via skip_on_ci().
+          # greta is archived from CRAN, so install the R package from
+          # its GitHub source: that satisfies requireNamespace("greta")
+          # for the many pure-R codegen / dispatch / review tests. The
+          # Python/TensorFlow backend is NOT set up, so model-fitting
+          # tests still skip via skip_on_ci().
           extra-packages: >-
             any::rcmdcheck, any::knitr, any::rmarkdown, any::testthat,
-            any::withr
+            any::withr, greta-dev/greta
           needs: check
           # INLA is in Additional_repositories; install only on Linux
           # where the precompiled binaries are reliable.
