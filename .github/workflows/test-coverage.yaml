@@ -23,10 +23,9 @@ jobs:
         with:
           # knitr + rmarkdown are the VignetteBuilder, needed to build
           # the package for covr instrumentation.
-          # any::greta: the codegen tests need the greta R package
-          # (requireNamespace check); Python/TF backend stays out, so
-          # fit tests still skip via skip_on_ci().
-          extra-packages: any::covr, any::xml2, any::knitr, any::rmarkdown, any::testthat, any::withr, any::greta
+          # greta is archived from CRAN (unresolvable); codegen tests
+          # skip_if_not_installed("greta") instead.
+          extra-packages: any::covr, any::xml2, any::knitr, any::rmarkdown, any::testthat, any::withr
           needs: coverage
           # "hard" stops pak from trying to resolve the special-repo /
           # heavy Suggests (INLA, greta) which fail to solve on CI;

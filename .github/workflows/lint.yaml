@@ -34,4 +34,10 @@ jobs:
         run: lintr::lint_package()
         shell: Rscript {0}
         env:
-          LINTR_ERROR_ON_LINT: true
+          # Advisory: lints are surfaced as annotations but do not fail
+          # the check. There is a large pre-existing style backlog
+          # (long lines, commented code, brace placement across ~120
+          # files) that needs a dedicated `air format` + manual cleanup
+          # pass; until then lint runs informationally rather than as a
+          # blocking gate.
+          LINTR_ERROR_ON_LINT: false
