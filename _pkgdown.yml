@@ -60,6 +60,8 @@ navbar:
           href: articles/flexyBayes-14-engine-selection.html
         - text: 15 — Extending with a backend
           href: articles/flexyBayes-15-extending-backends.html
+        - text: 16 — Big data — streaming aggregation
+          href: articles/flexyBayes-16-big-data-streaming.html
 
 reference:
   - title: Verbs
@@ -68,6 +70,7 @@ reference:
       planner, cross-engine triangulation, and approximation validation.
     contents:
       - flexybayes
+      - flexybayes_stream
       - fb
       - fb_greta
       - fb_inla
