@@ -28,6 +28,16 @@ jobs:
         with:
           use-public-rspm: true
 
+      # System libraries for the spatial stack (units / sf). pkgdown runs
+      # \donttest examples (which R CMD check skips on CI), and some
+      # reference topics load `units`; its shared object needs
+      # libudunits2 present on the runner.
+      - name: Install spatial system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudunits2-dev libgdal-dev libgeos-dev libproj-dev
+        shell: bash
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # knitr + rmarkdown are the VignetteBuilder, needed to build
