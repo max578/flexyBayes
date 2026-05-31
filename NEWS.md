@@ -1,4 +1,4 @@
-# flexyBayes (development version)
+# flexyBayes 0.6.0
 
 ## New features
 
