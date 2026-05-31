@@ -120,18 +120,21 @@
 #'   structured refusal until INLA-side `code`-slot support lands.
 #'
 #' @param aggregate One of `"auto"` (default), `TRUE`, or `FALSE`.
-#'   Aggregated-gaussian sufficient-statistics gate. `"auto"`
+#'   Exact sufficient-statistics aggregation gate. `"auto"`
 #'   consults the aggregation plan and routes through the per-cell
-#'   emit path when the IR is in scope (gaussian-identity, fixed +
-#'   random-intercept, productive compression) **on `backend = "inla"`**;
-#'   on `backend = "greta"`, `"auto"` falls through to the per-row
-#'   path even when the plan is eligible (`TRUE` is required to
-#'   activate the greta aggregated emit explicitly). `TRUE` forces
-#'   aggregation on either backend -- raises a structured refusal
-#'   when the plan declares ineligibility. `FALSE` skips the gate
+#'   emit path when the IR is in scope (gaussian-identity, binomial-logit,
+#'   or poisson-log; fixed + random-intercept; productive compression)
+#'   **on `backend = "inla"`**; on `backend = "greta"`, `"auto"` falls
+#'   through to the per-row path even when the plan is eligible (`TRUE`
+#'   is required to activate the greta aggregated emit explicitly).
+#'   `TRUE` forces aggregation on either backend -- raises a structured
+#'   refusal when the plan declares ineligibility. `FALSE` skips the gate
 #'   entirely. Aggregated fits carry `$exactness == "aggregated_exact"`
-#'   and the dispatch trace's `path` slot reads `"aggregated_gaussian"`.
-#'   The asymmetry is documented behaviour rather than a bug: greta
+#'   and the dispatch trace's `path` slot reads `"aggregated_gaussian"`
+#'   (gaussian) or `"aggregated_count"` (binomial / poisson). For
+#'   out-of-core datasets that do not fit in memory, see
+#'   [flexybayes_stream()]. The asymmetry is documented behaviour rather
+#'   than a bug: greta
 #'   uses dense-matrix per-row emit by default for predictable RAM,
 #'   and switching to the aggregated path silently would change the
 #'   posterior numerical profile without an explicit opt-in.

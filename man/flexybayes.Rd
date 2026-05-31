@@ -177,18 +177,21 @@ an explicit \code{backend = "inla"} with \code{review_code = TRUE} raises a
 structured refusal until INLA-side \code{code}-slot support lands.}
 
 \item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.
-Aggregated-gaussian sufficient-statistics gate. \code{"auto"}
+Exact sufficient-statistics aggregation gate. \code{"auto"}
 consults the aggregation plan and routes through the per-cell
-emit path when the IR is in scope (gaussian-identity, fixed +
-random-intercept, productive compression) \strong{on \code{backend = "inla"}};
-on \code{backend = "greta"}, \code{"auto"} falls through to the per-row
-path even when the plan is eligible (\code{TRUE} is required to
-activate the greta aggregated emit explicitly). \code{TRUE} forces
-aggregation on either backend -- raises a structured refusal
-when the plan declares ineligibility. \code{FALSE} skips the gate
+emit path when the IR is in scope (gaussian-identity, binomial-logit,
+or poisson-log; fixed + random-intercept; productive compression)
+\strong{on \code{backend = "inla"}}; on \code{backend = "greta"}, \code{"auto"} falls
+through to the per-row path even when the plan is eligible (\code{TRUE}
+is required to activate the greta aggregated emit explicitly).
+\code{TRUE} forces aggregation on either backend -- raises a structured
+refusal when the plan declares ineligibility. \code{FALSE} skips the gate
 entirely. Aggregated fits carry \verb{$exactness == "aggregated_exact"}
-and the dispatch trace's \code{path} slot reads \code{"aggregated_gaussian"}.
-The asymmetry is documented behaviour rather than a bug: greta
+and the dispatch trace's \code{path} slot reads \code{"aggregated_gaussian"}
+(gaussian) or \code{"aggregated_count"} (binomial / poisson). For
+out-of-core datasets that do not fit in memory, see
+\code{\link[=flexybayes_stream]{flexybayes_stream()}}. The asymmetry is documented behaviour rather
+than a bug: greta
 uses dense-matrix per-row emit by default for predictable RAM,
 and switching to the aggregated path silently would change the
 posterior numerical profile without an explicit opt-in.}

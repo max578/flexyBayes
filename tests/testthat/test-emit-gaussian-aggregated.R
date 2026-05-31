@@ -125,7 +125,7 @@ test_that("(f) continuous fixed term falls through to per-row", {
   expect_true(bd$path %in% c("auto_accept", "explicit_inla_accept"))
 })
 
-test_that("(f) non-gaussian family falls through to per-row", {
+test_that("(f) a Bernoulli binomial auto-aggregates exactly", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
   dat$y_bin <- as.integer(dat$y > median(dat$y))
@@ -134,7 +134,11 @@ test_that("(f) non-gaussian family falls through to per-row", {
     family = "binomial",
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
-  expect_identical(fit$exactness, "exact")
+  # Binomial / poisson now share the gaussian exact-aggregation path
+  # (count sufficient statistics). A 0/1 response with a factor cell key
+  # routes to the aggregated count emit.
+  expect_identical(fit$exactness, "aggregated_exact")
+  expect_identical(backend_decision(fit)$path, "aggregated_count")
 })
 
 

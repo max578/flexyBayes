@@ -1,3 +1,33 @@
+# flexyBayes 0.6.0
+
+## New features
+
+- **`flexybayes_stream()` fits mixed models to out-of-core datasets by
+  streaming exact aggregation.** The data is read in row-range chunks
+  from an `.fst` file, a vector of partitioned `.fst` shards, a
+  delimited file, an in-memory frame, or a chunk-generator function;
+  per-cell sufficient statistics are accumulated additively across
+  chunks and never expanded back to the full row count. Peak memory is
+  bounded by one chunk plus the cell accumulator, not by the row count,
+  so a replicated factorial design fits at hundreds of millions to a
+  billion rows through the same footprint as a small one.
+- **The aggregated likelihood is exact for the gaussian, binomial, and
+  poisson families.** Summing within a cell preserves the likelihood
+  (gaussian sum of squares; binomial successes / trials; poisson counts
+  / exposure), so the fitted posterior is the full-data posterior, not
+  an approximation. The streaming path fits through `inla` or `greta`.
+- **Out-of-scope models are refused before any data is read.**
+  Continuous fixed covariates (one cell per row), random slopes,
+  structured covariance, and smooth terms break the cell-constant linear
+  predictor and are refused with a named reason code rather than
+  silently approximated.
+- **In-memory `flexybayes(aggregate = )` now aggregates binomial and
+  poisson, not only gaussian.** A 0/1 binomial or a poisson model with a
+  factor cell key and a productive compression routes through the exact
+  count aggregation under `aggregate = "auto"` / `TRUE`; the dispatch
+  trace reads `path == "aggregated_count"`. Non-Bernoulli binomial
+  responses and weighted count models fall through to the per-row path.
+
 # flexyBayes 0.5.0
 
 ## The verb surface, finalised (breaking change)

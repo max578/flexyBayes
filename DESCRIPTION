@@ -1,6 +1,6 @@
 Package: flexyBayes
 Title: Flexible Bayesian Mixed Models with ASReml and 'brms'-Style Syntax
-Version: 0.5.0
+Version: 0.6.0
 Authors@R: c(
     person("Max", "Moldovan", email = "max.moldovan@gmail.com",
            role = c("aut", "cre"),

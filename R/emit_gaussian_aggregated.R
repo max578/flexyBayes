@@ -516,13 +516,22 @@ emit_gaussian_aggregated <- function(fb,
   # posterior. Algebra in `spikes_stage3a/spike_inla.R` header.
   a <- WSS_total / 2 + 5e-5
   b <- (N - K) / 2 + 1
+  # Recenter the log-density to ~0 at its mode theta* = log(b / a). The
+  # additive constant `c` does not change the prior (it is absorbed in the
+  # normalising constant), but it keeps the values INLA's expression
+  # evaluator sees O(1) near the mode. Without it the log-density is ~ -b
+  # at the mode (e.g. ~ -2.5e9 at N = 5e9), at which magnitude INLA's
+  # hyperparameter integration becomes numerically unstable and can
+  # corrupt the fixed-effect posterior at extreme aggregated N.
+  c0 <- b * (log(b / a) - 1)
   custom_prior_expr <- sprintf(
     paste0("expression:",
            " a = %.16e;",
            " b = %.16e;",
-           " log_dens = -a * exp(theta) + b * theta;",
+           " c = %.16e;",
+           " log_dens = -a * exp(theta) + b * theta - c;",
            " return(log_dens);"),
-    a, b)
+    a, b, c0)
 
   control_family <- list(
     hyper = list(prec = list(prior = custom_prior_expr))

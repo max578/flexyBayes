@@ -76,16 +76,37 @@ test_that("eligible at the productivity boundary (exactly K/N = threshold)", {
 # Out-of-scope cases                                                #
 # ---------------------------------------------------------------- #
 
-test_that("out of scope: non-gaussian family", {
+test_that("out of scope: non-aggregatable family (gamma)", {
+  set.seed(3L)
+  df <- data.frame(y = rgamma(50L, 2),
+                   g = factor(sample(1:5, 50L, replace = TRUE)))
+  fb <- fb_from_asreml(y ~ g, data = df, family = "gamma")
+  plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
+
+  expect_false(plan$eligible)
+  expect_true("non_aggregatable_family" %in% plan$reason_codes)
+})
+
+test_that("in scope: binomial and poisson with factor cell keys", {
+  set.seed(7L)
+  for (fam in c("binomial", "poisson")) {
+    y  <- if (identical(fam, "binomial")) rbinom(200L, 1L, 0.4)
+          else rpois(200L, 2)
+    df <- data.frame(y = y, g = factor(sample(1:5, 200L, replace = TRUE)))
+    fb <- fb_from_asreml(y ~ 1, random = ~ g, data = df, family = fam)
+    plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
+    expect_true(plan$eligible, info = fam)
+  }
+})
+
+test_that("out of scope: poisson with a continuous fixed effect", {
   set.seed(3L)
   df <- data.frame(y = rpois(50L, 2), x = rnorm(50L))
   fb <- fb_from_brms(y ~ x, data = df, family = "poisson")
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
 
   expect_false(plan$eligible)
-  expect_true("non_gaussian_family" %in% plan$reason_codes)
-  expect_true(is.na(plan$K_est))
-  expect_true(is.na(plan$compression_est))
+  expect_true("continuous_cell_key_data_dependent" %in% plan$reason_codes)
 })
 
 test_that("out of scope: smooth (s(x)) fixed term", {
