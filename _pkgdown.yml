@@ -197,3 +197,4 @@ articles:
       - flexyBayes-13-lgm-feasibility-memory
       - flexyBayes-14-engine-selection
       - flexyBayes-15-extending-backends
+      - flexyBayes-16-big-data-streaming
