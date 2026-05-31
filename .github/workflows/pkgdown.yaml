@@ -34,6 +34,9 @@ jobs:
           # local::. (the package) for the pkgdown site.
           extra-packages: any::pkgdown, any::knitr, any::rmarkdown, local::.
           needs: website
+          # "hard" stops pak from trying to resolve the special-repo /
+          # heavy Suggests (INLA, greta) which fail to solve on CI.
+          dependencies: '"hard"'
 
       - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)

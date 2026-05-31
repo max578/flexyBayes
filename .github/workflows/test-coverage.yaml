@@ -23,8 +23,12 @@ jobs:
         with:
           # knitr + rmarkdown are the VignetteBuilder, needed to build
           # the package for covr instrumentation.
-          extra-packages: any::covr, any::xml2, any::knitr, any::rmarkdown
+          extra-packages: any::covr, any::xml2, any::knitr, any::rmarkdown, any::testthat, any::withr
           needs: coverage
+          # "hard" stops pak from trying to resolve the special-repo /
+          # heavy Suggests (INLA, greta) which fail to solve on CI;
+          # backend-specific tests skip via skip_on_ci().
+          dependencies: '"hard"'
 
       - name: Test coverage
         run: |

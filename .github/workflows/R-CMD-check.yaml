@@ -48,12 +48,15 @@ jobs:
       # `greta-integration` workflow (separate, slow, manual trigger).
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          # knitr + rmarkdown are the VignetteBuilder; install them
-          # explicitly because `dependencies: "hard"` skips Suggests,
-          # yet R CMD build still loads the builder for the (static,
-          # precompiled) vignettes -- without them the build fails with
-          # "vignette builder 'knitr' not found".
-          extra-packages: any::rcmdcheck, any::knitr, any::rmarkdown
+          # dependencies: "hard" keeps pak from trying to resolve the
+          # heavy / special-repo Suggests (greta + TensorFlow, INLA,
+          # brms + Stan) which fail to solve on CI. The light Suggests
+          # the test suite and the VignetteBuilder need are listed
+          # explicitly; backend-specific tests skip via skip_on_ci() /
+          # skip_if_not_installed().
+          extra-packages: >-
+            any::rcmdcheck, any::knitr, any::rmarkdown, any::testthat,
+            any::withr
           needs: check
           # INLA is in Additional_repositories; install only on Linux
           # where the precompiled binaries are reliable.
@@ -71,4 +74,9 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
-          args: 'c("--no-manual", "--as-cran", "--no-build-vignettes")'
+          # Skip vignette building in BOTH build and check: the vignettes
+          # are illustrative (static / eval = FALSE) and reference heavy
+          # backends (greta, lme4) not installed on CI, so building them
+          # here would run that code and fail.
+          build_args: 'c("--no-manual", "--no-build-vignettes")'
+          args: 'c("--no-manual", "--as-cran", "--no-build-vignettes", "--ignore-vignettes")'
