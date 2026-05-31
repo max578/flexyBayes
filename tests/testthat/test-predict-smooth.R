@@ -11,7 +11,7 @@
 #       correctly.
 #   (c) legacy-refusal path: a fit with formula carrying s() but
 #       parse_info$smooths == NULL refuses cleanly.
-#   (d) fb_brms(backend = "brms"): predictions remain correct via
+#   (d) fb(backend = "brms"): predictions remain correct via
 #       posterior_epred (no ADR 0018 path on the brms subclass).
 #       Skipped when brms is not installed.
 #   (e) fb_greta() (direct-greta entry): keeps refusing
@@ -145,10 +145,10 @@ test_that("predict(newdata) refuses legacy fits (smooths == NULL with s() in for
 })
 
 # ---------------------------------------------------------------- #
-# (d) fb_brms(backend = "brms"): brms subclass exempt from ADR 0018 #
+# (d) fb(backend = "brms"): brms subclass exempt from ADR 0018 #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend = 'brms') predictions remain correct via posterior_epred", {
+test_that("fb(backend = 'brms') predictions remain correct via posterior_epred", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   testthat::skip_if_not_installed("brms")

@@ -1,11 +1,11 @@
-# Tests for fb_brms(backend = "brms") -- Stan-passthrough emit.
+# Tests for fb(backend = "brms") -- Stan-passthrough emit.
 #
 # Two layers:
 #   - Unit tests on .priors_to_brms_specs() (the pure spec-list
 #     translation) that do NOT require brms. These run on every
 #     CI / R CMD check pass and lock the eight-row translation
 #     table contract.
-#   - Round-trip tests via fb_brms(backend = "brms") that DO
+#   - Round-trip tests via fb(backend = "brms") that DO
 #     require brms (+ a C++ toolchain for Stan). Skipped on CRAN
 #     / CI; opt-in via NOT_CRAN = "true".
 #
@@ -190,14 +190,14 @@ test_that("priors_to_brms_specs: cor() target refuses with pointer to ...", {
 # (8) fb_brms() backend = "brms" with brms installed: review_code   #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend='brms', review_code=TRUE) returns Stan code", {
+test_that("fb(backend='brms', review_code=TRUE) returns Stan code", {
   testthat::skip_if_not_installed("brms")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 
   d <- mk_brms_stan_gaussian_data()
   rev <- suppressMessages(
-    fb_brms(y ~ x + (1 | g), data = d,
+    fb(y ~ x + (1 | g), data = d,
             backend = "brms", review_code = TRUE,
             verbose = FALSE, mcmc_verbose = FALSE)
   )
@@ -217,14 +217,14 @@ test_that("fb_brms(backend='brms', review_code=TRUE) returns Stan code", {
 # (9) Five-shape corpus: Gaussian RI round-trip + class             #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend='brms'): Gaussian RI fits cleanly", {
+test_that("fb(backend='brms'): Gaussian RI fits cleanly", {
   testthat::skip_if_not_installed("brms")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d,
+    fb(y ~ x + (1 | g), data = d,
             backend = "brms",
             n_samples = 200L, warmup = 200L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
@@ -248,14 +248,14 @@ test_that("fb_brms(backend='brms'): Gaussian RI fits cleanly", {
 # (10) Bernoulli RI round-trip                                      #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend='brms'): Bernoulli RI fits cleanly", {
+test_that("fb(backend='brms'): Bernoulli RI fits cleanly", {
   testthat::skip_if_not_installed("brms")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 
   d <- mk_brms_stan_bernoulli_data()
   fit <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d,
+    fb(y ~ x + (1 | g), data = d,
             family = "binomial", backend = "brms",
             n_samples = 200L, warmup = 200L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
@@ -279,12 +279,12 @@ test_that("triangulate(): brms + greta align via the identity registry", {
 
   d <- mk_brms_stan_gaussian_data()
   fit_b <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "brms",
+    fb(y ~ x + (1 | g), data = d, backend = "brms",
             n_samples = 200L, warmup = 200L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
   ))
   fit_g <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "greta",
+    fb(y ~ x + (1 | g), data = d, backend = "greta",
             n_samples = 100L, warmup = 100L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
   ))
@@ -303,7 +303,7 @@ test_that("triangulate(): brms + greta align via the identity registry", {
 # (12) auto-dispatch never routes to brms                           #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend='auto') does NOT route to Stan", {
+test_that("fb(backend='auto') does NOT route to Stan", {
   testthat::skip_if_not_installed("brms")
   testthat::skip_if_not_installed("greta")
   testthat::skip_on_cran()
@@ -311,7 +311,7 @@ test_that("fb_brms(backend='auto') does NOT route to Stan", {
 
   d <- mk_brms_stan_gaussian_data()
   fit_a <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "auto",
+    fb(y ~ x + (1 | g), data = d, backend = "auto",
             n_samples = 80L, warmup = 80L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
   ))
@@ -322,13 +322,13 @@ test_that("fb_brms(backend='auto') does NOT route to Stan", {
 
 
 # ---------------------------------------------------------------- #
-# (13) fb_brms(backend='stan' or anything else) match.arg refusal   #
+# (13) fb(backend='stan' or anything else) match.arg refusal   #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(backend='stan') raises the standard match.arg error", {
+test_that("fb(backend='stan') raises the standard match.arg error", {
   d <- mk_brms_stan_gaussian_data()
   err <- tryCatch(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "stan"),
+    fb(y ~ x + (1 | g), data = d, backend = "stan"),
     error = function(e) conditionMessage(e)
   )
   expect_match(err, "'arg' should be one of")
@@ -347,7 +347,7 @@ test_that("predict.flexybayes_brms: in-sample posterior_epred matches summary", 
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "brms",
+    fb(y ~ x + (1 | g), data = d, backend = "brms",
             n_samples = 200L, warmup = 200L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
   ))
@@ -376,7 +376,7 @@ test_that("predict.flexybayes_brms: newdata + type = 'link' return correct shape
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb_brms(y ~ x + (1 | g), data = d, backend = "brms",
+    fb(y ~ x + (1 | g), data = d, backend = "brms",
             n_samples = 200L, warmup = 200L, chains = 1L,
             verbose = FALSE, mcmc_verbose = FALSE)
   ))

@@ -175,7 +175,7 @@ test_that("greta fit-time code path emits no model.matrix() call for (x || g)", 
   # fb_brms() is the brms-format ingest; the (x || g) syntax lands
   # on that entry point. The expectation is identical: indexed emit,
   # no model.matrix() call in the greta-side codegen.
-  code <- suppressMessages(fb_brms(
+  code <- suppressMessages(fb(
     y ~ x + (x || g),
     data        = d,
     backend     = "greta",

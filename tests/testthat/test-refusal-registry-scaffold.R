@@ -103,7 +103,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 46-code vocabulary", {
+test_that(".refusal_registry holds the complete 47-code vocabulary", {
   reg     <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
   # 31 from the Phase 1C bulk migration + the family-support refusal,
@@ -114,14 +114,20 @@ test_that(".refusal_registry holds the complete 46-code vocabulary", {
   # fb_cov_type_unknown, fb_cov_missing_matrix, cov_arg_not_fb_cov (= 42);
   # plus stan_cannot_represent_structured_cov from ADR 0031 Phase 2b (the
   # brms capability gate now reachable from flexybayes()) (= 43); plus the
-  # three grammar-polymorphism guards on the universal entry from ADR 0031
+  # two grammar-polymorphism guards on the universal entry from ADR 0031
   # Phase 3: grammar_brms_with_asreml_terms,
-  # grammar_brms_known_matrices_unsupported, grammar_greta_via_fb_deferred
-  # (= 46).
-  expect_equal(length(entries), 46L)
+  # grammar_brms_known_matrices_unsupported (= 45). At v0.5.0 (ADR 0031
+  # Phase 3.6) the deferral code grammar_greta_via_fb_deferred is REMOVED
+  # (fb() now fits a native greta graph) and two genuine refusals are
+  # added: native_greta_requires_greta_backend (a native graph on a
+  # non-greta engine) and engine_pin_backend_conflict (a pin handed a
+  # conflicting backend) (= 47).
+  expect_equal(length(entries), 47L)
   expect_true("stan_cannot_represent_structured_cov" %in% entries)
   expect_true("grammar_brms_with_asreml_terms" %in% entries)
-  expect_true("grammar_greta_via_fb_deferred" %in% entries)
+  expect_true("native_greta_requires_greta_backend" %in% entries)
+  expect_true("engine_pin_backend_conflict" %in% entries)
+  expect_false("grammar_greta_via_fb_deferred" %in% entries)
 
   # spot-check a representative new code from each family
   expect_true("precision_not_symmetric"        %in% entries)  # structured cov

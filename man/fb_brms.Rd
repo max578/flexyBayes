@@ -2,203 +2,59 @@
 % Please edit documentation in R/fb_brms.R
 \name{fb_brms}
 \alias{fb_brms}
-\title{Fit a brms-style formula via the flexyBayes dispatch}
+\title{Fit a flexyBayes model via the brms (Stan) engine}
 \usage{
-fb_brms(
-  formula,
-  data,
-  family = "gaussian",
-  link = NULL,
-  backend = c("auto", "greta", "inla", "brms"),
-  prior = NULL,
-  n_samples = 1000L,
-  warmup = 500L,
-  chains = 4L,
-  prior_fixed_sd = 100,
-  prior_vc_sd = 1,
-  weights = NULL,
-  known_matrices = list(),
-  verbose = TRUE,
-  mcmc_verbose = TRUE,
-  return_code = FALSE,
-  review_code = FALSE,
-  aggregate = "auto",
-  plan = FALSE
-)
+fb_brms(...)
 }
 \arguments{
-\item{formula}{A brms-style two-sided formula. Random intercepts
-are expressed via \code{(1 | group)} or \code{(1 || group)}; multiple
-crossed RIs are joined with \code{+}. Fixed effects accept the same
-shapes as the asreml entry (factor levels, continuous slopes,
-interactions, \code{I()} expressions).}
-
-\item{data}{A data.frame containing every variable referenced in
-\code{formula}.}
-
-\item{family}{Character family name (\code{"gaussian"}, \code{"binomial"},
-\code{"poisson"}, \code{"negative_binomial"}, \code{"gamma"}, \code{"beta"},
-\code{"lognormal"}) or a base-R \code{family()} object. Default
-\code{"gaussian"}.}
-
-\item{link}{Character link override (e.g., \code{"probit"} for
-binomial) or \code{NULL} to use the family default.}
-
-\item{backend}{One of \code{"auto"} (\strong{default}; gate-driven routing ---
-INLA when the model is LGM-feasible, greta otherwise, with a
-one-time silenceable fallback note), \code{"greta"} (full MCMC),
-\code{"inla"} (explicit LGM fast path; raises a structured refusal if
-the model is not LGM-feasible), or \code{"brms"} (Stan passthrough ---
-flexyBayes builds the IR, translates the prior, calls
-\code{brms::brm()}, wraps the result). The Stan passthrough is opt-in
-only; \code{backend = "auto"} never routes to Stan because brms's
-first-call compile latency (typically 30--60 seconds) is
-incompatible with the auto-dispatch transparent-fast-path promise.
-When \code{return_code = TRUE} / \code{review_code = TRUE} is requested under
-\code{"auto"}, the call resolves to greta (the code-producing engine).
-See \code{\link[=backend_decision]{backend_decision()}} for the recorded trace.}
-
-\item{prior}{An optional \code{fb_prior()} object specifying priors
-via the PC-canonical hybrid DSL. When supplied it overrides
-the default bounded-uniform-on-SD prior; otherwise the v0.1
-family-aware default fires (Gelman 2006, \emph{Bayesian Analysis}
-1(3):515-534 for the variance-component default; the
-weakly-informative fixed-effect default follows the same
-weakly-informative philosophy).}
-
-\item{n_samples}{Integer: number of posterior samples per chain.}
-
-\item{warmup}{Integer: number of warmup iterations per chain.}
-
-\item{chains}{Integer: number of MCMC chains.}
-
-\item{prior_fixed_sd}{Numeric SD for fixed-effect normal priors.
-Default \code{100}, a weakly-informative scale on the natural
-response scale following Gelman et al. (2008, \emph{Annals of
-Applied Statistics} 2(4):1360-1383). Applied uniformly to
-intercept, contrast levels, continuous slopes, interactions,
-and \code{I()} expressions.}
-
-\item{prior_vc_sd}{Numeric: hyperparameter for the legacy
-lognormal variance-component prior. The bounded-uniform
-default (Gelman 2006, \emph{Bayesian Analysis} 1(3):515-534)
-fires when both \code{prior} and \code{prior_vc_sd} are at their
-defaults.}
-
-\item{weights}{Optional numeric weights vector of length
-\code{nrow(data)}. Mapped to a single addition_term on the IR,
-mirroring the asreml entry.}
-
-\item{known_matrices}{Named list of matrices referenced by the
-model (mirrors \code{flexybayes()} for downstream compatibility;
-the five-shape corpus does not consume them, but the slot is
-carried through to the IR for traceability). As of v0.3.7,
-accepts dense / chol / sparse-precision carriers per
-\code{?flexybayes} (see \verb{@param known_matrices} there for the
-per-format invocation syntax).}
-
-\item{verbose}{Logical: print generated greta code to console
-(greta path only).}
-
-\item{mcmc_verbose}{Logical: show MCMC progress bar.}
-
-\item{return_code}{Logical: if \code{TRUE}, return the generated
-greta code string without fitting.}
-
-\item{review_code}{Logical: if \code{TRUE}, return a
-\verb{<flexybayes_review>} deferred-execution object carrying the
-generated code, IR, resolved prior, captured call, and RNG
-snapshot. Run the deferred fit with \code{\link[=proceed]{proceed()}}. Mutually
-exclusive with \code{return_code}. Supported under
-\code{backend = "greta"} (greta code via the codegen path) and
-\code{backend = "brms"} (Stan code via \code{brms::make_stancode()});
-the INLA-side \code{code} slot for the review token is deferred to
-a later release. Default \code{FALSE} preserves the run-immediately
-semantics. Session-level override via
-\code{options(flexyBayes.review_code_default = TRUE)}.}
-
-\item{aggregate}{One of \code{"auto"} (default), \code{TRUE}, or \code{FALSE}.
-Aggregated-gaussian sufficient-statistics gate. See \code{?flexybayes}
-for full semantics. \strong{Backend-asymmetric behaviour}: \code{"auto"}
-activates the aggregated path on \code{backend = "inla"} when the
-IR is in scope; on \code{backend = "greta"}, \code{"auto"} falls through
-to the per-row path and \code{TRUE} is required to opt in explicitly.}
-
-\item{plan}{Logical: if \code{TRUE}, short-circuit after IR build and
-return a \verb{<fb_plan>} object (IR + routing decision +
-representation plan + aggregation plan + prediction plan),
-\emph{without} emitting backend code or fitting.  Equivalent to
-calling \code{\link[=fb_plan]{fb_plan()}} with the same formula --- exposed inline
-here so users can reach the planning object without re-typing
-the call.  Default \code{FALSE}.  Mutually exclusive
-with \code{return_code} and \code{review_code}.}
+\item{...}{Arguments passed to \code{\link[=flexybayes]{flexybayes()}} (e.g. \code{formula} / \code{fixed},
+\code{random}, \code{rcov}, \code{data}, \code{family}, \code{prior}, \code{syntax}). The \code{backend}
+argument is pinned to \code{"brms"}; a conflicting \code{backend} value raises a
+structured refusal (the redundant \code{backend = "brms"} is accepted).
+The pre-v0.5.0 \verb{formula = } argument is remapped to the universal
+entry's model-spec slot for call-compatibility.}
 }
 \value{
-Under default \code{return_code = FALSE} and \code{review_code = FALSE}: an object of class \code{"flexybayes"} (greta or auto-fell-
-back-to-greta), \code{"flexybayes_inla"} (INLA accepted), or
-\code{"flexybayes_brms"} (Stan passthrough -- carries the live
-\code{brmsfit} on the \verb{$brms} slot for direct access to brms's
-posterior tooling: \code{loo()}, \code{posterior_predict()},
-\code{bayes_factor()}). The verb origin is recorded on
-\code{fit$extras$fb_terms$source = "brms"} and the captured call
-on \code{fit$extras$call_info$call}. With \code{review_code = TRUE}: a
-\verb{<flexybayes_review>} object carrying the generated code
-(greta source on the greta path; Stan source via
-\code{brms::make_stancode()} on the brms path); advance to the fit
-via \code{\link[=proceed]{proceed()}}. With \code{return_code = TRUE}: the generated
-code string only.
+An object of class \code{"flexybayes_brms"} (a subclass of
+\code{"flexybayes"}) carrying the live \code{brmsfit} on \verb{$brms}; see
+\code{\link[=flexybayes]{flexybayes()}} for the shared structure.
 }
 \description{
-Accept the five-shape brms-style corpus (fixed-only Gaussian;
-fixed + one random intercept; fixed + crossed random intercepts;
-binomial random-intercept GLMM as single-column Bernoulli;
-Poisson random-intercept GLMM), dispatch through the shared
-\code{lgm_gate()}-driven backend router, and return a classed result
-compatible with \code{\link[=summary]{summary()}}, \code{\link[=coef]{coef()}}, \code{\link[=vcov]{vcov()}},
-\code{\link[=prior_summary]{prior_summary()}}, \code{\link[=backend_decision]{backend_decision()}}, and \code{\link[=triangulate]{triangulate()}}.
+Engine pin: fits the model with Stan through brms only. This is sugar
+for \code{\link[=flexybayes]{flexybayes()}}\verb{(..., backend = "brms")} and accepts the same
+arguments and grammars --- an ASReml \code{fixed} / \code{random} / \code{rcov}
+specification or a brms-style bar-grouped formula (see \code{\link[=flexybayes]{flexybayes()}}
+for the full argument list). flexyBayes builds the intermediate
+representation, translates the prior, calls \code{brms::brm()}, and wraps
+the result; the live \code{brmsfit} is available on the \verb{$brms} slot for
+brms's own posterior tooling (\code{loo()}, \code{posterior_predict()},
+\code{bayes_factor()}).
 }
 \details{
-\code{fb_brms()} is the brms-grammar entry point on the four-verb API
-spine. Use it when the model is expressed in lme4 / brms-style
-formula notation (\code{response ~ fixed + (1 | group)}); use
-\code{\link[=flexybayes]{flexybayes()}} for asreml-style formulas; use \code{\link[=fb_greta]{fb_greta()}} for
-models already expressed in native greta primitives. The three
-verbs are explicit alternatives, never silent fallbacks --- the
-grammar choice is made at verb selection time, never inferred
-from the formula shape.
-
-Outside the supported corpus, ingest refuses with a structured
-message naming both the offending construct and the closest
-supported alternative. The supported corpus covers the
-five base shapes plus uncorrelated random slopes --
-\code{(x || g)} and \code{(1 + x || g)} parse and emit on the greta
-and brms backends. Refused constructs: LHS addition
-forms (\code{y | trials(n) ~ ...}, \code{y | cens(c) ~ ...}, etc.);
-correlated random slopes (\code{(x | g)} -- raises condition class
-\code{flexybayes_correlated_slope_unsupported} with a deferral
-pointer to a structured-covariance representation);
-smoothers (\code{s()}, \code{t2()}); Gaussian processes
-(\code{gp()}); autocorrelation (\code{ar()}, \code{ma()}, \code{arma()}, \code{cosy()},
-\code{car()}); multivariate / hurdle / mixture / categorical
-families.
+The brms / Stan engine cannot represent an ASReml structured-covariance
+term (\code{vm}, \code{ped}, \code{fa}, \code{us}, \code{ar1}) or a \code{low_rank} smooth
+approximation; such a model raises a structured refusal naming the
+offending construct. Re-fit with \code{\link[=fb_greta]{fb_greta()}} (full MCMC) or, when the
+model is latent-Gaussian feasible, \code{\link[=fb_inla]{fb_inla()}}.
 }
 \examples{
 \donttest{
-if (requireNamespace("greta", quietly = TRUE) &&
+if (requireNamespace("brms", quietly = TRUE) &&
     requireNamespace("lme4", quietly = TRUE)) {
   data(sleepstudy, package = "lme4")
-  fit <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy,
-                 n_samples = 200, warmup = 200, chains = 1,
-                 verbose = FALSE, mcmc_verbose = FALSE)
+  fit <- fb_brms(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+                 chains = 1)
   coef(fit)
-  backend_decision(fit)
 }
 }
-
 }
 \seealso{
-\code{\link[=flexybayes]{flexybayes()}} (asreml-style principal entry);
-\code{\link[=fb_greta]{fb_greta()}} (direct-greta entry); \code{\link[=triangulate]{triangulate()}};
-\code{\link[=backend_decision]{backend_decision()}}; \code{\link[=prior_summary]{prior_summary()}}.
+\code{\link[=flexybayes]{flexybayes()}} and \code{\link[=fb]{fb()}} for the universal entry that picks a
+backend; \code{\link[=fb_greta]{fb_greta()}} / \code{\link[=fb_inla]{fb_inla()}} for the other engine pins;
+\code{\link[=fb_from_brms]{fb_from_brms()}} for building a brms-grammar IR.
+
+Other flexyBayes engine pins: 
+\code{\link{fb_greta}()},
+\code{\link{fb_inla}()}
 }
+\concept{flexyBayes engine pins}

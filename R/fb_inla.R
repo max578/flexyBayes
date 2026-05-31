@@ -18,7 +18,28 @@
 # the data argument and the default-detection semantics resolve against
 # the user's environment. Namespaced target (flexyBayes::flexybayes) so
 # it resolves whether or not the package is attached.
+#
+# Backend-argument discipline (ADR 0031 Phase 3.6). A pin fixes the
+# engine, so an explicit `backend` is a contradiction --- EXCEPT the
+# redundant self-pin (e.g. fb_brms(backend = "brms")), which the v0.4.1
+# deprecation notice promised would remain forward-compatible. A
+# conflicting `backend` raises the structured engine_pin_backend_conflict
+# refusal; a matching one is accepted and overwritten with the same value.
 .fb_engine_pin <- function(engine, call, env) {
+  if ("backend" %in% names(call)) {
+    supplied <- tryCatch(
+      as.character(eval(call$backend, env)),
+      error = function(e) as.character(call$backend))
+    if (!identical(supplied, engine))
+      stop(.fb_refusal_condition(
+        reason_code = "engine_pin_backend_conflict",
+        message     = paste0(
+          "fb_", engine, "() is an engine pin: it fits via the ", engine,
+          " engine only, so it cannot take backend = \"",
+          paste(supplied, collapse = "\", \""), "\". Drop `backend`, or ",
+          "use fb() / flexybayes() to choose a backend."),
+        backend     = supplied))
+  }
   call[[1L]]    <- quote(flexyBayes::flexybayes)
   call$backend  <- engine
   eval(call, env)

@@ -42,7 +42,7 @@ test_that("emmeans(fit, ~ f) works on an INLA fit and recovers cell means", {
   skip_on_ci()
   .emm_silence()
   d <- .emm_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f + x, data = d, backend = "inla",
     verbose = FALSE, mcmc_verbose = FALSE))
 
@@ -65,7 +65,7 @@ test_that("emmeans pairwise contrasts on an INLA fit recover the DGP gaps", {
   skip_on_ci()
   .emm_silence()
   d <- .emm_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f + x, data = d, backend = "inla",
     verbose = FALSE, mcmc_verbose = FALSE))
 

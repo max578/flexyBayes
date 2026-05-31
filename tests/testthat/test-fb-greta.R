@@ -53,13 +53,18 @@ mk_greta_toy <- function() {
 # (a) Non-greta_model input raises a structural refusal             #
 # ---------------------------------------------------------------- #
 
-test_that("fb_greta() refuses non-greta_model input with a clear pointer", {
+test_that("fb_greta() refuses a non-model input", {
+  # v0.5.0: fb_greta() is the greta engine pin -- it accepts a formula,
+  # a native greta_model, or a greta-source IR (fb_from_greta()). A bare
+  # string is none of those, so it errors as an invalid model
+  # specification (the `model = ` argument is remapped to the universal
+  # model slot for call-compatibility).
   err <- tryCatch(
     fb_greta(model = "not a greta_model"),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("greta_model", err, fixed = TRUE))
-  expect_true(grepl("flexybayes\\(\\)|fb_brms\\(\\)", err))
+  expect_true(nzchar(err))
+  expect_true(grepl("formula|model", err, ignore.case = TRUE))
 })
 
 
@@ -67,15 +72,18 @@ test_that("fb_greta() refuses non-greta_model input with a clear pointer", {
 # (b) review_code / return_code structured refusals (v0.2)         #
 # ---------------------------------------------------------------- #
 
-test_that("fb_greta() defers review_code with a documented refusal", {
+test_that("fb_greta() refuses review_code on a native graph", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
+  # v0.5.0: a native greta graph carries no flexyBayes-generated code,
+  # so the inspect-then-fit token does not apply -- the native-greta
+  # dispatch refuses review_code with a clear message.
   err <- tryCatch(
     fb_greta(toy$model, data = toy$data, review_code = TRUE),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("review_code", err, fixed = TRUE))
-  expect_true(grepl("v0.3|deferred", err))
+  expect_true(grepl("native greta", err, fixed = TRUE))
 })
 
 test_that("fb_greta() defers return_code with a documented refusal", {
@@ -164,10 +172,14 @@ test_that("fb_from_greta() applies canonical_names where supplied", {
 test_that("fb_greta() returns a flexybayes_direct_greta object", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
-  fit <- suppressMessages(fb_greta(
+  # v0.5.0: a canonical-name map is attached at IR-build time via
+  # fb_from_greta(); the greta pin then fits the IR.
+  ir <- suppressMessages(fb_from_greta(
     toy$model, data = toy$data,
     canonical_names = c(b0 = "(Intercept)", b1 = "Days",
-                        sigma = "sigma_e"),
+                        sigma = "sigma_e")))
+  fit <- suppressMessages(fb_greta(
+    ir,
     n_samples = 100L, warmup = 100L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))

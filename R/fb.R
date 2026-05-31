@@ -157,15 +157,39 @@ fb_from_asreml <- function(fixed,
 # the grammar from the call shape and routes to the matching exported
 # adapter, producing the backend-agnostic fb_terms IR. ASReml ingest is
 # byte-identical to the historical direct fb_from_asreml() call;
-# brms-grammar ingest is added here (ADR 0031 Phase 3). A native
-# greta_model is reserved: its bespoke greta::mcmc() fit (fb_greta())
-# does not lower through the IR-emit path, so direct ingest via the
-# universal entry lands at v0.5.0 with the engine-pin recast -- until
-# then it refuses with a forward pointer rather than mis-route.
+# brms-grammar ingest is added at ADR 0031 Phase 3; native-greta ingest
+# lands here at Phase 3.6 (v0.5.0).
+#
+# Two non-formula model-spec shapes are accepted on the model slot
+# (`fixed`):
+#   - a native `greta_model` graph  -> lowered to a greta-source IR via
+#     fb_from_greta() (verbatim canonical names + one-time note). The
+#     graph is fit directly by greta::mcmc() downstream, not through the
+#     shared emit path.
+#   - a prebuilt greta-source IR (from fb_from_greta(), carrying a
+#     canonical-name map) -> passed through unchanged. Prebuilt asreml /
+#     brms IRs are NOT accepted here: their emit-display path still needs
+#     the original formula triple, so those route through the formula
+#     entry instead.
 .build_ir_polymorphic <- function(fixed, random, rcov, data, family, link,
                                   weights, known_matrices, prior,
                                   prior_fixed_sd, prior_vc_sd,
                                   syntax = "auto") {
+  # Prebuilt-IR passthrough (greta-source only).
+  if (inherits(fixed, "fb_terms")) {
+    if (!identical(fixed$source, "greta"))
+      stop("fb() / flexybayes() accept a prebuilt IR only for the ",
+           "greta-native source (fb_from_greta()). For an asreml / brms ",
+           "IR, pass the original formula to flexybayes() / fb() (or call ",
+           "the matching engine pin) so the emit-display path has the ",
+           "formula triple.", call. = FALSE)
+    if (!is.null(random) || !is.null(rcov) || length(known_matrices))
+      stop("A prebuilt greta-source IR already encodes the full model ",
+           "graph; it cannot be combined with `random`, `rcov`, or ",
+           "`known_matrices`.", call. = FALSE)
+    return(fixed)
+  }
+
   grammar <- .detect_grammar(fixed, random, rcov, syntax)
   switch(grammar,
     asreml = fb_from_asreml(
@@ -212,15 +236,22 @@ fb_from_asreml <- function(fixed,
         prior_vc_sd    = prior_vc_sd
       )
     },
-    greta = stop(.fb_refusal_condition(
-      reason_code  = "grammar_greta_via_fb_deferred",
-      message      = paste0(
-        "A native greta_model is fit via fb_greta() in v0.4.x. Direct ",
-        "greta_model ingest through fb() / flexybayes() lands at v0.5.0, ",
-        "alongside the engine-pin recast (the native graph is fit by ",
-        "greta::mcmc(), not lowered through the shared IR-emit path). ",
-        "Pass a formula to fb(), or call fb_greta(model = ...)."),
-      family_class = "flexybayes_grammar_greta_via_fb_deferred"))
+    greta = {
+      # A native greta_model graph. It carries its own data and priors,
+      # so the ASReml `random` / `rcov` arguments are a category error
+      # here -- the structure lives in the graph, not in formula terms.
+      if (!is.null(random) || !is.null(rcov))
+        stop("A native greta_model encodes its full structure in the ",
+             "graph; it cannot be combined with `random` / `rcov`. Build ",
+             "the model with greta primitives, or use the ASReml / brms ",
+             "formula grammar.", call. = FALSE)
+      fb_from_greta(
+        model           = fixed,
+        data            = data,
+        prior           = prior,
+        known_matrices  = known_matrices
+      )
+    }
   )
 }
 

@@ -58,13 +58,15 @@ mk_brms_poisson_data <- function() {
 # (1) Corpus shape 1: fixed-only Gaussian                          #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms() corpus 1: fixed-only Gaussian", {
+test_that("fb() corpus 1: fixed-only Gaussian (brms grammar forced)", {
   testthat::skip_if_not_installed("greta")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit <- suppressMessages(fb_brms(
-    y ~ x, data = d, backend = "greta",
+  # A bar-free formula is ASReml grammar by default; `syntax = "brms"`
+  # forces the brms ingest so this still exercises the brms corpus path.
+  fit <- suppressMessages(fb(
+    y ~ x, data = d, backend = "greta", syntax = "brms",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
@@ -84,7 +86,7 @@ test_that("fb_brms() corpus 2: Gaussian + one random intercept", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -105,7 +107,7 @@ test_that("fb_brms() corpus 3: crossed random intercepts", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g1) + (1 | g2), data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -127,7 +129,7 @@ test_that("fb_brms() corpus 4: binomial RI as single-column Bernoulli", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_binomial_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = d, family = "binomial", backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -147,7 +149,7 @@ test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_poisson_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = d, family = "poisson", backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -172,7 +174,7 @@ test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
 test_that("fb_brms() refuses correlated random slopes (x | g) with ADR 0020 structured condition", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb_brms(y ~ x + (x | g1), data = d, verbose = FALSE),
+    fb(y ~ x + (x | g1), data = d, verbose = FALSE),
     error = function(e) e
   )
   expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
@@ -194,7 +196,7 @@ test_that("fb_brms() refuses correlated random slopes (x | g) with ADR 0020 stru
 test_that("fb_brms() refuses brms smoothers with structured message", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb_brms(y ~ s(x) + (1 | g1), data = d, verbose = FALSE),
+    fb(y ~ s(x) + (1 | g1), data = d, verbose = FALSE),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("does not yet support", err))
@@ -209,7 +211,7 @@ test_that("fb_brms() refuses brms smoothers with structured message", {
 test_that("fb_brms() refuses LHS-pipe addition forms cleanly", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb_brms(y | weights(x) ~ x + (1 | g1), data = d,
+    fb(y | weights(x) ~ x + (1 | g1), data = d,
             verbose = FALSE),
     error = function(e) conditionMessage(e)
   )
@@ -222,12 +224,12 @@ test_that("fb_brms() refuses LHS-pipe addition forms cleanly", {
 # (9) backend = "auto" routes to INLA on accept                    #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(..., backend = 'auto') routes to INLA when LGM-feasible", {
+test_that("fb(..., backend = 'auto') routes to INLA when LGM-feasible", {
   testthat::skip_if_not_installed("INLA")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d, backend = "auto",
     verbose = FALSE
   ))
@@ -242,12 +244,12 @@ test_that("fb_brms(..., backend = 'auto') routes to INLA when LGM-feasible", {
 # (10) review_code = TRUE returns the deferred token; proceed()    #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(..., review_code = TRUE) returns <flexybayes_review>; proceed() fits", {
+test_that("fb(..., review_code = TRUE) returns <flexybayes_review>; proceed() fits", {
   testthat::skip_if_not_installed("greta")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  rev <- suppressMessages(fb_brms(
+  rev <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d,
     n_samples = 50L, warmup = 50L, chains = 1L,
     review_code = TRUE,
@@ -275,7 +277,7 @@ test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d, backend = "greta",
     n_samples = 50L, warmup = 50L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -306,10 +308,10 @@ test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
 # (12) review_code under backend != "greta" raises clean refusal   #
 # ---------------------------------------------------------------- #
 
-test_that("fb_brms(review_code = TRUE, backend != 'greta') raises structured refusal", {
+test_that("fb(review_code = TRUE, backend != 'greta') raises structured refusal", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb_brms(y ~ x + (1 | g1), data = d,
+    fb(y ~ x + (1 | g1), data = d,
             backend = "inla", review_code = TRUE,
             verbose = FALSE),
     error = function(e) conditionMessage(e)
@@ -330,12 +332,12 @@ test_that("triangulate() on fb_brms() greta + INLA fits resolves canonical names
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
-  fit_g <- suppressMessages(fb_brms(
+  fit_g <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d, backend = "greta",
     n_samples = 80L, warmup = 80L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
-  fit_i <- suppressMessages(fb_brms(
+  fit_i <- suppressMessages(fb(
     y ~ x + (1 | g1), data = d, backend = "inla",
     verbose = FALSE
   ))
@@ -352,7 +354,7 @@ test_that("triangulate() on fb_brms() greta + INLA fits resolves canonical names
 test_that("fb_brms() rejects invalid backend value", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb_brms(y ~ x + (1 | g1), data = d, backend = "stan",
+    fb(y ~ x + (1 | g1), data = d, backend = "stan",
             verbose = FALSE),
     error = function(e) conditionMessage(e)
   )

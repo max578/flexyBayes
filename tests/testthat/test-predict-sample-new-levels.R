@@ -27,7 +27,7 @@ mk_predict_fit <- function(seed = 2026L, N = 60L, J = 4L,
     g = factor(sample(letters[seq_len(J)], N, replace = TRUE)),
     y = rnorm(N)
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = prior_vc_sd,

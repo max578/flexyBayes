@@ -35,7 +35,7 @@ mk_routing_fit <- function(seed = 2026L, N = 60L, J = 4L,
     g = factor(sample(letters[seq_len(J)], N, replace = TRUE)),
     y = rnorm(N)
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = backend,
     n_samples = 30L, warmup = 20L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = 1,
@@ -188,7 +188,7 @@ test_that("ADR 0024 (g): explicit backend='brms' bypasses policy (rejected_route
   set.seed(2026L)
   dat <- data.frame(y = rnorm(20), x = rnorm(20),
                      g = factor(rep(letters[1:4], 5)))
-  rev <- suppressMessages(fb_brms(
+  rev <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = "brms",
     review_code = TRUE,
     n_samples = 30L, warmup = 20L, chains = 1L,
@@ -240,7 +240,7 @@ test_that("ADR 0024 (h+): backend='variational_advi' also refuses (variational p
 test_that("ADR 0024 (h++): approximate-scheme refusal works on fb_brms too", {
   dat <- data.frame(y = rnorm(20), x = rnorm(20))
   err <- expect_error(
-    fb_brms(y ~ x, data = dat, backend = "inla_pardiso_approximate"),
+    fb(y ~ x, data = dat, backend = "inla_pardiso_approximate"),
     "approximate_route_not_yet_registered"
   )
   expect_match(conditionMessage(err), "approximation registry")

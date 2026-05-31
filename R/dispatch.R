@@ -340,6 +340,62 @@
 
 
 # ---------------------------------------------------------------- #
+# Native-greta dispatch (ADR 0031 Phase 3.6)                        #
+# ---------------------------------------------------------------- #
+# .dispatch_native_greta() -- route a greta-source IR (a native model
+# graph wrapped by fb_from_greta()) to the direct greta::mcmc() fit. A
+# native graph is greta-only by construction (greta built it), so:
+#   - any backend other than "greta" / "auto" is a structured refusal
+#     (the registered native_greta_requires_greta_backend code);
+#   - the code-inspection (return_code / review_code) and planning
+#     (plan) modes do not apply (there is no flexyBayes-generated code,
+#     and no formula triple to plan over) -- they raise a clear,
+#     forward-pointing error, preserving the pre-v0.5.0 fb_greta()
+#     deferrals.
+# On the accepted path it delegates to .fit_native_greta() (R/fb_greta.R).
+.dispatch_native_greta <- function(fb, backend, n_samples, warmup, chains,
+                                   verbose, mcmc_verbose, return_code,
+                                   review_code, plan, the_call) {
+
+  if (!backend %in% c("greta", "auto"))
+    stop(.fb_refusal_condition(
+      reason_code = "native_greta_requires_greta_backend",
+      message     = paste0(
+        "A native greta model graph is fit by greta::mcmc() and is ",
+        "greta-only by construction; backend = \"", backend, "\" cannot ",
+        "fit it. Use backend = \"greta\" (or the default), or rebuild the ",
+        "model in the ASReml / brms formula grammar to reach the ", backend,
+        " engine."),
+      backend     = backend))
+
+  if (isTRUE(return_code))
+    stop("`return_code = TRUE` is not available for a native greta model: ",
+         "the graph is already greta-side, so there is no ",
+         "flexyBayes-generated code string to return.", call. = FALSE)
+
+  if (isTRUE(review_code))
+    stop("`review_code = TRUE` is not available for a native greta model: ",
+         "the inspect-then-fit token reflects flexyBayes-generated code, ",
+         "and the graph is user-authored. Fit it directly with fb() / ",
+         "fb_greta().", call. = FALSE)
+
+  if (isTRUE(plan))
+    stop("`plan = TRUE` is not available for a native greta model: the ",
+         "planning object summarises a parsed formula triple, which a ",
+         "native graph does not carry.", call. = FALSE)
+
+  .fit_native_greta(
+    fb           = fb,
+    n_samples    = n_samples,
+    warmup       = warmup,
+    chains       = chains,
+    verbose      = verbose,
+    mcmc_verbose = mcmc_verbose,
+    the_call     = the_call)
+}
+
+
+# ---------------------------------------------------------------- #
 
 .dispatch_backend <- function(fb,
                               data,
@@ -942,9 +998,12 @@
 .agg_resolve_backend <- function(backend, fb) {
   if (backend %in% c("greta", "inla")) return(backend)
   if (identical(backend, "auto")) {
-    gated <- tryCatch(lgm_gate(fb), error = function(e) NULL)
-    if (!is.null(gated) && !is_lgm_refusal(gated) &&
-        requireNamespace("INLA", quietly = TRUE))
+    # Let a genuine lgm_gate() fault propagate (charter: never swallow an
+    # error into a silent fallback). A refusal is a normal return value
+    # (an `lgm_refusal` object), not an error, and steers the choice to
+    # greta below; only an actual fault would have been masked here.
+    gated <- lgm_gate(fb)
+    if (!is_lgm_refusal(gated) && requireNamespace("INLA", quietly = TRUE))
       return("inla")
     return("greta")
   }

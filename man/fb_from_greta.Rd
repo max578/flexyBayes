@@ -34,7 +34,10 @@ in \code{data_summary$known_matrices}.}
 \value{
 An \code{fb_terms} object with \code{source = "greta"}, \code{intercept = NA},
 empty fixed / random / rcov term lists, and the populated
-\code{greta_meta} slot.
+\code{greta_meta} slot (carrying the model graph, target arrays, and the
+canonical-name map). Pass the returned IR straight to \code{\link[=fb]{fb()}} to fit
+the graph via greta while keeping a canonical-name map for
+\code{\link[=triangulate]{triangulate()}}: \code{fb(fb_from_greta(model, canonical_names = ...))}.
 }
 \description{
 Wraps a \code{greta_model} (built with \code{greta::model(...)}) in a \code{fb_terms}
@@ -55,11 +58,13 @@ y     <- as_data(rnorm(20))
 distribution(y) <- normal(mu, sigma)
 m  <- model(mu, sigma)
 ir <- fb_from_greta(m, canonical_names = c(mu = "(Intercept)"))
+fit <- fb(ir)   # fit the native graph via greta, keeping the map
 }
 }
 \seealso{
-\code{\link[=fb]{fb()}} and \code{\link[=flexybayes]{flexybayes()}} for the universal fitting entry;
-\code{\link[=fb_from_asreml]{fb_from_asreml()}} and \code{\link[=fb_from_brms]{fb_from_brms()}} for the formula dialects.
+\code{\link[=fb]{fb()}} and \code{\link[=flexybayes]{flexybayes()}} for the universal fitting entry
+(which accept the returned IR directly); \code{\link[=fb_from_asreml]{fb_from_asreml()}} and
+\code{\link[=fb_from_brms]{fb_from_brms()}} for the formula dialects.
 
 Other flexyBayes ingest adapters: 
 \code{\link{fb_from_asreml}()},

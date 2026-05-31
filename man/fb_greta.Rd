@@ -2,132 +2,60 @@
 % Please edit documentation in R/fb_greta.R
 \name{fb_greta}
 \alias{fb_greta}
-\title{Fit a user-built greta model under the flexyBayes post-fit surface}
+\title{Fit a flexyBayes model via the greta engine}
 \usage{
-fb_greta(
-  model,
-  data = NULL,
-  known_matrices = list(),
-  prior = NULL,
-  n_samples = 1000L,
-  warmup = 500L,
-  chains = 4L,
-  canonical_names = NULL,
-  verbose = TRUE,
-  mcmc_verbose = TRUE,
-  return_code = FALSE,
-  review_code = FALSE
-)
+fb_greta(...)
 }
 \arguments{
-\item{model}{A \code{greta_model} object built by \code{\link[greta:model]{greta::model()}}.}
-
-\item{data}{Optional data.frame the user's \code{as_data()} calls were
-issued against. Recorded on the IR for downstream methods
-(\code{predict()}, \code{posterior_samples()} with \code{newdata},
-triangulation reporting). \code{NULL} accepted; downstream methods
-that need the original frame raise structured refusals.}
-
-\item{known_matrices}{Named list of pre-computed matrices
-referenced by the model graph. Recorded on the IR for
-traceability. Empty list by default.}
-
-\item{prior}{Optional \code{fb_prior()} object. When supplied, this is
-a \emph{declaration} of the priors the model encodes (used by
-\code{\link[=prior_summary]{prior_summary()}} and \code{\link[=triangulate]{triangulate()}} for cross-backend prior
-matching); \code{fb_greta()} does not modify the model's priors. A
-semantic mismatch between the declared prior and the model
-graph raises a structural refusal -- \code{fb_greta()} will not
-silently re-prior an already-built greta model.}
-
-\item{n_samples}{Integer: number of posterior samples per chain.}
-
-\item{warmup}{Integer: number of warmup (burn-in) iterations per
-chain.}
-
-\item{chains}{Integer: number of MCMC chains.}
-
-\item{canonical_names}{Optional named character vector mapping
-greta-side parameter names (the names of
-\code{model$target_greta_arrays}) to canonical names used by
-\code{\link[=triangulate]{triangulate()}}. \code{NULL} falls back to the verbatim greta names
-with a one-time structured note (silenceable via
-\code{options(flexyBayes.silence_canonical_names_note = TRUE)}).}
-
-\item{verbose}{Logical: print progress messages.}
-
-\item{mcmc_verbose}{Logical: show MCMC progress bar from greta.}
-
-\item{return_code}{Logical: deferred -- raises a structured
-refusal under the current contract (the user's model is already
-greta-side; there is no generated code to return). Reserved for
-a future v0.3 reconstruction surface.}
-
-\item{review_code}{Logical: deferred -- raises a structured
-refusal under the current contract. The model-graph pretty-
-printer for the \verb{<flexybayes_review>} \code{code} slot on the
-greta-direct entry is queued for a subsequent release (it
-requires a topological walk over \code{model$dag$node_list} with
-operation-node arithmetic). The formula-entry \code{\link[=flexybayes]{flexybayes()}} /
-\code{\link[=fb_brms]{fb_brms()}} paths still support \code{review_code = TRUE}, because
-\code{flexyBayes} is the code author on those paths.}
+\item{...}{Arguments passed to \code{\link[=flexybayes]{flexybayes()}} (e.g. \code{fixed}, \code{random},
+\code{rcov}, \code{data}, \code{family}, \code{prior}, \code{syntax}), or a native
+\code{greta_model} / greta-source IR as the model-spec slot. The
+\code{backend} argument is pinned to \code{"greta"}; a conflicting \code{backend}
+value raises a structured refusal. The pre-v0.5.0 \verb{model = }
+native-graph argument is remapped to the model-spec slot for
+call-compatibility, so \code{fb_greta(model = m)} still fits a native
+graph.}
 }
 \value{
-An object of class
-\code{c("flexybayes_direct_greta", "flexybayes", "list")} (subclass
-first so S3 dispatch finds the direct-greta overrides before
-the parent flexybayes methods). The \code{"flexybayes"} parent
-class makes the standard post-fit methods (\code{\link[=summary]{summary()}},
-\code{\link[=vcov]{vcov()}}, \code{\link[=confint]{confint()}}, \code{\link[=prior_summary]{prior_summary()}}) dispatch correctly;
-the \code{"flexybayes_direct_greta"} subclass routes three methods
-(\code{\link[=print]{print()}}, \code{\link[=coef]{coef()}}, \code{\link[=predict]{predict()}}) to greta-direct-aware
-overrides. Structure: \verb{$glm} (minimal GLM-compatible shim built
-from posterior summary of target parameters), \verb{$greta} (the
-real MCMC fit), \verb{$extras} (diagnostics, code, call_info,
-model_info, canonical_map).
+For a formula: an object of class \code{"flexybayes"} (a greta
+fit). For a native \code{greta_model}: a \code{flexybayes_direct_greta}
+object (subclass of \code{"flexybayes"}) carrying the MCMC draws, a
+GLM-compatible shim, and the canonical-name map; see
+\code{\link[=flexybayes]{flexybayes()}} for the shared structure.
 }
 \description{
-Lower a user-supplied \code{greta_model} into the same \code{fb_terms}
-intermediate representation (IR) used by \code{\link[=flexybayes]{flexybayes()}} and the
-brms entry, run MCMC via \code{\link[greta:inference]{greta::mcmc()}}, and return a classed
-result that works with \code{\link[=summary]{summary()}}, \code{\link[=coef]{coef()}}, \code{\link[=vcov]{vcov()}},
-\code{\link[=prior_summary]{prior_summary()}}, and the wider flexyBayes diagnostic surface.
+Engine pin: fits the model with greta (full Hamiltonian Monte Carlo)
+only. This is sugar for \code{\link[=flexybayes]{flexybayes()}}\verb{(..., backend = "greta")} and
+accepts the same grammars --- an ASReml \code{fixed} / \code{random} / \code{rcov}
+specification, a brms-style bar-grouped formula, or a native
+\code{greta_model} graph built with \code{greta::model()}. A formula is lowered
+through the shared emit path; a native graph is fit directly by
+\code{\link[greta:inference]{greta::mcmc()}} and returned as a \code{flexybayes_direct_greta} object.
 }
 \details{
-\code{fb_greta()} is the expert / power-user entry. Use it when the
-model is already expressed in native greta primitives
-(\code{as_data()}, \code{normal()}, \code{uniform()}, \verb{distribution()<-},
-\code{model()}) and you want the flexyBayes triangulation / prior
-introspection / canonical-name surface without rewriting in
-asreml or brms formula grammar. \code{\link[=flexybayes]{flexybayes()}} remains the
-principal entry for asreml-style formulas; \code{fb_greta()} is an
-explicit alternative, never a silent fallback.
+To attach a canonical-name map to a native graph (so \code{\link[=triangulate]{triangulate()}}
+can align it with an INLA or Stan fit), build the intermediate
+representation first and pass it on: \verb{fb_greta(fb_from_greta(model,}
+\verb{canonical_names = c(...)))}.
 }
 \examples{
 \donttest{
 if (requireNamespace("greta", quietly = TRUE)) {
   data(sleepstudy, package = "lme4")
-  library(greta)
-  y     <- as_data(sleepstudy$Reaction)
-  x     <- as_data(sleepstudy$Days)
-  b0    <- normal(0, 100)
-  b1    <- normal(0, 100)
-  sigma <- uniform(0, 5 * sd(sleepstudy$Reaction))
-  mu    <- b0 + b1 * x
-  distribution(y) <- normal(mu, sigma)
-  m <- model(b0, b1, sigma)
-  fit <- fb_greta(m, data = sleepstudy,
-                  canonical_names = c(b0 = "(Intercept)",
-                                      b1 = "Days",
-                                      sigma = "sigma"),
+  fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
                   n_samples = 200, warmup = 200, chains = 1,
                   verbose = FALSE, mcmc_verbose = FALSE)
   coef(fit)
 }
 }
-
 }
 \seealso{
-\code{\link[=flexybayes]{flexybayes()}} (asreml-style principal entry);
-\code{\link[=prior_summary]{prior_summary()}}; \code{\link[=triangulate]{triangulate()}}.
+\code{\link[=flexybayes]{flexybayes()}} and \code{\link[=fb]{fb()}} for the universal entry that picks
+a backend; \code{\link[=fb_from_greta]{fb_from_greta()}} for building a greta-source IR with a
+canonical-name map.
+
+Other flexyBayes engine pins: 
+\code{\link{fb_brms}()},
+\code{\link{fb_inla}()}
 }
+\concept{flexyBayes engine pins}

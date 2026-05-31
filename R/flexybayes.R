@@ -232,6 +232,15 @@ flexybayes <- function(
   aggregate <- .normalise_aggregate(aggregate)
   syntax    <- match.arg(syntax)
 
+  # ADR 0031 Phase 3.6: the universal entry accepts a native greta_model
+  # graph or a prebuilt greta-source IR (from fb_from_greta()) on the
+  # model slot. Those carry their own data into the greta graph, so
+  # `data` is optional on that path; the formula grammars still require
+  # it. Detect before `data` is forced below.
+  spec_is_greta_native <- inherits(fixed, "greta_model") ||
+    (inherits(fixed, "fb_terms") && identical(fixed$source, "greta"))
+  if (spec_is_greta_native && missing(data)) data <- NULL
+
   # Defer the greta package check to the emit-greta branch. For
   # backend = "inla" we don't need greta installed; for backend =
   # "auto" we only require greta if the gate refuses (or INLA is
@@ -254,22 +263,25 @@ flexybayes <- function(
       (isTRUE(return_code) || isTRUE(review_code)))
     backend <- "greta"
 
-  # review_code = TRUE is currently scoped to the greta-emit path
-  # (ADR 0011). Under backend = "inla" / "auto" with INLA accepted,
-  # review_code is deferred to a future ADR -- the deferred-execution
-  # token would need an INLA-side `code` slot (the inla() formula +
-  # family + hyper list) and a different proceed() target. Refuse
-  # cleanly for now rather than silently emitting greta code for an
-  # INLA fit.
-  if (isTRUE(review_code) && backend != "greta")
+  # review_code = TRUE is scoped to the code-emitting engines: greta
+  # (greta source via the codegen path) and brms (Stan source via
+  # brms::make_stancode()). Under backend = "inla" review_code is
+  # deferred to a future ADR -- the deferred-execution token would need
+  # an INLA-side `code` slot (the inla() formula + family + hyper list)
+  # and a different proceed() target. Refuse cleanly rather than
+  # silently emitting code for an engine that did not author it.
+  # (ADR 0031 Phase 3.6: brms support folded in here from the recast
+  # fb_brms() pin, which now routes through this shared review branch.)
+  if (isTRUE(review_code) && !backend %in% c("greta", "brms"))
     stop(.fb_refusal_condition(
       reason_code = "review_code_backend_unsupported",
       message     = paste0(
-        "`review_code = TRUE` is currently supported only with ",
-        "backend = \"greta\". Under backend = \"", backend, "\" ",
+        "`review_code = TRUE` is supported with backend = \"greta\" ",
+        "(greta code) or backend = \"brms\" (Stan code via ",
+        "brms::make_stancode()). Under backend = \"", backend, "\" ",
         "the inspect-then-fit token would need an INLA-side code ",
         "slot, queued for a subsequent release. Pass ",
-        "backend = \"greta\" or drop review_code.")))
+        "backend = \"greta\" / \"brms\", or drop review_code.")))
 
   if (isTRUE(review_code) && isTRUE(return_code))
     stop(.fb_refusal_condition(
@@ -281,7 +293,8 @@ flexybayes <- function(
         "the code string only.")))
 
   the_call  <- match.call()
-  data_name <- deparse(substitute(data))
+  data_name <- if (spec_is_greta_native) "<greta-native>"
+               else deparse(substitute(data))
 
   # Detect "all defaults" -- user supplied neither an fb_prior() nor
   # an explicit prior_vc_sd. In that case the v0.1 default fires:
@@ -312,6 +325,27 @@ flexybayes <- function(
     prior_vc_sd    = prior_vc_sd,
     syntax         = syntax
   )
+
+  # ADR 0031 Phase 3.6: a native greta model graph is fit directly by
+  # greta::mcmc() (no shared emit path, no formula-specific machinery).
+  # .dispatch_native_greta() pins the backend (greta only), refuses the
+  # code-inspection / plan modes that do not apply to a user-built graph,
+  # and assembles the flexybayes_direct_greta result. Everything below
+  # (default-prior expansion, plan, review, the formula emit dispatch) is
+  # formula-specific and bypassed.
+  if (identical(fb$source, "greta"))
+    return(.dispatch_native_greta(
+      fb           = fb,
+      backend      = backend,
+      n_samples    = n_samples,
+      warmup       = warmup,
+      chains       = chains,
+      verbose      = verbose,
+      mcmc_verbose = mcmc_verbose,
+      return_code  = return_code,
+      review_code  = review_code,
+      plan         = plan,
+      the_call     = the_call))
 
   if (default_prior_active) {
     # ADR 0020: simple_slope_uncor contributes BOTH the standard
@@ -381,11 +415,21 @@ flexybayes <- function(
   # produced at the same outer seed. verbose printing is suppressed
   # because the review object owns the code surface (cat_code(rev)).
   if (isTRUE(review_code)) {
-    if (!requireNamespace("greta", quietly = TRUE))
+    # The emit engine for the review code: greta source on the greta
+    # path; Stan source (brms::make_stancode()) on the brms path.
+    review_emit_backend <- if (identical(backend, "brms")) "brms" else "greta"
+    if (review_emit_backend == "greta" &&
+        !requireNamespace("greta", quietly = TRUE))
       stop("Package 'greta' is required to generate the review-code ",
            "string. Install with:\n",
            "  install.packages('greta'); greta::install_greta_deps()",
            call. = FALSE)
+    if (review_emit_backend == "brms" &&
+        !requireNamespace("brms", quietly = TRUE))
+      stop("Package 'brms' is required to generate Stan review code. ",
+           "Install with: install.packages('brms'). A working C++ ",
+           "toolchain (rstan or cmdstanr) is required for the ",
+           "downstream fit.", call. = FALSE)
     if (!exists(".Random.seed", envir = globalenv(),
                 inherits = FALSE)) {
       runif(1)  # initialise RNG so the snapshot is reproducible
@@ -420,7 +464,13 @@ flexybayes <- function(
     review_preflight <- .maybe_preflight(fb = fb, data = data,
                                           the_call = the_call)
 
-    review_code_str <- emit_greta(
+    # ADR 0031 Phase 3.6: emit the review code from the engine the user
+    # pinned -- greta source (codegen) or Stan source (make_stancode()).
+    # Both emit paths derive the model from the IR on return_code = TRUE,
+    # so the fixed / random / rcov args (display-only) pass through as-is.
+    emit_review_fn <- if (review_emit_backend == "brms") emit_brms
+                      else emit_greta
+    review_code_str <- emit_review_fn(
       fb             = fb,
       data           = data,
       known_matrices = known_matrices,
@@ -444,7 +494,8 @@ flexybayes <- function(
 
     return(.new_flexybayes_review(
       code         = review_code_str,
-      backend      = "greta",
+      backend      = if (review_emit_backend == "brms")
+                       "stan_via_brms" else "greta",
       ir           = fb,
       prior        = prior,
       data_name    = data_name,

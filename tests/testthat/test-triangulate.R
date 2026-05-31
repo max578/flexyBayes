@@ -285,12 +285,12 @@ test_that("triangulate() runs on an aggregated INLA fit and agrees with per-row 
   d$y <- 1 + 0.5 * as.integer(d$f1) - 0.3 * as.integer(d$f2) +
     rnorm(J, 0, 0.3)[as.integer(d$g)] + rnorm(N, 0, 0.7)
 
-  fit_row <- suppressMessages(fb_brms(
+  fit_row <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
     aggregate = FALSE, prior_vc_sd = 1, verbose = FALSE,
     mcmc_verbose = FALSE
   ))
-  fit_agg <- suppressMessages(fb_brms(
+  fit_agg <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
     aggregate = "auto", prior_vc_sd = 1, verbose = FALSE,
     mcmc_verbose = FALSE

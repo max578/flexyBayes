@@ -1,192 +1,50 @@
-# fb_greta() -- direct-greta-model entry to flexyBayes.
+# fb_greta() -- the greta engine pin, plus the native-greta fitting core.
 #
-# The third entry to the package, alongside `flexybayes()` (asreml-
-# style, principal) and `fb_brms()` (brms-style, Ship-lane weeks
-# 3--4). `fb_greta()` accepts a user-built `greta_model` directly and
-# lowers it into the same `fb_terms` IR scaffold used by the formula
-# entries, so the rest of the post-fit surface (summary, coef, vcov,
-# prior_summary) works uniformly across the three entries.
+# ADR 0031 Phase 3.6 (v0.5.0 backend-axis recovery). `fb_greta()` is one
+# of the three engine pins (alongside `fb_inla()` and `fb_brms()`): sugar
+# over the universal entry with the engine fixed --- `fb_greta(...)` ==
+# `fb(..., backend = "greta")`. It accepts every grammar the universal
+# entry does, including a native `greta_model` graph: a formula is lowered
+# through the shared emit path, while a native graph is fit directly by
+# `greta::mcmc()` via `.fit_native_greta()`.
 #
-# Per ADR 0012 in design-notes-priors-brms-lgm.md. Never a fallback
-# path: `flexybayes()` does not silently switch into direct-greta
-# mode under any condition (plan-final Sec.6 principle 9). Selected
-# explicitly by name.
+# Before v0.5.0 `fb_greta(model = <greta_model>)` was a distinct
+# native-graph verb (ADR 0012). That signature is removed here; the
+# native-graph fitting body it owned is extracted into the internal
+# `.fit_native_greta()`, which the universal-entry dispatch
+# (`.dispatch_native_greta()` in R/dispatch.R) now drives whenever the IR
+# carries `source == "greta"`. The `model = ` argument is remapped to the
+# universal entry's model-spec slot for call-compatibility, so
+# `fb_greta(model = m)` and `fb_greta(m)` both still fit a native graph.
 
-#' Fit a user-built greta model under the flexyBayes post-fit surface
-#'
-#' Lower a user-supplied `greta_model` into the same `fb_terms`
-#' intermediate representation (IR) used by [flexybayes()] and the
-#' brms entry, run MCMC via [greta::mcmc()], and return a classed
-#' result that works with [summary()], [coef()], [vcov()],
-#' [prior_summary()], and the wider flexyBayes diagnostic surface.
-#'
-#' `fb_greta()` is the expert / power-user entry. Use it when the
-#' model is already expressed in native greta primitives
-#' (`as_data()`, `normal()`, `uniform()`, `distribution()<-`,
-#' `model()`) and you want the flexyBayes triangulation / prior
-#' introspection / canonical-name surface without rewriting in
-#' asreml or brms formula grammar. [flexybayes()] remains the
-#' principal entry for asreml-style formulas; `fb_greta()` is an
-#' explicit alternative, never a silent fallback.
-#'
-#' @param model A `greta_model` object built by [greta::model()].
-#' @param data Optional data.frame the user's `as_data()` calls were
-#'   issued against. Recorded on the IR for downstream methods
-#'   (`predict()`, `posterior_samples()` with `newdata`,
-#'   triangulation reporting). `NULL` accepted; downstream methods
-#'   that need the original frame raise structured refusals.
-#' @param known_matrices Named list of pre-computed matrices
-#'   referenced by the model graph. Recorded on the IR for
-#'   traceability. Empty list by default.
-#' @param prior Optional `fb_prior()` object. When supplied, this is
-#'   a *declaration* of the priors the model encodes (used by
-#'   [prior_summary()] and [triangulate()] for cross-backend prior
-#'   matching); `fb_greta()` does not modify the model's priors. A
-#'   semantic mismatch between the declared prior and the model
-#'   graph raises a structural refusal -- `fb_greta()` will not
-#'   silently re-prior an already-built greta model.
-#' @param n_samples Integer: number of posterior samples per chain.
-#' @param warmup Integer: number of warmup (burn-in) iterations per
-#'   chain.
-#' @param chains Integer: number of MCMC chains.
-#' @param canonical_names Optional named character vector mapping
-#'   greta-side parameter names (the names of
-#'   `model$target_greta_arrays`) to canonical names used by
-#'   [triangulate()]. `NULL` falls back to the verbatim greta names
-#'   with a one-time structured note (silenceable via
-#'   `options(flexyBayes.silence_canonical_names_note = TRUE)`).
-#' @param verbose Logical: print progress messages.
-#' @param mcmc_verbose Logical: show MCMC progress bar from greta.
-#' @param return_code Logical: deferred -- raises a structured
-#'   refusal under the current contract (the user's model is already
-#'   greta-side; there is no generated code to return). Reserved for
-#'   a future v0.3 reconstruction surface.
-#' @param review_code Logical: deferred -- raises a structured
-#'   refusal under the current contract. The model-graph pretty-
-#'   printer for the `<flexybayes_review>` `code` slot on the
-#'   greta-direct entry is queued for a subsequent release (it
-#'   requires a topological walk over `model$dag$node_list` with
-#'   operation-node arithmetic). The formula-entry [flexybayes()] /
-#'   [fb_brms()] paths still support `review_code = TRUE`, because
-#'   `flexyBayes` is the code author on those paths.
-#'
-#' @return An object of class
-#'   `c("flexybayes_direct_greta", "flexybayes", "list")` (subclass
-#'   first so S3 dispatch finds the direct-greta overrides before
-#'   the parent flexybayes methods). The `"flexybayes"` parent
-#'   class makes the standard post-fit methods ([summary()],
-#'   [vcov()], [confint()], [prior_summary()]) dispatch correctly;
-#'   the `"flexybayes_direct_greta"` subclass routes three methods
-#'   ([print()], [coef()], [predict()]) to greta-direct-aware
-#'   overrides. Structure: `$glm` (minimal GLM-compatible shim built
-#'   from posterior summary of target parameters), `$greta` (the
-#'   real MCMC fit), `$extras` (diagnostics, code, call_info,
-#'   model_info, canonical_map).
-#'
-#' @seealso [flexybayes()] (asreml-style principal entry);
-#'   [prior_summary()]; [triangulate()].
-#'
-#' @examples
-#' \donttest{
-#' if (requireNamespace("greta", quietly = TRUE)) {
-#'   data(sleepstudy, package = "lme4")
-#'   library(greta)
-#'   y     <- as_data(sleepstudy$Reaction)
-#'   x     <- as_data(sleepstudy$Days)
-#'   b0    <- normal(0, 100)
-#'   b1    <- normal(0, 100)
-#'   sigma <- uniform(0, 5 * sd(sleepstudy$Reaction))
-#'   mu    <- b0 + b1 * x
-#'   distribution(y) <- normal(mu, sigma)
-#'   m <- model(b0, b1, sigma)
-#'   fit <- fb_greta(m, data = sleepstudy,
-#'                   canonical_names = c(b0 = "(Intercept)",
-#'                                       b1 = "Days",
-#'                                       sigma = "sigma"),
-#'                   n_samples = 200, warmup = 200, chains = 1,
-#'                   verbose = FALSE, mcmc_verbose = FALSE)
-#'   coef(fit)
-#' }
-#' }
-#'
-#' @export
-fb_greta <- function(model,
-                     data            = NULL,
-                     known_matrices  = list(),
-                     prior           = NULL,
-                     n_samples       = 1000L,
-                     warmup          = 500L,
-                     chains          = 4L,
-                     canonical_names = NULL,
-                     verbose         = TRUE,
-                     mcmc_verbose    = TRUE,
-                     return_code     = FALSE,
-                     review_code     = FALSE) {
-
-  # ADR 0031 Phase 3 (two-step-clean migration). fb_greta()'s native
-  # greta_model fitting signature is deprecated at v0.4.1. At v0.5.0
-  # fb_greta() becomes the greta engine pin (a formula verb, equivalent
-  # to fb(backend = "greta")); native graphs are then fit through fb()
-  # directly, and fb_from_greta() builds the IR from one. Warns now so
-  # the meaning-change has a deprecation window. Deduped once per session
-  # by id; the dedicated deprecation test forces it via
-  # lifecycle_verbosity = "warning".
-  lifecycle::deprecate_warn(
-    when    = "0.4.1",
-    what    = I("fb_greta(model = <greta_model>), the native-graph fitting signature"),
-    details = c(
-      i = "Build the flexyBayes IR from a native greta model with fb_from_greta().",
-      i = paste0("At v0.5.0, fb_greta() becomes the greta engine pin and ",
-                 "native greta_model graphs are fit through fb() directly.")),
-    id      = "flexybayes_fb_greta_native_signature"
-  )
-
-  # ------- 0. Validation. ----------------------------------------- #
+# .fit_native_greta() -- fit a native greta model graph by greta::mcmc()
+# and assemble the classed flexybayes_direct_greta result. The IR (`fb`,
+# a greta-source fb_terms built by fb_from_greta()) carries the model
+# graph on `fb$greta_meta$model` plus the canonical-name map, so this
+# helper is self-contained. Internal -- reached via the universal entry's
+# native-greta dispatch, never called directly by users.
+#
+# This is the verbatim body of the pre-v0.5.0 fb_greta() native path
+# (ADR 0012 Sec.5): no emit_greta() lowering, a minimal GLM-compatible
+# shim built from the posterior summary, and the
+# c("flexybayes_direct_greta", "flexybayes", "list") class.
+.fit_native_greta <- function(fb,
+                              n_samples    = 1000L,
+                              warmup       = 500L,
+                              chains       = 4L,
+                              verbose      = TRUE,
+                              mcmc_verbose = TRUE,
+                              the_call     = NULL) {
 
   if (!requireNamespace("greta", quietly = TRUE))
-    stop("Package 'greta' is required by fb_greta(). Install with:\n",
-         "  install.packages('greta')", call. = FALSE)
+    stop("Package 'greta' is required to fit a native greta model. ",
+         "Install with:\n  install.packages('greta')", call. = FALSE)
 
-  if (!inherits(model, "greta_model"))
-    stop("`model` must be a `greta_model` object built by ",
-         "`greta::model(...)`. Got class: ",
-         paste(class(model), collapse = "/"),
-         ". For asreml-style formulas use flexybayes(); for ",
-         "brms-style formulas use fb_brms() (v0.2 weeks 3--4).",
-         call. = FALSE)
-
-  # Mutual exclusion (mirrors ADR 0011 contract for the formula
-  # entries; here both flags are deferred under the v0.2 contract).
-  if (isTRUE(return_code) && isTRUE(review_code))
-    stop("`return_code` and `review_code` are mutually exclusive. ",
-         "On the fb_greta() path both flags are currently deferred; ",
-         "see ?fb_greta.", call. = FALSE)
-
-  if (isTRUE(return_code))
-    stop("`return_code = TRUE` is deferred on fb_greta(): the user's ",
-         "model is already greta-side, so there is no flexyBayes-",
-         "generated code string to return. Reserved for a future ",
-         "reconstruction surface.", call. = FALSE)
-
-  if (isTRUE(review_code))
-    stop("`review_code = TRUE` is deferred on fb_greta(): the model-",
-         "graph pretty-printer for the `<flexybayes_review>` `code` ",
-         "slot is queued for a subsequent release (it requires a ",
-         "topological walk over `model$dag$node_list` with ",
-         "operation-node arithmetic). The formula-entry flexybayes() ",
-         "/ fb_brms() paths still support review_code.",
-         call. = FALSE)
-
-  # ------- 1. IR ingest via fb_from_greta(). ---------------------- #
-  the_call <- match.call()
-
-  fb <- fb_from_greta(
-    model           = model,
-    data            = data,
-    prior           = prior,
-    canonical_names = canonical_names,
-    known_matrices  = known_matrices
-  )
+  model <- fb$greta_meta$model
+  if (is.null(model) || !inherits(model, "greta_model"))
+    stop(".fit_native_greta(): the IR does not carry a greta model graph ",
+         "on `greta_meta$model`. This is a programming error -- the IR ",
+         "must be built by fb_from_greta().", call. = FALSE)
 
   # ------- 2. Direct greta::mcmc() call (no emit_greta lowering). - #
   run_time_start <- proc.time()[["elapsed"]]
@@ -342,6 +200,70 @@ fb_greta <- function(model,
   # entry.
   class(result) <- c("flexybayes_direct_greta", "flexybayes", "list")
   result
+}
+
+
+#' Fit a flexyBayes model via the greta engine
+#'
+#' Engine pin: fits the model with greta (full Hamiltonian Monte Carlo)
+#' only. This is sugar for [flexybayes()]`(..., backend = "greta")` and
+#' accepts the same grammars --- an ASReml `fixed` / `random` / `rcov`
+#' specification, a brms-style bar-grouped formula, or a native
+#' `greta_model` graph built with `greta::model()`. A formula is lowered
+#' through the shared emit path; a native graph is fit directly by
+#' [greta::mcmc()] and returned as a `flexybayes_direct_greta` object.
+#'
+#' To attach a canonical-name map to a native graph (so [triangulate()]
+#' can align it with an INLA or Stan fit), build the intermediate
+#' representation first and pass it on: `fb_greta(fb_from_greta(model,`
+#' `canonical_names = c(...)))`.
+#'
+#' @param ... Arguments passed to [flexybayes()] (e.g. `fixed`, `random`,
+#'   `rcov`, `data`, `family`, `prior`, `syntax`), or a native
+#'   `greta_model` / greta-source IR as the model-spec slot. The
+#'   `backend` argument is pinned to `"greta"`; a conflicting `backend`
+#'   value raises a structured refusal. The pre-v0.5.0 `model = `
+#'   native-graph argument is remapped to the model-spec slot for
+#'   call-compatibility, so `fb_greta(model = m)` still fits a native
+#'   graph.
+#'
+#' @return For a formula: an object of class `"flexybayes"` (a greta
+#'   fit). For a native `greta_model`: a `flexybayes_direct_greta`
+#'   object (subclass of `"flexybayes"`) carrying the MCMC draws, a
+#'   GLM-compatible shim, and the canonical-name map; see
+#'   [flexybayes()] for the shared structure.
+#'
+#' @family flexyBayes engine pins
+#' @seealso [flexybayes()] and [fb()] for the universal entry that picks
+#'   a backend; [fb_from_greta()] for building a greta-source IR with a
+#'   canonical-name map.
+#' @examples
+#' \donttest{
+#' if (requireNamespace("greta", quietly = TRUE)) {
+#'   data(sleepstudy, package = "lme4")
+#'   fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+#'                   n_samples = 200, warmup = 200, chains = 1,
+#'                   verbose = FALSE, mcmc_verbose = FALSE)
+#'   coef(fit)
+#' }
+#' }
+#' @export
+fb_greta <- function(...) {
+  cl <- match.call()
+  # Call-compatibility: the removed `model = ` native-graph argument maps
+  # to the universal entry's model-spec slot (`fixed`), so a native graph
+  # passed either positionally or as `model = ` reaches the native-greta
+  # fitting path.
+  nm <- names(cl)
+  if (!is.null(nm) && "model" %in% nm) {
+    if ("fixed" %in% nm)
+      stop("fb_greta(): pass the model once -- `model` (removed at ",
+           "v0.5.0) and `fixed` name the same model-spec slot.",
+           call. = FALSE)
+    nm[nm == "model"] <- "fixed"
+    names(cl) <- nm
+  }
+  .fb_engine_pin("greta", cl, parent.frame())
 }
 
 

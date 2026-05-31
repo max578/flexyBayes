@@ -31,7 +31,7 @@ test_that("prior_summary() on a default-prior fit reports auto-uniform", {
     x = rnorm(30),
     g = factor(rep(1:5, 6))
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = d,
     backend = "greta",
     n_samples = 50L, warmup = 50L, chains = 1L,
@@ -70,7 +70,7 @@ test_that("prior_summary() on a user-supplied fb_prior fit reports user origin",
     sd(group = "g") ~ half_normal(scale = 5),
     b("x")          ~ normal(mean = 0, sd = 10)
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = d,
     prior   = priors,
     backend = "greta",
@@ -98,7 +98,7 @@ test_that("prior_summary() on a legacy-scalar fit reports the bridge values", {
     x = rnorm(30),
     g = factor(rep(1:5, 6))
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = d,
     prior_vc_sd    = 1,           # opt back into legacy default
     prior_fixed_sd = 100,
@@ -145,9 +145,13 @@ test_that("prior_summary() flags fb_greta() fits as declaration-only", {
     greta::distribution(y) <- greta::normal(mu, sigma)
     greta::model(b0, b1, sigma)
   })
-  fit_dg <- suppressMessages(fb_greta(
+  # v0.5.0: canonical_names attaches at IR build via fb_from_greta();
+  # the greta pin fits the IR.
+  ir_dg <- suppressMessages(fb_from_greta(
     m, data = d,
-    canonical_names = c(b0 = "(Intercept)", b1 = "x", sigma = "sigma"),
+    canonical_names = c(b0 = "(Intercept)", b1 = "x", sigma = "sigma")))
+  fit_dg <- suppressMessages(fb_greta(
+    ir_dg,
     n_samples = 50L, warmup = 50L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))

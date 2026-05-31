@@ -59,7 +59,7 @@ mk_agg_data <- function(seed = 1L, N = 500L, J = 15L) {
 test_that("(h) per-row fit carries exactness = 'exact'", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = FALSE,
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -69,7 +69,7 @@ test_that("(h) per-row fit carries exactness = 'exact'", {
 test_that("(h) aggregated fit carries exactness = 'aggregated_exact'", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -84,7 +84,7 @@ test_that("(h) aggregated fit carries exactness = 'aggregated_exact'", {
 test_that("(e) eligible plan routes to aggregated_gaussian path", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -97,7 +97,7 @@ test_that("(e) eligible plan routes to aggregated_gaussian path", {
 test_that("(e) backend_decision reason carries N, K, ratio", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -116,7 +116,7 @@ test_that("(f) continuous fixed term falls through to per-row", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
   dat$x_cont <- rnorm(nrow(dat))
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x_cont + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -129,7 +129,7 @@ test_that("(f) non-gaussian family falls through to per-row", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
   dat$y_bin <- as.integer(dat$y > median(dat$y))
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y_bin ~ f1 + (1 | g), data = dat,
     family = "binomial",
     backend = "inla", aggregate = "auto",
@@ -147,7 +147,7 @@ test_that("(j) aggregate = TRUE on out-of-scope IR raises refusal", {
   dat <- mk_agg_data()
   dat$x_cont <- rnorm(nrow(dat))
   err <- tryCatch(
-    suppressMessages(fb_brms(
+    suppressMessages(fb(
       y ~ x_cont + (1 | g), data = dat,
       backend = "inla", aggregate = TRUE,
       prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE)),
@@ -160,7 +160,7 @@ test_that("(j) aggregate = TRUE on out-of-scope IR raises refusal", {
 test_that("(j) aggregate = TRUE on backend = 'greta' now succeeds (v0.3.3)", {
   testthat::skip_if_not_installed("greta")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + (1 | g), data = dat,
     backend = "greta", aggregate = TRUE,
     n_samples = 200, warmup = 100, chains = 1,
@@ -176,7 +176,7 @@ test_that("(j) aggregate = TRUE on backend = 'greta' now succeeds (v0.3.3)", {
 test_that("(j) aggregate = TRUE on backend = 'brms' refuses", {
   dat <- mk_agg_data()
   err <- tryCatch(
-    suppressMessages(fb_brms(
+    suppressMessages(fb(
       y ~ f1 + (1 | g), data = dat,
       backend = "brms", aggregate = TRUE,
       n_samples = 100, warmup = 50, chains = 1,
@@ -189,7 +189,7 @@ test_that("(j) aggregate = TRUE on backend = 'brms' refuses", {
 test_that("(j) aggregate = 'foo' (invalid) raises clear validation error", {
   dat <- mk_agg_data()
   err <- tryCatch(
-    suppressMessages(fb_brms(
+    suppressMessages(fb(
       y ~ f1 + (1 | g), data = dat,
       backend = "inla", aggregate = "foo",
       prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE)),
@@ -234,7 +234,7 @@ test_that("(g) at(f):units refuses when f is not a cell key", {
 test_that("(i) summary() prints compression line on aggregated fit", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -246,7 +246,7 @@ test_that("(i) summary() prints compression line on aggregated fit", {
 test_that("(i) per-row summary does NOT print compression line", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = FALSE,
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -257,11 +257,11 @@ test_that("(i) per-row summary does NOT print compression line", {
 test_that("(i) print() shows Exact. line on per-row and aggregated", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit_row <- suppressMessages(fb_brms(
+  fit_row <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = FALSE,
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
-  fit_agg <- suppressMessages(fb_brms(
+  fit_agg <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -284,11 +284,11 @@ test_that("(i) print() shows Exact. line on per-row and aggregated", {
 test_that("INLA per-row + aggregated agree on beta within 5e-3 under matched defaults", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data(seed = 7L)
-  fit_row <- suppressMessages(fb_brms(
+  fit_row <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = FALSE,
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
-  fit_agg <- suppressMessages(fb_brms(
+  fit_agg <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -319,11 +319,11 @@ test_that("INLA per-row + aggregated agree on beta within 1e-3 (stress, strict)"
   if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true"))
     skip("[stress] strict 1e-3 algebraic-identity band; opt-in via FLEXYBAYES_RUN_STRESS=true")
   dat <- mk_agg_data(seed = 7L)
-  fit_row <- suppressMessages(fb_brms(
+  fit_row <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = FALSE,
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
-  fit_agg <- suppressMessages(fb_brms(
+  fit_agg <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -341,7 +341,7 @@ test_that("INLA per-row + aggregated agree on beta within 1e-3 (stress, strict)"
 test_that("aggregation_meta carries N, K, compression, residual kind", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -361,7 +361,7 @@ test_that("aggregation_meta carries N, K, compression, residual kind", {
 test_that("flexybayes_aggregated inherits from flexybayes", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -391,7 +391,7 @@ test_that("flexybayes_aggregated on greta has no flexybayes_inla label", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "greta", aggregate = TRUE,
     n_samples = 50L, warmup = 50L, chains = 1L,
@@ -409,7 +409,7 @@ test_that("aggregation_meta carries prior_parametrization, surfaced by canonical
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
   # Default prior -> per-row-equivalent (the matched-prior guarantee).
-  fit_def <- suppressMessages(fb_brms(
+  fit_def <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -421,7 +421,7 @@ test_that("aggregation_meta carries prior_parametrization, surfaced by canonical
     "per_row_equivalent")
   # Explicit prior -> custom (equivalence against a default-prior per-row
   # fit no longer holds; flagged so the user does not misread agreement).
-  fit_cus <- suppressMessages(fb_brms(
+  fit_cus <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior = fb_prior(sd(group = "g") ~ uniform(lower = 0, upper = 5)),
@@ -450,7 +450,7 @@ test_that("greta-aggregated fit exposes $greta$draws for triangulate / extractor
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   dat <- mk_agg_data(seed = 3L, N = 200L, J = 6L)
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "greta", aggregate = TRUE,
     n_samples = 60L, warmup = 60L, chains = 1L,
@@ -468,7 +468,7 @@ test_that("greta-aggregated fit exposes $greta$draws for triangulate / extractor
 test_that("$glm shim carries per-row reconstructed fitted values", {
   testthat::skip_if_not_installed("INLA")
   dat <- mk_agg_data()
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "inla", aggregate = "auto",
     prior_vc_sd = 1, verbose = FALSE, mcmc_verbose = FALSE))
@@ -527,7 +527,7 @@ test_that("(d) greta aggregated posterior recovers truth (MC tol)", {
   mu     <- as.numeric(Xmm %*% beta_true) + u_true[as.integer(dat$g)]
   dat$y  <- rnorm(N, mu, sigma_true)
 
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ f1 + f2 + (1 | g), data = dat,
     backend = "greta", aggregate = TRUE,
     n_samples = 1000L, warmup = 500L, chains = 2L,

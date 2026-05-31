@@ -127,11 +127,15 @@
 #'
 #' @return An `fb_terms` object with `source = "greta"`, `intercept = NA`,
 #'   empty fixed / random / rcov term lists, and the populated
-#'   `greta_meta` slot.
+#'   `greta_meta` slot (carrying the model graph, target arrays, and the
+#'   canonical-name map). Pass the returned IR straight to [fb()] to fit
+#'   the graph via greta while keeping a canonical-name map for
+#'   [triangulate()]: `fb(fb_from_greta(model, canonical_names = ...))`.
 #'
 #' @family flexyBayes ingest adapters
-#' @seealso [fb()] and [flexybayes()] for the universal fitting entry;
-#'   [fb_from_asreml()] and [fb_from_brms()] for the formula dialects.
+#' @seealso [fb()] and [flexybayes()] for the universal fitting entry
+#'   (which accept the returned IR directly); [fb_from_asreml()] and
+#'   [fb_from_brms()] for the formula dialects.
 #' @examples
 #' \dontrun{
 #' library(greta)
@@ -141,6 +145,7 @@
 #' distribution(y) <- normal(mu, sigma)
 #' m  <- model(mu, sigma)
 #' ir <- fb_from_greta(m, canonical_names = c(mu = "(Intercept)"))
+#' fit <- fb(ir)   # fit the native graph via greta, keeping the map
 #' }
 #' @export
 fb_from_greta <- function(model,
@@ -220,7 +225,14 @@ fb_from_greta <- function(model,
   # Greta-meta slot. Per ADR 0012 §2: arrays + canonical_map +
   # model_dim + n_data. Extras (likelihood family, response label)
   # carried for downstream summary().
+  #
+  # ADR 0031 Phase 3.6 (v0.5.0): the `model` graph itself is recorded on
+  # the IR so a greta-source IR is self-contained -- `fb(fb_from_greta(m,
+  # canonical_names = ...))` carries everything `.fit_native_greta()`
+  # needs (the graph to sample, plus the canonical map) without a
+  # second reference to the original model object.
   greta_meta <- list(
+    model          = model,
     arrays         = targets,
     canonical_map  = canonical_map,
     model_dim      = model_dim,

@@ -46,5 +46,9 @@ if (requireNamespace("INLA", quietly = TRUE)) {
 \seealso{
 \code{\link[=flexybayes]{flexybayes()}} and \code{\link[=fb]{fb()}} for the universal entry that picks a
 backend; \code{\link[=fb_from_asreml]{fb_from_asreml()}} / \code{\link[=fb_from_brms]{fb_from_brms()}} for the ingest layer.
+
+Other flexyBayes engine pins: 
+\code{\link{fb_brms}()},
+\code{\link{fb_greta}()}
 }
 \concept{flexyBayes engine pins}

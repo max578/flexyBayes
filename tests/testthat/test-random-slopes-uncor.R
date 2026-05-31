@@ -4,13 +4,13 @@
 # Contract (per design-notes-priors-brms-lgm.md ADR 0020 + merged-v2
 # §4.2.2 acceptance criteria):
 #
-#   (a) fb_brms(y ~ x + (x || g)) parses to type = "simple_slope_uncor"
+#   (a) fb(y ~ x + (x || g)) parses to type = "simple_slope_uncor"
 #       with slope_var = "x", with_intercept = FALSE, and does NOT
 #       raise stop() on the greta path.
-#   (b) fb_brms(y ~ x + (1 + x || g)) parses to type =
+#   (b) fb(y ~ x + (1 + x || g)) parses to type =
 #       "simple_slope_uncor" with with_intercept = TRUE; fits both
 #       intercept- and slope-variance components.
-#   (c) fb_brms(y ~ x + (x | g)) raises a structured
+#   (c) fb(y ~ x + (x | g)) raises a structured
 #       flexybayes_correlated_slope_unsupported condition with
 #       deferral_target = "v0.3", workaround = "(x || g)",
 #       grouping_factor + slope_variable slots populated and a
@@ -22,8 +22,8 @@
 #       merged-v2 §5.6 risk 3) and 0.15 on the intercept SD.
 #   (g) Canonical name sd_<x>_<g> resolves on a greta fit.
 #   (h) Canonical name sd_<x>_<g> resolves on a brms-passthrough fit.
-#   (i) triangulate() between fb_brms(backend = "brms") and
-#       fb_brms(backend = "greta") on the slope-variance posterior
+#   (i) triangulate() between fb(backend = "brms") and
+#       fb(backend = "greta") on the slope-variance posterior
 #       reports agreement (W_1 within tolerance) on common params.
 #   (j) Minimum-group guard: triangulation cell uses J >= 10 by
 #       construction (sleepstudy has J = 18).
@@ -160,7 +160,7 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   # intercept-variance ones at modest J (per merged-v2 §5.6 risk 3)
   # and shorter chains yield posterior means outside the 0.20 *
   # tau_true tolerance even on the J = 18 sleepstudy-style fixture.
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     Reaction ~ Days + (1 + Days || Subject),
     data = d, backend = "greta",
     n_samples = 2000L, warmup = 2000L, chains = 2L,
@@ -225,7 +225,7 @@ test_that("canonical_names() on a greta (x || g) fit resolves sd_<x>_<g> AND sd_
   # (Days || Subject) carries BOTH the intercept-variance (sd_Subject)
   # and slope-variance (sd_Days_Subject) hyperparameters per lme4 /
   # brms semantics. canonical_names() must surface both.
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
     n_samples = 80L, warmup = 80L, chains = 1L,
@@ -237,7 +237,7 @@ test_that("canonical_names() on a greta (x || g) fit resolves sd_<x>_<g> AND sd_
   expect_identical(cn$map[["sigma_Subject"]],      "sd_Subject")
 
   # The (0 + Days || Subject) form drops the intercept-variance.
-  fit2 <- suppressMessages(fb_brms(
+  fit2 <- suppressMessages(fb(
     Reaction ~ Days + (0 + Days || Subject),
     data = d, backend = "greta",
     n_samples = 80L, warmup = 80L, chains = 1L,
@@ -289,13 +289,13 @@ test_that("triangulate() agrees on sd_<x>_<g> within loosened tolerance (brms vs
   # via skip_on_cran + skip_on_ci. Local-developer rehearsal only.
   d <- mk_slope_data()
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
-  fit_g <- suppressMessages(fb_brms(
+  fit_g <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
     n_samples = 2000L, warmup = 2000L, chains = 2L,
     verbose = FALSE, mcmc_verbose = FALSE
   ))
-  fit_b <- suppressMessages(fb_brms(
+  fit_b <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "brms",
     n_samples = 2000L, warmup = 2000L, chains = 2L,
@@ -345,7 +345,7 @@ test_that("prior_summary() lists the slope-variance prior row for (x || g)", {
   skip_if_no_greta()
   d <- mk_slope_data()
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
@@ -370,7 +370,7 @@ test_that("fit object exposes the slope-variance hyperparameter via draws + vari
   skip_if_no_greta()
   d <- mk_slope_data()
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
     data = d, backend = "greta",
     n_samples = 60L, warmup = 60L, chains = 1L,
@@ -467,7 +467,7 @@ test_that("INLA path refuses (x || g) with v0.3 deferral when verification artef
   testthat::skip_if_not_installed("INLA")
   d <- mk_slope_data()
   err <- tryCatch(
-    suppressMessages(fb_brms(
+    suppressMessages(fb(
       Reaction ~ Days + (Days || Subject),
       data = d, backend = "inla", verbose = FALSE
     )),

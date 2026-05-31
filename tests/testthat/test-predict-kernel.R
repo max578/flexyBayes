@@ -53,7 +53,7 @@ mk_fixed_fit <- function(seed = 20260526L, N = 80L) {
     y = rnorm(N)
   )
   dat$y <- 0.5 + 1.2 * dat$x + rnorm(N, 0, 0.3)
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x, data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = 1,
@@ -68,7 +68,7 @@ mk_ri_fit <- function(seed = 20260526L, N = 80L, J = 4L) {
     g = factor(sample(letters[seq_len(J)], N, replace = TRUE)),
     y = rnorm(N)
   )
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = 1,

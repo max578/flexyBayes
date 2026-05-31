@@ -897,18 +897,38 @@
     plan_field         = NA_character_,
     since_version      = "0.4.1"
   )
+  # ADR 0031 Phase 3.6 (v0.5.0): the universal entry now FITS a native
+  # greta model graph (the deferral the v0.4.1 grammar_greta_via_fb_deferred
+  # code described is gone -- it is removed from the vocabulary). Two
+  # genuine refusals replace it: a native graph requested on a non-greta
+  # engine, and an engine pin handed a conflicting `backend`.
   .register_refusal(
-    reason_code        = "grammar_greta_via_fb_deferred",
+    reason_code        = "native_greta_requires_greta_backend",
     description        = paste0(
-      "A native greta_model was passed to the universal entry; direct ",
-      "ingest is reserved until v0.5.0 (the engine-pin recast)."),
+      "A native greta model graph was passed to the universal entry / the ",
+      "greta pin with a non-greta backend. A native graph is greta-only ",
+      "by construction."),
     message_template   = paste0(
-      "A native greta_model is fit via fb_greta() in v0.4.x. Direct ",
-      "greta_model ingest through fb() / flexybayes() lands at v0.5.0. ",
-      "Pass a formula to fb(), or call fb_greta(model = ...)."),
+      "A native greta model graph is fit by greta::mcmc() and is ",
+      "greta-only by construction; the requested backend cannot fit it. ",
+      "Use backend = \"greta\" (or the default), or rebuild the model in ",
+      "the ASReml / brms formula grammar to reach another engine."),
+    registered_in_adr  = "ADR 0031",
+    plan_field         = "rejected_routes",
+    since_version      = "0.5.0"
+  )
+  .register_refusal(
+    reason_code        = "engine_pin_backend_conflict",
+    description        = paste0(
+      "An engine pin (fb_greta / fb_inla / fb_brms) was given a `backend` ",
+      "argument that conflicts with the engine it pins."),
+    message_template   = paste0(
+      "An engine pin fits via one engine only, so it cannot take a ",
+      "conflicting `backend`. Drop `backend`, or use fb() / flexybayes() ",
+      "to choose a backend."),
     registered_in_adr  = "ADR 0031",
     plan_field         = NA_character_,
-    since_version      = "0.4.1"
+    since_version      = "0.5.0"
   )
 
   invisible(NULL)

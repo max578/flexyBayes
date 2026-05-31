@@ -119,7 +119,7 @@
       [1] TRUE
       
       $.refusal_registry$n_keys
-      [1] 46
+      [1] 47
       
       $.refusal_registry$keys
        [1] "approximate_route_not_yet_registered"         
@@ -138,13 +138,13 @@
       [14] "code_flags_mutually_exclusive"                
       [15] "cov_arg_not_fb_cov"                           
       [16] "design_memory_exceeds_ceiling"                
-      [17] "fa_rank_invalid"                              
-      [18] "fb_cov_missing_matrix"                        
-      [19] "fb_cov_type_unknown"                          
-      [20] "formula_not_two_sided"                        
-      [21] "grammar_brms_known_matrices_unsupported"      
-      [22] "grammar_brms_with_asreml_terms"               
-      [23] "grammar_greta_via_fb_deferred"                
+      [17] "engine_pin_backend_conflict"                  
+      [18] "fa_rank_invalid"                              
+      [19] "fb_cov_missing_matrix"                        
+      [20] "fb_cov_type_unknown"                          
+      [21] "formula_not_two_sided"                        
+      [22] "grammar_brms_known_matrices_unsupported"      
+      [23] "grammar_brms_with_asreml_terms"               
       [24] "heterogeneous_residual_factor_not_in_cell_key"
       [25] "known_matrices_data_name_collision"           
       [26] "known_matrix_dim_mismatch"                    
@@ -154,20 +154,21 @@
       [30] "low_rank_rank_invalid"                        
       [31] "low_rank_requires_greta"                      
       [32] "low_rank_scheme_required"                     
-      [33] "precision_not_in_known_matrices"              
-      [34] "precision_not_positive_definite"              
-      [35] "precision_not_square"                         
-      [36] "precision_not_symmetric"                      
-      [37] "predict_kernel_invalid_include"               
-      [38] "rcov_type_unsupported_for_aggregation"        
-      [39] "representation_unknown_for_preflight"         
-      [40] "response_not_in_data"                         
-      [41] "review_code_backend_unsupported"              
-      [42] "smooth_variable_not_in_data"                  
-      [43] "stan_cannot_represent_structured_cov"         
-      [44] "tensor_smooth_unsupported"                    
-      [45] "unsupported_family"                           
-      [46] "vm_redundant_specification"                   
+      [33] "native_greta_requires_greta_backend"          
+      [34] "precision_not_in_known_matrices"              
+      [35] "precision_not_positive_definite"              
+      [36] "precision_not_square"                         
+      [37] "precision_not_symmetric"                      
+      [38] "predict_kernel_invalid_include"               
+      [39] "rcov_type_unsupported_for_aggregation"        
+      [40] "representation_unknown_for_preflight"         
+      [41] "response_not_in_data"                         
+      [42] "review_code_backend_unsupported"              
+      [43] "smooth_variable_not_in_data"                  
+      [44] "stan_cannot_represent_structured_cov"         
+      [45] "tensor_smooth_unsupported"                    
+      [46] "unsupported_family"                           
+      [47] "vm_redundant_specification"                   
       
       
       $.backend_registry

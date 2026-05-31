@@ -73,7 +73,7 @@ test_that("file output matches the in-memory kernel for a fixed-only model", {
   .fbe_quiet()
   set.seed(101L)
   dat <- data.frame(x = rnorm(60L), y = rnorm(60L))
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x, data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, verbose = FALSE, mcmc_verbose = FALSE))
@@ -113,7 +113,7 @@ test_that("file output matches the in-memory kernel for a population-level RI pr
     x = rnorm(80L),
     g = factor(sample(letters[1:5], 80L, replace = TRUE)),
     y = rnorm(80L))
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = 1,
@@ -140,7 +140,7 @@ test_that("the sampled-new-level file path is reproducible under a fixed seed an
     x = rnorm(80L),
     g = factor(sample(letters[1:5], 80L, replace = TRUE)),
     y = rnorm(80L))
-  fit <- suppressMessages(fb_brms(
+  fit <- suppressMessages(fb(
     y ~ x + (1 | g), data = dat, backend = "greta",
     n_samples = 50L, warmup = 30L, chains = 1L,
     prior_fixed_sd = 10, prior_vc_sd = 1,

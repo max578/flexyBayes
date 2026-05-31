@@ -229,7 +229,7 @@ test_that("flexybayes(): explicit review_code = TRUE, backend = 'inla' refuses",
     flexybayes(yield ~ env, random = ~ geno, data = d,
                verbose = FALSE, mcmc_verbose = FALSE,
                review_code = TRUE, backend = "inla"),
-    'supported only with backend = "greta"', fixed = TRUE
+    'supported with backend = "greta"', fixed = TRUE
   )
 })
 
@@ -252,7 +252,7 @@ test_that("flexybayes(): option-driven review default, backend = 'inla' refuses"
     flexybayes(yield ~ env, random = ~ geno, data = d,
                verbose = FALSE, mcmc_verbose = FALSE,
                backend = "inla"),
-    'supported only with backend = "greta"', fixed = TRUE
+    'supported with backend = "greta"', fixed = TRUE
   )
 })
 
@@ -269,7 +269,7 @@ test_that("flexybayes(): option-driven review default, backend = 'auto' resolves
 test_that("fb_brms(): explicit review_code = TRUE, backend = 'inla' refuses", {
   d <- mk_review_data()
   expect_error(
-    fb_brms(yield ~ env + (1 | geno), data = d,
+    fb(yield ~ env + (1 | geno), data = d,
             verbose = FALSE, mcmc_verbose = FALSE,
             review_code = TRUE, backend = "inla"),
     'supported with', fixed = TRUE
@@ -278,7 +278,7 @@ test_that("fb_brms(): explicit review_code = TRUE, backend = 'inla' refuses", {
 
 test_that("fb_brms(): review_code = TRUE, backend = 'auto' resolves to greta (ADR 0031 Q1)", {
   d <- mk_review_data()
-  rev <- fb_brms(yield ~ env + (1 | geno), data = d,
+  rev <- fb(yield ~ env + (1 | geno), data = d,
                  verbose = FALSE, mcmc_verbose = FALSE,
                  review_code = TRUE, backend = "auto")
   expect_s3_class(rev, "flexybayes_review")
@@ -289,7 +289,7 @@ test_that("fb_brms(): option-driven review default, backend = 'inla' refuses", {
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
   expect_error(
-    fb_brms(yield ~ env + (1 | geno), data = d,
+    fb(yield ~ env + (1 | geno), data = d,
             verbose = FALSE, mcmc_verbose = FALSE,
             backend = "inla"),
     'supported with', fixed = TRUE
@@ -300,7 +300,7 @@ test_that("fb_brms(): option-driven review default, backend = 'auto' resolves to
   d <- mk_review_data()
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
-  rev <- fb_brms(yield ~ env + (1 | geno), data = d,
+  rev <- fb(yield ~ env + (1 | geno), data = d,
                  verbose = FALSE, mcmc_verbose = FALSE,
                  backend = "auto")
   expect_s3_class(rev, "flexybayes_review")

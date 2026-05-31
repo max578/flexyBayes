@@ -137,7 +137,7 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   # single-process loop (was the upstream cause of the test-smooth.R:88
   # suite-order flake the v0.3.9 emit-state migration was tracking).
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
-  fit_g <- suppressMessages(fb_brms(
+  fit_g <- suppressMessages(fb(
     y ~ x + (1 + x || g), data = d, backend = "greta",
     n_samples = 2000L, warmup = 2000L, chains = 1L,
     verbose = FALSE, mcmc_verbose = FALSE
@@ -163,7 +163,7 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   # INLA arm. At v0.2.6 the gate refuses (x || g) by policy --
   # exercise the refusal to record it in the test log.
   err <- tryCatch(
-    suppressMessages(fb_brms(
+    suppressMessages(fb(
       y ~ x + (1 + x || g), data = d, backend = "inla",
       verbose = FALSE
     )),

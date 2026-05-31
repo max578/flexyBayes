@@ -60,7 +60,7 @@ test_that("review large-n: tight ceiling raises preflight refusal before code em
 test_that("review small-n via fb_brms: preflight slot stays NULL", {
   df <- data.frame(y = rnorm(50), x = rnorm(50),
                    g = factor(rep(letters[1:5], 10)))
-  rev <- fb_brms(y ~ x + (1 | g), data = df, review_code = TRUE)
+  rev <- fb(y ~ x + (1 | g), data = df, review_code = TRUE)
 
   expect_s3_class(rev, "flexybayes_review")
   expect_null(rev$preflight)
