@@ -38,7 +38,8 @@ memory profile. A typical setting at large \code{newdata} is
 
 \item{allow_new_levels}{One of \code{"population"} (default), \code{"sample"},
 or \code{"refuse"}. Policy for handling factor levels in \code{newdata}
-that are not in the fit-time dictionary. \code{"population"} sets unknown-level rows to NA on the
+that are not in the fit-time dictionary. \code{"population"} sets
+unknown-level rows to NA on the
 affected column and emits a warning naming the count; downstream
 prediction returns NA for these rows. \code{"refuse"} raises a
 structured stop on the first unknown level. \code{"sample"} (active
