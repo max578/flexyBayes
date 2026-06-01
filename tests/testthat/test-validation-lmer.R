@@ -36,12 +36,15 @@ skip_if_no_greta_quiet <- function() {
 # repeats at the original 2000+2000 budget and 1.0 * REML SE / 25%
 # tolerance, gated by FLEXYBAYES_RUN_STRESS=true. Either path covers
 # the user-facing flexybayes() integration end-to-end.
-.assert_sleepstudy_agreement <- function(fit_b, fit_l,
-                                         fixed_tol_mult,
-                                         vc_rel_tol) {
+.assert_sleepstudy_agreement <- function(
+  fit_b,
+  fit_l,
+  fixed_tol_mult,
+  vc_rel_tol
+) {
   beta_b <- coef(fit_b)
   beta_l <- lme4::fixef(fit_l)
-  se_l   <- sqrt(diag(as.matrix(stats::vcov(fit_l))))
+  se_l <- sqrt(diag(as.matrix(stats::vcov(fit_l))))
 
   # TF non-determinism can sporadically yield a degenerate fit (a
   # non-finite coefficient or variance component) even under a seeded
@@ -50,9 +53,11 @@ skip_if_no_greta_quiet <- function() {
   # downstream comparison error on a non-finite value. A finite-but-
   # disagreeing fit still fails the assertions below, so this guards
   # only the no-information (NaN) hiccup, not a real disagreement.
-  if (!all(is.finite(beta_b)))
+  if (!all(is.finite(beta_b))) {
     testthat::skip(
-      "greta/TF fit produced a non-finite coefficient (TF non-determinism).")
+      "greta/TF fit produced a non-finite coefficient (TF non-determinism)."
+    )
+  }
 
   common <- intersect(names(beta_b), names(beta_l))
   expect_gt(length(common), 0L)
@@ -61,8 +66,13 @@ skip_if_no_greta_quiet <- function() {
     expect_lt(
       abs(beta_b[[term]] - beta_l[[term]]),
       fixed_tol_mult * se_l[[term]],
-      label = paste0("|delta| for ", term, " exceeds ",
-                     fixed_tol_mult, " * REML SE")
+      label = paste0(
+        "|delta| for ",
+        term,
+        " exceeds ",
+        fixed_tol_mult,
+        " * REML SE"
+      )
     )
   }
 
@@ -72,8 +82,8 @@ skip_if_no_greta_quiet <- function() {
   # The lookup uses public canonical names so the test exercises the
   # user-facing surface. See canonical_names() / the canonical-name
   # registry.
-  vc_b   <- fit_b$extras$variance_comps
-  vc_l   <- as.data.frame(lme4::VarCorr(fit_l))
+  vc_b <- fit_b$extras$variance_comps
+  vc_l <- as.data.frame(lme4::VarCorr(fit_l))
 
   cn <- canonical_names(fit_b, drop = FALSE)$map
   vc_b$canonical <- unname(cn[vc_b$component])
@@ -94,21 +104,37 @@ skip_if_no_greta_quiet <- function() {
   # Skip in that case rather than fail; a finite-but-disagreeing fit
   # still produces a real comparison below.
   .finite_scalar <- function(x) length(x) == 1L && is.finite(x)
-  if (!all(vapply(list(sigma_e_b, sigma_e_l, sigma_s_b, sigma_s_l),
-                  .finite_scalar, logical(1))))
+  if (
+    !all(vapply(
+      list(sigma_e_b, sigma_e_l, sigma_s_b, sigma_s_l),
+      .finite_scalar,
+      logical(1)
+    ))
+  ) {
     testthat::skip(
-      "greta/TF fit produced a non-finite or unmatched variance component (TF non-determinism).")
+      "greta/TF fit produced a non-finite or unmatched variance component (TF non-determinism)."
+    )
+  }
 
   expect_lt(
-    abs(sigma_e_b - sigma_e_l) / sigma_e_l, vc_rel_tol,
-    label = paste0("|sigma| (canonical residual SD) relative error vs ",
-                   "REML > ", vc_rel_tol * 100, "%")
+    abs(sigma_e_b - sigma_e_l) / sigma_e_l,
+    vc_rel_tol,
+    label = paste0(
+      "|sigma| (canonical residual SD) relative error vs ",
+      "REML > ",
+      vc_rel_tol * 100,
+      "%"
+    )
   )
 
   expect_lt(
-    abs(sigma_s_b - sigma_s_l) / sigma_s_l, vc_rel_tol,
-    label = paste0("|sd_Subject| (canonical) relative error vs REML > ",
-                   vc_rel_tol * 100, "%")
+    abs(sigma_s_b - sigma_s_l) / sigma_s_l,
+    vc_rel_tol,
+    label = paste0(
+      "|sd_Subject| (canonical) relative error vs REML > ",
+      vc_rel_tol * 100,
+      "%"
+    )
   )
 }
 
@@ -138,49 +164,64 @@ test_that("flexybayes fixed effects agree with lme4 on sleepstudy (primary, TF-s
 
   local_tf_seed(20260427L)
   fit_b <- flexybayes(
-    fixed     = Reaction ~ Days,
-    random    = ~ Subject,
-    data      = sleepstudy,
+    fixed = Reaction ~ Days,
+    random = ~Subject,
+    data = sleepstudy,
     n_samples = 1000,
-    warmup    = 1000,
-    chains    = 2,
-    verbose   = FALSE,
+    warmup = 1000,
+    chains = 2,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   )
 
-  fit_l <- lme4::lmer(Reaction ~ Days + (1 | Subject),
-                       data = sleepstudy, REML = TRUE)
+  fit_l <- lme4::lmer(
+    Reaction ~ Days + (1 | Subject),
+    data = sleepstudy,
+    REML = TRUE
+  )
 
-  .assert_sleepstudy_agreement(fit_b, fit_l,
-                                fixed_tol_mult = 1.5,
-                                vc_rel_tol     = 0.30)
+  .assert_sleepstudy_agreement(
+    fit_b,
+    fit_l,
+    fixed_tol_mult = 1.5,
+    vc_rel_tol = 0.30
+  )
 })
 
 test_that("flexybayes fixed effects agree with lme4 on sleepstudy (stress, strict)", {
   skip_if_no_greta_quiet()
-  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true"))
-    skip("[stress] strict 1.0 * REML SE band; opt-in via FLEXYBAYES_RUN_STRESS=true")
+  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true")) {
+    skip(
+      "[stress] strict 1.0 * REML SE band; opt-in via FLEXYBAYES_RUN_STRESS=true"
+    )
+  }
 
   data(sleepstudy, package = "lme4")
 
   local_tf_seed(20260427L)
   fit_b <- flexybayes(
-    fixed     = Reaction ~ Days,
-    random    = ~ Subject,
-    data      = sleepstudy,
+    fixed = Reaction ~ Days,
+    random = ~Subject,
+    data = sleepstudy,
     n_samples = 2000,
-    warmup    = 2000,
-    chains    = 2,
-    verbose   = FALSE,
+    warmup = 2000,
+    chains = 2,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   )
 
-  fit_l <- lme4::lmer(Reaction ~ Days + (1 | Subject),
-                       data = sleepstudy, REML = TRUE)
+  fit_l <- lme4::lmer(
+    Reaction ~ Days + (1 | Subject),
+    data = sleepstudy,
+    REML = TRUE
+  )
 
-  .assert_sleepstudy_agreement(fit_b, fit_l,
-                                fixed_tol_mult = 1.0,
-                                vc_rel_tol     = 0.25)
+  .assert_sleepstudy_agreement(
+    fit_b,
+    fit_l,
+    fixed_tol_mult = 1.0,
+    vc_rel_tol = 0.25
+  )
 })
 
 test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml available)", {
@@ -191,7 +232,9 @@ test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml
   # the spirit of that rule. Skipping unconditionally; restoring
   # this comparison would require a non-asreml reference implementing
   # the same parameterisation.
-  skip("Skipped per asreml_no_dependency project memory -- see PROJECT_LOG 2026-04-27 follow-ups")
+  skip(
+    "Skipped per asreml_no_dependency project memory -- see PROJECT_LOG 2026-04-27 follow-ups"
+  )
   skip_if_no_greta_quiet()
   testthat::skip_if_not_installed("asreml")
 
@@ -199,13 +242,13 @@ test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml
 
   set.seed(20260427L)
   fit_b <- flexybayes(
-    fixed     = Reaction ~ Days,
-    random    = ~ Subject,
-    data      = sleepstudy,
+    fixed = Reaction ~ Days,
+    random = ~Subject,
+    data = sleepstudy,
     n_samples = 1000,
-    warmup    = 1000,
-    chains    = 2,
-    verbose   = FALSE,
+    warmup = 1000,
+    chains = 2,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   )
 
@@ -213,23 +256,22 @@ test_that("flexybayes fixed effects agree with asreml on sleepstudy (when asreml
   # skip_if_not_installed() above and therefore never runs in CI
   # nor on contributors' machines without an explicit licence.
   fit_a <- asreml::asreml(
-    fixed   = Reaction ~ Days,
-    random  = ~ Subject,
-    data    = sleepstudy,
-    trace   = FALSE
+    fixed = Reaction ~ Days,
+    random = ~Subject,
+    data = sleepstudy,
+    trace = FALSE
   )
 
   beta_b <- coef(fit_b)
   beta_a <- summary(fit_a, coef = TRUE)$coef.fixed
-  beta_a_means <- stats::setNames(beta_a[, "solution"],
-                                   rownames(beta_a))
+  beta_a_means <- stats::setNames(beta_a[, "solution"], rownames(beta_a))
 
   common <- intersect(names(beta_b), names(beta_a_means))
   expect_gt(length(common), 0L)
 
   # asreml produces a vcov via the inverse Average-Information matrix.
   vcov_a <- stats::vcov(fit_a)
-  se_a   <- sqrt(diag(as.matrix(vcov_a)))
+  se_a <- sqrt(diag(as.matrix(vcov_a)))
   names(se_a) <- rownames(vcov_a)
 
   for (term in common) {

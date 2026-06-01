@@ -55,14 +55,18 @@
 # harness lands) compose by adding another argument to this
 # function.
 
-local_flexybayes_clean_state <- function(seed = NULL,
-                                          .local_envir = parent.frame(),
-                                          deterministic_ops = FALSE) {
+local_flexybayes_clean_state <- function(
+  seed = NULL,
+  .local_envir = parent.frame(),
+  deterministic_ops = FALSE
+) {
   local_clean_emit_state(.local_envir = .local_envir)
   if (!is.null(seed)) {
-    local_tf_seed(seed,
-                   .local_envir       = .local_envir,
-                   deterministic_ops = deterministic_ops)
+    local_tf_seed(
+      seed,
+      .local_envir = .local_envir,
+      deterministic_ops = deterministic_ops
+    )
   }
   invisible(NULL)
 }

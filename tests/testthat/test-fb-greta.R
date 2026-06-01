@@ -35,16 +35,16 @@ mk_greta_toy <- function() {
     y = stats::rnorm(n)
   )
   greta::as_data
-  y     <- greta::as_data(dat$y)
-  x     <- greta::as_data(dat$x)
-  b0    <- greta::normal(0, 10)
-  b1    <- greta::normal(0, 10)
+  y <- greta::as_data(dat$y)
+  x <- greta::as_data(dat$x)
+  b0 <- greta::normal(0, 10)
+  b1 <- greta::normal(0, 10)
   sigma <- greta::uniform(0, 5)
-  mu    <- b0 + b1 * x
+  mu <- b0 + b1 * x
   greta::distribution(y) <- greta::normal(mu, sigma)
   list(
     model = greta::model(b0, b1, sigma),
-    data  = dat
+    data = dat
   )
 }
 
@@ -100,8 +100,12 @@ test_that("fb_greta() refuses return_code + review_code combination", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
   err <- tryCatch(
-    fb_greta(toy$model, data = toy$data,
-             return_code = TRUE, review_code = TRUE),
+    fb_greta(
+      toy$model,
+      data = toy$data,
+      return_code = TRUE,
+      review_code = TRUE
+    ),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("mutually exclusive", err, fixed = TRUE))
@@ -124,10 +128,8 @@ test_that("fb_from_greta() builds an IR with source = 'greta'", {
   expect_length(fb$fixed_terms, 0L)
   expect_length(fb$random_terms, 0L)
   expect_true(!is.null(fb$greta_meta))
-  expect_setequal(names(fb$greta_meta$arrays),
-                  c("b0", "b1", "sigma"))
-  expect_setequal(names(fb$greta_meta$canonical_map),
-                  c("b0", "b1", "sigma"))
+  expect_setequal(names(fb$greta_meta$arrays), c("b0", "b1", "sigma"))
+  expect_setequal(names(fb$greta_meta$canonical_map), c("b0", "b1", "sigma"))
   expect_equal(fb$greta_meta$n_data, 30L)
   expect_identical(fb$greta_meta$likelihood, "normal")
   expect_identical(fb$family, "gaussian")
@@ -142,8 +144,11 @@ test_that("fb_from_greta() validates canonical_names membership", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
   err <- tryCatch(
-    fb_from_greta(toy$model, data = toy$data,
-                  canonical_names = c(nonexistent = "X")),
+    fb_from_greta(
+      toy$model,
+      data = toy$data,
+      canonical_names = c(nonexistent = "X")
+    ),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("nonexistent", err, fixed = TRUE))
@@ -154,9 +159,11 @@ test_that("fb_from_greta() applies canonical_names where supplied", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
   fb <- suppressMessages(
-    fb_from_greta(toy$model, data = toy$data,
-                  canonical_names = c(b0 = "(Intercept)",
-                                      b1 = "Days"))
+    fb_from_greta(
+      toy$model,
+      data = toy$data,
+      canonical_names = c(b0 = "(Intercept)", b1 = "Days")
+    )
   )
   expect_identical(fb$greta_meta$canonical_map[["b0"]], "(Intercept)")
   expect_identical(fb$greta_meta$canonical_map[["b1"]], "Days")
@@ -175,13 +182,17 @@ test_that("fb_greta() returns a flexybayes_direct_greta object", {
   # v0.5.0: a canonical-name map is attached at IR-build time via
   # fb_from_greta(); the greta pin then fits the IR.
   ir <- suppressMessages(fb_from_greta(
-    toy$model, data = toy$data,
-    canonical_names = c(b0 = "(Intercept)", b1 = "Days",
-                        sigma = "sigma_e")))
+    toy$model,
+    data = toy$data,
+    canonical_names = c(b0 = "(Intercept)", b1 = "Days", sigma = "sigma_e")
+  ))
   fit <- suppressMessages(fb_greta(
     ir,
-    n_samples = 100L, warmup = 100L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 100L,
+    warmup = 100L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
 
   expect_s3_class(fit, "flexybayes")
@@ -215,9 +226,13 @@ test_that("predict.flexybayes_direct_greta() requires predictor", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
   fit <- suppressMessages(fb_greta(
-    toy$model, data = toy$data,
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    toy$model,
+    data = toy$data,
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
 
   err <- tryCatch(
@@ -247,14 +262,22 @@ test_that("triangulate() runs across two fb_greta() fits", {
   skip_if_no_greta()
   toy <- mk_greta_toy()
   fit_a <- suppressMessages(fb_greta(
-    toy$model, data = toy$data,
-    n_samples = 100L, warmup = 100L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    toy$model,
+    data = toy$data,
+    n_samples = 100L,
+    warmup = 100L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_b <- suppressMessages(fb_greta(
-    toy$model, data = toy$data,
-    n_samples = 100L, warmup = 100L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    toy$model,
+    data = toy$data,
+    n_samples = 100L,
+    warmup = 100L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   tri <- triangulate(fit_a, fit_b)
   expect_true(!is.null(tri))

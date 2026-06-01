@@ -19,26 +19,29 @@
 
 .eq_make_data <- function(family, n = 6e4L, ng = 30L, seed = 909L) {
   set.seed(seed)
-  env_eff  <- c(0, 1.2, -0.7, 0.5)
+  env_eff <- c(0, 1.2, -0.7, 0.5)
   geno_eff <- stats::rnorm(ng, 0, 0.6)
-  env  <- sample(seq_along(env_eff), n, replace = TRUE)
+  env <- sample(seq_along(env_eff), n, replace = TRUE)
   geno <- sample(seq_len(ng), n, replace = TRUE)
-  eta  <- env_eff[env] + geno_eff[geno]
+  eta <- env_eff[env] + geno_eff[geno]
   y <- switch(
     family,
     gaussian = eta + stats::rnorm(n, 0, 1.5),
-    poisson  = stats::rpois(n, exp(eta - 0.5)),
+    poisson = stats::rpois(n, exp(eta - 0.5)),
     binomial = stats::rbinom(n, 1, stats::plogis(eta - 1))
   )
   data.frame(env = factor(env), geno = factor(geno), y = y)
 }
 
 .eq_prior <- function(family) {
-  if (identical(family, "gaussian"))
-    fb_prior(sigma ~ uniform(lower = 0, upper = 10),
-             sd(group = "geno") ~ uniform(lower = 0, upper = 10))
-  else
+  if (identical(family, "gaussian")) {
+    fb_prior(
+      sigma ~ uniform(lower = 0, upper = 10),
+      sd(group = "geno") ~ uniform(lower = 0, upper = 10)
+    )
+  } else {
     fb_prior(sd(group = "geno") ~ uniform(lower = 0, upper = 10))
+  }
 }
 
 for (fam in c("gaussian", "binomial", "poisson")) {
@@ -48,13 +51,26 @@ for (fam in c("gaussian", "binomial", "poisson")) {
     df <- .eq_make_data(fam)
     pr <- .eq_prior(fam)
 
-    f_row <- flexybayes(y ~ env, random = ~ geno, data = df, family = fam,
-                        backend = "inla", aggregate = FALSE, prior = pr,
-                        verbose = FALSE)
-    f_str <- flexybayes_stream(y ~ env, random = ~ geno, source = df,
-                               family = fam, backend = "inla",
-                               chunk_rows = 1.5e4, prior = pr,
-                               verbose = FALSE)
+    f_row <- flexybayes(
+      y ~ env,
+      random = ~geno,
+      data = df,
+      family = fam,
+      backend = "inla",
+      aggregate = FALSE,
+      prior = pr,
+      verbose = FALSE
+    )
+    f_str <- flexybayes_stream(
+      y ~ env,
+      random = ~geno,
+      source = df,
+      family = fam,
+      backend = "inla",
+      chunk_rows = 1.5e4,
+      prior = pr,
+      verbose = FALSE
+    )
 
     br <- .eq_inla_beta(f_row)
     bs <- .eq_inla_beta(f_str)
@@ -75,12 +91,26 @@ for (fam in c("binomial", "poisson")) {
     df <- .eq_make_data(fam, n = 3e4L, ng = 20L, seed = 314L)
     pr <- .eq_prior(fam)
 
-    f_row <- flexybayes(y ~ env, random = ~ geno, data = df, family = fam,
-                        backend = "inla", aggregate = FALSE, prior = pr,
-                        verbose = FALSE)
-    f_agg <- flexybayes(y ~ env, random = ~ geno, data = df, family = fam,
-                        backend = "inla", aggregate = TRUE, prior = pr,
-                        verbose = FALSE)
+    f_row <- flexybayes(
+      y ~ env,
+      random = ~geno,
+      data = df,
+      family = fam,
+      backend = "inla",
+      aggregate = FALSE,
+      prior = pr,
+      verbose = FALSE
+    )
+    f_agg <- flexybayes(
+      y ~ env,
+      random = ~geno,
+      data = df,
+      family = fam,
+      backend = "inla",
+      aggregate = TRUE,
+      prior = pr,
+      verbose = FALSE
+    )
 
     expect_identical(f_agg$exactness, "aggregated_exact")
     expect_identical(backend_decision(f_agg)$path, "aggregated_count")
@@ -97,19 +127,34 @@ for (fam in c("binomial", "poisson")) {
 test_that("a non-Bernoulli binomial response is not auto-aggregated", {
   skip_if_not_installed("INLA")
   set.seed(8L)
-  n  <- 2000L
-  df <- data.frame(env = factor(sample(1:3, n, replace = TRUE)),
-                   y   = stats::rbinom(n, 5L, 0.4))   # counts in 0..5
+  n <- 2000L
+  df <- data.frame(
+    env = factor(sample(1:3, n, replace = TRUE)),
+    y = stats::rbinom(n, 5L, 0.4)
+  ) # counts in 0..5
   # aggregate = TRUE must refuse (cannot recover per-row trials).
   expect_error(
-    flexybayes(y ~ env, data = df, family = "poisson", backend = "inla",
-               aggregate = TRUE, verbose = FALSE),
-    NA  # poisson on these counts is fine and *is* aggregatable
+    flexybayes(
+      y ~ env,
+      data = df,
+      family = "poisson",
+      backend = "inla",
+      aggregate = TRUE,
+      verbose = FALSE
+    ),
+    NA # poisson on these counts is fine and *is* aggregatable
   )
   expect_error(
     suppressWarnings(
-      flexybayes(y ~ env, data = df, family = "binomial", backend = "inla",
-                 aggregate = TRUE, verbose = FALSE)),
+      flexybayes(
+        y ~ env,
+        data = df,
+        family = "binomial",
+        backend = "inla",
+        aggregate = TRUE,
+        verbose = FALSE
+      )
+    ),
     "0/1|Bernoulli|trial"
   )
 })
@@ -123,14 +168,28 @@ test_that("greta streamed-aggregated matches exact INLA within MC error", {
   df <- .eq_make_data("gaussian", n = 3e4L, ng = 20L, seed = 111L)
   pr <- .eq_prior("gaussian")
 
-  f_inla <- flexybayes_stream(y ~ env, random = ~ geno, source = df,
-                              family = "gaussian", backend = "inla",
-                              prior = pr, verbose = FALSE)
+  f_inla <- flexybayes_stream(
+    y ~ env,
+    random = ~geno,
+    source = df,
+    family = "gaussian",
+    backend = "inla",
+    prior = pr,
+    verbose = FALSE
+  )
   set.seed(2024L)
-  f_greta <- flexybayes_stream(y ~ env, random = ~ geno, source = df,
-                               family = "gaussian", backend = "greta",
-                               n_samples = 600L, warmup = 600L, chains = 2L,
-                               verbose = FALSE, mcmc_verbose = FALSE)
+  f_greta <- flexybayes_stream(
+    y ~ env,
+    random = ~geno,
+    source = df,
+    family = "gaussian",
+    backend = "greta",
+    n_samples = 600L,
+    warmup = 600L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  )
 
   bi <- coef(f_inla)
   bg <- coef(f_greta)

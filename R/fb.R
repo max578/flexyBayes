@@ -60,32 +60,42 @@
 #' ir <- fb_from_asreml(yield ~ env, random = ~ geno, data = df)
 #' class(ir)
 #' @export
-fb_from_asreml <- function(fixed,
-                           random         = NULL,
-                           rcov           = NULL,
-                           data,
-                           family         = "gaussian",
-                           link           = NULL,
-                           weights        = NULL,
-                           known_matrices = list(),
-                           prior          = NULL,
-                           prior_fixed_sd = 100,
-                           prior_vc_sd    = 1) {
-
+fb_from_asreml <- function(
+  fixed,
+  random = NULL,
+  rcov = NULL,
+  data,
+  family = "gaussian",
+  link = NULL,
+  weights = NULL,
+  known_matrices = list(),
+  prior = NULL,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1
+) {
   # Delegate parsing to existing helpers verbatim -- no behaviour
   # change relative to flexybayes().
-  fixed_info   <- .parse_fixed(fixed, data)
-  random_terms <- if (!is.null(random))
-    .parse_formula(random, data) else list()
-  rcov_terms   <- if (!is.null(rcov))
-    .parse_formula(rcov, data) else list(list(type = "units"))
-  fam_link     <- .resolve_family(family, link)
+  fixed_info <- .parse_fixed(fixed, data)
+  random_terms <- if (!is.null(random)) {
+    .parse_formula(random, data)
+  } else {
+    list()
+  }
+  rcov_terms <- if (!is.null(rcov)) {
+    .parse_formula(rcov, data)
+  } else {
+    list(list(type = "units"))
+  }
+  fam_link <- .resolve_family(family, link)
 
   # weights -> addition_terms (per IR design sketch Sec.2)
   addition_terms <- if (!is.null(weights)) {
-    if (!is.numeric(weights) || length(weights) != nrow(data))
-      stop("`weights` must be a numeric vector of length nrow(data).",
-           call. = FALSE)
+    if (!is.numeric(weights) || length(weights) != nrow(data)) {
+      stop(
+        "`weights` must be a numeric vector of length nrow(data).",
+        call. = FALSE
+      )
+    }
     list(list(type = "weights", values = weights))
   } else {
     list()
@@ -97,29 +107,27 @@ fb_from_asreml <- function(fixed,
   priors <- if (!is.null(prior)) {
     prior
   } else {
-    list(fixed_sd = prior_fixed_sd,
-         vc_sd    = prior_vc_sd,
-         legacy   = TRUE)
+    list(fixed_sd = prior_fixed_sd, vc_sd = prior_vc_sd, legacy = TRUE)
   }
 
   data_summary <- list(
-    n              = nrow(data),
+    n = nrow(data),
     known_matrices = names(known_matrices)
   )
 
   new_fb_terms(
-    response       = fixed_info$response,
-    family         = fam_link$family,
-    link           = fam_link$link,
-    intercept      = fixed_info$intercept,
-    fixed_terms    = fixed_info$terms,
-    random_terms   = random_terms,
-    rcov_terms     = rcov_terms,
+    response = fixed_info$response,
+    family = fam_link$family,
+    link = fam_link$link,
+    intercept = fixed_info$intercept,
+    fixed_terms = fixed_info$terms,
+    random_terms = random_terms,
+    rcov_terms = rcov_terms,
     addition_terms = addition_terms,
-    priors         = priors,
-    data_summary   = data_summary,
-    capabilities   = character(),
-    source         = "asreml"
+    priors = priors,
+    data_summary = data_summary,
+    capabilities = character(),
+    source = "asreml"
   )
 }
 
@@ -141,11 +149,16 @@ fb_from_asreml <- function(fixed,
 # A non-formula, non-greta `spec` falls through to "asreml" so the
 # established fb_from_asreml() validation owns the error message
 # (behaviour-preserving for malformed input).
-.detect_grammar <- function(spec, random = NULL, rcov = NULL,
-                            syntax = "auto") {
-  if (!identical(syntax, "auto")) return(syntax)
-  if (inherits(spec, "greta_model"))  return("greta")
-  if (inherits(spec, "brmsformula"))  return("brms")
+.detect_grammar <- function(spec, random = NULL, rcov = NULL, syntax = "auto") {
+  if (!identical(syntax, "auto")) {
+    return(syntax)
+  }
+  if (inherits(spec, "greta_model")) {
+    return("greta")
+  }
+  if (inherits(spec, "brmsformula")) {
+    return("brms")
+  }
   if (inherits(spec, "formula")) {
     has_bar <- any(grepl("|", as.character(spec), fixed = TRUE))
     if (has_bar) return("brms")
@@ -171,85 +184,113 @@ fb_from_asreml <- function(fixed,
 #     brms IRs are NOT accepted here: their emit-display path still needs
 #     the original formula triple, so those route through the formula
 #     entry instead.
-.build_ir_polymorphic <- function(fixed, random, rcov, data, family, link,
-                                  weights, known_matrices, prior,
-                                  prior_fixed_sd, prior_vc_sd,
-                                  syntax = "auto") {
+.build_ir_polymorphic <- function(
+  fixed,
+  random,
+  rcov,
+  data,
+  family,
+  link,
+  weights,
+  known_matrices,
+  prior,
+  prior_fixed_sd,
+  prior_vc_sd,
+  syntax = "auto"
+) {
   # Prebuilt-IR passthrough (greta-source only).
   if (inherits(fixed, "fb_terms")) {
-    if (!identical(fixed$source, "greta"))
-      stop("fb() / flexybayes() accept a prebuilt IR only for the ",
-           "greta-native source (fb_from_greta()). For an asreml / brms ",
-           "IR, pass the original formula to flexybayes() / fb() (or call ",
-           "the matching engine pin) so the emit-display path has the ",
-           "formula triple.", call. = FALSE)
-    if (!is.null(random) || !is.null(rcov) || length(known_matrices))
-      stop("A prebuilt greta-source IR already encodes the full model ",
-           "graph; it cannot be combined with `random`, `rcov`, or ",
-           "`known_matrices`.", call. = FALSE)
+    if (!identical(fixed$source, "greta")) {
+      stop(
+        "fb() / flexybayes() accept a prebuilt IR only for the ",
+        "greta-native source (fb_from_greta()). For an asreml / brms ",
+        "IR, pass the original formula to flexybayes() / fb() (or call ",
+        "the matching engine pin) so the emit-display path has the ",
+        "formula triple.",
+        call. = FALSE
+      )
+    }
+    if (!is.null(random) || !is.null(rcov) || length(known_matrices)) {
+      stop(
+        "A prebuilt greta-source IR already encodes the full model ",
+        "graph; it cannot be combined with `random`, `rcov`, or ",
+        "`known_matrices`.",
+        call. = FALSE
+      )
+    }
     return(fixed)
   }
 
   grammar <- .detect_grammar(fixed, random, rcov, syntax)
-  switch(grammar,
+  switch(
+    grammar,
     asreml = fb_from_asreml(
-      fixed          = fixed,
-      random         = random,
-      rcov           = rcov,
-      data           = data,
-      family         = family,
-      link           = link,
-      weights        = weights,
+      fixed = fixed,
+      random = random,
+      rcov = rcov,
+      data = data,
+      family = family,
+      link = link,
+      weights = weights,
       known_matrices = known_matrices,
-      prior          = prior,
+      prior = prior,
       prior_fixed_sd = prior_fixed_sd,
-      prior_vc_sd    = prior_vc_sd
+      prior_vc_sd = prior_vc_sd
     ),
     brms = {
-      if (!is.null(random) || !is.null(rcov))
+      if (!is.null(random) || !is.null(rcov)) {
         stop(.fb_refusal_condition(
-          reason_code  = "grammar_brms_with_asreml_terms",
-          message      = paste0(
+          reason_code = "grammar_brms_with_asreml_terms",
+          message = paste0(
             "A brms-style formula (with `(... | g)` grouping) cannot be ",
             "combined with `random` / `rcov` (ASReml grammar). Put every ",
             "grouping term inside the formula, or use the ASReml ",
-            "`fixed` / `random` / `rcov` form throughout."),
-          family_class = "flexybayes_grammar_brms_with_asreml_terms"))
-      if (length(known_matrices) > 0L)
+            "`fixed` / `random` / `rcov` form throughout."
+          ),
+          family_class = "flexybayes_grammar_brms_with_asreml_terms"
+        ))
+      }
+      if (length(known_matrices) > 0L) {
         stop(.fb_refusal_condition(
-          reason_code  = "grammar_brms_known_matrices_unsupported",
-          message      = paste0(
+          reason_code = "grammar_brms_known_matrices_unsupported",
+          message = paste0(
             "`known_matrices` is not supported with brms-grammar ingest ",
             "via fb() / flexybayes(). Use the ASReml form ",
             "(flexybayes(fixed = , random = , known_matrices = ) or ",
-            "fb_from_asreml()) for known-matrix carriers."),
-          family_class =
-            "flexybayes_grammar_brms_known_matrices_unsupported"))
+            "fb_from_asreml()) for known-matrix carriers."
+          ),
+          family_class = "flexybayes_grammar_brms_known_matrices_unsupported"
+        ))
+      }
       fb_from_brms(
-        formula        = fixed,
-        data           = data,
-        family         = family,
-        link           = link,
-        prior          = prior,
-        weights        = weights,
+        formula = fixed,
+        data = data,
+        family = family,
+        link = link,
+        prior = prior,
+        weights = weights,
         prior_fixed_sd = prior_fixed_sd,
-        prior_vc_sd    = prior_vc_sd
+        prior_vc_sd = prior_vc_sd
       )
     },
     greta = {
       # A native greta_model graph. It carries its own data and priors,
       # so the ASReml `random` / `rcov` arguments are a category error
       # here -- the structure lives in the graph, not in formula terms.
-      if (!is.null(random) || !is.null(rcov))
-        stop("A native greta_model encodes its full structure in the ",
-             "graph; it cannot be combined with `random` / `rcov`. Build ",
-             "the model with greta primitives, or use the ASReml / brms ",
-             "formula grammar.", call. = FALSE)
+      if (!is.null(random) || !is.null(rcov)) {
+        stop(
+          "A native greta_model encodes its full structure in the ",
+          "graph; it cannot be combined with `random` / `rcov`. Build ",
+          "the model with greta primitives, or use the ASReml / brms ",
+          "formula grammar.",
+          call. = FALSE
+        )
+      }
       fb_from_greta(
-        model           = fixed,
-        data            = data,
-        prior           = prior,
-        known_matrices  = known_matrices
+        model = fixed,
+        data = data,
+        prior = prior,
+        known_matrices = known_matrices
       )
     }
   )

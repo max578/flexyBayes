@@ -10,9 +10,12 @@
 #     before any backend code runs.
 
 test_that("review small-n: preflight slot is NULL; print unchanged", {
-  df <- data.frame(y = rnorm(50), x = rnorm(50),
-                   g = factor(rep(letters[1:5], 10)))
-  rev <- flexybayes(y ~ x, random = ~ g, data = df, review_code = TRUE)
+  df <- data.frame(
+    y = rnorm(50),
+    x = rnorm(50),
+    g = factor(rep(letters[1:5], 10))
+  )
+  rev <- flexybayes(y ~ x, random = ~g, data = df, review_code = TRUE)
 
   expect_s3_class(rev, "flexybayes_review")
   expect_null(rev$preflight)
@@ -28,7 +31,7 @@ test_that("review large-n: preflight attaches; print shows the summary", {
     y = rnorm(N),
     g = factor(sample.int(50L, N, replace = TRUE))
   )
-  rev <- flexybayes(y ~ 1, random = ~ g, data = df, review_code = TRUE)
+  rev <- flexybayes(y ~ 1, random = ~g, data = df, review_code = TRUE)
 
   expect_s3_class(rev, "flexybayes_review")
   expect_s3_class(rev$preflight, "fb_preflight")
@@ -36,8 +39,8 @@ test_that("review large-n: preflight attaches; print shows the summary", {
 
   out <- capture.output(print(rev))
   expect_true(any(grepl("Preflight summary", out, fixed = TRUE)))
-  expect_true(any(grepl("(1 | g)",           out, fixed = TRUE)))
-  expect_true(any(grepl("ceiling",           out, fixed = TRUE)))
+  expect_true(any(grepl("(1 | g)", out, fixed = TRUE)))
+  expect_true(any(grepl("ceiling", out, fixed = TRUE)))
 })
 
 test_that("review large-n: tight ceiling raises preflight refusal before code emit", {
@@ -49,17 +52,20 @@ test_that("review large-n: tight ceiling raises preflight refusal before code em
   withr::local_options(flexyBayes.preflight_ceiling_gb = 0.0001)
 
   err <- tryCatch(
-    flexybayes(y ~ 1, random = ~ g, data = df, review_code = TRUE),
+    flexybayes(y ~ 1, random = ~g, data = df, review_code = TRUE),
     flexybayes_preflight_refusal = function(c) c,
-    error                        = function(e) e
+    error = function(e) e
   )
   expect_s3_class(err, "flexybayes_preflight_refusal")
   expect_identical(err$reason_code, "design_memory_exceeds_ceiling")
 })
 
 test_that("review small-n via fb_brms: preflight slot stays NULL", {
-  df <- data.frame(y = rnorm(50), x = rnorm(50),
-                   g = factor(rep(letters[1:5], 10)))
+  df <- data.frame(
+    y = rnorm(50),
+    x = rnorm(50),
+    g = factor(rep(letters[1:5], 10))
+  )
   rev <- fb(y ~ x + (1 | g), data = df, review_code = TRUE)
 
   expect_s3_class(rev, "flexybayes_review")

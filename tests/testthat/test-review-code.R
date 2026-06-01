@@ -27,8 +27,8 @@ mk_review_data <- function() {
   n <- 30L
   data.frame(
     yield = rnorm(n, mean = 100, sd = 10),
-    env   = factor(rep(1:3, length.out = n)),
-    geno  = factor(rep(1:5, length.out = n))
+    env = factor(rep(1:3, length.out = n)),
+    geno = factor(rep(1:5, length.out = n))
   )
 }
 
@@ -42,8 +42,11 @@ test_that("review_code = TRUE returns a flexybayes_review with the expected fiel
   testthat::skip_if_not_installed("greta")
   d <- mk_review_data()
   rev <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
 
@@ -72,8 +75,11 @@ test_that("print(<flexybayes_review>) emits the two-line summary", {
   testthat::skip_if_not_installed("greta")
   d <- mk_review_data()
   rev <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
 
@@ -82,7 +88,7 @@ test_that("print(<flexybayes_review>) emits the two-line summary", {
   expect_match(out[[1]], "^<flexybayes_review>")
   expect_match(out[[1]], "backend=greta")
   expect_match(out[[2]], "cat_code", fixed = TRUE)
-  expect_match(out[[2]], "proceed",  fixed = TRUE)
+  expect_match(out[[2]], "proceed", fixed = TRUE)
 })
 
 
@@ -94,8 +100,11 @@ test_that("cat_code(rev) emits and returns the stored code", {
   testthat::skip_if_not_installed("greta")
   d <- mk_review_data()
   rev <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
 
@@ -116,9 +125,14 @@ test_that("proceed(rev) advances into a fit and caches the result", {
 
   set.seed(20260521L)
   rev <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    n_samples = 200, warmup = 200, chains = 1,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    n_samples = 200,
+    warmup = 200,
+    chains = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
   # Seed slot is populated from the user's set.seed() above.
@@ -148,12 +162,16 @@ test_that("proceed(rev) advances into a fit and caches the result", {
 test_that("return_code + review_code raises a structured refusal", {
   # The mutual-exclusion guard fires before any backend work, so this
   # does not need greta installed.
-  d   <- mk_review_data()
+  d <- mk_review_data()
   err <- tryCatch(
     flexybayes(
-      yield ~ env, random = ~ geno, data = d,
-      verbose = FALSE, mcmc_verbose = FALSE,
-      return_code = TRUE, review_code = TRUE
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      return_code = TRUE,
+      review_code = TRUE
     ),
     error = function(e) e
   )
@@ -177,15 +195,21 @@ test_that("review objects built at the same outer seed carry identical code + se
 
   set.seed(20260521L)
   rev_a <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
 
   set.seed(20260521L)
   rev_b <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE,
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
     review_code = TRUE
   )
 
@@ -207,8 +231,11 @@ test_that("flexyBayes.review_code_default opts a call into review mode", {
   on.exit(options(prev_opt), add = TRUE)
 
   rev <- flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    verbose = FALSE, mcmc_verbose = FALSE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
   expect_s3_class(rev, "flexybayes_review")
 })
@@ -226,10 +253,17 @@ test_that("flexyBayes.review_code_default opts a call into review mode", {
 test_that("flexybayes(): explicit review_code = TRUE, backend = 'inla' refuses", {
   d <- mk_review_data()
   expect_error(
-    flexybayes(yield ~ env, random = ~ geno, data = d,
-               verbose = FALSE, mcmc_verbose = FALSE,
-               review_code = TRUE, backend = "inla"),
-    'supported with backend = "greta"', fixed = TRUE
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      review_code = TRUE,
+      backend = "inla"
+    ),
+    'supported with backend = "greta"',
+    fixed = TRUE
   )
 })
 
@@ -238,9 +272,15 @@ test_that("flexybayes(): explicit review_code = TRUE, backend = 'inla' refuses",
 # still refuses (tests above/below).
 test_that("flexybayes(): review_code = TRUE, backend = 'auto' resolves to greta (ADR 0031 Q1)", {
   d <- mk_review_data()
-  rev <- flexybayes(yield ~ env, random = ~ geno, data = d,
-                    verbose = FALSE, mcmc_verbose = FALSE,
-                    review_code = TRUE, backend = "auto")
+  rev <- flexybayes(
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
+    review_code = TRUE,
+    backend = "auto"
+  )
   expect_s3_class(rev, "flexybayes_review")
 })
 
@@ -249,10 +289,16 @@ test_that("flexybayes(): option-driven review default, backend = 'inla' refuses"
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
   expect_error(
-    flexybayes(yield ~ env, random = ~ geno, data = d,
-               verbose = FALSE, mcmc_verbose = FALSE,
-               backend = "inla"),
-    'supported with backend = "greta"', fixed = TRUE
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      backend = "inla"
+    ),
+    'supported with backend = "greta"',
+    fixed = TRUE
   )
 })
 
@@ -260,27 +306,43 @@ test_that("flexybayes(): option-driven review default, backend = 'auto' resolves
   d <- mk_review_data()
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
-  rev <- flexybayes(yield ~ env, random = ~ geno, data = d,
-                    verbose = FALSE, mcmc_verbose = FALSE,
-                    backend = "auto")
+  rev <- flexybayes(
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
+    backend = "auto"
+  )
   expect_s3_class(rev, "flexybayes_review")
 })
 
 test_that("fb_brms(): explicit review_code = TRUE, backend = 'inla' refuses", {
   d <- mk_review_data()
   expect_error(
-    fb(yield ~ env + (1 | geno), data = d,
-            verbose = FALSE, mcmc_verbose = FALSE,
-            review_code = TRUE, backend = "inla"),
-    'supported with', fixed = TRUE
+    fb(
+      yield ~ env + (1 | geno),
+      data = d,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      review_code = TRUE,
+      backend = "inla"
+    ),
+    'supported with',
+    fixed = TRUE
   )
 })
 
 test_that("fb_brms(): review_code = TRUE, backend = 'auto' resolves to greta (ADR 0031 Q1)", {
   d <- mk_review_data()
-  rev <- fb(yield ~ env + (1 | geno), data = d,
-                 verbose = FALSE, mcmc_verbose = FALSE,
-                 review_code = TRUE, backend = "auto")
+  rev <- fb(
+    yield ~ env + (1 | geno),
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
+    review_code = TRUE,
+    backend = "auto"
+  )
   expect_s3_class(rev, "flexybayes_review")
 })
 
@@ -289,10 +351,15 @@ test_that("fb_brms(): option-driven review default, backend = 'inla' refuses", {
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
   expect_error(
-    fb(yield ~ env + (1 | geno), data = d,
-            verbose = FALSE, mcmc_verbose = FALSE,
-            backend = "inla"),
-    'supported with', fixed = TRUE
+    fb(
+      yield ~ env + (1 | geno),
+      data = d,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      backend = "inla"
+    ),
+    'supported with',
+    fixed = TRUE
   )
 })
 
@@ -300,8 +367,12 @@ test_that("fb_brms(): option-driven review default, backend = 'auto' resolves to
   d <- mk_review_data()
   prev_opt <- options(flexyBayes.review_code_default = TRUE)
   on.exit(options(prev_opt), add = TRUE)
-  rev <- fb(yield ~ env + (1 | geno), data = d,
-                 verbose = FALSE, mcmc_verbose = FALSE,
-                 backend = "auto")
+  rev <- fb(
+    yield ~ env + (1 | geno),
+    data = d,
+    verbose = FALSE,
+    mcmc_verbose = FALSE,
+    backend = "auto"
+  )
   expect_s3_class(rev, "flexybayes_review")
 })

@@ -16,25 +16,45 @@
 # `key` is "__sigma__" for residual sd; otherwise the random-effect
 # group / smoother variable name.
 .sigma_decl <- function(ctx, lhs, key) {
-  unif <- if (!is.null(ctx$uniform_per_vc))
-    ctx$uniform_per_vc[[key]] else NULL
-  if (!is.null(unif) && is.finite(unif$upper) && unif$upper > 0 &&
-      is.finite(unif$lower) && unif$lower >= 0 &&
-      unif$upper > unif$lower) {
-    return(paste0(lhs, " <- greta::uniform(",
-                  format(unif$lower, scientific = FALSE,
-                         trim = TRUE), ", ",
-                  format(unif$upper, scientific = FALSE,
-                         trim = TRUE), ")"))
+  unif <- if (!is.null(ctx$uniform_per_vc)) {
+    ctx$uniform_per_vc[[key]]
+  } else {
+    NULL
+  }
+  if (
+    !is.null(unif) &&
+      is.finite(unif$upper) &&
+      unif$upper > 0 &&
+      is.finite(unif$lower) &&
+      unif$lower >= 0 &&
+      unif$upper > unif$lower
+  ) {
+    return(paste0(
+      lhs,
+      " <- greta::uniform(",
+      format(unif$lower, scientific = FALSE, trim = TRUE),
+      ", ",
+      format(unif$upper, scientific = FALSE, trim = TRUE),
+      ")"
+    ))
   }
 
   pc <- if (!is.null(ctx$pc_per_vc)) ctx$pc_per_vc[[key]] else NULL
-  if (!is.null(pc) && is.finite(pc$upper) && pc$upper > 0 &&
-      is.finite(pc$prob) && pc$prob > 0 && pc$prob < 1) {
+  if (
+    !is.null(pc) &&
+      is.finite(pc$upper) &&
+      pc$upper > 0 &&
+      is.finite(pc$prob) &&
+      pc$prob > 0 &&
+      pc$prob < 1
+  ) {
     rate <- -log(pc$prob) / pc$upper
-    paste0(lhs, " <- greta::exponential(rate = ",
-           formatC(rate, format = "g", digits = 17,
-                    drop0trailing = TRUE), ")")
+    paste0(
+      lhs,
+      " <- greta::exponential(rate = ",
+      formatC(rate, format = "g", digits = 17, drop0trailing = TRUE),
+      ")"
+    )
   } else {
     paste0(lhs, " <- greta::lognormal(0, ", ctx$prior_vc, ")")
   }
@@ -43,7 +63,10 @@
 # Generate code for fixed effects
 .code_fixed <- function(ctx, fixed_info) {
   psd <- ctx$prior_fx
-  ctx <- .add(ctx, "# -- Fixed effects -------------------------------------------")
+  ctx <- .add(
+    ctx,
+    "# -- Fixed effects -------------------------------------------"
+  )
 
   # Intercept
   if (fixed_info$intercept) {
@@ -53,17 +76,34 @@
   }
 
   for (term in fixed_info$terms) {
-    ctx <- switch(term$type,
+    ctx <- switch(
+      term$type,
       "factor" = {
         tag <- term$var
         if (fixed_info$intercept) {
-          ctx <- .add(ctx, "tau_", tag, " <- normal(0, ", psd,
-                      ", dim = n_", tag, ")")
+          ctx <- .add(
+            ctx,
+            "tau_",
+            tag,
+            " <- normal(0, ",
+            psd,
+            ", dim = n_",
+            tag,
+            ")"
+          )
           ctx <- .add_param(ctx, paste0("tau_", tag))
           ctx <- .add_pred(ctx, paste0("tau_", tag, "[", tag, "_id]"))
         } else {
-          ctx <- .add(ctx, "alpha_", tag, " <- normal(0, ", psd,
-                      ", dim = n_", tag, ")")
+          ctx <- .add(
+            ctx,
+            "alpha_",
+            tag,
+            " <- normal(0, ",
+            psd,
+            ", dim = n_",
+            tag,
+            ")"
+          )
           ctx <- .add_param(ctx, paste0("alpha_", tag))
           ctx <- .add_pred(ctx, paste0("alpha_", tag, "[", tag, "_id]"))
         }
@@ -79,25 +119,44 @@
       "factor_interaction" = {
         tag <- paste(term$vars, collapse = "_x_")
         if (fixed_info$intercept) {
-          ctx <- .add(ctx, "tau_", tag, " <- normal(0, ", psd,
-                      ", dim = n_", tag, ")")
+          ctx <- .add(
+            ctx,
+            "tau_",
+            tag,
+            " <- normal(0, ",
+            psd,
+            ", dim = n_",
+            tag,
+            ")"
+          )
           ctx <- .add_param(ctx, paste0("tau_", tag))
           ctx <- .add_pred(ctx, paste0("tau_", tag, "[", tag, "_id]"))
         } else {
-          ctx <- .add(ctx, "alpha_", tag, " <- normal(0, ", psd,
-                      ", dim = n_", tag, ")")
+          ctx <- .add(
+            ctx,
+            "alpha_",
+            tag,
+            " <- normal(0, ",
+            psd,
+            ", dim = n_",
+            tag,
+            ")"
+          )
           ctx <- .add_param(ctx, paste0("alpha_", tag))
           ctx <- .add_pred(ctx, paste0("alpha_", tag, "[", tag, "_id]"))
         }
         ctx
       },
       "interaction" = {
-        v1 <- term$vars[1]; v2 <- term$vars[2]
+        v1 <- term$vars[1]
+        v2 <- term$vars[2]
         tag <- paste0(v1, "_x_", v2)
         ctx <- .add(ctx, "beta_", tag, " <- normal(0, ", psd, ")")
         ctx <- .add_param(ctx, paste0("beta_", tag))
-        ctx <- .add_pred(ctx,
-          paste0("beta_", tag, " * as_data(", v1, ") * as_data(", v2, ")"))
+        ctx <- .add_pred(
+          ctx,
+          paste0("beta_", tag, " * as_data(", v1, ") * as_data(", v2, ")")
+        )
         ctx
       },
       # ADR 0019 (Stage 1A, v0.2.6) -- treatment-coded indexed slopes
@@ -123,14 +182,20 @@
       # The chosen path is recorded on the dispatch trace via
       # ctx$factor_continuous_emit so downstream tooling can audit.
       "factor_numeric_interaction" = {
-        fac <- term$factor; con <- term$continuous
+        fac <- term$factor
+        con <- term$continuous
         tag <- paste0(fac, "_", con)
         use_option_d <- isTRUE(getOption(
-          "flexyBayes.force_option_d", FALSE))
+          "flexyBayes.force_option_d",
+          FALSE
+        ))
         # Track which emit path fired so it can be threaded into
         # parse_info$factor_continuous_emit downstream.
-        ctx$factor_continuous_emit <- if (use_option_d)
-          "option_d" else "option_c"
+        ctx$factor_continuous_emit <- if (use_option_d) {
+          "option_d"
+        } else {
+          "option_c"
+        }
 
         if (!use_option_d) {
           # Option C: c(zeros(1), raw deviations). The bare `c()` call
@@ -138,39 +203,76 @@
           # in the greta namespace) -- the qualified form
           # `greta::c(...)` fails because `c` is not exported from the
           # greta namespace (only the S3 method is registered).
-          ctx <- .add(ctx,
-            "slope_dev_", tag, "_raw <- normal(0, ", psd,
-            ", dim = n_", fac, " - 1L)")
-          ctx <- .add(ctx,
-            "slope_dev_", tag, " <- c(zeros(1), ",
-            "slope_dev_", tag, "_raw)")
+          ctx <- .add(
+            ctx,
+            "slope_dev_",
+            tag,
+            "_raw <- normal(0, ",
+            psd,
+            ", dim = n_",
+            fac,
+            " - 1L)"
+          )
+          ctx <- .add(
+            ctx,
+            "slope_dev_",
+            tag,
+            " <- c(zeros(1), ",
+            "slope_dev_",
+            tag,
+            "_raw)"
+          )
           ctx <- .add_param(ctx, paste0("slope_dev_", tag, "_raw"))
-          ctx <- .add_pred(ctx,
-            paste0("as_data(", con, ") * slope_dev_", tag,
-                   "[", fac, "_id]"))
+          ctx <- .add_pred(
+            ctx,
+            paste0("as_data(", con, ") * slope_dev_", tag, "[", fac, "_id]")
+          )
         } else {
           # Option D: per-observation lookup with reference-row mask.
-          ctx <- .add(ctx,
-            "slope_dev_", tag, "_raw <- normal(0, ", psd,
-            ", dim = n_", fac, " - 1L)")
-          ctx <- .add(ctx,
-            "slope_dev_", tag, "_per_obs <- (1 - as_data(",
-            tag, "_is_ref_obs)) * slope_dev_", tag, "_raw[",
-            "as_data(", tag, "_shifted_idx)]")
+          ctx <- .add(
+            ctx,
+            "slope_dev_",
+            tag,
+            "_raw <- normal(0, ",
+            psd,
+            ", dim = n_",
+            fac,
+            " - 1L)"
+          )
+          ctx <- .add(
+            ctx,
+            "slope_dev_",
+            tag,
+            "_per_obs <- (1 - as_data(",
+            tag,
+            "_is_ref_obs)) * slope_dev_",
+            tag,
+            "_raw[",
+            "as_data(",
+            tag,
+            "_shifted_idx)]"
+          )
           ctx <- .add_param(ctx, paste0("slope_dev_", tag, "_raw"))
-          ctx <- .add_pred(ctx,
-            paste0("as_data(", con, ") * slope_dev_", tag,
-                   "_per_obs"))
+          ctx <- .add_pred(
+            ctx,
+            paste0("as_data(", con, ") * slope_dev_", tag, "_per_obs")
+          )
         }
         ctx
       },
       "expression" = {
-        raw_lbl  <- term$label
-        tag      <- gsub("[^A-Za-z0-9_]", "_", raw_lbl)
-        inner    <- gsub("^I\\((.*)\\)$", "\\1", trimws(raw_lbl))
+        raw_lbl <- term$label
+        tag <- gsub("[^A-Za-z0-9_]", "_", raw_lbl)
+        inner <- gsub("^I\\((.*)\\)$", "\\1", trimws(raw_lbl))
         ctx <- .add(ctx, "beta_", tag, " <- normal(0, ", psd, ")")
-        ctx <- .add(ctx, "x_", tag,
-                    " <- as_data(as.numeric(with(dat_atg, ", inner, ")))")
+        ctx <- .add(
+          ctx,
+          "x_",
+          tag,
+          " <- as_data(as.numeric(with(dat_atg, ",
+          inner,
+          ")))"
+        )
         ctx <- .add_param(ctx, paste0("beta_", tag))
         ctx <- .add_pred(ctx, paste0("beta_", tag, " * x_", tag))
         ctx
@@ -183,17 +285,25 @@
 
 # Generate code for random effects
 .code_random <- function(ctx, random_terms, data, known_matrices) {
-  if (length(random_terms) == 0) return(ctx)
-  ctx <- .add(ctx, "# -- Random effects ------------------------------------------")
+  if (length(random_terms) == 0) {
+    return(ctx)
+  }
+  ctx <- .add(
+    ctx,
+    "# -- Random effects ------------------------------------------"
+  )
 
   for (i in seq_along(random_terms)) {
     term <- random_terms[[i]]
-    pvc  <- ctx$prior_vc
+    pvc <- ctx$prior_vc
 
-    ctx <- switch(term$type,
+    ctx <- switch(
+      term$type,
 
       # iid (simple, ide, id)
-      "simple" = , "ide" = , "id" = {
+      "simple" = ,
+      "ide" = ,
+      "id" = {
         tag <- term$var
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = n_", tag, ")")
@@ -214,33 +324,40 @@
       # sigma_<group> -> sd_<group> greta canonical-name rule
       # produces canonical sd_<x>_<g> automatically.
       "simple_slope_uncor" = {
-        gtag  <- term$var
-        sv    <- term$slope_var
+        gtag <- term$var
+        sv <- term$slope_var
         slope_tag <- paste0(sv, "_", gtag)
         if (isTRUE(term$with_intercept)) {
           # Intercept-deviation block: identical shape to the
           # "simple" branch above; sigma_<g> routes via
           # .sigma_decl() so the uniform-on-SD default applies.
-          ctx <- .add(ctx, .sigma_decl(ctx,
-            paste0("sigma_", gtag), gtag))
-          ctx <- .add(ctx, gtag, "_raw <- normal(0, 1, dim = n_",
-                      gtag, ")")
-          ctx <- .add(ctx, "u_", gtag, " <- ", gtag, "_raw * sigma_",
-                      gtag)
+          ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", gtag), gtag))
+          ctx <- .add(ctx, gtag, "_raw <- normal(0, 1, dim = n_", gtag, ")")
+          ctx <- .add(ctx, "u_", gtag, " <- ", gtag, "_raw * sigma_", gtag)
           ctx <- .add_param(ctx, paste0("sigma_", gtag))
           ctx <- .add_pred(ctx, paste0("u_", gtag, "[", gtag, "_id]"))
         }
         # Slope-deviation block: identical shape, indexed by the
         # same grouping factor, multiplied by the slope variable.
-        ctx <- .add(ctx, .sigma_decl(ctx,
-          paste0("sigma_", slope_tag), slope_tag))
-        ctx <- .add(ctx, slope_tag, "_raw <- normal(0, 1, dim = n_",
-                    gtag, ")")
-        ctx <- .add(ctx, "u_", slope_tag, " <- ", slope_tag,
-                    "_raw * sigma_", slope_tag)
+        ctx <- .add(
+          ctx,
+          .sigma_decl(ctx, paste0("sigma_", slope_tag), slope_tag)
+        )
+        ctx <- .add(ctx, slope_tag, "_raw <- normal(0, 1, dim = n_", gtag, ")")
+        ctx <- .add(
+          ctx,
+          "u_",
+          slope_tag,
+          " <- ",
+          slope_tag,
+          "_raw * sigma_",
+          slope_tag
+        )
         ctx <- .add_param(ctx, paste0("sigma_", slope_tag))
-        ctx <- .add_pred(ctx, paste0("as_data(", sv, ") * u_",
-                                     slope_tag, "[", gtag, "_id]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0("as_data(", sv, ") * u_", slope_tag, "[", gtag, "_id]")
+        )
         ctx
       },
 
@@ -267,8 +384,18 @@
         ctx <- .add(ctx, "L_G_", tag, " <- ", sqrt_expr)
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
-        ctx <- .add(ctx, "u_", tag, " <- as_data(L_G_", tag,
-                    ") %*% (z_", tag, " * sigma_", tag, ")")
+        ctx <- .add(
+          ctx,
+          "u_",
+          tag,
+          " <- as_data(L_G_",
+          tag,
+          ") %*% (z_",
+          tag,
+          " * sigma_",
+          tag,
+          ")"
+        )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
@@ -285,8 +412,18 @@
         ctx <- .add(ctx, "L_A_", tag, " <- ", sqrt_expr)
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), tag))
         ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = n_", tag, ")")
-        ctx <- .add(ctx, "u_", tag, " <- as_data(L_A_", tag,
-                    ") %*% (z_", tag, " * sigma_", tag, ")")
+        ctx <- .add(
+          ctx,
+          "u_",
+          tag,
+          " <- as_data(L_A_",
+          tag,
+          ") %*% (z_",
+          tag,
+          " * sigma_",
+          tag,
+          ")"
+        )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
@@ -294,88 +431,231 @@
 
       # DIAG(outer) x I(inner): at(env):geno
       "at_simple" = {
-        outer <- term$outer; inner <- term$inner
-        tag   <- paste0(inner, "_", outer)
-        ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc,
-                    ", dim = n_", outer, ")")
-        ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = c(n_", inner,
-                    ", n_", outer, "))")
-        ctx <- .add(ctx, tag, "_sc  <- sweep(", tag, "_raw, 2, sigma_",
-                    tag, ", \"*\")")
+        outer <- term$outer
+        inner <- term$inner
+        tag <- paste0(inner, "_", outer)
+        ctx <- .add(
+          ctx,
+          "sigma_",
+          tag,
+          " <- greta::lognormal(0, ",
+          pvc,
+          ", dim = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          tag,
+          "_raw <- normal(0, 1, dim = c(n_",
+          inner,
+          ", n_",
+          outer,
+          "))"
+        )
+        ctx <- .add(
+          ctx,
+          tag,
+          "_sc  <- sweep(",
+          tag,
+          "_raw, 2, sigma_",
+          tag,
+          ", \"*\")"
+        )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
-        ctx <- .add_pred(ctx, paste0(tag, "_sc[cbind(", inner, "_id, ",
-                                     outer, "_id)]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0(tag, "_sc[cbind(", inner, "_id, ", outer, "_id)]")
+        )
         ctx
       },
 
       # US(outer) x I(inner): us(env):id(geno)
       "us_gxe" = {
-        outer <- term$outer; inner <- term$inner
-        tag   <- paste0(inner, "_", outer, "_us")
-        ctx <- .add(ctx, "L_corr_", tag,
-                    " <- lkj_correlation(eta = 2, dimension = n_", outer, ")")
-        ctx <- .add(ctx, "sd_", tag, " <- greta::lognormal(0, ", pvc,
-                    ", dim = n_", outer, ")")
-        ctx <- .add(ctx, "L_", tag, " <- sweep(L_corr_", tag, ", 2, sd_",
-                    tag, ", \"*\")")
-        ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = c(n_", inner,
-                    ", n_", outer, "))")
+        outer <- term$outer
+        inner <- term$inner
+        tag <- paste0(inner, "_", outer, "_us")
+        ctx <- .add(
+          ctx,
+          "L_corr_",
+          tag,
+          " <- lkj_correlation(eta = 2, dimension = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          "sd_",
+          tag,
+          " <- greta::lognormal(0, ",
+          pvc,
+          ", dim = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          "L_",
+          tag,
+          " <- sweep(L_corr_",
+          tag,
+          ", 2, sd_",
+          tag,
+          ", \"*\")"
+        )
+        ctx <- .add(
+          ctx,
+          tag,
+          "_raw <- normal(0, 1, dim = c(n_",
+          inner,
+          ", n_",
+          outer,
+          "))"
+        )
         ctx <- .add(ctx, tag, "_mat <- ", tag, "_raw %*% t(L_", tag, ")")
         ctx <- .add_param(ctx, paste0("sd_", tag))
-        ctx <- .add_pred(ctx, paste0(tag, "_mat[cbind(", inner, "_id, ",
-                                     outer, "_id)]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0(tag, "_mat[cbind(", inner, "_id, ", outer, "_id)]")
+        )
         ctx
       },
 
       # FA(k)(outer) x I(inner): fa(env,k):id(geno)
       "fa_gxe" = {
-        outer <- term$outer; inner <- term$inner; k <- term$k
-        tag   <- paste0(inner, "_", outer, "_fa", k)
-        ctx <- .add(ctx, "Lambda_", tag, " <- normal(0, 1, dim = c(n_",
-                    outer, ", ", k, "L))")
-        ctx <- .add(ctx, "psi_", tag, "    <- greta::lognormal(0, ", pvc,
-                    ", dim = n_", outer, ")")
-        ctx <- .add(ctx, "F_", tag, "      <- normal(0, 1, dim = c(n_",
-                    inner, ", ", k, "L))")
-        ctx <- .add(ctx, "delta_", tag,
-                    "  <- normal(0, 1, dim = c(n_", inner, ", n_", outer, "))")
-        ctx <- .add(ctx, "delta_sc_", tag, " <- sweep(delta_", tag,
-                    ", 2, psi_", tag, ", \"*\")")
-        ctx <- .add(ctx, "g_mat_", tag, "  <- F_", tag,
-                    " %*% t(Lambda_", tag, ") + delta_sc_", tag)
+        outer <- term$outer
+        inner <- term$inner
+        k <- term$k
+        tag <- paste0(inner, "_", outer, "_fa", k)
+        ctx <- .add(
+          ctx,
+          "Lambda_",
+          tag,
+          " <- normal(0, 1, dim = c(n_",
+          outer,
+          ", ",
+          k,
+          "L))"
+        )
+        ctx <- .add(
+          ctx,
+          "psi_",
+          tag,
+          "    <- greta::lognormal(0, ",
+          pvc,
+          ", dim = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          "F_",
+          tag,
+          "      <- normal(0, 1, dim = c(n_",
+          inner,
+          ", ",
+          k,
+          "L))"
+        )
+        ctx <- .add(
+          ctx,
+          "delta_",
+          tag,
+          "  <- normal(0, 1, dim = c(n_",
+          inner,
+          ", n_",
+          outer,
+          "))"
+        )
+        ctx <- .add(
+          ctx,
+          "delta_sc_",
+          tag,
+          " <- sweep(delta_",
+          tag,
+          ", 2, psi_",
+          tag,
+          ", \"*\")"
+        )
+        ctx <- .add(
+          ctx,
+          "g_mat_",
+          tag,
+          "  <- F_",
+          tag,
+          " %*% t(Lambda_",
+          tag,
+          ") + delta_sc_",
+          tag
+        )
         ctx <- .add_param(ctx, paste0("Lambda_", tag), paste0("psi_", tag))
-        ctx <- .add_pred(ctx, paste0("g_mat_", tag, "[cbind(", inner,
-                                     "_id, ", outer, "_id)]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0("g_mat_", tag, "[cbind(", inner, "_id, ", outer, "_id)]")
+        )
         ctx
       },
 
       # US(outer) x Struct(inner): vm(geno,G):id(env)
       "vm_gxe" = {
-        inner <- term$inner; outer <- term$outer; mat <- term$mat
-        tag   <- paste0(inner, "_", outer, "_vm_gxe")
+        inner <- term$inner
+        outer <- term$outer
+        mat <- term$mat
+        tag <- paste0(inner, "_", outer, "_vm_gxe")
         ctx <- .add(ctx, "L_G_", tag, " <- t(chol(", mat, "))")
-        ctx <- .add(ctx, "L_corr_", tag,
-                    " <- lkj_correlation(eta = 2, dimension = n_", outer, ")")
-        ctx <- .add(ctx, "sd_", tag, " <- greta::lognormal(0, ", pvc,
-                    ", dim = n_", outer, ")")
-        ctx <- .add(ctx, "L_", tag, " <- sweep(L_corr_", tag, ", 2, sd_",
-                    tag, ", \"*\")")
-        ctx <- .add(ctx, "z_", tag, " <- normal(0, 1, dim = c(n_", inner,
-                    ", n_", outer, "))")
-        ctx <- .add(ctx, "uA_", tag, " <- as_data(L_G_", tag,
-                    ") %*% z_", tag)
-        ctx <- .add(ctx, "g_mat_", tag, " <- uA_", tag,
-                    " %*% t(L_", tag, ")")
+        ctx <- .add(
+          ctx,
+          "L_corr_",
+          tag,
+          " <- lkj_correlation(eta = 2, dimension = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          "sd_",
+          tag,
+          " <- greta::lognormal(0, ",
+          pvc,
+          ", dim = n_",
+          outer,
+          ")"
+        )
+        ctx <- .add(
+          ctx,
+          "L_",
+          tag,
+          " <- sweep(L_corr_",
+          tag,
+          ", 2, sd_",
+          tag,
+          ", \"*\")"
+        )
+        ctx <- .add(
+          ctx,
+          "z_",
+          tag,
+          " <- normal(0, 1, dim = c(n_",
+          inner,
+          ", n_",
+          outer,
+          "))"
+        )
+        ctx <- .add(ctx, "uA_", tag, " <- as_data(L_G_", tag, ") %*% z_", tag)
+        ctx <- .add(ctx, "g_mat_", tag, " <- uA_", tag, " %*% t(L_", tag, ")")
         ctx <- .add_param(ctx, paste0("sd_", tag))
-        ctx <- .add_pred(ctx, paste0("g_mat_", tag, "[cbind(", inner,
-                                     "_id, ", outer, "_id)]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0("g_mat_", tag, "[cbind(", inner, "_id, ", outer, "_id)]")
+        )
         ctx
       },
 
       # Nested random effect: outer:inner
       "nested" = {
-        outer <- term$outer; inner <- term$inner
-        tag   <- paste0(inner, "_in_", outer)
+        outer <- term$outer
+        inner <- term$inner
+        tag <- paste0(inner, "_in_", outer)
         ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = n_", tag, ")")
         ctx <- .add(ctx, "u_", tag, " <- ", tag, "_raw * sigma_", tag)
@@ -397,34 +677,57 @@
 
       # Spatial AR1 approximation
       "ar1_spatial" = {
-        rv <- term$row_var; cv <- term$col_var
+        rv <- term$row_var
+        cv <- term$col_var
         tag <- paste0("sp_", rv, "_", cv)
         ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
         ctx <- .add(ctx, tag, "_row_raw <- normal(0, 1, dim = n_", rv, ")")
         ctx <- .add(ctx, tag, "_col_raw <- normal(0, 1, dim = n_", cv, ")")
-        ctx <- .add(ctx, "u_", tag, "_row <- ", tag,
-                    "_row_raw * sigma_", tag)
-        ctx <- .add(ctx, "u_", tag, "_col <- ", tag,
-                    "_col_raw * sigma_", tag)
+        ctx <- .add(ctx, "u_", tag, "_row <- ", tag, "_row_raw * sigma_", tag)
+        ctx <- .add(ctx, "u_", tag, "_col <- ", tag, "_col_raw * sigma_", tag)
         ctx <- .add_param(ctx, paste0("sigma_", tag))
-        ctx <- .add_pred(ctx, paste0("u_", tag, "_row[", rv, "_id] + u_",
-                                     tag, "_col[", cv, "_id]"))
+        ctx <- .add_pred(
+          ctx,
+          paste0("u_", tag, "_row[", rv, "_id] + u_", tag, "_col[", cv, "_id]")
+        )
         ctx
       },
 
       # P-spline: spl(x)
       "spline" = {
         vname <- term$var
-        tag   <- paste0("spl_", vname)
-        ctx <- .add(ctx, "x_std_", tag,
-                    " <- as.numeric(scale(dat_atg$", vname, "))")
-        ctx <- .add(ctx, "B_", tag, " <- splines::bs(x_std_", tag,
-                    ", df=8, degree=3, intercept=FALSE)")
+        tag <- paste0("spl_", vname)
+        ctx <- .add(
+          ctx,
+          "x_std_",
+          tag,
+          " <- as.numeric(scale(dat_atg$",
+          vname,
+          "))"
+        )
+        ctx <- .add(
+          ctx,
+          "B_",
+          tag,
+          " <- splines::bs(x_std_",
+          tag,
+          ", df=8, degree=3, intercept=FALSE)"
+        )
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, "sigma_", tag, " <- greta::lognormal(0, ", pvc, ")")
         ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ncol(B_", tag, "))")
-        ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
-                    "_raw * sigma_", tag, ")")
+        ctx <- .add(
+          ctx,
+          "f_",
+          tag,
+          " <- B_g_",
+          tag,
+          " %*% (",
+          tag,
+          "_raw * sigma_",
+          tag,
+          ")"
+        )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
         ctx <- .add_pred(ctx, paste0("f_", tag))
         ctx
@@ -442,7 +745,7 @@
       # fb_prior(smooth("x") ~ ...) target this smooth.
       "smooth_mgcv" = {
         vname <- term$var
-        tag   <- paste0("s_", vname)
+        tag <- paste0("s_", vname)
         # v0.4.0 Wave 1 Phase 1B (ADR 0027): on the low_rank_smooth
         # approximate path, bind the rank-K truncated basis B_K = X V_K
         # (n x K) and carry K coefficients instead of the full n x k
@@ -450,9 +753,12 @@
         # f = B_K %*% (raw_K * sigma). Prediction projects the newdata
         # basis through the same V_K (R/predict_kernel.R). Exact path
         # (no approx_spec) is unchanged.
-        basis  <- if (!is.null(term$approx_spec)) term$X_K else term$X
-        n_coef <- if (!is.null(term$approx_spec))
-          term$approx_spec$rank else term$k
+        basis <- if (!is.null(term$approx_spec)) term$X_K else term$X
+        n_coef <- if (!is.null(term$approx_spec)) {
+          term$approx_spec$rank
+        } else {
+          term$k
+        }
         # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-1: bind the
         # basis matrix into the model evaluation environment so the
         # generated greta code can reference it by name.
@@ -463,10 +769,19 @@
         # assign() above; we just lift it into greta.
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), vname))
-        ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ",
-                    n_coef, ")")
-        ctx <- .add(ctx, "f_", tag, " <- B_g_", tag, " %*% (", tag,
-                    "_raw * sigma_", tag, ")")
+        ctx <- .add(ctx, tag, "_raw <- normal(0, 1, dim = ", n_coef, ")")
+        ctx <- .add(
+          ctx,
+          "f_",
+          tag,
+          " <- B_g_",
+          tag,
+          " %*% (",
+          tag,
+          "_raw * sigma_",
+          tag,
+          ")"
+        )
         # ADR 0018: monitor the basis-coefficient parameter `s_<v>_raw`
         # in addition to its scale `sigma_s_<v>`. predict.flexybayes()
         # needs the posterior-mean basis-coefficient vector
@@ -475,13 +790,12 @@
         # draws matrix only carries sigma, and predict() falls back
         # to a flat-zero smooth contribution -- the silent-wrong
         # path ADR 0018 closes.
-        ctx <- .add_param(ctx, paste0("sigma_", tag),
-                          paste0(tag, "_raw"))
+        ctx <- .add_param(ctx, paste0("sigma_", tag), paste0(tag, "_raw"))
         ctx <- .add_pred(ctx, paste0("f_", tag))
         ctx
       },
 
-      ctx  # default: skip unknown terms
+      ctx # default: skip unknown terms
     )
   }
   ctx
@@ -489,23 +803,34 @@
 
 # Generate code for residual (rcov) structure
 .code_rcov <- function(ctx, rcov_terms, data) {
-  ctx <- .add(ctx, "# -- Residual ------------------------------------------------")
+  ctx <- .add(
+    ctx,
+    "# -- Residual ------------------------------------------------"
+  )
   pvc <- ctx$prior_vc
 
-  has_at_units <- any(vapply(rcov_terms,
-    function(t) t$type == "at_units", logical(1)))
+  has_at_units <- any(vapply(
+    rcov_terms,
+    function(t) t$type == "at_units",
+    logical(1)
+  ))
 
   if (has_at_units) {
     term <- Filter(function(t) t$type == "at_units", rcov_terms)[[1]]
-    tag  <- term$var
-    ctx  <- .add(ctx, "sigma_e_atg <- greta::lognormal(0, ", pvc,
-                 ", dim = n_", tag, ")")
-    ctx  <- .add_param(ctx, "sigma_e_atg")
+    tag <- term$var
+    ctx <- .add(
+      ctx,
+      "sigma_e_atg <- greta::lognormal(0, ",
+      pvc,
+      ", dim = n_",
+      tag,
+      ")"
+    )
+    ctx <- .add_param(ctx, "sigma_e_atg")
     ctx$resid_expr <- paste0("sigma_e_atg[", tag, "_id]")
   } else {
-    ctx  <- .add(ctx, .sigma_decl(ctx, "sigma_e_atg",
-                                   "__sigma__"))
-    ctx  <- .add_param(ctx, "sigma_e_atg")
+    ctx <- .add(ctx, .sigma_decl(ctx, "sigma_e_atg", "__sigma__"))
+    ctx <- .add_param(ctx, "sigma_e_atg")
     ctx$resid_expr <- "sigma_e_atg"
   }
 
@@ -514,21 +839,27 @@
 
 # Generate code for the linear predictor assembly
 .code_predictor <- function(ctx, fixed_info) {
-  ctx <- .add(ctx, "# -- Linear predictor ----------------------------------------")
+  ctx <- .add(
+    ctx,
+    "# -- Linear predictor ----------------------------------------"
+  )
   if (length(ctx$predictor) == 0) {
     ctx <- .add(ctx, "mu_i_atg <- zeros(N_atg, 1)")
   } else {
     parts <- ctx$predictor
-    ctx   <- .add(ctx, "mu_i_atg <- ", paste(parts, collapse = " + "))
+    ctx <- .add(ctx, "mu_i_atg <- ", paste(parts, collapse = " + "))
   }
   ctx
 }
 
 # Generate code for the likelihood
 .code_likelihood <- function(ctx, fixed_info, rcov_terms, data, weights) {
-  ctx  <- .add(ctx, "# -- Likelihood ----------------------------------------------")
+  ctx <- .add(
+    ctx,
+    "# -- Likelihood ----------------------------------------------"
+  )
   resp <- fixed_info$response
-  fl   <- ctx$fam_link
+  fl <- ctx$fam_link
   resid_sd <- if (!is.null(ctx$resid_expr)) ctx$resid_expr else "sigma_e_atg"
 
   ctx <- .add(ctx, "y_atg_obs <- as_data(y_atg)")
@@ -539,9 +870,12 @@
   }
 
   if (fl$family == "gaussian") {
-    ctx <- .add(ctx, "distribution(y_atg_obs) <- normal(mu_i_atg, ",
-                resid_sd, ")")
-
+    ctx <- .add(
+      ctx,
+      "distribution(y_atg_obs) <- normal(mu_i_atg, ",
+      resid_sd,
+      ")"
+    )
   } else if (fl$family %in% c("binomial", "binary")) {
     if (fl$link == "logit") {
       ctx <- .add(ctx, "p_atg <- ilogit(mu_i_atg)")
@@ -553,42 +887,50 @@
     # lossless Bernoulli encoding here, so refuse rather than silently
     # fit the wrong likelihood.
     y_vals <- data[[resp]]
-    if (!all(y_vals %in% c(0, 1)))
-      stop("A binomial model on the greta backend requires a binary ",
-           "(0/1) response; trial-count (aggregated binomial) responses ",
-           "are not yet supported on this backend. The response `", resp,
-           "` has ", length(unique(y_vals)), " distinct values.",
-           call. = FALSE)
+    if (!all(y_vals %in% c(0, 1))) {
+      stop(
+        "A binomial model on the greta backend requires a binary ",
+        "(0/1) response; trial-count (aggregated binomial) responses ",
+        "are not yet supported on this backend. The response `",
+        resp,
+        "` has ",
+        length(unique(y_vals)),
+        " distinct values.",
+        call. = FALSE
+      )
+    }
     ctx <- .add(ctx, "distribution(y_atg_obs) <- bernoulli(p_atg)")
-
   } else if (fl$family == "poisson") {
     ctx <- .add(ctx, "lam_atg <- exp(mu_i_atg)")
     ctx <- .add(ctx, "distribution(y_atg_obs) <- poisson(lam_atg)")
-
   } else if (fl$family %in% c("negative_binomial", "negbinom")) {
     ctx <- .add(ctx, "r_nb_atg <- greta::lognormal(0, 1)")
     ctx <- .add_param(ctx, "r_nb_atg")
     ctx <- .add(ctx, "mu_nb_atg <- exp(mu_i_atg)")
     ctx <- .add(ctx, "prob_nb_atg <- r_nb_atg / (r_nb_atg + mu_nb_atg)")
-    ctx <- .add(ctx,
-      "distribution(y_atg_obs) <- negative_binomial(r_nb_atg, prob_nb_atg)")
-
+    ctx <- .add(
+      ctx,
+      "distribution(y_atg_obs) <- negative_binomial(r_nb_atg, prob_nb_atg)"
+    )
   } else if (fl$family == "gamma") {
     ctx <- .add(ctx, "shape_atg <- greta::lognormal(0, 1)")
     ctx <- .add_param(ctx, "shape_atg")
     ctx <- .add(ctx, "mu_gam_atg <- exp(mu_i_atg)")
     ctx <- .add(ctx, "rate_atg <- shape_atg / mu_gam_atg")
-    ctx <- .add(ctx,
-      "distribution(y_atg_obs) <- greta::gamma(shape_atg, rate_atg)")
-
+    ctx <- .add(
+      ctx,
+      "distribution(y_atg_obs) <- greta::gamma(shape_atg, rate_atg)"
+    )
   } else if (fl$family == "beta") {
     ctx <- .add(ctx, "phi_b_atg <- greta::lognormal(1, 1)")
     ctx <- .add_param(ctx, "phi_b_atg")
     ctx <- .add(ctx, "mu_b_atg <- ilogit(mu_i_atg)")
     ctx <- .add(ctx, "alpha_b_atg <- mu_b_atg * phi_b_atg")
     ctx <- .add(ctx, "beta_b_atg  <- (1 - mu_b_atg) * phi_b_atg")
-    ctx <- .add(ctx,
-      "distribution(y_atg_obs) <- greta::beta(alpha_b_atg, beta_b_atg)")
+    ctx <- .add(
+      ctx,
+      "distribution(y_atg_obs) <- greta::beta(alpha_b_atg, beta_b_atg)"
+    )
   }
 
   ctx
@@ -596,12 +938,23 @@
 
 # Generate code for model() + mcmc()
 .code_model <- function(ctx, n_samples, warmup, chains, mcmc_verbose = TRUE) {
-  ctx <- .add(ctx,
-    "# -- Model and MCMC -----------------------------------------")
+  ctx <- .add(
+    ctx,
+    "# -- Model and MCMC -----------------------------------------"
+  )
   params_str <- paste(unique(ctx$params), collapse = ", ")
   ctx <- .add(ctx, "atg_model <- greta::model(", params_str, ")")
-  ctx <- .add(ctx, "atg_draws <- greta::mcmc(atg_model, n_samples = ",
-              n_samples, ", warmup = ", warmup, ", chains = ", chains,
-              ", verbose = ", mcmc_verbose, ")")
+  ctx <- .add(
+    ctx,
+    "atg_draws <- greta::mcmc(atg_model, n_samples = ",
+    n_samples,
+    ", warmup = ",
+    warmup,
+    ", chains = ",
+    chains,
+    ", verbose = ",
+    mcmc_verbose,
+    ")"
+  )
   ctx
 }

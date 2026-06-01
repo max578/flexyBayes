@@ -36,17 +36,19 @@ test_that("factor:continuous interaction routes to factor_numeric_interaction", 
     fb$fixed_terms
   )
   expect_length(fni, 1L)
-  expect_identical(fni[[1L]]$factor,     "f")
+  expect_identical(fni[[1L]]$factor, "f")
   expect_identical(fni[[1L]]$continuous, "x")
-  expect_identical(fni[[1L]]$levels,     c("a", "b", "c"))
-  expect_identical(fni[[1L]]$n_levels,   3L)
+  expect_identical(fni[[1L]]$levels, c("a", "b", "c"))
+  expect_identical(fni[[1L]]$n_levels, 3L)
 
   # Pre-fix-bug guard: the legacy `interaction` (numeric:numeric)
   # branch must NOT fire on this term. If it does we are back to the
   # silent factor-as-numeric coercion path.
   legacy_int <- Filter(
-    function(t) identical(t$type, "interaction") &&
-                identical(t$label, "f:x"),
+    function(t) {
+      identical(t$type, "interaction") &&
+        identical(t$label, "f:x")
+    },
     fb$fixed_terms
   )
   expect_length(legacy_int, 0L)
@@ -73,10 +75,15 @@ test_that("indexed emit equals model.matrix() at tolerance 1e-10", {
   x <- rnorm(n)
   d <- data.frame(y = rnorm(n), x = x, f = f)
 
-  X_mm <- model.matrix(y ~ f * x, data = d,
-                       contrasts.arg = list(f = "contr.treatment"))
-  expect_setequal(colnames(X_mm),
-                  c("(Intercept)", "fb", "fc", "x", "fb:x", "fc:x"))
+  X_mm <- model.matrix(
+    y ~ f * x,
+    data = d,
+    contrasts.arg = list(f = "contr.treatment")
+  )
+  expect_setequal(
+    colnames(X_mm),
+    c("(Intercept)", "fb", "fc", "x", "fb:x", "fc:x")
+  )
 
   set.seed(42L)
   beta <- setNames(rnorm(ncol(X_mm)), colnames(X_mm))
@@ -92,14 +99,12 @@ test_that("indexed emit equals model.matrix() at tolerance 1e-10", {
   #   slope_dev_f_x[2]  -> "fb:x"
   #   slope_dev_f_x[3]  -> "fc:x"
   mu_atg <- as.numeric(beta["(Intercept)"])
-  tau_f  <- c(0, as.numeric(beta["fb"]), as.numeric(beta["fc"]))
+  tau_f <- c(0, as.numeric(beta["fb"]), as.numeric(beta["fc"]))
   beta_x <- as.numeric(beta["x"])
-  slope_dev_f_x <- c(0, as.numeric(beta["fb:x"]),
-                     as.numeric(beta["fc:x"]))
+  slope_dev_f_x <- c(0, as.numeric(beta["fb:x"]), as.numeric(beta["fc:x"]))
 
   f_id <- as.integer(f)
-  eta_flexy <- mu_atg + tau_f[f_id] + beta_x * x +
-               x * slope_dev_f_x[f_id]
+  eta_flexy <- mu_atg + tau_f[f_id] + beta_x * x + x * slope_dev_f_x[f_id]
 
   expect_equal(eta_flexy, eta_mm, tolerance = 1e-10)
 })
@@ -126,13 +131,19 @@ test_that("generated greta code uses indexed-slope idiom (Option C)", {
     f = factor(rep(c("a", "b", "c"), length.out = n)),
     y = rnorm(n)
   )
-  code <- flexybayes(y ~ f * x, data = d, backend = "greta",
-                     return_code = TRUE, verbose = FALSE,
-                     mcmc_verbose = FALSE)
+  code <- flexybayes(
+    y ~ f * x,
+    data = d,
+    backend = "greta",
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  )
   expect_true(grepl("slope_dev_f_x_raw <- normal\\(", code))
   expect_true(grepl("slope_dev_f_x <- c\\(zeros\\(1\\)", code))
   expect_true(grepl(
-    "as_data\\(x\\) \\* slope_dev_f_x\\[f_id\\]", code
+    "as_data\\(x\\) \\* slope_dev_f_x\\[f_id\\]",
+    code
   ))
   # Pre-fix idiom must not appear.
   expect_false(grepl("beta_f_x_x \\* as_data\\(f\\)", code))
@@ -165,17 +176,31 @@ test_that("posterior mean recovers lme4 fit on factor:continuous", {
     f = factor(rep(c("a", "b", "c"), length.out = n))
   )
   # Truth: reference slope 1.0; f=b adds +0.5; f=c adds -0.3.
-  beta_true <- c(`(Intercept)` = 0.0, fb = 0.2, fc = -0.1,
-                 x = 1.0, `fb:x` = 0.5, `fc:x` = -0.3)
-  X <- model.matrix(~ f * x, data = d,
-                    contrasts.arg = list(f = "contr.treatment"))
+  beta_true <- c(
+    `(Intercept)` = 0.0,
+    fb = 0.2,
+    fc = -0.1,
+    x = 1.0,
+    `fb:x` = 0.5,
+    `fc:x` = -0.3
+  )
+  X <- model.matrix(
+    ~ f * x,
+    data = d,
+    contrasts.arg = list(f = "contr.treatment")
+  )
   d$y <- as.numeric(X %*% beta_true + rnorm(n, 0, 0.3))
 
   set.seed(20260523L)
   fit <- flexybayes(
-    y ~ f * x, data = d, backend = "greta",
-    n_samples = 2000, warmup = 2000, chains = 2,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ f * x,
+    data = d,
+    backend = "greta",
+    n_samples = 2000,
+    warmup = 2000,
+    chains = 2,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
 
   draws <- as.matrix(fit$greta$draws)
@@ -191,7 +216,7 @@ test_that("posterior mean recovers lme4 fit on factor:continuous", {
   ref_coef <- coef(ref)
   # 1.0 . REML SE tolerance per test-validation-lmer.R convention.
   ref_se <- sqrt(diag(vcov(ref)))
-  expect_lt(abs(pm_beta_x  - ref_coef[["x"]]),    1.0 * ref_se[["x"]])
+  expect_lt(abs(pm_beta_x - ref_coef[["x"]]), 1.0 * ref_se[["x"]])
   expect_lt(abs(pm_slope_b - ref_coef[["fb:x"]]), 1.0 * ref_se[["fb:x"]])
   expect_lt(abs(pm_slope_c - ref_coef[["fc:x"]]), 1.0 * ref_se[["fc:x"]])
 
@@ -286,8 +311,11 @@ test_that("custom contrast matrix raises flexybayes_contrast_unsupported", {
     y = rnorm(n)
   )
   # User-supplied custom L x (L-1) matrix.
-  cmat <- matrix(c(-1, 0, 0, 1, -1, 1), nrow = 3,
-                 dimnames = list(c("a", "b", "c"), c("c1", "c2")))
+  cmat <- matrix(
+    c(-1, 0, 0, 1, -1, 1),
+    nrow = 3,
+    dimnames = list(c("a", "b", "c"), c("c1", "c2"))
+  )
   contrasts(d$f) <- cmat
   cond <- tryCatch(
     flexyBayes:::fb_from_brms(y ~ f * x, data = d),
@@ -345,21 +373,31 @@ test_that("canonical_names() resolves slope_<f>_<x>[<level>] family", {
 
 test_that("lgm_gate accepts factor_numeric_interaction structurally", {
   fb <- flexyBayes:::new_fb_terms(
-    response       = "y",
-    family         = "gaussian",
-    fixed_terms    = list(
-      list(type = "factor", var = "f", levels = c("a","b","c"),
-           n_levels = 3L, label = "f"),
+    response = "y",
+    family = "gaussian",
+    fixed_terms = list(
+      list(
+        type = "factor",
+        var = "f",
+        levels = c("a", "b", "c"),
+        n_levels = 3L,
+        label = "f"
+      ),
       list(type = "continuous", var = "x", label = "x"),
-      list(type = "factor_numeric_interaction",
-           factor = "f", continuous = "x",
-           vars = c("f","x"), levels = c("a","b","c"),
-           n_levels = 3L, label = "f:x")
+      list(
+        type = "factor_numeric_interaction",
+        factor = "f",
+        continuous = "x",
+        vars = c("f", "x"),
+        levels = c("a", "b", "c"),
+        n_levels = 3L,
+        label = "f:x"
+      )
     ),
-    random_terms   = list(),
-    rcov_terms     = list(list(type = "units")),
-    priors         = list(legacy = TRUE),
-    source         = "brms"
+    random_terms = list(),
+    rcov_terms = list(list(type = "units")),
+    priors = list(legacy = TRUE),
+    source = "brms"
   )
   # Structural fixed-term allowlist accepts the new class.
   r7 <- flexyBayes:::.lgm_check_fixed_term_inla_support(fb)
@@ -398,12 +436,19 @@ test_that("parse_info$factor_continuous_emit records the emit path", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   fit <- flexybayes(
-    y ~ f * x, data = d, backend = "greta",
-    n_samples = 200, warmup = 200, chains = 1,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ f * x,
+    data = d,
+    backend = "greta",
+    n_samples = 200,
+    warmup = 200,
+    chains = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
-  expect_true(fit$extras$parse_info$factor_continuous_emit %in%
-              c("option_c", "option_d"))
+  expect_true(
+    fit$extras$parse_info$factor_continuous_emit %in%
+      c("option_c", "option_d")
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -417,7 +462,7 @@ test_that("parse_info$factor_continuous_emit records the emit path", {
 
 test_that("Option D fallback emits per-observation lookup vectors", {
   withr::local_options(list(
-    flexyBayes.force_option_d             = TRUE,
+    flexyBayes.force_option_d = TRUE,
     flexyBayes.silence_default_prior_note = TRUE
   ))
   set.seed(20260523L)
@@ -428,9 +473,14 @@ test_that("Option D fallback emits per-observation lookup vectors", {
     y = rnorm(n)
   )
   skip_if_not_installed("greta")
-  code <- flexybayes(y ~ f * x, data = d, backend = "greta",
-                     return_code = TRUE, verbose = FALSE,
-                     mcmc_verbose = FALSE)
+  code <- flexybayes(
+    y ~ f * x,
+    data = d,
+    backend = "greta",
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  )
   expect_true(grepl("slope_dev_f_x_per_obs", code))
   expect_true(grepl("f_x_is_ref_obs", code))
   expect_true(grepl("f_x_shifted_idx", code))

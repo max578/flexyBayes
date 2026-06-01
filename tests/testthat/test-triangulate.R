@@ -6,7 +6,7 @@
 # or INLA isn't installed.
 
 skip_if_no_greta <- function() skip_if_not_installed("greta")
-skip_if_no_inla  <- function() skip_if_not_installed("INLA")
+skip_if_no_inla <- function() skip_if_not_installed("INLA")
 
 # ---------------------------------------------------------------- #
 # Synthetic fits via fb_as_draws_simple.default-replacement helper #
@@ -25,8 +25,11 @@ mk_synthetic <- function(draws) {
 # triangulate() invocation in the same session.
 fb_as_draws_simple.synthetic_fit <- function(fit, ...) fit$draws
 .S3method <- get("registerS3method")
-.S3method("fb_as_draws_simple", "synthetic_fit",
-          fb_as_draws_simple.synthetic_fit)
+.S3method(
+  "fb_as_draws_simple",
+  "synthetic_fit",
+  fb_as_draws_simple.synthetic_fit
+)
 
 # ---------------------------------------------------------------- #
 # Wasserstein-1 (1D)                                               #
@@ -35,16 +38,18 @@ fb_as_draws_simple.synthetic_fit <- function(fit, ...) fit$draws
 test_that(".wasserstein1_1d() is zero for identical samples", {
   set.seed(1L)
   x <- rnorm(500)
-  expect_equal(flexyBayes:::.wasserstein1_1d(x, x), 0,
-               tolerance = 1e-10)
+  expect_equal(flexyBayes:::.wasserstein1_1d(x, x), 0, tolerance = 1e-10)
 })
 
 test_that(".wasserstein1_1d() recovers a deterministic shift", {
   set.seed(2L)
   x <- rnorm(2000)
   shift <- 1.5
-  expect_equal(flexyBayes:::.wasserstein1_1d(x, x + shift),
-               shift, tolerance = 0.05)
+  expect_equal(
+    flexyBayes:::.wasserstein1_1d(x, x + shift),
+    shift,
+    tolerance = 0.05
+  )
 })
 
 test_that(".wasserstein1_1d() handles edge case with empty samples", {
@@ -58,7 +63,7 @@ test_that(".wasserstein1_1d() handles edge case with empty samples", {
 test_that(".rhat_means_2() is ~1 when posteriors are nearly identical", {
   set.seed(3L)
   x <- rnorm(500)
-  y <- rnorm(500)  # same parent distribution
+  y <- rnorm(500) # same parent distribution
   rh <- flexyBayes:::.rhat_means_2(x, y)
   expect_true(rh < 1.1)
 })
@@ -81,8 +86,8 @@ test_that(".rhat_means_2() returns NA when within-variance is zero", {
 
 test_that("triangulate() detects literal-match common parameters", {
   set.seed(5L)
-  d_a <- list(alpha = rnorm(500),       beta = rnorm(500))
-  d_b <- list(alpha = rnorm(500, 0.1),  beta = rnorm(500, -0.1))
+  d_a <- list(alpha = rnorm(500), beta = rnorm(500))
+  d_b <- list(alpha = rnorm(500, 0.1), beta = rnorm(500, -0.1))
   fit_a <- mk_synthetic(d_a)
   fit_b <- mk_synthetic(d_b)
 
@@ -97,8 +102,7 @@ test_that("triangulate() detects literal-match common parameters", {
 
 test_that("triangulate() distinguishes only_a / only_b parameters", {
   set.seed(6L)
-  d_a <- list(alpha = rnorm(500), beta = rnorm(500),
-              gamma = rnorm(500))
+  d_a <- list(alpha = rnorm(500), beta = rnorm(500), gamma = rnorm(500))
   d_b <- list(alpha = rnorm(500), delta = rnorm(500))
   tri <- triangulate(mk_synthetic(d_a), mk_synthetic(d_b))
 
@@ -110,9 +114,12 @@ test_that("triangulate() distinguishes only_a / only_b parameters", {
 test_that("triangulate() applies a name_map to fit_b parameter names", {
   set.seed(7L)
   d_a <- list("(Intercept)" = rnorm(500))
-  d_b <- list(mu_atg          = rnorm(500))
-  tri <- triangulate(mk_synthetic(d_a), mk_synthetic(d_b),
-                     name_map = c(mu_atg = "(Intercept)"))
+  d_b <- list(mu_atg = rnorm(500))
+  tri <- triangulate(
+    mk_synthetic(d_a),
+    mk_synthetic(d_b),
+    name_map = c(mu_atg = "(Intercept)")
+  )
   expect_identical(tri$n_common, 1L)
   expect_setequal(tri$common, "(Intercept)")
 })
@@ -134,31 +141,33 @@ test_that("triangulate() metrics agree with hand calculation", {
 
   m <- tri$metrics
   expect_identical(m$param, "p")
-  expect_equal(m$mean_a,    mean(d_a$p), tolerance = 1e-10)
-  expect_equal(m$mean_b,    mean(d_b$p), tolerance = 1e-10)
-  expect_equal(m$mean_diff, mean(d_a$p) - mean(d_b$p),
-               tolerance = 1e-10)
-  expect_equal(m$sd_ratio,  stats::sd(d_a$p) / stats::sd(d_b$p),
-               tolerance = 1e-10)
+  expect_equal(m$mean_a, mean(d_a$p), tolerance = 1e-10)
+  expect_equal(m$mean_b, mean(d_b$p), tolerance = 1e-10)
+  expect_equal(m$mean_diff, mean(d_a$p) - mean(d_b$p), tolerance = 1e-10)
+  expect_equal(
+    m$sd_ratio,
+    stats::sd(d_a$p) / stats::sd(d_b$p),
+    tolerance = 1e-10
+  )
   expect_true(m$wasserstein_1 > 0.1 && m$wasserstein_1 < 0.4)
-  expect_true(m$rhat_means    > 1)
+  expect_true(m$rhat_means > 1)
 })
 
 test_that("triangulate() errors when no fb_as_draws_simple method exists", {
   bad <- structure(list(), class = "no_method_class")
-  expect_error(triangulate(bad, bad),
-               "does not know how to extract draws")
+  expect_error(triangulate(bad, bad), "does not know how to extract draws")
 })
 
 test_that("triangulate() rejects fb_as_draws_simple returning non-list", {
-  registerS3method("fb_as_draws_simple", "bad_fit",
-                   function(fit, ...) "not_a_list")
-  on.exit(suppressWarnings(rm(fb_as_draws_simple.bad_fit,
-                              envir = globalenv())),
-          add = TRUE)
+  registerS3method("fb_as_draws_simple", "bad_fit", function(fit, ...) {
+    "not_a_list"
+  })
+  on.exit(
+    suppressWarnings(rm(fb_as_draws_simple.bad_fit, envir = globalenv())),
+    add = TRUE
+  )
   bad <- structure(list(), class = "bad_fit")
-  expect_error(triangulate(bad, bad),
-               "must return a named list")
+  expect_error(triangulate(bad, bad), "must return a named list")
 })
 
 # ---------------------------------------------------------------- #
@@ -167,9 +176,9 @@ test_that("triangulate() rejects fb_as_draws_simple returning non-list", {
 
 test_that(".triangulate_source() distinguishes greta vs INLA fits", {
   greta_fit <- structure(list(), class = "flexybayes")
-  inla_fit  <- structure(list(), class = c("flexybayes_inla", "list"))
+  inla_fit <- structure(list(), class = c("flexybayes_inla", "list"))
   expect_identical(flexyBayes:::.triangulate_source(greta_fit), "greta")
-  expect_identical(flexyBayes:::.triangulate_source(inla_fit),  "inla")
+  expect_identical(flexyBayes:::.triangulate_source(inla_fit), "inla")
 })
 
 # ---------------------------------------------------------------- #
@@ -211,11 +220,20 @@ test_that("print.triangulate_result handles zero common parameters", {
 
 test_that("fb_as_draws_simple.flexybayes extracts greta draws", {
   skip_if_no_greta()
-  d <- data.frame(y = rnorm(40), x = rnorm(40),
-                  g = factor(rep(1:5, length.out = 40)))
-  fit <- flexybayes(fixed = y ~ x, data = d,
-                   n_samples = 50, warmup = 50, chains = 1,
-                   verbose = FALSE, mcmc_verbose = FALSE)
+  d <- data.frame(
+    y = rnorm(40),
+    x = rnorm(40),
+    g = factor(rep(1:5, length.out = 40))
+  )
+  fit <- flexybayes(
+    fixed = y ~ x,
+    data = d,
+    n_samples = 50,
+    warmup = 50,
+    chains = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  )
   draws <- flexyBayes:::fb_as_draws_simple(fit)
   expect_true(is.list(draws))
   expect_true(length(draws) >= 1L)
@@ -228,16 +246,28 @@ test_that("triangulate() runs end-to-end on greta vs INLA", {
   # `backend = "inla"`. Canonical-name resolution is registry-driven
   # so triangulate() works without a user-supplied `name_map`.
   skip_on_cran()
-  skip_if_no_greta(); skip_if_no_inla()
-  d <- data.frame(y = rnorm(40), x = rnorm(40),
-                  g = factor(rep(1:5, length.out = 40)))
+  skip_if_no_greta()
+  skip_if_no_inla()
+  d <- data.frame(
+    y = rnorm(40),
+    x = rnorm(40),
+    g = factor(rep(1:5, length.out = 40))
+  )
   fit_g <- suppressMessages(flexybayes(
-    fixed = y ~ x, data = d, backend = "greta",
-    n_samples = 50, warmup = 50, chains = 1,
-    verbose = FALSE, mcmc_verbose = FALSE
+    fixed = y ~ x,
+    data = d,
+    backend = "greta",
+    n_samples = 50,
+    warmup = 50,
+    chains = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_i <- suppressMessages(flexybayes(
-    fixed = y ~ x, data = d, backend = "inla", verbose = FALSE
+    fixed = y ~ x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE
   ))
   tri <- triangulate(fit_g, fit_i, n_samples = 200L)
   expect_s3_class(tri, "triangulate_result")
@@ -270,29 +300,41 @@ test_that("triangulate() runs on an aggregated INLA fit and agrees with per-row 
   skip_on_cran()
   skip_if_no_inla()
   withr::local_options(
-    flexyBayes.silence_default_prior_note     = TRUE,
-    flexyBayes.silence_uniform_inla_approx    = TRUE,
-    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_default_prior_note = TRUE,
+    flexyBayes.silence_uniform_inla_approx = TRUE,
+    flexyBayes.silence_auto_fallback_note = TRUE,
     flexyBayes.silence_auto_inla_missing_note = TRUE
   )
   set.seed(1L)
-  N <- 300L; J <- 8L
+  N <- 300L
+  J <- 8L
   d <- data.frame(
     f1 = factor(sample(letters[1:3], N, replace = TRUE)),
     f2 = factor(sample(letters[1:3], N, replace = TRUE)),
-    g  = factor(sample.int(J, N, replace = TRUE))
+    g = factor(sample.int(J, N, replace = TRUE))
   )
-  d$y <- 1 + 0.5 * as.integer(d$f1) - 0.3 * as.integer(d$f2) +
-    rnorm(J, 0, 0.3)[as.integer(d$g)] + rnorm(N, 0, 0.7)
+  d$y <- 1 +
+    0.5 * as.integer(d$f1) -
+    0.3 * as.integer(d$f2) +
+    rnorm(J, 0, 0.3)[as.integer(d$g)] +
+    rnorm(N, 0, 0.7)
 
   fit_row <- suppressMessages(fb(
-    y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
-    aggregate = FALSE, prior_vc_sd = 1, verbose = FALSE,
+    y ~ f1 + f2 + (1 | g),
+    data = d,
+    backend = "inla",
+    aggregate = FALSE,
+    prior_vc_sd = 1,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   ))
   fit_agg <- suppressMessages(fb(
-    y ~ f1 + f2 + (1 | g), data = d, backend = "inla",
-    aggregate = "auto", prior_vc_sd = 1, verbose = FALSE,
+    y ~ f1 + f2 + (1 | g),
+    data = d,
+    backend = "inla",
+    aggregate = "auto",
+    prior_vc_sd = 1,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   ))
   expect_s3_class(fit_agg, "flexybayes_aggregated")
@@ -309,7 +351,7 @@ test_that("triangulate() runs on an aggregated INLA fit and agrees with per-row 
   expect_gt(tri$n_common, 0L)
 
   fx <- c("(Intercept)", "f1b", "f1c", "f2b", "f2c")
-  m  <- tri$metrics[tri$metrics$param %in% fx, ]
+  m <- tri$metrics[tri$metrics$param %in% fx, ]
   expect_identical(nrow(m), length(fx))
   drift <- abs(m$mean_diff) / pmax(m$sd_a, m$sd_b)
   expect_true(

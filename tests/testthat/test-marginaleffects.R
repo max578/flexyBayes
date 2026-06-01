@@ -22,9 +22,9 @@ suppressPackageStartupMessages(library(testthat))
 
 .mfx_silence <- function() {
   withr::local_options(
-    flexyBayes.silence_default_prior_note     = TRUE,
-    flexyBayes.silence_uniform_inla_approx    = TRUE,
-    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_default_prior_note = TRUE,
+    flexyBayes.silence_uniform_inla_approx = TRUE,
+    flexyBayes.silence_auto_fallback_note = TRUE,
     flexyBayes.silence_auto_inla_missing_note = TRUE,
     .local_envir = parent.frame()
   )
@@ -38,21 +38,27 @@ suppressPackageStartupMessages(library(testthat))
 test_that("marginaleffects accessors work on an INLA fit", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("marginaleffects")
-  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_cran() # INLA posterior sampling: heavy + core-limited under --as-cran
   skip_on_ci()
   .mfx_silence()
   d <- .mfx_data()
   fit <- suppressMessages(fb(
-    y ~ f + x, data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ f + x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   cf <- marginaleffects::get_coef(fit)
   expect_setequal(names(cf), c("(Intercept)", "fb", "fc", "x"))
   v <- marginaleffects::get_vcov(fit)
   expect_true(is.matrix(v) && all(dim(v) == length(cf)))
   # set_coef round-trips through get_predict (delta-method contract).
-  fit2 <- marginaleffects::set_coef(fit, stats::setNames(rep(0, length(cf)),
-                                                         names(cf)))
+  fit2 <- marginaleffects::set_coef(
+    fit,
+    stats::setNames(rep(0, length(cf)), names(cf))
+  )
   gp <- marginaleffects::get_predict(fit2, newdata = d)
   expect_true(all(gp$estimate == 0))
 })
@@ -60,13 +66,17 @@ test_that("marginaleffects accessors work on an INLA fit", {
 test_that("predictions() / avg_slopes() on an INLA fit recover the DGP", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("marginaleffects")
-  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_cran() # INLA posterior sampling: heavy + core-limited under --as-cran
   skip_on_ci()
   .mfx_silence()
   d <- .mfx_data()
   fit <- suppressMessages(fb(
-    y ~ f + x, data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ f + x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   pr <- as.data.frame(marginaleffects::predictions(fit))
   expect_identical(nrow(pr), nrow(d))
@@ -75,11 +85,11 @@ test_that("predictions() / avg_slopes() on an INLA fit recover the DGP", {
   sl <- as.data.frame(marginaleffects::avg_slopes(fit))
   xs <- sl[sl$term == "x", "estimate"]
   expect_length(xs, 1L)
-  expect_true(abs(xs - 0.4) < 0.2)            # true x slope 0.4
+  expect_true(abs(xs - 0.4) < 0.2) # true x slope 0.4
 
   cmp <- as.data.frame(marginaleffects::avg_comparisons(fit, variables = "f"))
   est <- stats::setNames(cmp$estimate, cmp$contrast)
-  expect_true(abs(est[["b - a"]] - 0.8)  < 0.4)
+  expect_true(abs(est[["b - a"]] - 0.8) < 0.4)
   expect_true(abs(est[["c - a"]] - (-0.5)) < 0.4)
 })
 
@@ -96,9 +106,15 @@ test_that("predictions() / avg_slopes() work on a greta fit", {
   .mfx_silence()
   d <- .mfx_data()
   fit <- suppressMessages(flexybayes(
-    fixed = y ~ f + x, data = d, backend = "greta",
-    n_samples = 400L, warmup = 400L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    fixed = y ~ f + x,
+    data = d,
+    backend = "greta",
+    n_samples = 400L,
+    warmup = 400L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   pr <- as.data.frame(marginaleffects::predictions(fit))
   expect_identical(nrow(pr), nrow(d))
@@ -124,12 +140,22 @@ test_that("INLA and greta avg_comparisons agree on the factor effect", {
   .mfx_silence()
   d <- .mfx_data()
   fi <- suppressMessages(fb(
-    y ~ f + x, data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ f + x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   fg <- suppressMessages(flexybayes(
-    fixed = y ~ f + x, data = d, backend = "greta",
-    n_samples = 500L, warmup = 500L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    fixed = y ~ f + x,
+    data = d,
+    backend = "greta",
+    n_samples = 500L,
+    warmup = 500L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   ci <- as.data.frame(marginaleffects::avg_comparisons(fi, variables = "f"))
   cg <- as.data.frame(marginaleffects::avg_comparisons(fg, variables = "f"))

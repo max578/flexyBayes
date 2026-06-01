@@ -27,11 +27,11 @@ mk_emit_data <- function() {
   n <- 30L
   data.frame(
     yield = rnorm(n),
-    env   = factor(rep(1:3, length.out = n)),
-    geno  = factor(rep(1:5, length.out = n)),
-    row   = factor(rep(1:5, length.out = n)),
-    col   = factor(rep(1:6, length.out = n)),
-    x     = rnorm(n)
+    env = factor(rep(1:3, length.out = n)),
+    geno = factor(rep(1:5, length.out = n)),
+    row = factor(rep(1:5, length.out = n)),
+    col = factor(rep(1:6, length.out = n)),
+    x = rnorm(n)
   )
 }
 
@@ -43,8 +43,11 @@ test_that("flexybayes() reproduces minimal gaussian code byte-identical", {
   skip_if_no_greta()
   d <- mk_emit_data()
   code <- flexybayes(
-    yield ~ x, data = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    yield ~ x,
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_snapshot(cat(code))
 })
@@ -53,8 +56,12 @@ test_that("flexybayes() reproduces simple random-effect code byte-identical", {
   skip_if_no_greta()
   d <- mk_emit_data()
   code <- flexybayes(
-    yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_snapshot(cat(code))
 })
@@ -65,8 +72,10 @@ test_that("flexybayes() reproduces fa_gxe code byte-identical", {
   code <- flexybayes(
     yield ~ env,
     random = ~ fa(env, 2):id(geno),
-    data   = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_snapshot(cat(code))
 })
@@ -76,10 +85,12 @@ test_that("flexybayes() reproduces at(env):units rcov code byte-identical", {
   d <- mk_emit_data()
   code <- flexybayes(
     yield ~ env,
-    random = ~ geno,
-    rcov   = ~ at(env):units,
-    data   = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    random = ~geno,
+    rcov = ~ at(env):units,
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_snapshot(cat(code))
 })
@@ -90,8 +101,10 @@ test_that("flexybayes() reproduces ar1_spatial code byte-identical", {
   code <- flexybayes(
     yield ~ env,
     random = ~ ar1(row):id(col),
-    data   = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_snapshot(cat(code))
 })
@@ -102,17 +115,18 @@ test_that("flexybayes() default uniform prior emits greta::uniform() and an anno
   local_clean_emit_state()
   expect_message(
     code <- flexybayes(
-      yield ~ env, random = ~ geno, data = d,
-      verbose = FALSE, return_code = TRUE
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      verbose = FALSE,
+      return_code = TRUE
     ),
     regexp = "uniform\\(0,"
   )
   # Random-effect group + residual sd should both be uniform on the
   # SD scale per ADR 0004, not lognormal or PC-exponential.
-  expect_match(code, "sigma_geno <- greta::uniform\\(0, ",
-               fixed = FALSE)
-  expect_match(code, "sigma_e_atg <- greta::uniform\\(0, ",
-               fixed = FALSE)
+  expect_match(code, "sigma_geno <- greta::uniform\\(0, ", fixed = FALSE)
+  expect_match(code, "sigma_e_atg <- greta::uniform\\(0, ", fixed = FALSE)
   expect_false(grepl("greta::lognormal\\(0, 1\\)", code))
   expect_false(grepl("greta::exponential\\(rate", code))
 })
@@ -123,12 +137,15 @@ test_that("explicit prior_vc_sd suppresses the deprecation note + retains lognor
   local_clean_emit_state()
   expect_no_message(
     code <- flexybayes(
-      yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
-      verbose = FALSE, return_code = TRUE
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      prior_vc_sd = 1,
+      verbose = FALSE,
+      return_code = TRUE
     )
   )
-  expect_match(code, "sigma_geno <- greta::lognormal\\(0, 1\\)",
-               fixed = FALSE)
+  expect_match(code, "sigma_geno <- greta::lognormal\\(0, 1\\)", fixed = FALSE)
 })
 
 # ---------------------------------------------------------------- #
@@ -145,17 +162,26 @@ test_that("flexybayes(...) and emit_greta(fb_from_asreml(...)) agree byte-for-by
   # exactly the same prior pipeline. The default-PC path bypasses
   # this test; it is exercised by the dedicated test above.
   via_flexybayes <- flexybayes(
-    yield ~ env, random = ~ geno, data = d, prior_vc_sd = 1,
-    verbose = FALSE, return_code = TRUE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
 
   fb <- flexyBayes:::fb_from_asreml(
-    fixed = yield ~ env, random = ~ geno, data = d
+    fixed = yield ~ env,
+    random = ~geno,
+    data = d
   )
   via_emit <- flexyBayes:::emit_greta(
-    fb = fb, data = d,
-    verbose = FALSE, return_code = TRUE,
-    fixed = yield ~ env, random = ~ geno
+    fb = fb,
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE,
+    fixed = yield ~ env,
+    random = ~geno
   )
 
   expect_identical(via_flexybayes, via_emit)

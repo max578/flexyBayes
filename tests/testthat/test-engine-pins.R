@@ -10,8 +10,8 @@ mk_pin_df <- function(n = 40) {
   set.seed(7)
   data.frame(
     yield = rnorm(n),
-    geno  = factor(rep(letters[1:8], length.out = n)),
-    env   = factor(rep(c("a", "b"), length.out = n))
+    geno = factor(rep(letters[1:8], length.out = n)),
+    env = factor(rep(c("a", "b"), length.out = n))
   )
 }
 
@@ -25,7 +25,8 @@ test_that("fb_inla() is exported and pins the INLA engine", {
   skip_if_not_installed("INLA")
   df <- mk_pin_df()
   fit <- suppressMessages(
-    fb_inla(yield ~ env, random = ~ geno, data = df, verbose = FALSE))
+    fb_inla(yield ~ env, random = ~geno, data = df, verbose = FALSE)
+  )
   expect_s3_class(fit, "flexybayes_inla")
   expect_identical(fit$extras$backend_decision$backend, "inla")
 })
@@ -35,7 +36,8 @@ test_that("fb_inla() passes brms-grammar polymorphism through to INLA", {
   skip_if_not_installed("INLA")
   df <- mk_pin_df()
   fit <- suppressMessages(
-    fb_inla(yield ~ env + (1 | geno), data = df, verbose = FALSE))
+    fb_inla(yield ~ env + (1 | geno), data = df, verbose = FALSE)
+  )
   expect_identical(fit$extras$backend_decision$backend, "inla")
 })
 
@@ -50,12 +52,19 @@ test_that("fb_inla() preserves missing()-based defaults (default-prior note)", {
   withr::with_options(
     list(flexyBayes.silence_default_prior_note = FALSE),
     withCallingHandlers(
-      suppressWarnings(fb_inla(yield ~ env, random = ~ geno, data = df,
-                               verbose = FALSE, mcmc_verbose = FALSE)),
+      suppressWarnings(fb_inla(
+        yield ~ env,
+        random = ~geno,
+        data = df,
+        verbose = FALSE,
+        mcmc_verbose = FALSE
+      )),
       message = function(m) {
         msgs[[length(msgs) + 1L]] <<- conditionMessage(m)
         invokeRestart("muffleMessage")
-      }))
+      }
+    )
+  )
   expect_true(any(grepl("variance-component prior default|uniform", msgs)))
 })
 
@@ -80,11 +89,12 @@ test_that("an engine pin refuses a conflicting backend argument", {
   # structurally rather than silently overwrite (the pre-v0.5.0 bug).
   expect_error(
     fb_inla(yield ~ env, data = df, backend = "greta"),
-    class = "flexybayes_refusal_engine_pin_backend_conflict")
+    class = "flexybayes_refusal_engine_pin_backend_conflict"
+  )
   expect_error(
-    fb_brms(yield ~ env + (1 | geno), data = df, backend = "inla",
-            plan = TRUE),
-    class = "flexybayes_refusal_engine_pin_backend_conflict")
+    fb_brms(yield ~ env + (1 | geno), data = df, backend = "inla", plan = TRUE),
+    class = "flexybayes_refusal_engine_pin_backend_conflict"
+  )
 })
 
 test_that("a redundant self-pin (fb_brms(backend = 'brms')) is accepted", {
@@ -94,8 +104,15 @@ test_that("a redundant self-pin (fb_brms(backend = 'brms')) is accepted", {
   # plan = TRUE short-circuits before any fit.
   expect_no_error(
     suppressMessages(
-      fb_brms(yield ~ env + (1 | geno), data = df, backend = "brms",
-              plan = TRUE, verbose = FALSE)))
+      fb_brms(
+        yield ~ env + (1 | geno),
+        data = df,
+        backend = "brms",
+        plan = TRUE,
+        verbose = FALSE
+      )
+    )
+  )
 })
 
 test_that("fb_greta() fits a formula via the greta engine", {
@@ -104,9 +121,16 @@ test_that("fb_greta() fits a formula via the greta engine", {
   skip_on_ci()
   df <- mk_pin_df()
   fit <- suppressMessages(
-    fb_greta(yield ~ env + (1 | geno), data = df,
-             n_samples = 50L, warmup = 50L, chains = 1L,
-             verbose = FALSE, mcmc_verbose = FALSE))
+    fb_greta(
+      yield ~ env + (1 | geno),
+      data = df,
+      n_samples = 50L,
+      warmup = 50L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
+  )
   expect_s3_class(fit, "flexybayes")
   expect_identical(fit$extras$backend_decision$backend, "greta")
 })
@@ -119,13 +143,22 @@ test_that("fb_greta(model = <native graph>) still fits the native graph", {
   # call-compatibility, so a native graph passed as `model = ` reaches the
   # direct greta::mcmc() fit and returns a flexybayes_direct_greta object.
   set.seed(7)
-  yy <- greta::as_data(rnorm(30)); xx <- greta::as_data(rnorm(30))
-  b0 <- greta::normal(0, 10); b1 <- greta::normal(0, 10)
-  s  <- greta::uniform(0, 5)
+  yy <- greta::as_data(rnorm(30))
+  xx <- greta::as_data(rnorm(30))
+  b0 <- greta::normal(0, 10)
+  b1 <- greta::normal(0, 10)
+  s <- greta::uniform(0, 5)
   greta::distribution(yy) <- greta::normal(b0 + b1 * xx, s)
   m <- greta::model(b0, b1, s)
   fit <- suppressMessages(
-    fb_greta(model = m, n_samples = 50L, warmup = 50L, chains = 1L,
-             verbose = FALSE, mcmc_verbose = FALSE))
+    fb_greta(
+      model = m,
+      n_samples = 50L,
+      warmup = 50L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
+  )
   expect_s3_class(fit, "flexybayes_direct_greta")
 })

@@ -29,16 +29,17 @@ suppressPackageStartupMessages(library(testthat))
 # test-smooth.R asserts fires.)
 .fbe_quiet <- function(envir = parent.frame()) {
   withr::local_options(
-    flexyBayes.silence_default_prior_note     = TRUE,
-    flexyBayes.silence_uniform_inla_approx    = TRUE,
-    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_default_prior_note = TRUE,
+    flexyBayes.silence_uniform_inla_approx = TRUE,
+    flexyBayes.silence_auto_fallback_note = TRUE,
     flexyBayes.silence_auto_inla_missing_note = TRUE,
-    .local_envir = envir)
+    .local_envir = envir
+  )
 }
 
 # (1) in-memory point == file point; (2) chunked file == unchunked file.
 .expect_file_equiv <- function(fit, newdata, ...) {
-  mem <- predict(fit, newdata = newdata, ...)               # point vector
+  mem <- predict(fit, newdata = newdata, ...) # point vector
 
   f_whole <- tempfile(fileext = ".rds")
   f_chunk <- tempfile(fileext = ".rds")
@@ -47,8 +48,14 @@ suppressPackageStartupMessages(library(testthat))
   # Unchunked single pass (the in-memory kernel computed in one go).
   predict(fit, newdata = newdata, output_file = f_whole, format = "rds", ...)
   # Chunked file path (chunk_size below nrow forces multi-chunk).
-  predict(fit, newdata = newdata, output_file = f_chunk, format = "rds",
-          chunk_size = max(1L, nrow(newdata) %/% 3L), ...)
+  predict(
+    fit,
+    newdata = newdata,
+    output_file = f_chunk,
+    format = "rds",
+    chunk_size = max(1L, nrow(newdata) %/% 3L),
+    ...
+  )
 
   whole <- readRDS(f_whole)
   chunk <- readRDS(f_chunk)
@@ -74,9 +81,16 @@ test_that("file output matches the in-memory kernel for a fixed-only model", {
   set.seed(101L)
   dat <- data.frame(x = rnorm(60L), y = rnorm(60L))
   fit <- suppressMessages(fb(
-    y ~ x, data = dat, backend = "greta",
-    n_samples = 50L, warmup = 30L, chains = 1L,
-    prior_fixed_sd = 10, verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x,
+    data = dat,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 30L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   .expect_file_equiv(fit, dat[1:21, , drop = FALSE])
 })
 
@@ -94,10 +108,18 @@ test_that("file output matches the in-memory kernel for a smooth s(x) model", {
   # Smooths are ingested through the asreml surface (s() in `random`),
   # not the brms surface -- fb_brms() does not yet support s().
   fit <- suppressMessages(flexybayes(
-    y ~ 1, random = ~ s(x), data = dat, backend = "greta",
-    n_samples = 50L, warmup = 30L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ 1,
+    random = ~ s(x),
+    data = dat,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 30L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   .expect_file_equiv(fit, dat[1:21, , drop = FALSE])
 })
 
@@ -112,13 +134,25 @@ test_that("file output matches the in-memory kernel for a population-level RI pr
   dat <- data.frame(
     x = rnorm(80L),
     g = factor(sample(letters[1:5], 80L, replace = TRUE)),
-    y = rnorm(80L))
+    y = rnorm(80L)
+  )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = dat, backend = "greta",
-    n_samples = 50L, warmup = 30L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
-  .expect_file_equiv(fit, dat[1:21, , drop = FALSE], allow_new_levels = "population")
+    y ~ x + (1 | g),
+    data = dat,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 30L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
+  .expect_file_equiv(
+    fit,
+    dat[1:21, , drop = FALSE],
+    allow_new_levels = "population"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -139,26 +173,48 @@ test_that("the sampled-new-level file path is reproducible under a fixed seed an
   dat <- data.frame(
     x = rnorm(80L),
     g = factor(sample(letters[1:5], 80L, replace = TRUE)),
-    y = rnorm(80L))
+    y = rnorm(80L)
+  )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = dat, backend = "greta",
-    n_samples = 50L, warmup = 30L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
-  nd <- data.frame(x = rnorm(15L),
-                   g = factor(rep("z", 15L), levels = c(letters[1:5], "z")))
+    y ~ x + (1 | g),
+    data = dat,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 30L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
+  nd <- data.frame(
+    x = rnorm(15L),
+    g = factor(rep("z", 15L), levels = c(letters[1:5], "z"))
+  )
 
-  f1 <- tempfile(fileext = ".rds"); f2 <- tempfile(fileext = ".rds")
+  f1 <- tempfile(fileext = ".rds")
+  f2 <- tempfile(fileext = ".rds")
   on.exit(unlink(c(f1, f2)), add = TRUE)
   set.seed(99L)
-  predict(fit, newdata = nd, allow_new_levels = "sample",
-          output_file = f1, format = "rds")
+  predict(
+    fit,
+    newdata = nd,
+    allow_new_levels = "sample",
+    output_file = f1,
+    format = "rds"
+  )
   set.seed(99L)
-  predict(fit, newdata = nd, allow_new_levels = "sample",
-          output_file = f2, format = "rds")
-  o1 <- readRDS(f1); o2 <- readRDS(f2)
+  predict(
+    fit,
+    newdata = nd,
+    allow_new_levels = "sample",
+    output_file = f2,
+    format = "rds"
+  )
+  o1 <- readRDS(f1)
+  o2 <- readRDS(f2)
 
-  expect_equal(o1$point, o2$point)   # reproducible under the seed
+  expect_equal(o1$point, o2$point) # reproducible under the seed
   expect_equal(o1$lower, o2$lower)
   expect_equal(o1$upper, o2$upper)
   expect_true(all(is.finite(o1$point)))

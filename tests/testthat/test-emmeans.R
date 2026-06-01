@@ -22,9 +22,9 @@ suppressPackageStartupMessages(library(testthat))
 
 .emm_silence <- function() {
   withr::local_options(
-    flexyBayes.silence_default_prior_note     = TRUE,
-    flexyBayes.silence_uniform_inla_approx    = TRUE,
-    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_default_prior_note = TRUE,
+    flexyBayes.silence_uniform_inla_approx = TRUE,
+    flexyBayes.silence_auto_fallback_note = TRUE,
     flexyBayes.silence_auto_inla_missing_note = TRUE,
     .local_envir = parent.frame()
   )
@@ -38,22 +38,26 @@ suppressPackageStartupMessages(library(testthat))
 test_that("emmeans(fit, ~ f) works on an INLA fit and recovers cell means", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("emmeans")
-  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_cran() # INLA posterior sampling: heavy + core-limited under --as-cran
   skip_on_ci()
   .emm_silence()
   d <- .emm_data()
   fit <- suppressMessages(fb(
-    y ~ f + x, data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ f + x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
-  emm <- emmeans::emmeans(fit, ~ f)
-  s   <- as.data.frame(summary(emm))
+  emm <- emmeans::emmeans(fit, ~f)
+  s <- as.data.frame(summary(emm))
   expect_identical(nrow(s), 3L)
   expect_setequal(as.character(s$f), c("a", "b", "c"))
   # Cell means at mean(x): a ~ 1.0, b ~ 1.8, c ~ 0.5 (DGP), loose band.
   m <- stats::setNames(s$emmean, s$f)
-  expect_true(m["b"] > m["a"])           # b above a (true gap +0.8)
-  expect_true(m["a"] > m["c"])           # a above c (true gap +0.5)
+  expect_true(m["b"] > m["a"]) # b above a (true gap +0.8)
+  expect_true(m["a"] > m["c"]) # a above c (true gap +0.5)
   expect_true(all(abs(m - c(a = 1, b = 1.8, c = 0.5)) < 0.4))
   expect_true(all(is.finite(s$SE)) && all(s$SE > 0))
 })
@@ -61,21 +65,27 @@ test_that("emmeans(fit, ~ f) works on an INLA fit and recovers cell means", {
 test_that("emmeans pairwise contrasts on an INLA fit recover the DGP gaps", {
   skip_if_not_installed("INLA")
   skip_if_not_installed("emmeans")
-  skip_on_cran()  # INLA posterior sampling: heavy + core-limited under --as-cran
+  skip_on_cran() # INLA posterior sampling: heavy + core-limited under --as-cran
   skip_on_ci()
   .emm_silence()
   d <- .emm_data()
   fit <- suppressMessages(fb(
-    y ~ f + x, data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ f + x,
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   ct <- as.data.frame(summary(emmeans::contrast(
-    emmeans::emmeans(fit, ~ f), "pairwise")))
-  expect_identical(nrow(ct), 3L)              # a-b, a-c, b-c
+    emmeans::emmeans(fit, ~f),
+    "pairwise"
+  )))
+  expect_identical(nrow(ct), 3L) # a-b, a-c, b-c
   est <- stats::setNames(ct$estimate, ct$contrast)
   # a - b ~ -0.8 (true), a - c ~ +0.5 (true); generous band.
   expect_true(abs(est[["a - b"]] - (-0.8)) < 0.4)
-  expect_true(abs(est[["a - c"]] - ( 0.5)) < 0.4)
+  expect_true(abs(est[["a - c"]] - (0.5)) < 0.4)
   expect_true(all(is.finite(ct$SE)))
 })
 
@@ -92,12 +102,18 @@ test_that("emmeans(fit, ~ f) works on a greta fit (over-parameterised basis)", {
   .emm_silence()
   d <- .emm_data()
   fit <- suppressMessages(flexybayes(
-    fixed = y ~ f + x, data = d, backend = "greta",
-    n_samples = 400L, warmup = 400L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    fixed = y ~ f + x,
+    data = d,
+    backend = "greta",
+    n_samples = 400L,
+    warmup = 400L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
-  emm <- emmeans::emmeans(fit, ~ f)
-  s   <- as.data.frame(summary(emm))
+  emm <- emmeans::emmeans(fit, ~f)
+  s <- as.data.frame(summary(emm))
   expect_identical(nrow(s), 3L)
   m <- stats::setNames(s$emmean, s$f)
   # The over-parameterised (intercept + all levels) greta basis is

@@ -36,19 +36,19 @@ skip_if_no_greta_quiet <- function() {
 test_that("predict(newdata) on s(x) routes via Predict.matrix and matches mgcv::gam", {
   skip_if_no_greta_quiet()
   set.seed(20260523L)
-  n  <- 80L
+  n <- 80L
   dx <- data.frame(x = sort(stats::runif(n, 0, 10)))
   dx$y <- sin(dx$x) + stats::rnorm(n, 0, 0.2)
 
   fit <- flexybayes(
-    fixed     = y ~ 1,
-    random    = ~ s(x, k = 6L),
-    data      = dx,
+    fixed = y ~ 1,
+    random = ~ s(x, k = 6L),
+    data = dx,
     n_samples = 200L,
-    warmup    = 200L,
-    chains    = 1L,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    warmup = 200L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
 
   # Slot exists + carries the mgcv Smooth.
@@ -89,14 +89,14 @@ test_that("predict(newdata) handles a two-smooth fit s(x) + s(z)", {
   d$y <- sin(d$x) + 0.5 * d$z + stats::rnorm(n, 0, 0.2)
 
   fit <- flexybayes(
-    fixed     = y ~ 1,
-    random    = ~ s(x, k = 6L) + s(z, k = 5L),
-    data      = d,
+    fixed = y ~ 1,
+    random = ~ s(x, k = 6L) + s(z, k = 5L),
+    data = d,
     n_samples = 200L,
-    warmup    = 200L,
-    chains    = 1L,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    warmup = 200L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
 
   smooths <- fit$extras$parse_info$smooths
@@ -118,19 +118,19 @@ test_that("predict(newdata) handles a two-smooth fit s(x) + s(z)", {
 test_that("predict(newdata) refuses legacy fits (smooths == NULL with s() in formula)", {
   skip_if_no_greta_quiet()
   set.seed(20260525L)
-  n  <- 40L
+  n <- 40L
   dx <- data.frame(x = stats::runif(n, 0, 10))
   dx$y <- sin(dx$x) + stats::rnorm(n, 0, 0.3)
 
   fit <- flexybayes(
-    fixed     = y ~ 1,
-    random    = ~ s(x, k = 5L),
-    data      = dx,
+    fixed = y ~ 1,
+    random = ~ s(x, k = 5L),
+    data = dx,
     n_samples = 100L,
-    warmup    = 100L,
-    chains    = 1L,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    warmup = 100L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
 
   # Simulate a pre-ADR-0018 fit: drop the smooths slot.
@@ -138,8 +138,9 @@ test_that("predict(newdata) refuses legacy fits (smooths == NULL with s() in for
   fit_legacy$extras$parse_info$smooths <- NULL
 
   newx <- data.frame(x = seq(0, 10, length.out = 5L))
-  err <- tryCatch(predict(fit_legacy, newdata = newx),
-                  error = function(e) conditionMessage(e))
+  err <- tryCatch(predict(fit_legacy, newdata = newx), error = function(e) {
+    conditionMessage(e)
+  })
   expect_true(grepl("smooth-basis retention", err, fixed = TRUE))
   expect_true(grepl("Re-fit", err, fixed = TRUE))
 })
@@ -165,9 +166,11 @@ test_that("fb(backend = 'brms') predictions remain correct via posterior_epred",
   # check that the predict.flexybayes_brms method exists and that
   # its presence is what saves the brms backend from the parent
   # refusal path.
-  expect_true(exists("predict.flexybayes_brms",
-                     envir = asNamespace("flexyBayes"),
-                     inherits = FALSE))
+  expect_true(exists(
+    "predict.flexybayes_brms",
+    envir = asNamespace("flexyBayes"),
+    inherits = FALSE
+  ))
 })
 
 # ---------------------------------------------------------------- #
@@ -180,16 +183,18 @@ test_that("predict.flexybayes_direct_greta() refuses newdata without a predictor
   # refusal happens on the contract check long before any computation.
   fake <- structure(
     list(
-      glm    = list(coefficients = c(mu = 0)),
-      greta  = list(draws = list(matrix(0, 10L, 1L,
-                                        dimnames = list(NULL, "mu")))),
+      glm = list(coefficients = c(mu = 0)),
+      greta = list(
+        draws = list(matrix(0, 10L, 1L, dimnames = list(NULL, "mu")))
+      ),
       extras = list(model_info = list(canonical_map = c(mu = "mu")))
     ),
     class = c("flexybayes_direct_greta", "flexybayes", "list")
   )
   newx <- data.frame(x = 1:5)
-  err <- tryCatch(predict(fake, newdata = newx),
-                  error = function(e) conditionMessage(e))
+  err <- tryCatch(predict(fake, newdata = newx), error = function(e) {
+    conditionMessage(e)
+  })
   expect_true(grepl("predictor", err))
 })
 
@@ -203,14 +208,13 @@ test_that("smooth emit code-size stays bounded with literal-matrix storage", {
   testthat::skip_if_not_installed("mgcv")
   set.seed(20260523L)
   n <- 10000L
-  d <- data.frame(x = stats::runif(n, 0, 10),
-                  y = stats::rnorm(n))
+  d <- data.frame(x = stats::runif(n, 0, 10), y = stats::rnorm(n))
   fit_code <- flexybayes(
-    fixed        = y ~ 1,
-    random       = ~ s(x, k = 6L),
-    data         = d,
-    return_code  = TRUE,
-    verbose      = FALSE,
+    fixed = y ~ 1,
+    random = ~ s(x, k = 6L),
+    data = d,
+    return_code = TRUE,
+    verbose = FALSE,
     mcmc_verbose = FALSE
   )
   # Pre-fix: ~10 MB (basis matrix inlined as literal). Post-fix:

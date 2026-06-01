@@ -41,7 +41,9 @@ mk_pd_matrix <- function(n, names_ = NULL, seed = 1L) {
   set.seed(seed)
   A <- matrix(rnorm(n * n), nrow = n)
   Q <- crossprod(A) + diag(n) * 0.5
-  if (!is.null(names_)) dimnames(Q) <- list(names_, names_)
+  if (!is.null(names_)) {
+    dimnames(Q) <- list(names_, names_)
+  }
   Q
 }
 
@@ -49,7 +51,9 @@ mk_pd_matrix <- function(n, names_ = NULL, seed = 1L) {
 mk_chol_matrix <- function(n, names_ = NULL, seed = 1L) {
   Q <- mk_pd_matrix(n, seed = seed)
   L <- t(chol(Q))
-  if (!is.null(names_)) dimnames(L) <- list(names_, names_)
+  if (!is.null(names_)) {
+    dimnames(L) <- list(names_, names_)
+  }
   L
 }
 
@@ -62,8 +66,11 @@ test_that("known_matrix_dim_mismatch: precision matrix dim != factor level count
   Q <- mk_pd_matrix(5L)
   err <- expect_error(
     flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = NULL
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = NULL
     ),
     "carries 4 levels"
   )
@@ -77,8 +84,11 @@ test_that("known_matrix_dim_mismatch: chol factor dim != factor level count", {
   L <- mk_chol_matrix(5L)
   err <- expect_error(
     flexyBayes:::.validate_chol_input(
-      L, name = "L", group_var = "g",
-      expected_n = 4L, fit_levels = NULL
+      L,
+      name = "L",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = NULL
     ),
     "carries 4 levels"
   )
@@ -93,12 +103,14 @@ test_that("known_matrix_dim_mismatch: chol factor dim != factor level count", {
 
 test_that("known_matrix_dimnames_mismatch: rownames != colnames", {
   Q <- mk_pd_matrix(4L)
-  dimnames(Q) <- list(c("a", "b", "c", "d"),
-                       c("a", "b", "c", "X"))
+  dimnames(Q) <- list(c("a", "b", "c", "d"), c("a", "b", "c", "X"))
   err <- expect_error(
     flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = c("a", "b", "c", "d")
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = c("a", "b", "c", "d")
     ),
     "different rownames and colnames"
   )
@@ -115,8 +127,11 @@ test_that("known_matrix_level_mismatch: matrix carries unknown levels", {
   Q <- mk_pd_matrix(4L, names_ = c("a", "b", "c", "Z"))
   err <- expect_error(
     flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = c("a", "b", "c", "d")
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = c("a", "b", "c", "d")
     ),
     "do not match levels"
   )
@@ -136,8 +151,11 @@ test_that("known_matrix_level_mismatch: correct level set but permuted order", {
   Q <- mk_pd_matrix(4L, names_ = c("a", "b", "c", "d"))
   err <- expect_error(
     flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = c("d", "c", "b", "a")
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = c("d", "c", "b", "a")
     ),
     "ordered differently"
   )
@@ -157,8 +175,11 @@ test_that("dimnames-present-and-equal-and-ordered: validator returns NULL", {
   Q <- mk_pd_matrix(4L, names_ = c("a", "b", "c", "d"))
   expect_silent(
     invisible(flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = c("a", "b", "c", "d")
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = c("a", "b", "c", "d")
     ))
   )
 })
@@ -171,8 +192,11 @@ test_that("dimnames-absent: dim check passes, level check is no-op (caution surf
   # not refuse for the dimnames-absent case.
   expect_silent(
     invisible(flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = 4L, fit_levels = c("a", "b", "c", "d")
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = 4L,
+      fit_levels = c("a", "b", "c", "d")
     ))
   )
 })
@@ -183,8 +207,11 @@ test_that("expected_n = NULL: dim check no-ops (parser-bypass test fixture path)
   # dim refusal.
   expect_silent(
     invisible(flexyBayes:::.validate_precision_input(
-      Q, name = "Q", group_var = "g",
-      expected_n = NULL, fit_levels = NULL
+      Q,
+      name = "Q",
+      group_var = "g",
+      expected_n = NULL,
+      fit_levels = NULL
     ))
   )
 })
@@ -204,11 +231,14 @@ test_that("sparse precision PD probe routes through Matrix::Cholesky (no dense c
     i = c(1L, 2L, 3L, 4L, 5L),
     j = c(1L, 2L, 3L, 4L, 5L),
     x = c(2, 2, 2, 2, 2),
-    dims = c(5L, 5L), symmetric = TRUE
+    dims = c(5L, 5L),
+    symmetric = TRUE
   )
   expect_silent(
     invisible(flexyBayes:::.validate_precision_input_pd(
-      Q, name = "Q", group_var = "g"
+      Q,
+      name = "Q",
+      group_var = "g"
     ))
   )
 
@@ -221,11 +251,14 @@ test_that("sparse precision PD probe routes through Matrix::Cholesky (no dense c
     i = c(1L, 2L, 3L, 4L, 5L),
     j = c(1L, 2L, 3L, 4L, 5L),
     x = c(-1, 2, 2, 2, 2),
-    dims = c(5L, 5L), symmetric = TRUE
+    dims = c(5L, 5L),
+    symmetric = TRUE
   )
   err <- expect_error(
     flexyBayes:::.validate_precision_input_pd(
-      Q_neg, name = "Q_neg", group_var = "g"
+      Q_neg,
+      name = "Q_neg",
+      group_var = "g"
     ),
     "positive-definite"
   )
@@ -244,14 +277,17 @@ test_that("flexyBayes.trust_pd = TRUE skips the PD probe", {
   # up by integer / numeric type mixing.
   Q <- matrix(c(2, 1, 1, 2), nrow = 2L) - 2 * diag(2L)
   storage.mode(Q) <- "double"
-  stopifnot(isSymmetric(Q))  # sanity: symmetric
+  stopifnot(isSymmetric(Q)) # sanity: symmetric
 
   withr::with_options(
     list(flexyBayes.trust_pd = TRUE),
     expect_silent(
       invisible(flexyBayes:::.validate_precision_input(
-        Q, name = "Q", group_var = "g",
-        expected_n = 2L, fit_levels = NULL
+        Q,
+        name = "Q",
+        group_var = "g",
+        expected_n = 2L,
+        fit_levels = NULL
       ))
     )
   )
@@ -261,8 +297,11 @@ test_that("flexyBayes.trust_pd = TRUE skips the PD probe", {
     {
       err <- expect_error(
         flexyBayes:::.validate_precision_input(
-          Q, name = "Q", group_var = "g",
-          expected_n = 2L, fit_levels = NULL
+          Q,
+          name = "Q",
+          group_var = "g",
+          expected_n = 2L,
+          fit_levels = NULL
         ),
         "positive-definite"
       )

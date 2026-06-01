@@ -84,25 +84,36 @@
 #' @export
 fb_prior <- function(...) {
   args <- list(...)
-  if (length(args) == 0L)
-    stop("`fb_prior()` requires at least one specification.",
-         call. = FALSE)
+  if (length(args) == 0L) {
+    stop("`fb_prior()` requires at least one specification.", call. = FALSE)
+  }
 
   specs <- vector("list", length(args))
   for (i in seq_along(args)) {
     a <- args[[i]]
-    if (!inherits(a, "formula"))
-      stop("Each `fb_prior()` argument must be a two-sided formula ",
-           "`target ~ distribution(...)`. Argument ", i, " is: ",
-           deparse(a), call. = FALSE)
-    if (length(a) != 3L)
-      stop("`fb_prior()` formula ", i, " must be two-sided ",
-           "(target on left, distribution on right). Got: ",
-           deparse(a), call. = FALSE)
+    if (!inherits(a, "formula")) {
+      stop(
+        "Each `fb_prior()` argument must be a two-sided formula ",
+        "`target ~ distribution(...)`. Argument ",
+        i,
+        " is: ",
+        deparse(a),
+        call. = FALSE
+      )
+    }
+    if (length(a) != 3L) {
+      stop(
+        "`fb_prior()` formula ",
+        i,
+        " must be two-sided ",
+        "(target on left, distribution on right). Got: ",
+        deparse(a),
+        call. = FALSE
+      )
+    }
     specs[[i]] <- list(
       target = .parse_prior_target(a[[2]]),
-      spec   = .parse_prior_distribution(a[[3]],
-                                          envir = environment(a))
+      spec = .parse_prior_distribution(a[[3]], envir = environment(a))
     )
   }
 
@@ -126,62 +137,90 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 .parse_prior_target <- function(expr) {
   if (is.name(expr)) {
     nm <- as.character(expr)
-    if (nm == "sigma") return(list(type = "sigma"))
+    if (nm == "sigma") {
+      return(list(type = "sigma"))
+    }
     return(list(type = "name", name = nm))
   }
   if (is.call(expr)) {
     fn <- as.character(expr[[1]])
     args_list <- as.list(expr[-1])
 
-    if (fn == "sigma")
+    if (fn == "sigma") {
       return(list(type = "sigma"))
+    }
 
     if (fn == "sd") {
       group <- .extract_string_arg(args_list, "group")
-      if (is.null(group))
-        stop("sd() prior target requires `group = \"...\"` argument.",
-             call. = FALSE)
+      if (is.null(group)) {
+        stop(
+          "sd() prior target requires `group = \"...\"` argument.",
+          call. = FALSE
+        )
+      }
       return(list(type = "sd", group = group))
     }
 
     if (fn == "b") {
-      if (length(args_list) < 1L)
-        stop("b() prior target requires a name string, e.g., ",
-             "b(\"treatment\").", call. = FALSE)
+      if (length(args_list) < 1L) {
+        stop(
+          "b() prior target requires a name string, e.g., ",
+          "b(\"treatment\").",
+          call. = FALSE
+        )
+      }
       name <- as.character(args_list[[1]])
       return(list(type = "b", name = name))
     }
 
     if (fn == "cor") {
       group <- .extract_string_arg(args_list, "group")
-      if (is.null(group))
-        stop("cor() prior target requires `group = \"...\"` argument.",
-             call. = FALSE)
+      if (is.null(group)) {
+        stop(
+          "cor() prior target requires `group = \"...\"` argument.",
+          call. = FALSE
+        )
+      }
       return(list(type = "cor", group = group))
     }
 
     if (fn == "smooth") {
-      if (length(args_list) < 1L)
-        stop("smooth() prior target requires a variable name, e.g., ",
-             "smooth(\"time\").", call. = FALSE)
+      if (length(args_list) < 1L) {
+        stop(
+          "smooth() prior target requires a variable name, e.g., ",
+          "smooth(\"time\").",
+          call. = FALSE
+        )
+      }
       var <- as.character(args_list[[1]])
-      basis <- if (!is.null(args_list$basis))
-        as.character(args_list$basis) else "rw2"
+      basis <- if (!is.null(args_list$basis)) {
+        as.character(args_list$basis)
+      } else {
+        "rw2"
+      }
       return(list(type = "smooth", var = var, basis = basis))
     }
   }
-  stop("Unsupported prior target: ", deparse(expr),
-       ". Supported: sigma, sd(group = ...), b(\"name\"), ",
-       "cor(group = ...), smooth(\"var\").", call. = FALSE)
+  stop(
+    "Unsupported prior target: ",
+    deparse(expr),
+    ". Supported: sigma, sd(group = ...), b(\"name\"), ",
+    "cor(group = ...), smooth(\"var\").",
+    call. = FALSE
+  )
 }
 
 # Helper -- extract a named string argument from a parsed call.
 .extract_string_arg <- function(args_list, name) {
-  if (!is.null(args_list[[name]]))
+  if (!is.null(args_list[[name]])) {
     return(as.character(args_list[[name]]))
-  unnamed <- args_list[!nzchar(names(args_list) %||% rep("", length(args_list)))]
-  if (length(unnamed) >= 1L)
+  }
+  unnamed <- args_list[
+    !nzchar(names(args_list) %||% rep("", length(args_list)))
+  ]
+  if (length(unnamed) >= 1L) {
     return(as.character(unnamed[[1]]))
+  }
   NULL
 }
 
@@ -194,16 +233,16 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # reads downstream see the same thing whether the user wrote the call
 # positionally or with names.
 .prior_family_params <- list(
-  normal      = c("mean", "sd"),
+  normal = c("mean", "sd"),
   half_normal = "scale",
   half_cauchy = "scale",
-  cauchy      = c("location", "scale"),
-  student_t   = c("df", "location", "scale"),
+  cauchy = c("location", "scale"),
+  student_t = c("df", "location", "scale"),
   exponential = "rate",
-  gamma       = c("shape", "rate"),
-  lkj         = "eta",
-  pc          = c("upper", "prob"),
-  uniform     = c("lower", "upper")
+  gamma = c("shape", "rate"),
+  lkj = "eta",
+  pc = c("upper", "prob"),
+  uniform = c("lower", "upper")
 )
 
 # Rewrite a prior-distribution call so positional arguments carry their
@@ -213,7 +252,9 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # unchanged so the existing validators surface the error.
 .name_prior_args <- function(expr, fn) {
   params <- .prior_family_params[[fn]]
-  if (is.null(params)) return(expr)
+  if (is.null(params)) {
+    return(expr)
+  }
   stub <- function() NULL
   fm <- stats::setNames(rep(list(quote(expr = )), length(params)), params)
   formals(stub) <- fm
@@ -221,20 +262,38 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 }
 
 .parse_prior_distribution <- function(expr, envir = baseenv()) {
-  if (!is.call(expr))
-    stop("Prior distribution must be a call (e.g., ",
-         "`pc(upper = 1, prob = 0.01)`). Got: ", deparse(expr),
-         call. = FALSE)
+  if (!is.call(expr)) {
+    stop(
+      "Prior distribution must be a call (e.g., ",
+      "`pc(upper = 1, prob = 0.01)`). Got: ",
+      deparse(expr),
+      call. = FALSE
+    )
+  }
 
   fn <- as.character(expr[[1]])
-  supported <- c("pc", "half_normal", "half_cauchy", "student_t",
-                 "normal", "exponential", "lkj", "cauchy", "gamma",
-                 "uniform")
+  supported <- c(
+    "pc",
+    "half_normal",
+    "half_cauchy",
+    "student_t",
+    "normal",
+    "exponential",
+    "lkj",
+    "cauchy",
+    "gamma",
+    "uniform"
+  )
 
-  if (!fn %in% supported)
-    stop("Unsupported prior distribution: ", fn,
-         ". v0.1 supports: ",
-         paste(supported, collapse = ", "), call. = FALSE)
+  if (!fn %in% supported) {
+    stop(
+      "Unsupported prior distribution: ",
+      fn,
+      ". v0.1 supports: ",
+      paste(supported, collapse = ", "),
+      call. = FALSE
+    )
+  }
 
   # Name positional arguments by the family's canonical parameter order
   # *before* evaluating, so that `normal(0, 50)` and `normal(0, sd = 50)`
@@ -253,34 +312,69 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   # language object in place if evaluation fails (validators below
   # surface a clear error).
   args <- as.list(expr[-1])
-  args <- lapply(args, function(a)
-    tryCatch(eval(a, envir = envir), error = function(e) a))
+  args <- lapply(args, function(a) {
+    tryCatch(eval(a, envir = envir), error = function(e) a)
+  })
 
   # uniform-specific validation (degenerate or open-ended bounds
   # would produce silently bad cross-engine emit otherwise).
   if (fn == "uniform") {
     lower <- args$lower
     upper <- args$upper
-    if (is.null(lower) && length(args) >= 1L && nchar(names(args)[[1]] %||% "") == 0L)
+    if (
+      is.null(lower) &&
+        length(args) >= 1L &&
+        nchar(names(args)[[1]] %||% "") == 0L
+    ) {
       lower <- args[[1]]
-    if (is.null(upper) && length(args) >= 2L && nchar(names(args)[[2]] %||% "") == 0L)
+    }
+    if (
+      is.null(upper) &&
+        length(args) >= 2L &&
+        nchar(names(args)[[2]] %||% "") == 0L
+    ) {
       upper <- args[[2]]
-    if (is.null(lower)) lower <- 0
-    if (is.null(upper))
-      stop("uniform() requires `upper`; got: ", deparse(expr),
-           ". Example: `sd(group = \"g\") ~ uniform(lower = 0, upper = 5)`.",
-           call. = FALSE)
-    if (!is.numeric(lower) || !is.numeric(upper) ||
-        length(lower) != 1L || length(upper) != 1L ||
-        !is.finite(lower) || !is.finite(upper))
+    }
+    if (is.null(lower)) {
+      lower <- 0
+    }
+    if (is.null(upper)) {
+      stop(
+        "uniform() requires `upper`; got: ",
+        deparse(expr),
+        ". Example: `sd(group = \"g\") ~ uniform(lower = 0, upper = 5)`.",
+        call. = FALSE
+      )
+    }
+    if (
+      !is.numeric(lower) ||
+        !is.numeric(upper) ||
+        length(lower) != 1L ||
+        length(upper) != 1L ||
+        !is.finite(lower) ||
+        !is.finite(upper)
+    ) {
       stop("uniform() lower/upper must be finite scalars.", call. = FALSE)
-    if (lower < 0)
-      stop("uniform() lower must be >= 0 for sd-scale targets ",
-           "(sd is non-negative). Got lower = ", lower, ".",
-           call. = FALSE)
-    if (upper <= lower)
-      stop("uniform() upper must be > lower. Got lower = ", lower,
-           ", upper = ", upper, ".", call. = FALSE)
+    }
+    if (lower < 0) {
+      stop(
+        "uniform() lower must be >= 0 for sd-scale targets ",
+        "(sd is non-negative). Got lower = ",
+        lower,
+        ".",
+        call. = FALSE
+      )
+    }
+    if (upper <= lower) {
+      stop(
+        "uniform() upper must be > lower. Got lower = ",
+        lower,
+        ", upper = ",
+        upper,
+        ".",
+        call. = FALSE
+      )
+    }
     args$lower <- lower
     args$upper <- upper
   }
@@ -304,42 +398,62 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # where basis records which branch fired -- captured so the
 # deprecation message can explain itself.
 .default_prior_scale <- function(data, response, family, link = NULL) {
-  fam <- if (inherits(family, "family")) family$family
-         else as.character(family)
+  fam <- if (inherits(family, "family")) {
+    family$family
+  } else {
+    as.character(family)
+  }
   fam <- tolower(fam %||% "gaussian")
-  link_name <- if (!is.null(link)) tolower(link)
-               else if (inherits(family, "family")) tolower(family$link)
-               else NULL
-  is_log_link   <- isTRUE(link_name == "log") ||
-                   fam %in% c("poisson", "negative_binomial",
-                              "negbinom", "nbinomial", "gamma")
+  link_name <- if (!is.null(link)) {
+    tolower(link)
+  } else if (inherits(family, "family")) {
+    tolower(family$link)
+  } else {
+    NULL
+  }
+  is_log_link <- isTRUE(link_name == "log") ||
+    fam %in% c("poisson", "negative_binomial", "negbinom", "nbinomial", "gamma")
   is_logit_link <- isTRUE(link_name == "logit") ||
-                   fam %in% c("binomial", "binary", "beta")
+    fam %in% c("binomial", "binary", "beta")
 
-  if (is_logit_link)
+  if (is_logit_link) {
     return(list(scale = 2.5, basis = "logit_default"))
+  }
 
-  y <- if (!is.null(data) && response %in% names(data))
-    data[[response]] else NULL
+  y <- if (!is.null(data) && response %in% names(data)) {
+    data[[response]]
+  } else {
+    NULL
+  }
 
   if (is_log_link) {
-    if (!is.numeric(y)) return(list(scale = 1.0,
-                                     basis = "log_default_nonnumeric"))
-    yp <- as.numeric(y); yp <- yp[is.finite(yp) & yp >= 0]
-    if (length(yp) < 2L) return(list(scale = 1.0,
-                                      basis = "log_default_too_small"))
+    if (!is.numeric(y)) {
+      return(list(scale = 1.0, basis = "log_default_nonnumeric"))
+    }
+    yp <- as.numeric(y)
+    yp <- yp[is.finite(yp) & yp >= 0]
+    if (length(yp) < 2L) {
+      return(list(scale = 1.0, basis = "log_default_too_small"))
+    }
     sdv <- stats::sd(log(yp + 0.5))
-    if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+    if (!is.finite(sdv) || sdv <= 0) {
+      sdv <- 1.0
+    }
     return(list(scale = 2.5 * sdv, basis = "log_link_sd"))
   }
 
-  if (!is.numeric(y)) return(list(scale = 1.0,
-                                   basis = "identity_default"))
-  yv <- as.numeric(y); yv <- yv[is.finite(yv)]
-  if (length(yv) < 2L) return(list(scale = 1.0,
-                                    basis = "identity_too_small"))
+  if (!is.numeric(y)) {
+    return(list(scale = 1.0, basis = "identity_default"))
+  }
+  yv <- as.numeric(y)
+  yv <- yv[is.finite(yv)]
+  if (length(yv) < 2L) {
+    return(list(scale = 1.0, basis = "identity_too_small"))
+  }
   sdv <- stats::sd(yv)
-  if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+  if (!is.finite(sdv) || sdv <= 0) {
+    sdv <- 1.0
+  }
   list(scale = 2.5 * sdv, basis = "identity_sd")
 }
 
@@ -349,24 +463,26 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # advanced appendix and PC-default tests); no longer the v0.1
 # default. ADR 0004 supersedes ADR 0003 (PC default) with the
 # bounded-uniform default below.
-.default_pc_prior <- function(data,
-                               response,
-                               family,
-                               link           = NULL,
-                               random_groups  = character(0),
-                               alpha          = 0.05) {
+.default_pc_prior <- function(
+  data,
+  response,
+  family,
+  link = NULL,
+  random_groups = character(0),
+  alpha = 0.05
+) {
   scl <- .default_prior_scale(data, response, family, link)
   specs <- list(list(
     target = list(type = "sigma"),
-    spec   = list(family = "pc",
-                  args   = list(upper = scl$scale, prob = alpha))
+    spec = list(family = "pc", args = list(upper = scl$scale, prob = alpha))
   ))
   for (g in unique(random_groups)) {
-    if (!nzchar(g)) next
+    if (!nzchar(g)) {
+      next
+    }
     specs[[length(specs) + 1L]] <- list(
       target = list(type = "sd", group = g),
-      spec   = list(family = "pc",
-                    args   = list(upper = scl$scale, prob = alpha))
+      spec = list(family = "pc", args = list(upper = scl$scale, prob = alpha))
     )
   }
   obj <- list(specs = specs)
@@ -388,34 +504,50 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # Theory: Gelman 2006, Bayesian Analysis 1(3):515-534, sec.4 worked
 # example. ADR 0004.
 .default_uniform_scale <- function(data, response, family, link = NULL) {
-  fam <- if (inherits(family, "family")) family$family
-         else as.character(family)
+  fam <- if (inherits(family, "family")) {
+    family$family
+  } else {
+    as.character(family)
+  }
   fam <- tolower(fam %||% "gaussian")
-  link_name <- if (!is.null(link)) tolower(link)
-               else if (inherits(family, "family")) tolower(family$link)
-               else NULL
-  is_log_link   <- isTRUE(link_name == "log") ||
-                   fam %in% c("poisson", "negative_binomial",
-                              "negbinom", "nbinomial", "gamma")
+  link_name <- if (!is.null(link)) {
+    tolower(link)
+  } else if (inherits(family, "family")) {
+    tolower(family$link)
+  } else {
+    NULL
+  }
+  is_log_link <- isTRUE(link_name == "log") ||
+    fam %in% c("poisson", "negative_binomial", "negbinom", "nbinomial", "gamma")
   is_logit_link <- isTRUE(link_name == "logit") ||
-                   fam %in% c("binomial", "binary", "beta")
+    fam %in% c("binomial", "binary", "beta")
 
-  if (is_logit_link)
+  if (is_logit_link) {
     return(list(scale = 5, basis = "logit_uniform"))
+  }
 
-  if (is_log_link)
+  if (is_log_link) {
     return(list(scale = 3, basis = "log_link_uniform"))
+  }
 
-  y <- if (!is.null(data) && response %in% names(data))
-    data[[response]] else NULL
+  y <- if (!is.null(data) && response %in% names(data)) {
+    data[[response]]
+  } else {
+    NULL
+  }
 
-  if (!is.numeric(y)) return(list(scale = 1.0,
-                                   basis = "identity_default_uniform"))
-  yv <- as.numeric(y); yv <- yv[is.finite(yv)]
-  if (length(yv) < 2L) return(list(scale = 1.0,
-                                    basis = "identity_too_small_uniform"))
+  if (!is.numeric(y)) {
+    return(list(scale = 1.0, basis = "identity_default_uniform"))
+  }
+  yv <- as.numeric(y)
+  yv <- yv[is.finite(yv)]
+  if (length(yv) < 2L) {
+    return(list(scale = 1.0, basis = "identity_too_small_uniform"))
+  }
   sdv <- stats::sd(yv)
-  if (!is.finite(sdv) || sdv <= 0) sdv <- 1.0
+  if (!is.finite(sdv) || sdv <= 0) {
+    sdv <- 1.0
+  }
   list(scale = 5 * sdv, basis = "identity_sd_uniform")
 }
 
@@ -443,24 +575,26 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # per vm / ped random term) and is keyed identically to `random_groups`
 # in priors_to_legacy() / priors_to_inla() so the uniform_per_vc
 # entries surface through the existing dispatch.
-.default_uniform_prior <- function(data,
-                                    response,
-                                    family,
-                                    link           = NULL,
-                                    random_groups  = character(0),
-                                    vm_ped_groups  = character(0)) {
+.default_uniform_prior <- function(
+  data,
+  response,
+  family,
+  link = NULL,
+  random_groups = character(0),
+  vm_ped_groups = character(0)
+) {
   scl <- .default_uniform_scale(data, response, family, link)
   specs <- list(list(
     target = list(type = "sigma"),
-    spec   = list(family = "uniform",
-                  args   = list(lower = 0, upper = scl$scale))
+    spec = list(family = "uniform", args = list(lower = 0, upper = scl$scale))
   ))
   for (g in unique(random_groups)) {
-    if (!nzchar(g)) next
+    if (!nzchar(g)) {
+      next
+    }
     specs[[length(specs) + 1L]] <- list(
       target = list(type = "sd", group = g),
-      spec   = list(family = "uniform",
-                    args   = list(lower = 0, upper = scl$scale))
+      spec = list(family = "uniform", args = list(lower = 0, upper = scl$scale))
     )
   }
   # §1.4 vm() + ped() branch. Add a separate spec per structured group
@@ -468,11 +602,12 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   # groups; carry a `_default_uniform_form` tag (vm / ped) so the
   # surface can explain which structured form the spec came from.
   for (g in unique(vm_ped_groups)) {
-    if (!nzchar(g)) next
+    if (!nzchar(g)) {
+      next
+    }
     sp <- list(
       target = list(type = "sd", group = g),
-      spec   = list(family = "uniform",
-                    args   = list(lower = 0, upper = scl$scale))
+      spec = list(family = "uniform", args = list(lower = 0, upper = scl$scale))
     )
     attr(sp, "_default_uniform_form") <- "vm_or_ped"
     specs[[length(specs) + 1L]] <- sp
@@ -481,8 +616,9 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   class(obj) <- c("fb_prior", "list")
   attr(obj, "fb_prior_default_basis") <- scl$basis
   attr(obj, "fb_prior_default_scale") <- scl$scale
-  if (length(vm_ped_groups) > 0L)
+  if (length(vm_ped_groups) > 0L) {
     attr(obj, "fb_prior_default_vm_ped_groups") <- unique(vm_ped_groups)
+  }
   obj
 }
 
@@ -493,19 +629,25 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # v0.3.9 migrated the flag out of the options() namespace where
 # unrelated callers could consume it before the intended emission.
 .default_prior_note_once <- function(scale, basis) {
-  if (isTRUE(getOption("flexyBayes.silence_default_prior_note", FALSE)))
+  if (isTRUE(getOption("flexyBayes.silence_default_prior_note", FALSE))) {
     return(invisible())
-  if (.emit_state_get("default_prior_note"))
+  }
+  if (.emit_state_get("default_prior_note")) {
     return(invisible())
-  message("flexyBayes: variance-component prior default is uniform(0, ",
-          format(scale, digits = 3), ") on every SD (residual sigma + ",
-          "every named random-effect group), following Gelman (2006, ",
-          "Bayesian Analysis 1(3):515-534). Scale basis = \"",
-          basis, "\". Pass `prior_vc_sd` explicitly for the legacy ",
-          "lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` ",
-          "for full control, or ",
-          "options(flexyBayes.silence_default_prior_note = TRUE) to ",
-          "silence this notice.")
+  }
+  message(
+    "flexyBayes: variance-component prior default is uniform(0, ",
+    format(scale, digits = 3),
+    ") on every SD (residual sigma + ",
+    "every named random-effect group), following Gelman (2006, ",
+    "Bayesian Analysis 1(3):515-534). Scale basis = \"",
+    basis,
+    "\". Pass `prior_vc_sd` explicitly for the legacy ",
+    "lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` ",
+    "for full control, or ",
+    "options(flexyBayes.silence_default_prior_note = TRUE) to ",
+    "silence this notice."
+  )
   .emit_state_set("default_prior_note", TRUE)
 }
 
@@ -514,17 +656,21 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # options(flexyBayes.silence_uniform_inla_approx = TRUE). The once-flag
 # is held in the package-internal emit-state env (see R/emit_state.R).
 .uniform_to_inla_warn_once <- function() {
-  if (isTRUE(getOption("flexyBayes.silence_uniform_inla_approx", FALSE)))
+  if (isTRUE(getOption("flexyBayes.silence_uniform_inla_approx", FALSE))) {
     return(invisible())
-  if (.emit_state_get("uniform_inla_approx"))
+  }
+  if (.emit_state_get("uniform_inla_approx")) {
     return(invisible())
-  message("flexyBayes: uniform() prior on a variance component is ",
-          "approximated as PC(upper, 0.01) for the INLA backend in ",
-          "v0.1.x. The support is matched but the density inside ",
-          "differs (PC concentrates at sigma = 0; uniform is flat). ",
-          "Exact bounded-uniform support lands in v0.2 -- see ",
-          "?fb_prior. Silence this notice via ",
-          "options(flexyBayes.silence_uniform_inla_approx = TRUE).")
+  }
+  message(
+    "flexyBayes: uniform() prior on a variance component is ",
+    "approximated as PC(upper, 0.01) for the INLA backend in ",
+    "v0.1.x. The support is matched but the density inside ",
+    "differs (PC concentrates at sigma = 0; uniform is flat). ",
+    "Exact bounded-uniform support lands in v0.2 -- see ",
+    "?fb_prior. Silence this notice via ",
+    "options(flexyBayes.silence_uniform_inla_approx = TRUE)."
+  )
   .emit_state_set("uniform_inla_approx", TRUE)
 }
 
@@ -540,39 +686,62 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 #' @keywords internal
 #' @export
 print.fb_prior <- function(x, ...) {
-  cat("<fb_prior> ", length(x$specs),
-      " specification", if (length(x$specs) != 1L) "s" else "",
-      "\n", sep = "")
+  cat(
+    "<fb_prior> ",
+    length(x$specs),
+    " specification",
+    if (length(x$specs) != 1L) "s" else "",
+    "\n",
+    sep = ""
+  )
   for (s in x$specs) {
-    cat("  ", .format_prior_target(s$target), " ~ ",
-        .format_prior_distribution(s$spec), "\n", sep = "")
+    cat(
+      "  ",
+      .format_prior_target(s$target),
+      " ~ ",
+      .format_prior_distribution(s$spec),
+      "\n",
+      sep = ""
+    )
   }
   invisible(x)
 }
 
 .format_prior_target <- function(target) {
-  switch(target$type,
-    "sigma"  = "sigma",
-    "sd"     = paste0("sd(group = \"", target$group, "\")"),
-    "b"      = paste0("b(\"", target$name, "\")"),
-    "cor"    = paste0("cor(group = \"", target$group, "\")"),
-    "smooth" = paste0("smooth(\"", target$var, "\", basis = \"",
-                       target$basis, "\")"),
-    "name"   = target$name,
+  switch(
+    target$type,
+    "sigma" = "sigma",
+    "sd" = paste0("sd(group = \"", target$group, "\")"),
+    "b" = paste0("b(\"", target$name, "\")"),
+    "cor" = paste0("cor(group = \"", target$group, "\")"),
+    "smooth" = paste0(
+      "smooth(\"",
+      target$var,
+      "\", basis = \"",
+      target$basis,
+      "\")"
+    ),
+    "name" = target$name,
     deparse(target)
   )
 }
 
 .format_prior_distribution <- function(spec) {
-  arg_strs <- vapply(seq_along(spec$args), function(i) {
-    nm  <- names(spec$args)[i]
-    val <- spec$args[[i]]
-    if (is.numeric(val) && length(val) == 1L)
-      return(paste0(if (nzchar(nm %||% "")) paste0(nm, " = ") else "",
-                    format(val)))
-    paste0(if (nzchar(nm %||% "")) paste0(nm, " = ") else "",
-           deparse(val))
-  }, character(1))
+  arg_strs <- vapply(
+    seq_along(spec$args),
+    function(i) {
+      nm <- names(spec$args)[i]
+      val <- spec$args[[i]]
+      if (is.numeric(val) && length(val) == 1L) {
+        return(paste0(
+          if (nzchar(nm %||% "")) paste0(nm, " = ") else "",
+          format(val)
+        ))
+      }
+      paste0(if (nzchar(nm %||% "")) paste0(nm, " = ") else "", deparse(val))
+    },
+    character(1)
+  )
   paste0(spec$family, "(", paste(arg_strs, collapse = ", "), ")")
 }
 
@@ -586,15 +755,17 @@ print.fb_prior <- function(x, ...) {
 # fixed_sd. If multiple sigma/b specs are given, the first wins
 # (and a warning is emitted). Future iterations expand this into
 # per-term emit_greta codegen.
-priors_to_legacy <- function(prior, fixed_sd_default = 10,
-                              vc_sd_default = 1) {
-  if (!inherits(prior, "fb_prior"))
-    return(list(fixed_sd = fixed_sd_default,
-                vc_sd    = vc_sd_default,
-                legacy   = TRUE))
+priors_to_legacy <- function(prior, fixed_sd_default = 10, vc_sd_default = 1) {
+  if (!inherits(prior, "fb_prior")) {
+    return(list(
+      fixed_sd = fixed_sd_default,
+      vc_sd = vc_sd_default,
+      legacy = TRUE
+    ))
+  }
 
   fixed_sd <- fixed_sd_default
-  vc_sd    <- vc_sd_default
+  vc_sd <- vc_sd_default
 
   # Per-VC PC specs (target = sigma / sd / smooth) keyed by the
   # codegen tag the variance component carries: "__sigma__" for
@@ -612,41 +783,51 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
 
   for (s in prior$specs) {
     if (s$target$type == "sigma" && s$spec$family == "pc") {
-      if (!is.null(s$spec$args$upper))
+      if (!is.null(s$spec$args$upper)) {
         vc_sd <- as.numeric(s$spec$args$upper)
+      }
       pc_per_vc[["__sigma__"]] <- list(
         upper = as.numeric(s$spec$args$upper %||% 1),
-        prob  = as.numeric(s$spec$args$prob  %||% 0.05)
+        prob = as.numeric(s$spec$args$prob %||% 0.05)
       )
     }
-    if (s$target$type == "sigma" && s$spec$family == "half_normal")
-      if (!is.null(s$spec$args$scale))
+    if (s$target$type == "sigma" && s$spec$family == "half_normal") {
+      if (!is.null(s$spec$args$scale)) {
         vc_sd <- as.numeric(s$spec$args$scale)
-    if (s$target$type %in% c("sd", "smooth") &&
-        s$spec$family == "half_normal")
-      if (!is.null(s$spec$args$scale))
+      }
+    }
+    if (
+      s$target$type %in% c("sd", "smooth") && s$spec$family == "half_normal"
+    ) {
+      if (!is.null(s$spec$args$scale)) {
         vc_sd <- as.numeric(s$spec$args$scale)
-    if (s$target$type %in% c("sd", "smooth") &&
-        s$spec$family == "pc") {
+      }
+    }
+    if (s$target$type %in% c("sd", "smooth") && s$spec$family == "pc") {
       key <- if (s$target$type == "sd") s$target$group else s$target$var
       pc_per_vc[[key]] <- list(
         upper = as.numeric(s$spec$args$upper %||% 1),
-        prob  = as.numeric(s$spec$args$prob  %||% 0.05)
+        prob = as.numeric(s$spec$args$prob %||% 0.05)
       )
     }
-    if (s$target$type == "b" && s$spec$family == "normal")
-      if (!is.null(s$spec$args$sd))
+    if (s$target$type == "b" && s$spec$family == "normal") {
+      if (!is.null(s$spec$args$sd)) {
         fixed_sd <- as.numeric(s$spec$args$sd)
+      }
+    }
 
     # uniform on a variance component (target = sigma / sd / smooth):
     # surface in uniform_per_vc; codegen .sigma_decl emits
     # greta::uniform(lower, upper) directly. ADR 0004 D2.
-    if (s$target$type %in% c("sigma", "sd", "smooth") &&
-        s$spec$family == "uniform") {
+    if (
+      s$target$type %in%
+        c("sigma", "sd", "smooth") &&
+        s$spec$family == "uniform"
+    ) {
       key <- switch(
         s$target$type,
-        "sigma"  = "__sigma__",
-        "sd"     = s$target$group,
+        "sigma" = "__sigma__",
+        "sd" = s$target$group,
         "smooth" = s$target$var
       )
       uniform_per_vc[[key]] <- list(
@@ -655,14 +836,20 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
       )
       # Fallback vc_sd legacy hyperparameter -- best-effort for
       # structured-covariance branches that don't yet honour uniform.
-      if (s$target$type == "sigma" && !is.null(s$spec$args$upper))
+      if (s$target$type == "sigma" && !is.null(s$spec$args$upper)) {
         vc_sd <- as.numeric(s$spec$args$upper)
+      }
     }
   }
 
-  list(fixed_sd = fixed_sd, vc_sd = vc_sd, legacy = FALSE,
-       fb_prior = prior, pc_per_vc = pc_per_vc,
-       uniform_per_vc = uniform_per_vc)
+  list(
+    fixed_sd = fixed_sd,
+    vc_sd = vc_sd,
+    legacy = FALSE,
+    fb_prior = prior,
+    pc_per_vc = pc_per_vc,
+    uniform_per_vc = uniform_per_vc
+  )
 }
 
 # Translate fb_prior -> INLA hyperpar control list. v0.1 minimum:
@@ -671,38 +858,46 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10,
 # translation table.
 priors_to_inla <- function(prior) {
   out <- list()
-  if (!inherits(prior, "fb_prior")) return(out)
+  if (!inherits(prior, "fb_prior")) {
+    return(out)
+  }
 
   for (s in prior$specs) {
     if (s$spec$family == "pc") {
       u <- as.numeric(s$spec$args$upper %||% 1)
-      a <- as.numeric(s$spec$args$prob  %||% 0.01)
-      key <- switch(s$target$type,
+      a <- as.numeric(s$spec$args$prob %||% 0.01)
+      key <- switch(
+        s$target$type,
         "sigma" = "sigma",
-        "sd"    = s$target$group,
+        "sd" = s$target$group,
         "smooth" = s$target$var,
         "<unknown>"
       )
       out[[key]] <- list(prior = "pc.prec", param = c(u, a))
     } else if (s$spec$family == "half_normal") {
       scale <- as.numeric(s$spec$args$scale %||% 1)
-      key <- switch(s$target$type,
+      key <- switch(
+        s$target$type,
         "sigma" = "sigma",
-        "sd"    = s$target$group,
+        "sd" = s$target$group,
         "smooth" = s$target$var,
         "<unknown>"
       )
       # Approximate half_normal(scale = s) via PC matched at
       # u = s * qnorm(0.995), alpha = 0.005 (Q2 design note).
       u <- scale * stats::qnorm(0.995)
-      out[[key]] <- list(prior = "pc.prec", param = c(u, 0.005),
-                          approx_from = "half_normal")
+      out[[key]] <- list(
+        prior = "pc.prec",
+        param = c(u, 0.005),
+        approx_from = "half_normal"
+      )
     } else if (s$spec$family == "uniform") {
       lower <- as.numeric(s$spec$args$lower %||% 0)
       upper <- as.numeric(s$spec$args$upper)
-      key   <- switch(s$target$type,
+      key <- switch(
+        s$target$type,
         "sigma" = "sigma",
-        "sd"    = s$target$group,
+        "sd" = s$target$group,
         "smooth" = s$target$var,
         "<unknown>"
       )
@@ -719,12 +914,12 @@ priors_to_inla <- function(prior) {
       # downstream tooling (and the print method) can flag it, and
       # via a once-per-session message at construction time.
       .uniform_to_inla_warn_once()
-      out[[key]] <- list(prior       = "pc.prec",
-                         param       = c(upper, 0.01),
-                         approx_from = "uniform",
-                         meta        = list(family = "uniform",
-                                            lower  = lower,
-                                            upper  = upper))
+      out[[key]] <- list(
+        prior = "pc.prec",
+        param = c(upper, 0.01),
+        approx_from = "uniform",
+        meta = list(family = "uniform", lower = lower, upper = upper)
+      )
     }
   }
   out

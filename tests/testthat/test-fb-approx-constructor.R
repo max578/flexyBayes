@@ -35,8 +35,7 @@ test_that("fb_approx() carries a literature-referenced bias-bound promise", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_approx() refuses an unregistered scheme with a catchable class", {
-  err <- tryCatch(fb_approx("not_a_scheme"),
-                  error = function(e) e)
+  err <- tryCatch(fb_approx("not_a_scheme"), error = function(e) e)
   expect_s3_class(err, "flexybayes_refusal_approximation_scheme_unknown")
   expect_match(conditionMessage(err), "low_rank_smooth")
 })
@@ -76,10 +75,21 @@ test_that("fb_approx() is accepted as a smooth representation spec", {
   # and the equivalent list form must both build a plan.
   p_obj <- suppressMessages(flexybayes(
     fixed = y ~ s(x, representation = fb_approx("low_rank_smooth", rank = 5L)),
-    data = d, backend = "greta", plan = TRUE, verbose = FALSE))
+    data = d,
+    backend = "greta",
+    plan = TRUE,
+    verbose = FALSE
+  ))
   p_lst <- suppressMessages(flexybayes(
-    fixed = y ~ s(x, representation = list(scheme = "low_rank_smooth", rank = 5L)),
-    data = d, backend = "greta", plan = TRUE, verbose = FALSE))
+    fixed = y ~ s(
+      x,
+      representation = list(scheme = "low_rank_smooth", rank = 5L)
+    ),
+    data = d,
+    backend = "greta",
+    plan = TRUE,
+    verbose = FALSE
+  ))
   expect_s3_class(p_obj, "fb_plan")
   expect_s3_class(p_lst, "fb_plan")
 })

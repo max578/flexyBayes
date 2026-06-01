@@ -20,8 +20,8 @@ mk_emit_data <- function() {
   n <- 30L
   data.frame(
     yield = rnorm(n),
-    env   = factor(rep(1:3, length.out = n)),
-    geno  = factor(rep(1:5, length.out = n))
+    env = factor(rep(1:3, length.out = n)),
+    geno = factor(rep(1:5, length.out = n))
   )
 }
 
@@ -87,8 +87,13 @@ test_that("default-prior-note re-emits in a back-to-back call pattern", {
   local({
     local_clean_emit_state()
     expect_message(
-      flexybayes(yield ~ env, random = ~ geno, data = d,
-                 verbose = FALSE, return_code = TRUE),
+      flexybayes(
+        yield ~ env,
+        random = ~geno,
+        data = d,
+        verbose = FALSE,
+        return_code = TRUE
+      ),
       regexp = "uniform\\(0,"
     )
   })
@@ -101,8 +106,13 @@ test_that("default-prior-note re-emits in a back-to-back call pattern", {
   local({
     local_clean_emit_state()
     expect_message(
-      flexybayes(yield ~ env, random = ~ geno, data = d,
-                 verbose = FALSE, return_code = TRUE),
+      flexybayes(
+        yield ~ env,
+        random = ~geno,
+        data = d,
+        verbose = FALSE,
+        return_code = TRUE
+      ),
       regexp = "uniform\\(0,"
     )
   })
@@ -116,8 +126,13 @@ test_that("silence option short-circuits the latch", {
   local_clean_emit_state()
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   expect_no_message(
-    flexybayes(yield ~ env, random = ~ geno, data = d,
-               verbose = FALSE, return_code = TRUE)
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      verbose = FALSE,
+      return_code = TRUE
+    )
   )
   # Latch was not flipped because the silence path returns early.
   expect_false(flexyBayes:::.emit_state_get("default_prior_note"))

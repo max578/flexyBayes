@@ -24,11 +24,18 @@
 # scheme when a fit somehow mixes schemes.
 .fit_approximation_scheme <- function(fit) {
   approx <- fit$extras$parse_info$approx
-  if (is.null(approx) || length(approx) == 0L) return(NULL)
-  schemes <- unique(vapply(approx, function(a) a$scheme %||% NA_character_,
-                           character(1)))
+  if (is.null(approx) || length(approx) == 0L) {
+    return(NULL)
+  }
+  schemes <- unique(vapply(
+    approx,
+    function(a) a$scheme %||% NA_character_,
+    character(1)
+  ))
   schemes <- schemes[!is.na(schemes)]
-  if (length(schemes) == 0L) return(NULL)
+  if (length(schemes) == 0L) {
+    return(NULL)
+  }
   schemes[[1L]]
 }
 
@@ -41,17 +48,19 @@
 # rows (each with realised Frobenius capture, bias bound, threshold,
 # and pass flag), the overall verdict, the threshold, and the
 # registry's fallback hint.
-.new_approximation_validation <- function(scheme,
-                                          per_smooth,
-                                          pass,
-                                          threshold,
-                                          fallback_hint) {
+.new_approximation_validation <- function(
+  scheme,
+  per_smooth,
+  pass,
+  threshold,
+  fallback_hint
+) {
   structure(
     list(
-      scheme        = scheme,
-      pass          = isTRUE(pass),
-      threshold     = threshold,
-      per_smooth    = per_smooth,
+      scheme = scheme,
+      pass = isTRUE(pass),
+      threshold = threshold,
+      per_smooth = per_smooth,
       fallback_hint = fallback_hint
     ),
     class = c("fb_approximation_validation", "list")
@@ -63,15 +72,26 @@ print.fb_approximation_validation <- function(x, ...) {
   verdict <- if (isTRUE(x$pass)) "PASS" else "FAIL"
   cat("<fb_approximation_validation>\n")
   cat("  scheme:    ", x$scheme, "\n", sep = "")
-  cat("  threshold: Frobenius capture >= ",
-      format(x$threshold), "\n", sep = "")
+  cat("  threshold: Frobenius capture >= ", format(x$threshold), "\n", sep = "")
   cat("  verdict:   ", verdict, "\n", sep = "")
   for (r in x$per_smooth) {
     mark <- if (isTRUE(r$pass)) "ok " else "XX "
-    cat("    ", mark, "s(", r$smooth, "): rank ", r$rank, "/", r$k,
-        "  capture ", format(round(r$frobenius_capture, 4L)),
-        "  (bias bound ", format(signif(r$bias_bound, 3L)), ")\n",
-        sep = "")
+    cat(
+      "    ",
+      mark,
+      "s(",
+      r$smooth,
+      "): rank ",
+      r$rank,
+      "/",
+      r$k,
+      "  capture ",
+      format(round(r$frobenius_capture, 4L)),
+      "  (bias bound ",
+      format(signif(r$bias_bound, 3L)),
+      ")\n",
+      sep = ""
+    )
   }
   if (!isTRUE(x$pass) && !is.null(x$fallback_hint)) {
     cat("  fallback:  ", x$fallback_hint, "\n", sep = "")
@@ -125,12 +145,13 @@ validate_approximation <- function(fit, ...) {
   # wrap the same procedure bodies so direct method calls and the
   # exported-method inventory stay consistent with the registry.
   scheme <- .fit_approximation_scheme(fit)
-  if (is.null(scheme))
+  if (is.null(scheme)) {
     return(validate_approximation.default(fit, ...))
-  entry <- tryCatch(.lookup_approximation(scheme),
-                    error = function(e) NULL)
-  if (is.null(entry))
+  }
+  entry <- tryCatch(.lookup_approximation(scheme), error = function(e) NULL)
+  if (is.null(entry)) {
     return(validate_approximation.default(fit, ...))
+  }
   entry$validation_fn(fit, ...)
 }
 
@@ -143,13 +164,17 @@ validate_approximation.low_rank_smooth <- function(fit, ...) {
 validate_approximation.default <- function(fit, ...) {
   exactness <- fit$exactness %||% "exact"
   stop(.fb_refusal_condition(
-    reason_code  = "approximation_scheme_unknown",
-    message      = paste0(
+    reason_code = "approximation_scheme_unknown",
+    message = paste0(
       "validate_approximation(): this fit carries no recognised ",
-      "approximation to validate (exactness = '", exactness, "'). ",
+      "approximation to validate (exactness = '",
+      exactness,
+      "'). ",
       "validate_approximation() applies only to approximate fits ",
       "(those routed through a registered approximation scheme such ",
       "as low_rank_smooth); an exact fit has no bias bound to ",
-      "report."),
-    family_class = "flexybayes_approximation_scheme_unknown"))
+      "report."
+    ),
+    family_class = "flexybayes_approximation_scheme_unknown"
+  ))
 }

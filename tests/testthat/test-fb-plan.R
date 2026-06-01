@@ -58,11 +58,11 @@ test_that("fb_plan() is idempotent (same inputs -> identical plan)", {
   # The call slot embeds match.call() which is identical here.
   # representation_plan + rejected_routes + memory_estimate_bytes
   # must agree exactly.
-  expect_equal(p1$backend_chosen,        p2$backend_chosen)
-  expect_equal(p1$reason_code,           p2$reason_code)
+  expect_equal(p1$backend_chosen, p2$backend_chosen)
+  expect_equal(p1$reason_code, p2$reason_code)
   expect_equal(p1$memory_estimate_bytes, p2$memory_estimate_bytes)
-  expect_equal(p1$representation_plan,   p2$representation_plan)
-  expect_equal(p1$rejected_routes,       p2$rejected_routes)
+  expect_equal(p1$representation_plan, p2$representation_plan)
+  expect_equal(p1$rejected_routes, p2$rejected_routes)
   expect_equal(p1$cov_validation_policy, p2$cov_validation_policy)
 })
 
@@ -73,13 +73,18 @@ test_that("fb_plan() is idempotent (same inputs -> identical plan)", {
 test_that("flexybayes(plan = TRUE) matches fb_plan() routing decision", {
   d <- .test_plan_data_simple()
   p_brms <- fb_plan(y ~ x + (1 | g), data = d, backend = "auto")
-  p_asreml <- flexybayes(fixed = y ~ x, random = ~g,
-                          data = d, backend = "auto", plan = TRUE)
+  p_asreml <- flexybayes(
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    backend = "auto",
+    plan = TRUE
+  )
   expect_s3_class(p_asreml, "fb_plan")
   # Backend chosen + routing policy version must agree across ingest paths.
-  expect_equal(p_asreml$backend_chosen,         p_brms$backend_chosen)
+  expect_equal(p_asreml$backend_chosen, p_brms$backend_chosen)
   expect_equal(p_asreml$routing_policy_version, p_brms$routing_policy_version)
-  expect_equal(p_asreml$cov_validation_policy,  p_brms$cov_validation_policy)
+  expect_equal(p_asreml$cov_validation_policy, p_brms$cov_validation_policy)
 })
 
 # ---------------------------------------------------------------- #
@@ -106,13 +111,19 @@ test_that("print.fb_plan() emits the flight-checklist surface", {
 test_that("print.fb_plan() surfaces the refusal when preflight refuses", {
   # Force preflight refusal with an absurdly small memory ceiling.
   d <- .test_plan_data_simple()
-  p <- fb_plan(y ~ x + (1 | g), data = d, backend = "auto",
-                memory_ceiling_gb = 1e-9)
+  p <- fb_plan(
+    y ~ x + (1 | g),
+    data = d,
+    backend = "auto",
+    memory_ceiling_gb = 1e-9
+  )
   out <- utils::capture.output(print(p))
   expect_true(any(grepl("Will fit:", out)))
   # When refused, will_fit is no and the print form announces it.
-  expect_true(any(grepl("preflight refused", out, fixed = TRUE)) ||
-              isFALSE(p$will_fit))
+  expect_true(
+    any(grepl("preflight refused", out, fixed = TRUE)) ||
+      isFALSE(p$will_fit)
+  )
   expect_true(isFALSE(p$will_fit))
   expect_true(inherits(p$preflight_refusal, "fb_preflight_refusal"))
 })
@@ -134,7 +145,9 @@ test_that("representation_plan carries per-term entries with class + justificati
     # Below the 1e5-row dispatcher threshold the per_term_estimate
     # is built only when fb_plan() ran preflight directly --- which
     # it does. So expect non-empty here.
-    skip("representation_plan empty -- preflight returned no per-term estimates")
+    skip(
+      "representation_plan empty -- preflight returned no per-term estimates"
+    )
   }
 })
 
@@ -148,7 +161,7 @@ test_that("rejected_routes carries list of list(backend, reason)", {
   expect_true(is.list(p$rejected_routes))
   for (rr in p$rejected_routes) {
     expect_true("backend" %in% names(rr))
-    expect_true("reason"  %in% names(rr))
+    expect_true("reason" %in% names(rr))
   }
 })
 
@@ -190,10 +203,14 @@ test_that("cov_validation_policy reads flexyBayes.trust_pd option correctly", {
 # ---------------------------------------------------------------- #
 
 test_that("predict_plan arg computes the planned prediction shape", {
-  d  <- .test_plan_data_simple()
+  d <- .test_plan_data_simple()
   nd <- .test_plan_data_simple(n = 500L, seed = 99L)
-  p  <- fb_plan(y ~ x + (1 | g), data = d, backend = "auto",
-                 predict_plan = list(newdata = nd, chunk_size = 100L))
+  p <- fb_plan(
+    y ~ x + (1 | g),
+    data = d,
+    backend = "auto",
+    predict_plan = list(newdata = nd, chunk_size = 100L)
+  )
   expect_false(is.null(p$predict_plan))
   expect_equal(p$predict_plan$n_newrows, 500L)
   expect_equal(p$predict_plan$chunk_size, 100L)
@@ -212,8 +229,7 @@ test_that("predict_plan arg computes the planned prediction shape", {
 test_that("malformed formula raises (refusal-registry-eligible at v0.4.0)", {
   d <- .test_plan_data_simple()
   # No formula -> error.
-  expect_error(fb_plan(data = d, backend = "auto"),
-               regexp = "formula|argument")
+  expect_error(fb_plan(data = d, backend = "auto"), regexp = "formula|argument")
 })
 
 # ---------------------------------------------------------------- #
@@ -229,13 +245,13 @@ test_that("backend_decision() backward-compat: legacy fits return 8-field shape"
     list(
       extras = list(
         backend_decision = list(
-          backend                = "greta",
-          path                   = "explicit_greta",
-          gate_checks            = NULL,
-          reason                 = "user requested greta explicitly",
-          preflight_summary      = NULL,
-          representation_plan    = NULL,
-          rejected_routes        = list(),
+          backend = "greta",
+          path = "explicit_greta",
+          gate_checks = NULL,
+          reason = "user requested greta explicitly",
+          preflight_summary = NULL,
+          representation_plan = NULL,
+          rejected_routes = list(),
           routing_policy_version = "stage5a_v1"
         )
       )

@@ -32,10 +32,14 @@ test_that("prior_summary() on a default-prior fit reports auto-uniform", {
     g = factor(rep(1:5, 6))
   )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d,
+    y ~ x + (1 | g),
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   ps <- prior_summary(fit)
   expect_s3_class(ps, "prior_summary_flexybayes")
@@ -48,8 +52,10 @@ test_that("prior_summary() on a default-prior fit reports auto-uniform", {
   expect_true(inherits(ps$fb_prior, "fb_prior"))
   # Print returns invisibly.
   out <- capture.output(print(ps))
-  expect_true(any(grepl("auto-default", out, ignore.case = TRUE)) ||
-              any(grepl("uniform", out, ignore.case = TRUE)))
+  expect_true(
+    any(grepl("auto-default", out, ignore.case = TRUE)) ||
+      any(grepl("uniform", out, ignore.case = TRUE))
+  )
 })
 
 
@@ -66,16 +72,20 @@ test_that("prior_summary() on a user-supplied fb_prior fit reports user origin",
     g = factor(rep(1:5, 6))
   )
   priors <- fb_prior(
-    sigma           ~ half_normal(scale = 5),
+    sigma ~ half_normal(scale = 5),
     sd(group = "g") ~ half_normal(scale = 5),
-    b("x")          ~ normal(mean = 0, sd = 10)
+    b("x") ~ normal(mean = 0, sd = 10)
   )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d,
-    prior   = priors,
+    y ~ x + (1 | g),
+    data = d,
+    prior = priors,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   ps <- prior_summary(fit)
   expect_identical(ps$kind, "fb_prior")
@@ -99,12 +109,16 @@ test_that("prior_summary() on a legacy-scalar fit reports the bridge values", {
     g = factor(rep(1:5, 6))
   )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d,
-    prior_vc_sd    = 1,           # opt back into legacy default
+    y ~ x + (1 | g),
+    data = d,
+    prior_vc_sd = 1, # opt back into legacy default
     prior_fixed_sd = 100,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   ps <- prior_summary(fit)
   expect_identical(ps$kind, "legacy_scalar")
@@ -138,22 +152,27 @@ test_that("prior_summary() flags fb_greta() fits as declaration-only", {
   m <- local({
     y <- greta::as_data(d$y)
     x <- greta::as_data(d$x)
-    b0    <- greta::normal(0, 100)
-    b1    <- greta::normal(0, 100)
+    b0 <- greta::normal(0, 100)
+    b1 <- greta::normal(0, 100)
     sigma <- greta::uniform(0, 5 * sd(d$y))
-    mu    <- b0 + b1 * x
+    mu <- b0 + b1 * x
     greta::distribution(y) <- greta::normal(mu, sigma)
     greta::model(b0, b1, sigma)
   })
   # v0.5.0: canonical_names attaches at IR build via fb_from_greta();
   # the greta pin fits the IR.
   ir_dg <- suppressMessages(fb_from_greta(
-    m, data = d,
-    canonical_names = c(b0 = "(Intercept)", b1 = "x", sigma = "sigma")))
+    m,
+    data = d,
+    canonical_names = c(b0 = "(Intercept)", b1 = "x", sigma = "sigma")
+  ))
   fit_dg <- suppressMessages(fb_greta(
     ir_dg,
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   ps <- prior_summary(fit_dg)
   expect_s3_class(ps, "prior_summary_flexybayes")

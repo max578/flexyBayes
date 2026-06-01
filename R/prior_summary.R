@@ -22,7 +22,6 @@
 #     declaration of what the user-built model graph encodes ---
 #     `flexyBayes` never re-priors the user's model on that path.
 
-
 #' Resolved-prior summary for a flexyBayes fit
 #'
 #' Returns the resolved priors used to fit the model -- either the
@@ -83,73 +82,104 @@ prior_summary <- function(object, ...) UseMethod("prior_summary")
 
 #' @rdname prior_summary
 #' @export
-prior_summary.flexybayes <- function(object, ...)
-  .prior_summary_impl(object, backend_label = "greta",
-                      declaration_only = FALSE)
+prior_summary.flexybayes <- function(object, ...) {
+  .prior_summary_impl(object, backend_label = "greta", declaration_only = FALSE)
+}
 
 #' @rdname prior_summary
 #' @export
-prior_summary.flexybayes_inla <- function(object, ...)
-  .prior_summary_impl(object, backend_label = "inla",
-                      declaration_only = FALSE)
+prior_summary.flexybayes_inla <- function(object, ...) {
+  .prior_summary_impl(object, backend_label = "inla", declaration_only = FALSE)
+}
 
 #' @rdname prior_summary
 #' @export
-prior_summary.flexybayes_brms <- function(object, ...)
-  .prior_summary_impl(object, backend_label = "brms",
-                      declaration_only = FALSE)
+prior_summary.flexybayes_brms <- function(object, ...) {
+  .prior_summary_impl(object, backend_label = "brms", declaration_only = FALSE)
+}
 
 #' @rdname prior_summary
 #' @export
-prior_summary.flexybayes_direct_greta <- function(object, ...)
-  .prior_summary_impl(object, backend_label = "greta-direct",
-                      declaration_only = TRUE)
+prior_summary.flexybayes_direct_greta <- function(object, ...) {
+  .prior_summary_impl(
+    object,
+    backend_label = "greta-direct",
+    declaration_only = TRUE
+  )
+}
 
 #' @rdname prior_summary
 #' @export
-prior_summary.default <- function(object, ...)
-  stop("`prior_summary()` does not know how to extract priors from ",
-       "an object of class ", paste(class(object), collapse = "/"),
-       ". Define a `prior_summary.<class>` method or pass a ",
-       "flexyBayes fit.", call. = FALSE)
+prior_summary.default <- function(object, ...) {
+  stop(
+    "`prior_summary()` does not know how to extract priors from ",
+    "an object of class ",
+    paste(class(object), collapse = "/"),
+    ". Define a `prior_summary.<class>` method or pass a ",
+    "flexyBayes fit.",
+    call. = FALSE
+  )
+}
 
 
 # ---------------------------------------------------------------- #
 # Implementation                                                   #
 # ---------------------------------------------------------------- #
 
-.prior_summary_impl <- function(object, backend_label,
-                                declaration_only) {
+.prior_summary_impl <- function(object, backend_label, declaration_only) {
   fb_terms <- object$extras$fb_terms
-  priors   <- if (!is.null(fb_terms)) fb_terms$priors else NULL
+  priors <- if (!is.null(fb_terms)) fb_terms$priors else NULL
 
   out <- if (is.null(priors)) {
-    list(kind = "no_prior_recorded", backend = backend_label,
-         fb_prior = NULL, default_origin = NA_character_,
-         default_scale = NULL, default_basis = NULL,
-         fixed_sd = NA_real_, vc_sd = NA_real_)
+    list(
+      kind = "no_prior_recorded",
+      backend = backend_label,
+      fb_prior = NULL,
+      default_origin = NA_character_,
+      default_scale = NULL,
+      default_basis = NULL,
+      fixed_sd = NA_real_,
+      vc_sd = NA_real_
+    )
   } else if (isTRUE(priors$legacy)) {
-    list(kind = "legacy_scalar", backend = backend_label,
-         fb_prior = NULL, default_origin = NA_character_,
-         default_scale = NULL, default_basis = NULL,
-         fixed_sd = priors$fixed_sd, vc_sd = priors$vc_sd)
+    list(
+      kind = "legacy_scalar",
+      backend = backend_label,
+      fb_prior = NULL,
+      default_origin = NA_character_,
+      default_scale = NULL,
+      default_basis = NULL,
+      fixed_sd = priors$fixed_sd,
+      vc_sd = priors$vc_sd
+    )
   } else if (inherits(priors, "fb_prior")) {
     default_basis <- attr(priors, "fb_prior_default_basis")
     default_scale <- attr(priors, "fb_prior_default_scale")
     origin <- if (!is.null(default_basis)) "auto" else "user"
-    list(kind = "fb_prior", backend = backend_label,
-         fb_prior = priors, default_origin = origin,
-         default_scale = default_scale,
-         default_basis = default_basis,
-         fixed_sd = NA_real_, vc_sd = NA_real_)
+    list(
+      kind = "fb_prior",
+      backend = backend_label,
+      fb_prior = priors,
+      default_origin = origin,
+      default_scale = default_scale,
+      default_basis = default_basis,
+      fixed_sd = NA_real_,
+      vc_sd = NA_real_
+    )
   } else {
     # Unknown shape -- defensive surfacing rather than silent
     # mis-classification.
-    list(kind = "unknown_shape", backend = backend_label,
-         fb_prior = NULL, default_origin = NA_character_,
-         default_scale = NULL, default_basis = NULL,
-         fixed_sd = NA_real_, vc_sd = NA_real_,
-         raw_class = class(priors))
+    list(
+      kind = "unknown_shape",
+      backend = backend_label,
+      fb_prior = NULL,
+      default_origin = NA_character_,
+      default_scale = NULL,
+      default_basis = NULL,
+      fixed_sd = NA_real_,
+      vc_sd = NA_real_,
+      raw_class = class(priors)
+    )
   }
 
   out$declaration_only <- isTRUE(declaration_only)
@@ -164,36 +194,55 @@ prior_summary.default <- function(object, ...)
 #' @export
 print.prior_summary_flexybayes <- function(x, ...) {
   cat("<prior_summary>  backend = ", x$backend, sep = "")
-  if (isTRUE(x$declaration_only))
+  if (isTRUE(x$declaration_only)) {
     cat("  (declaration only)", sep = "")
+  }
   cat("\n")
 
-  if (isTRUE(x$declaration_only))
-    cat("  Note: fb_greta() does not modify the user's model graph; ",
-        "the prior below records what the user declared the model ",
-        "encodes.\n", sep = "")
+  if (isTRUE(x$declaration_only)) {
+    cat(
+      "  Note: fb_greta() does not modify the user's model graph; ",
+      "the prior below records what the user declared the model ",
+      "encodes.\n",
+      sep = ""
+    )
+  }
 
-  switch(x$kind,
+  switch(
+    x$kind,
     no_prior_recorded = {
       cat("  No prior record attached to the fit.\n")
     },
     legacy_scalar = {
       cat("  Source: legacy scalar bridge\n")
-      cat("    prior_fixed_sd = ", format(x$fixed_sd), "  ",
-          "(beta ~ N(0, prior_fixed_sd))\n", sep = "")
-      cat("    prior_vc_sd    = ", format(x$vc_sd),    "  ",
-          "(sigma ~ Lognormal(0, prior_vc_sd))\n", sep = "")
+      cat(
+        "    prior_fixed_sd = ",
+        format(x$fixed_sd),
+        "  ",
+        "(beta ~ N(0, prior_fixed_sd))\n",
+        sep = ""
+      )
+      cat(
+        "    prior_vc_sd    = ",
+        format(x$vc_sd),
+        "  ",
+        "(sigma ~ Lognormal(0, prior_vc_sd))\n",
+        sep = ""
+      )
     },
     fb_prior = {
       if (identical(x$default_origin, "auto")) {
-        cat("  Source: auto-default bounded uniform on SD ",
-            "(Gelman 2006)\n", sep = "")
-        if (!is.null(x$default_scale))
-          cat("    Upper bound U = ", format(x$default_scale),
-              "\n", sep = "")
-        if (!is.null(x$default_basis))
-          cat("    Scale basis    = ", x$default_basis, "\n",
-              sep = "")
+        cat(
+          "  Source: auto-default bounded uniform on SD ",
+          "(Gelman 2006)\n",
+          sep = ""
+        )
+        if (!is.null(x$default_scale)) {
+          cat("    Upper bound U = ", format(x$default_scale), "\n", sep = "")
+        }
+        if (!is.null(x$default_basis)) {
+          cat("    Scale basis    = ", x$default_basis, "\n", sep = "")
+        }
       } else {
         cat("  Source: user-supplied fb_prior()\n")
       }
@@ -201,10 +250,12 @@ print.prior_summary_flexybayes <- function(x, ...) {
       print(x$fb_prior)
     },
     unknown_shape = {
-      cat("  Unknown prior shape (class = ",
-          paste(x$raw_class, collapse = "/"),
-          "). Inspect fit$extras$fb_terms$priors directly.\n",
-          sep = "")
+      cat(
+        "  Unknown prior shape (class = ",
+        paste(x$raw_class, collapse = "/"),
+        "). Inspect fit$extras$fb_terms$priors directly.\n",
+        sep = ""
+      )
     }
   )
   invisible(x)

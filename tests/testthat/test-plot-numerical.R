@@ -41,15 +41,15 @@ skip_if_no_greta_quiet <- function() {
       # table). A bare flexybayes(fixed, random) routes via auto to INLA,
       # which does not expose those slots, so the backend is pinned here.
       fit <<- flexybayes(
-        fixed     = y ~ x,
-        random    = ~ g,
-        data      = d,
-        backend   = "greta",
+        fixed = y ~ x,
+        random = ~g,
+        data = d,
+        backend = "greta",
         n_samples = 100L,
-        warmup    = 100L,
-        chains    = 1L,
-        verbose       = FALSE,
-        mcmc_verbose  = FALSE
+        warmup = 100L,
+        chains = 1L,
+        verbose = FALSE,
+        mcmc_verbose = FALSE
       )
     }
     fit
@@ -74,18 +74,17 @@ test_that("plot.flexybayes(type = 'effects') numerical inputs are stable", {
 
   # Capture the numerics the plot reads (coef + CI bounds).
   beta <- coef(fit)
-  ci   <- confint(fit, level = 0.95)
-  n    <- length(beta)
+  ci <- confint(fit, level = 0.95)
+  n <- length(beta)
 
   snapshot <- list(
-    n_coef     = n,
+    n_coef = n,
     coef_names = names(beta),
     # Estimates are MCMC-noisy; sample size on the snapshot is the
     # right invariant. Names + count + matrix shape are the
     # structural invariants the plot depends on.
-    ci_shape   = dim(ci),
-    has_intercept = "(Intercept)" %in% names(beta) ||
-                    "mu_atg" %in% names(beta)
+    ci_shape = dim(ci),
+    has_intercept = "(Intercept)" %in% names(beta) || "mu_atg" %in% names(beta)
   )
 
   # Sanity: the plot call itself does not error.
@@ -95,8 +94,7 @@ test_that("plot.flexybayes(type = 'effects') numerical inputs are stable", {
 
   # Numerical-shape snapshot (structural invariants only; values
   # absorbed in shape checks for MCMC tolerance).
-  expect_snapshot_value(snapshot, style = "json2",
-                         tolerance = 1e-6)
+  expect_snapshot_value(snapshot, style = "json2", tolerance = 1e-6)
 })
 
 # ---------------------------------------------------------------- #
@@ -117,8 +115,7 @@ test_that("plot.flexybayes(type = 'variance') numerical inputs are stable", {
   on.exit(grDevices::dev.off(), add = TRUE)
   expect_silent(plot(fit, type = "variance"))
 
-  expect_snapshot_value(snapshot, style = "json2",
-                         tolerance = 1e-6)
+  expect_snapshot_value(snapshot, style = "json2", tolerance = 1e-6)
 })
 
 # ---------------------------------------------------------------- #
@@ -129,15 +126,15 @@ test_that("plot.flexybayes(type = 'residuals') numerical inputs are stable", {
   skip_if_no_greta_quiet()
   fit <- .cached_fit()
   fitted_vals <- fitted(fit)
-  resid_vals  <- residuals(fit)
+  resid_vals <- residuals(fit)
 
   # Shape + finite-count invariants. The plot draws 4 panels and we
   # care that the residual vector is the right length, finite, and
   # the fitted vector matches.
   snapshot <- list(
-    n_obs       = length(resid_vals),
-    n_finite    = sum(is.finite(resid_vals)),
-    fitted_len  = length(fitted_vals),
+    n_obs = length(resid_vals),
+    n_finite = sum(is.finite(resid_vals)),
+    fitted_len = length(fitted_vals),
     resid_round = .round_sig(stats::sd(resid_vals), digits = 2L)
   )
 
@@ -145,6 +142,5 @@ test_that("plot.flexybayes(type = 'residuals') numerical inputs are stable", {
   on.exit(grDevices::dev.off(), add = TRUE)
   expect_silent(plot(fit, type = "residuals"))
 
-  expect_snapshot_value(snapshot, style = "json2",
-                         tolerance = 1e-2)
+  expect_snapshot_value(snapshot, style = "json2", tolerance = 1e-2)
 })

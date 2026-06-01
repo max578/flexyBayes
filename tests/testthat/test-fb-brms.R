@@ -23,23 +23,23 @@
 
 mk_brms_gaussian_data <- function() {
   set.seed(20260523L)
-  n  <- 50L
+  n <- 50L
   g1 <- factor(rep(letters[1:5], each = 10L))
   g2 <- factor(rep(LETTERS[1:5], times = 10L))
-  x  <- rnorm(n)
+  x <- rnorm(n)
   b_g1 <- rnorm(5L, sd = 1.5)[as.integer(g1)]
   b_g2 <- rnorm(5L, sd = 0.8)[as.integer(g2)]
-  y  <- 1 + 0.5 * x + b_g1 + b_g2 + rnorm(n, sd = 0.3)
+  y <- 1 + 0.5 * x + b_g1 + b_g2 + rnorm(n, sd = 0.3)
   data.frame(y = y, x = x, g1 = g1, g2 = g2)
 }
 
 mk_brms_binomial_data <- function() {
   set.seed(20260523L)
-  n  <- 60L
-  g  <- factor(rep(letters[1:6], each = 10L))
-  x  <- rnorm(n)
+  n <- 60L
+  g <- factor(rep(letters[1:6], each = 10L))
+  x <- rnorm(n)
   eta <- 0.3 + 0.5 * x + rnorm(6L, sd = 0.5)[as.integer(g)]
-  y  <- rbinom(n, size = 1L, prob = plogis(eta))
+  y <- rbinom(n, size = 1L, prob = plogis(eta))
   data.frame(y = y, x = x, g = g)
 }
 
@@ -66,9 +66,15 @@ test_that("fb() corpus 1: fixed-only Gaussian (brms grammar forced)", {
   # A bar-free formula is ASReml grammar by default; `syntax = "brms"`
   # forces the brms ingest so this still exercises the brms corpus path.
   fit <- suppressMessages(fb(
-    y ~ x, data = d, backend = "greta", syntax = "brms",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x,
+    data = d,
+    backend = "greta",
+    syntax = "brms",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   expect_identical(fit$extras$fb_terms$source, "brms")
@@ -87,9 +93,14 @@ test_that("fb_brms() corpus 2: Gaussian + one random intercept", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d, backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g1),
+    data = d,
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   expect_identical(fit$extras$fb_terms$source, "brms")
@@ -108,14 +119,22 @@ test_that("fb_brms() corpus 3: crossed random intercepts", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g1) + (1 | g2), data = d, backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g1) + (1 | g2),
+    data = d,
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   expect_length(fit$extras$fb_terms$random_terms, 2L)
-  rg <- vapply(fit$extras$fb_terms$random_terms,
-               function(t) t$var, character(1))
+  rg <- vapply(
+    fit$extras$fb_terms$random_terms,
+    function(t) t$var,
+    character(1)
+  )
   expect_setequal(rg, c("g1", "g2"))
 })
 
@@ -130,9 +149,15 @@ test_that("fb_brms() corpus 4: binomial RI as single-column Bernoulli", {
   testthat::skip_on_ci()
   d <- mk_brms_binomial_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, family = "binomial", backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g),
+    data = d,
+    family = "binomial",
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   expect_identical(fit$extras$fb_terms$family, "binomial")
@@ -150,9 +175,15 @@ test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
   testthat::skip_on_ci()
   d <- mk_brms_poisson_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, family = "poisson", backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g),
+    data = d,
+    family = "poisson",
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   expect_identical(fit$extras$fb_terms$family, "poisson")
@@ -211,8 +242,7 @@ test_that("fb_brms() refuses brms smoothers with structured message", {
 test_that("fb_brms() refuses LHS-pipe addition forms cleanly", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb(y | weights(x) ~ x + (1 | g1), data = d,
-            verbose = FALSE),
+    fb(y | weights(x) ~ x + (1 | g1), data = d, verbose = FALSE),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("LHS addition forms", err))
@@ -230,7 +260,9 @@ test_that("fb(..., backend = 'auto') routes to INLA when LGM-feasible", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d, backend = "auto",
+    y ~ x + (1 | g1),
+    data = d,
+    backend = "auto",
     verbose = FALSE
   ))
   bd <- backend_decision(fit)
@@ -250,10 +282,14 @@ test_that("fb(..., review_code = TRUE) returns <flexybayes_review>; proceed() fi
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   rev <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d,
-    n_samples = 50L, warmup = 50L, chains = 1L,
+    y ~ x + (1 | g1),
+    data = d,
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
     review_code = TRUE,
-    verbose = FALSE, mcmc_verbose = FALSE
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(rev, "flexybayes_review")
   expect_true(is.character(rev$code) && nchar(rev$code) > 0L)
@@ -278,16 +314,28 @@ test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d, backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g1),
+    data = d,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   bd <- backend_decision(fit)
   expect_setequal(
     names(bd),
-    c("backend", "path", "gate_checks", "reason",
-      "preflight_summary", "representation_plan",
-      "rejected_routes", "routing_policy_version")
+    c(
+      "backend",
+      "path",
+      "gate_checks",
+      "reason",
+      "preflight_summary",
+      "representation_plan",
+      "rejected_routes",
+      "routing_policy_version"
+    )
   )
   expect_identical(bd$backend, "greta")
   expect_identical(bd$path, "explicit_greta")
@@ -311,9 +359,13 @@ test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
 test_that("fb(review_code = TRUE, backend != 'greta') raises structured refusal", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb(y ~ x + (1 | g1), data = d,
-            backend = "inla", review_code = TRUE,
-            verbose = FALSE),
+    fb(
+      y ~ x + (1 | g1),
+      data = d,
+      backend = "inla",
+      review_code = TRUE,
+      verbose = FALSE
+    ),
     error = function(e) conditionMessage(e)
   )
   expect_true(grepl("review_code", err, fixed = TRUE))
@@ -333,17 +385,26 @@ test_that("triangulate() on fb_brms() greta + INLA fits resolves canonical names
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
   fit_g <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d, backend = "greta",
-    n_samples = 80L, warmup = 80L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 | g1),
+    data = d,
+    backend = "greta",
+    n_samples = 80L,
+    warmup = 80L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_i <- suppressMessages(fb(
-    y ~ x + (1 | g1), data = d, backend = "inla",
+    y ~ x + (1 | g1),
+    data = d,
+    backend = "inla",
     verbose = FALSE
   ))
   tri <- triangulate(fit_g, fit_i)
-  expect_true(all(c("(Intercept)", "x", "sd_g1", "sigma") %in%
-                  tri$common))
+  expect_true(all(
+    c("(Intercept)", "x", "sd_g1", "sigma") %in%
+      tri$common
+  ))
 })
 
 
@@ -354,10 +415,8 @@ test_that("triangulate() on fb_brms() greta + INLA fits resolves canonical names
 test_that("fb_brms() rejects invalid backend value", {
   d <- mk_brms_gaussian_data()
   err <- tryCatch(
-    fb(y ~ x + (1 | g1), data = d, backend = "stan",
-            verbose = FALSE),
+    fb(y ~ x + (1 | g1), data = d, backend = "stan", verbose = FALSE),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("'arg'.*should be one of|match.arg",
-                    err, perl = TRUE))
+  expect_true(grepl("'arg'.*should be one of|match.arg", err, perl = TRUE))
 })

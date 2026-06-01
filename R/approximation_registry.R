@@ -73,50 +73,82 @@
 #
 # Returns invisible NULL. Side effect: assign to
 # .approximation_registry.
-.register_approximation <- function(scheme,
-                                     bias_bound,
-                                     validation_fn,
-                                     fallback_hint,
-                                     registered_in_adr) {
+.register_approximation <- function(
+  scheme,
+  bias_bound,
+  validation_fn,
+  fallback_hint,
+  registered_in_adr
+) {
+  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme)) {
+    stop(
+      ".register_approximation(): `scheme` must be a non-empty ",
+      "single string.",
+      call. = FALSE
+    )
+  }
+  if (!is.list(bias_bound)) {
+    stop(
+      ".register_approximation(): `bias_bound` must be a list.",
+      call. = FALSE
+    )
+  }
+  if (!is.function(validation_fn)) {
+    stop(
+      ".register_approximation(): `validation_fn` must be a ",
+      "function of (fit, ...).",
+      call. = FALSE
+    )
+  }
+  if (!is.character(fallback_hint) || length(fallback_hint) != 1L) {
+    stop(
+      ".register_approximation(): `fallback_hint` must be a single ",
+      "string.",
+      call. = FALSE
+    )
+  }
+  if (
+    !is.character(registered_in_adr) ||
+      length(registered_in_adr) != 1L
+  ) {
+    stop(
+      ".register_approximation(): `registered_in_adr` must be a ",
+      "single string.",
+      call. = FALSE
+    )
+  }
 
-  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme))
-    stop(".register_approximation(): `scheme` must be a non-empty ",
-         "single string.", call. = FALSE)
-  if (!is.list(bias_bound))
-    stop(".register_approximation(): `bias_bound` must be a list.",
-         call. = FALSE)
-  if (!is.function(validation_fn))
-    stop(".register_approximation(): `validation_fn` must be a ",
-         "function of (fit, ...).", call. = FALSE)
-  if (!is.character(fallback_hint) || length(fallback_hint) != 1L)
-    stop(".register_approximation(): `fallback_hint` must be a single ",
-         "string.", call. = FALSE)
-  if (!is.character(registered_in_adr) ||
-      length(registered_in_adr) != 1L)
-    stop(".register_approximation(): `registered_in_adr` must be a ",
-         "single string.", call. = FALSE)
+  if (environmentIsLocked(.approximation_registry)) {
+    stop(
+      ".register_approximation(): approximation registry is ",
+      "locked; new schemes must be registered before ",
+      ".lock_approximation_registry() fires at end of .onLoad().",
+      call. = FALSE
+    )
+  }
 
-  if (environmentIsLocked(.approximation_registry))
-    stop(".register_approximation(): approximation registry is ",
-         "locked; new schemes must be registered before ",
-         ".lock_approximation_registry() fires at end of .onLoad().",
-         call. = FALSE)
+  if (exists(scheme, envir = .approximation_registry, inherits = FALSE)) {
+    stop(
+      ".register_approximation(): scheme '",
+      scheme,
+      "' is already ",
+      "registered. Approximation vocabulary is append-only; use a ",
+      "distinct name for new schemes.",
+      call. = FALSE
+    )
+  }
 
-  if (exists(scheme, envir = .approximation_registry,
-             inherits = FALSE))
-    stop(".register_approximation(): scheme '", scheme, "' is already ",
-         "registered. Approximation vocabulary is append-only; use a ",
-         "distinct name for new schemes.", call. = FALSE)
-
-  assign(scheme,
-         list(
-           scheme            = scheme,
-           bias_bound        = bias_bound,
-           validation_fn     = validation_fn,
-           fallback_hint     = fallback_hint,
-           registered_in_adr = registered_in_adr
-         ),
-         envir = .approximation_registry)
+  assign(
+    scheme,
+    list(
+      scheme = scheme,
+      bias_bound = bias_bound,
+      validation_fn = validation_fn,
+      fallback_hint = fallback_hint,
+      registered_in_adr = registered_in_adr
+    ),
+    envir = .approximation_registry
+  )
 
   invisible(NULL)
 }
@@ -131,18 +163,28 @@
 # validate_approximation.default() surfaces as
 # `approximation_scheme_unknown` once the export lands.
 .lookup_approximation <- function(scheme) {
-  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme))
-    stop(".lookup_approximation(): `scheme` must be a non-empty ",
-         "single string.", call. = FALSE)
-  if (!exists(scheme, envir = .approximation_registry,
-              inherits = FALSE)) {
-    known <- sort(ls(envir = .approximation_registry,
-                     all.names = FALSE))
-    stop(".lookup_approximation(): '", scheme, "' is not a registered ",
-         "approximation scheme. Known schemes: ",
-         if (length(known)) paste(known, collapse = ", ") else
-           "(none registered yet)",
-         ".", call. = FALSE)
+  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme)) {
+    stop(
+      ".lookup_approximation(): `scheme` must be a non-empty ",
+      "single string.",
+      call. = FALSE
+    )
+  }
+  if (!exists(scheme, envir = .approximation_registry, inherits = FALSE)) {
+    known <- sort(ls(envir = .approximation_registry, all.names = FALSE))
+    stop(
+      ".lookup_approximation(): '",
+      scheme,
+      "' is not a registered ",
+      "approximation scheme. Known schemes: ",
+      if (length(known)) {
+        paste(known, collapse = ", ")
+      } else {
+        "(none registered yet)"
+      },
+      ".",
+      call. = FALSE
+    )
   }
   get(scheme, envir = .approximation_registry, inherits = FALSE)
 }
@@ -173,25 +215,29 @@
 # reports the realised Frobenius capture against the threshold.
 .populate_approximation_registry_v0400 <- function() {
   .register_approximation(
-    scheme     = "low_rank_smooth",
+    scheme = "low_rank_smooth",
     bias_bound = list(
-      type       = "analytical",
+      type = "analytical",
       expression = "frobenius_residual",
-      formula    = quote((norm(B - B_K, type = "F"))^2 /
-                           (norm(B, type = "F"))^2),
-      reference  = "wood_2017_chapter_5",
+      formula = quote(
+        (norm(B - B_K, type = "F"))^2 /
+          (norm(B, type = "F"))^2
+      ),
+      reference = "wood_2017_chapter_5",
       interpretation = paste(
         "Relative squared Frobenius error of the rank-K truncation",
         "B_K against the full smooth basis B. Bound = 1 -",
         "frobenius_capture; default pass threshold frobenius_capture",
-        ">= 0.99.")
+        ">= 0.99."
+      )
     ),
     validation_fn = .validate_low_rank_smooth,
     fallback_hint = paste(
       "Re-fit with a higher rank, or drop the approximation to fit the",
       "exact smooth. If the basis dimension k is large only because of",
       "a high default k in s(x, k = ...), reducing k directly is the",
-      "exact alternative to truncation."),
+      "exact alternative to truncation."
+    ),
     registered_in_adr = "0027"
   )
   invisible(NULL)
@@ -206,7 +252,8 @@
 # by R's environmentIsLocked() machinery; schemes registered before
 # the lock remain readable indefinitely.
 .lock_approximation_registry <- function() {
-  if (!environmentIsLocked(.approximation_registry))
+  if (!environmentIsLocked(.approximation_registry)) {
     lockEnvironment(.approximation_registry, bindings = TRUE)
+  }
   invisible(NULL)
 }

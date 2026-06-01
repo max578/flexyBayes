@@ -30,25 +30,41 @@
   }
   if (identical(exact, "aggregated_exact")) {
     am <- fit$extras$aggregation_meta
-    if (!is.null(am) && !is.null(am$N) && !is.null(am$K) &&
-        am$K > 0L && am$N / am$K >= 2)
-      return(sprintf("aggregated_exact (compression %.0f:1)",
-                     am$N / am$K))
+    if (
+      !is.null(am) &&
+        !is.null(am$N) &&
+        !is.null(am$K) &&
+        am$K > 0L &&
+        am$N / am$K >= 2
+    ) {
+      return(sprintf("aggregated_exact (compression %.0f:1)", am$N / am$K))
+    }
     return("aggregated_exact")
   }
-  block_entries <- if (!is.null(bd$representation_plan))
-    Filter(function(rp)
-      identical(rp$representation_class %||% NA_character_,
-                .representation_class("block_diagonal")),
-      bd$representation_plan)
-  else NULL
+  block_entries <- if (!is.null(bd$representation_plan)) {
+    Filter(
+      function(rp) {
+        identical(
+          rp$representation_class %||% NA_character_,
+          .representation_class("block_diagonal")
+        )
+      },
+      bd$representation_plan
+    )
+  } else {
+    NULL
+  }
   if (length(block_entries)) {
-    k_total <- sum(vapply(block_entries,
-                           function(rp)
-                             as.integer(rp$block_count %||% NA_integer_),
-                           integer(1L)))
-    if (!is.na(k_total) && k_total > 0L)
+    k_total <- sum(vapply(
+      block_entries,
+      function(rp) {
+        as.integer(rp$block_count %||% NA_integer_)
+      },
+      integer(1L)
+    ))
+    if (!is.na(k_total) && k_total > 0L) {
       return(sprintf("exact (block-diagonal, %d blocks)", k_total))
+    }
     return("exact (block-diagonal)")
   }
   exact
@@ -59,16 +75,24 @@
 # inference-engine + approximation-regime phrase.
 .engine_label_for_fit <- function(fit, bd) {
   backend <- bd$backend %||% NA_character_
-  path    <- bd$path    %||% NA_character_
-  if (is.na(backend)) return("(unknown engine)")
-  if (identical(backend, "greta"))  return("greta MCMC")
-  if (identical(backend, "brms"))   return("brms / Stan HMC")
+  path <- bd$path %||% NA_character_
+  if (is.na(backend)) {
+    return("(unknown engine)")
+  }
+  if (identical(backend, "greta")) {
+    return("greta MCMC")
+  }
+  if (identical(backend, "brms")) {
+    return("brms / Stan HMC")
+  }
   if (identical(backend, "inla")) {
-    if (identical(path, "aggregated_inla"))
+    if (identical(path, "aggregated_inla")) {
       return("INLA Laplace (aggregated)")
+    }
     return("INLA Laplace")
   }
-  if (identical(backend, "gretaR"))
+  if (identical(backend, "gretaR")) {
     return("gretaR (R-native; dormant at v0.3.x)")
+  }
   backend
 }

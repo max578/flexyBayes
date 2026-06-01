@@ -46,17 +46,27 @@ test_that("low_rank_smooth registers with a working five-field schema", {
   entry <- flexyBayes:::.lookup_approximation("low_rank_smooth")
   expect_setequal(
     names(entry),
-    c("scheme", "bias_bound", "validation_fn", "fallback_hint",
-      "registered_in_adr"))
+    c(
+      "scheme",
+      "bias_bound",
+      "validation_fn",
+      "fallback_hint",
+      "registered_in_adr"
+    )
+  )
   expect_identical(entry$scheme, "low_rank_smooth")
   expect_true(is.list(entry$bias_bound))
   expect_identical(entry$bias_bound$type, "analytical")
   expect_true(is.function(entry$validation_fn))
-  expect_true(is.character(entry$fallback_hint) &&
-              length(entry$fallback_hint) == 1L)
+  expect_true(
+    is.character(entry$fallback_hint) &&
+      length(entry$fallback_hint) == 1L
+  )
   expect_identical(entry$registered_in_adr, "0027")
-  expect_identical(flexyBayes:::.approximation_scheme("low_rank_smooth"),
-                   "low_rank_smooth")
+  expect_identical(
+    flexyBayes:::.approximation_scheme("low_rank_smooth"),
+    "low_rank_smooth"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -69,27 +79,57 @@ test_that("low_rank_smooth registers with a working five-field schema", {
 
 test_that(".register_approximation() validates inputs", {
   ok_bias <- list(type = "analytical")
-  ok_fn   <- function(fit, ...) TRUE
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "", bias_bound = ok_bias, validation_fn = ok_fn,
-    fallback_hint = "x", registered_in_adr = "0027"),
-    regexp = "`scheme` must be a non-empty single string")
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "s", bias_bound = "not a list", validation_fn = ok_fn,
-    fallback_hint = "x", registered_in_adr = "0027"),
-    regexp = "`bias_bound` must be a list")
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "s", bias_bound = ok_bias, validation_fn = 42L,
-    fallback_hint = "x", registered_in_adr = "0027"),
-    regexp = "`validation_fn` must be a function")
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "s", bias_bound = ok_bias, validation_fn = ok_fn,
-    fallback_hint = c("a", "b"), registered_in_adr = "0027"),
-    regexp = "`fallback_hint` must be a single string")
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "s", bias_bound = ok_bias, validation_fn = ok_fn,
-    fallback_hint = "x", registered_in_adr = 27L),
-    regexp = "`registered_in_adr` must be a single string")
+  ok_fn <- function(fit, ...) TRUE
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "",
+      bias_bound = ok_bias,
+      validation_fn = ok_fn,
+      fallback_hint = "x",
+      registered_in_adr = "0027"
+    ),
+    regexp = "`scheme` must be a non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "s",
+      bias_bound = "not a list",
+      validation_fn = ok_fn,
+      fallback_hint = "x",
+      registered_in_adr = "0027"
+    ),
+    regexp = "`bias_bound` must be a list"
+  )
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "s",
+      bias_bound = ok_bias,
+      validation_fn = 42L,
+      fallback_hint = "x",
+      registered_in_adr = "0027"
+    ),
+    regexp = "`validation_fn` must be a function"
+  )
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "s",
+      bias_bound = ok_bias,
+      validation_fn = ok_fn,
+      fallback_hint = c("a", "b"),
+      registered_in_adr = "0027"
+    ),
+    regexp = "`fallback_hint` must be a single string"
+  )
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "s",
+      bias_bound = ok_bias,
+      validation_fn = ok_fn,
+      fallback_hint = "x",
+      registered_in_adr = 27L
+    ),
+    regexp = "`registered_in_adr` must be a single string"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -97,12 +137,14 @@ test_that(".register_approximation() validates inputs", {
 # ---------------------------------------------------------------- #
 
 test_that(".register_approximation() refuses on locked registry", {
-  expect_error(flexyBayes:::.register_approximation(
-    scheme = "brand_new_scheme",
-    bias_bound = list(type = "analytical"),
-    validation_fn = function(fit, ...) TRUE,
-    fallback_hint = "would never land",
-    registered_in_adr = "9999"),
+  expect_error(
+    flexyBayes:::.register_approximation(
+      scheme = "brand_new_scheme",
+      bias_bound = list(type = "analytical"),
+      validation_fn = function(fit, ...) TRUE,
+      fallback_hint = "would never land",
+      registered_in_adr = "9999"
+    ),
     regexp = "registry is locked"
   )
 })
@@ -114,10 +156,10 @@ test_that(".register_approximation() refuses on locked registry", {
 test_that(".lookup_approximation() refuses unknown scheme", {
   err <- tryCatch(
     flexyBayes:::.lookup_approximation("definitely_not_a_scheme"),
-    error = function(e) e)
+    error = function(e) e
+  )
   expect_s3_class(err, "error")
-  expect_match(conditionMessage(err),
-               "not a registered approximation scheme")
+  expect_match(conditionMessage(err), "not a registered approximation scheme")
   # the known-schemes hint names the registered vocabulary
   expect_match(conditionMessage(err), "low_rank_smooth")
 })
@@ -127,14 +169,22 @@ test_that(".lookup_approximation() refuses unknown scheme", {
 # ---------------------------------------------------------------- #
 
 test_that(".lookup_approximation() refuses non-string input", {
-  expect_error(flexyBayes:::.lookup_approximation(NULL),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_approximation(""),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_approximation(c("a", "b")),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_approximation(1L),
-               regexp = "non-empty single string")
+  expect_error(
+    flexyBayes:::.lookup_approximation(NULL),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_approximation(""),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_approximation(c("a", "b")),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_approximation(1L),
+    regexp = "non-empty single string"
+  )
 })
 
 # ---------------------------------------------------------------- #

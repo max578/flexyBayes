@@ -17,9 +17,9 @@ suppressPackageStartupMessages({
 })
 
 old_opts <- options(
-  flexyBayes.silence_default_prior_note     = TRUE,
-  flexyBayes.silence_uniform_inla_approx    = TRUE,
-  flexyBayes.silence_auto_fallback_note     = TRUE,
+  flexyBayes.silence_default_prior_note = TRUE,
+  flexyBayes.silence_uniform_inla_approx = TRUE,
+  flexyBayes.silence_auto_fallback_note = TRUE,
   flexyBayes.silence_auto_inla_missing_note = TRUE
 )
 on.exit(options(old_opts), add = TRUE)
@@ -27,8 +27,7 @@ on.exit(options(old_opts), add = TRUE)
 
 # Test fixture -- small greta-backend fit on a 4-level RI model.
 # Used by most subtests to keep wall-time bounded.
-mk_routing_fit <- function(seed = 2026L, N = 60L, J = 4L,
-                            backend = "greta") {
+mk_routing_fit <- function(seed = 2026L, N = 60L, J = 4L, backend = "greta") {
   set.seed(seed)
   dat <- data.frame(
     x = rnorm(N),
@@ -36,10 +35,17 @@ mk_routing_fit <- function(seed = 2026L, N = 60L, J = 4L,
     y = rnorm(N)
   )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = dat, backend = backend,
-    n_samples = 30L, warmup = 20L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x + (1 | g),
+    data = dat,
+    backend = backend,
+    n_samples = 30L,
+    warmup = 20L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   list(fit = fit, dat = dat)
 }
 
@@ -117,22 +123,31 @@ test_that("ADR 0024 (e): memory_feasibility_inla rule fires when INLA 3x ceiling
   # INLA 3x ceiling but not the hard ceiling.
   fb <- fb_from_brms(
     y ~ x + (1 | g),
-    data = data.frame(y = rnorm(50), x = rnorm(50),
-                       g = factor(rep(letters[1:5], 10))))
+    data = data.frame(
+      y = rnorm(50),
+      x = rnorm(50),
+      g = factor(rep(letters[1:5], 10))
+    )
+  )
   # Synthetic preflight: indexed total = 500 MB, ceiling = 1 GB.
   # INLA 3x = 1.5 GB > 1 GB ceiling -> rule should refuse.
   synthetic_pf <- structure(
     list(
-      per_term_estimate    = list(
-        x = list(design_memory_bytes = 1e7,
-                  representation_class = "indexed_continuous"),
-        g = list(design_memory_bytes = 5e8 - 1e7,
-                  representation_class = "indexed_factor")),
-      total_estimate_bytes = 5e8,   # 500 MB
-      ceiling_bytes        = 1e9,   # 1 GB
-      n_rows               = 1e7,
-      aggregation_plan     = NULL,
-      refusal              = NULL
+      per_term_estimate = list(
+        x = list(
+          design_memory_bytes = 1e7,
+          representation_class = "indexed_continuous"
+        ),
+        g = list(
+          design_memory_bytes = 5e8 - 1e7,
+          representation_class = "indexed_factor"
+        )
+      ),
+      total_estimate_bytes = 5e8, # 500 MB
+      ceiling_bytes = 1e9, # 1 GB
+      n_rows = 1e7,
+      aggregation_plan = NULL,
+      refusal = NULL
     ),
     class = c("fb_preflight", "list")
   )
@@ -162,8 +177,12 @@ test_that("ADR 0024 (f): structural LGM-infeasible model surfaces structural rea
   # We build a synthetic IR directly to bypass requiring a vm() ingest path.
   fb <- fb_from_brms(
     y ~ x + (1 | g),
-    data = data.frame(y = rnorm(50), x = rnorm(50),
-                       g = factor(rep(letters[1:5], 10))))
+    data = data.frame(
+      y = rnorm(50),
+      x = rnorm(50),
+      g = factor(rep(letters[1:5], 10))
+    )
+  )
   # Inject an out-of-allowlist random-term type to trigger the
   # structural rule.
   fb$random_terms[[1L]]$type <- "vm"
@@ -186,14 +205,24 @@ test_that("ADR 0024 (g): explicit backend='brms' bypasses policy (rejected_route
   # Use review_code to avoid the brms compile latency; the trace is
   # built on the dispatch path either way.
   set.seed(2026L)
-  dat <- data.frame(y = rnorm(20), x = rnorm(20),
-                     g = factor(rep(letters[1:4], 5)))
+  dat <- data.frame(
+    y = rnorm(20),
+    x = rnorm(20),
+    g = factor(rep(letters[1:4], 5))
+  )
   rev <- suppressMessages(fb(
-    y ~ x + (1 | g), data = dat, backend = "brms",
+    y ~ x + (1 | g),
+    data = dat,
+    backend = "brms",
     review_code = TRUE,
-    n_samples = 30L, warmup = 20L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    n_samples = 30L,
+    warmup = 20L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   # review_code returns a review token rather than a fitted object;
   # the routing decision is on the proceed() path. Skip the
   # backend_decision() check here -- the policy-bypass semantics
@@ -204,11 +233,12 @@ test_that("ADR 0024 (g): explicit backend='brms' bypasses policy (rejected_route
 test_that("ADR 0024 (g+): .resolve_routing() returns empty rejected_routes for explicit user requests", {
   for (req in c("greta", "brms", "inla")) {
     out <- flexyBayes:::.resolve_routing(
-      user_request      = req,
-      gate_outcome      = "accept",
+      user_request = req,
+      gate_outcome = "accept",
       preflight_outcome = "clear",
-      inla_installed    = TRUE,
-      gretaR_activated  = FALSE)
+      inla_installed = TRUE,
+      gretaR_activated = FALSE
+    )
     expect_length(out$rejected_routes, 0L)
   }
 })
@@ -221,8 +251,7 @@ test_that("ADR 0024 (g+): .resolve_routing() returns empty rejected_routes for e
 test_that("ADR 0024 (h): backend='inla_pardiso_approximate' refuses with approximation-registry pointer", {
   dat <- data.frame(y = rnorm(20), x = rnorm(20))
   err <- expect_error(
-    flexybayes(y ~ x, data = dat,
-                backend = "inla_pardiso_approximate"),
+    flexybayes(y ~ x, data = dat, backend = "inla_pardiso_approximate"),
     "approximate_route_not_yet_registered"
   )
   expect_match(conditionMessage(err), "approximation registry")
@@ -255,8 +284,10 @@ test_that("ADR 0024 (i): rejected_routes on auto-path carries (gretaR, backend_n
   testthat::skip_if_not_installed("greta")
   fx <- mk_routing_fit(backend = "auto")
   bd <- backend_decision(fx$fit)
-  gretaR_entry <- Filter(function(rr) identical(rr$backend, "gretaR"),
-                          bd$rejected_routes)
+  gretaR_entry <- Filter(
+    function(rr) identical(rr$backend, "gretaR"),
+    bd$rejected_routes
+  )
   expect_length(gretaR_entry, 1L)
   expect_identical(gretaR_entry[[1L]]$reason, "backend_not_activated")
 })
@@ -272,12 +303,12 @@ test_that("ADR 0024 (j): two identical calls produce identical backend_decision 
   fx2 <- mk_routing_fit(seed = 7L)
   bd1 <- backend_decision(fx1$fit)
   bd2 <- backend_decision(fx2$fit)
-  expect_identical(bd1$backend,                bd2$backend)
-  expect_identical(bd1$path,                   bd2$path)
-  expect_identical(bd1$reason,                 bd2$reason)
-  expect_identical(bd1$rejected_routes,        bd2$rejected_routes)
+  expect_identical(bd1$backend, bd2$backend)
+  expect_identical(bd1$path, bd2$path)
+  expect_identical(bd1$reason, bd2$reason)
+  expect_identical(bd1$rejected_routes, bd2$rejected_routes)
   expect_identical(bd1$routing_policy_version, bd2$routing_policy_version)
-  expect_identical(bd1$representation_plan,    bd2$representation_plan)
+  expect_identical(bd1$representation_plan, bd2$representation_plan)
   # preflight_summary may differ if RAM probe is stateful; skip.
 })
 
@@ -289,9 +320,13 @@ test_that("ADR 0024 (j): two identical calls produce identical backend_decision 
 test_that("lgm_gate() backward-compat: preflight=NULL produces 10-rule pass on LGM-feasible IR", {
   fb <- fb_from_brms(
     y ~ x + (1 | g),
-    data = data.frame(y = rnorm(50), x = rnorm(50),
-                       g = factor(rep(letters[1:5], 10))))
-  gated <- lgm_gate(fb)  # no preflight arg -- v0.3.5 calling convention
+    data = data.frame(
+      y = rnorm(50),
+      x = rnorm(50),
+      g = factor(rep(letters[1:5], 10))
+    )
+  )
+  gated <- lgm_gate(fb) # no preflight arg -- v0.3.5 calling convention
   expect_true(is_fb_terms(gated))
   expect_true("lgm_compatible" %in% gated$capabilities)
 })
@@ -299,16 +334,20 @@ test_that("lgm_gate() backward-compat: preflight=NULL produces 10-rule pass on L
 test_that("lgm_gate() with preflight: rule 11 trivially passes when INLA 3x within ceiling", {
   fb <- fb_from_brms(
     y ~ x + (1 | g),
-    data = data.frame(y = rnorm(50), x = rnorm(50),
-                       g = factor(rep(letters[1:5], 10))))
+    data = data.frame(
+      y = rnorm(50),
+      x = rnorm(50),
+      g = factor(rep(letters[1:5], 10))
+    )
+  )
   small_pf <- structure(
     list(
-      per_term_estimate    = list(),
-      total_estimate_bytes = 1e6,    # 1 MB -- well within typical ceiling
-      ceiling_bytes        = 1e10,   # 10 GB ceiling
-      n_rows               = 100L,
-      aggregation_plan     = NULL,
-      refusal              = NULL
+      per_term_estimate = list(),
+      total_estimate_bytes = 1e6, # 1 MB -- well within typical ceiling
+      ceiling_bytes = 1e10, # 10 GB ceiling
+      n_rows = 100L,
+      aggregation_plan = NULL,
+      refusal = NULL
     ),
     class = c("fb_preflight", "list")
   )
@@ -325,16 +364,25 @@ test_that("Legacy fit (no Stage 4 fields) accessor surfaces 8-field shape with N
   # Simulate a v0.3.5 fit by stripping the new fields.
   legacy <- fx$fit
   legacy$extras$backend_decision <- list(
-    backend     = "greta",
-    path        = "explicit_greta",
+    backend = "greta",
+    path = "explicit_greta",
     gate_checks = NULL,
-    reason      = "legacy 4-field shape"
+    reason = "legacy 4-field shape"
   )
   bd <- backend_decision(legacy)
-  expect_true(all(c("backend", "path", "gate_checks", "reason",
-                     "preflight_summary", "representation_plan",
-                     "rejected_routes", "routing_policy_version") %in%
-                    names(bd)))
+  expect_true(all(
+    c(
+      "backend",
+      "path",
+      "gate_checks",
+      "reason",
+      "preflight_summary",
+      "representation_plan",
+      "rejected_routes",
+      "routing_policy_version"
+    ) %in%
+      names(bd)
+  ))
   expect_null(bd$preflight_summary)
   expect_null(bd$representation_plan)
   expect_length(bd$rejected_routes, 0L)
@@ -344,17 +392,26 @@ test_that("Legacy fit (no Stage 4 fields) accessor surfaces 8-field shape with N
 test_that(".routing_policy_table() invariants: every row carries valid columns", {
   table <- flexyBayes:::.routing_policy_table()
   expect_s3_class(table, "data.frame")
-  expect_true(all(c("user_request", "gate_outcome", "preflight_outcome",
-                     "inla_installed", "chosen_backend", "reason_code") %in%
-                    names(table)))
+  expect_true(all(
+    c(
+      "user_request",
+      "gate_outcome",
+      "preflight_outcome",
+      "inla_installed",
+      "chosen_backend",
+      "reason_code"
+    ) %in%
+      names(table)
+  ))
   expect_true(nrow(table) >= 7L)
   # Every non-NA user_request value is in the expected vocabulary.
   reqs <- na.omit(unique(table$user_request))
   expect_true(all(reqs %in% c("greta", "brms", "inla", "auto", "gretaR")))
   # Every non-NA gate_outcome is in the expected vocabulary.
   outs <- na.omit(unique(table$gate_outcome))
-  expect_true(all(outs %in% c("accept", "refuse", "refuse_structural",
-                                "refuse_memory")))
+  expect_true(all(
+    outs %in% c("accept", "refuse", "refuse_structural", "refuse_memory")
+  ))
   # Every non-NA reason_code is non-empty.
   expect_true(all(nzchar(na.omit(table$reason_code))))
 })

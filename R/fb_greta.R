@@ -28,47 +28,68 @@
 # (ADR 0012 Sec.5): no emit_greta() lowering, a minimal GLM-compatible
 # shim built from the posterior summary, and the
 # c("flexybayes_direct_greta", "flexybayes", "list") class.
-.fit_native_greta <- function(fb,
-                              n_samples    = 1000L,
-                              warmup       = 500L,
-                              chains       = 4L,
-                              verbose      = TRUE,
-                              mcmc_verbose = TRUE,
-                              the_call     = NULL) {
-
-  if (!requireNamespace("greta", quietly = TRUE))
-    stop("Package 'greta' is required to fit a native greta model. ",
-         "Install with:\n  install.packages('greta')", call. = FALSE)
+.fit_native_greta <- function(
+  fb,
+  n_samples = 1000L,
+  warmup = 500L,
+  chains = 4L,
+  verbose = TRUE,
+  mcmc_verbose = TRUE,
+  the_call = NULL
+) {
+  if (!requireNamespace("greta", quietly = TRUE)) {
+    stop(
+      "Package 'greta' is required to fit a native greta model. ",
+      "Install with:\n  install.packages('greta')",
+      call. = FALSE
+    )
+  }
 
   model <- fb$greta_meta$model
-  if (is.null(model) || !inherits(model, "greta_model"))
-    stop(".fit_native_greta(): the IR does not carry a greta model graph ",
-         "on `greta_meta$model`. This is a programming error -- the IR ",
-         "must be built by fb_from_greta().", call. = FALSE)
+  if (is.null(model) || !inherits(model, "greta_model")) {
+    stop(
+      ".fit_native_greta(): the IR does not carry a greta model graph ",
+      "on `greta_meta$model`. This is a programming error -- the IR ",
+      "must be built by fb_from_greta().",
+      call. = FALSE
+    )
+  }
 
   # ------- 2. Direct greta::mcmc() call (no emit_greta lowering). - #
   run_time_start <- proc.time()[["elapsed"]]
   draws <- greta::mcmc(
-    model    = model,
+    model = model,
     n_samples = n_samples,
-    warmup   = warmup,
-    chains   = chains,
-    verbose  = mcmc_verbose
+    warmup = warmup,
+    chains = chains,
+    verbose = mcmc_verbose
   )
   run_time <- proc.time()[["elapsed"]] - run_time_start
 
-  if (isTRUE(verbose))
-    message("fb_greta(): fit complete in ", round(run_time, 1), " sec; ",
-            chains, " chain(s) x ", n_samples, " samples; ",
-            length(fb$greta_meta$arrays), " target parameter(s).")
+  if (isTRUE(verbose)) {
+    message(
+      "fb_greta(): fit complete in ",
+      round(run_time, 1),
+      " sec; ",
+      chains,
+      " chain(s) x ",
+      n_samples,
+      " samples; ",
+      length(fb$greta_meta$arrays),
+      " target parameter(s)."
+    )
+  }
 
   # ------- 3. Posterior summary on canonical-named axes. ---------- #
 
   all_draws <- do.call(rbind, lapply(draws, as.matrix))
-  if (is.null(colnames(all_draws)))
-    stop("greta MCMC returned draws without column names; ",
-         "fb_greta() requires named target parameters.",
-         call. = FALSE)
+  if (is.null(colnames(all_draws))) {
+    stop(
+      "greta MCMC returned draws without column names; ",
+      "fb_greta() requires named target parameters.",
+      call. = FALSE
+    )
+  }
 
   # Rename draw columns to canonical where mapped (greta uses
   # canonical-array-name plus an element index for vector-valued
@@ -77,9 +98,11 @@
   # canonical-prefix substitution. This keeps the canonical-name
   # registry compatible with both scalar and vector targets.
   greta_names <- names(fb$greta_meta$canonical_map)
-  canon       <- unname(fb$greta_meta$canonical_map)
+  canon <- unname(fb$greta_meta$canonical_map)
   for (i in seq_along(greta_names)) {
-    if (identical(greta_names[i], canon[i])) next
+    if (identical(greta_names[i], canon[i])) {
+      next
+    }
     pat <- paste0("^", greta_names[i], "(\\[|$)")
     repl <- paste0(canon[i], "\\1")
     colnames(all_draws) <- sub(pat, repl, colnames(all_draws))
@@ -87,20 +110,24 @@
 
   post_mean <- colMeans(all_draws)
   post_vcov <- if (ncol(all_draws) > 0L) cov(all_draws) else matrix(0, 0, 0)
-  post_sd   <- sqrt(diag(post_vcov))
+  post_sd <- sqrt(diag(post_vcov))
   post_q025 <- apply(all_draws, 2L, quantile, probs = 0.025, na.rm = TRUE)
   post_q975 <- apply(all_draws, 2L, quantile, probs = 0.975, na.rm = TRUE)
 
   # ------- 4. Convergence diagnostics. ---------------------------- #
-  conv <- tryCatch({
-    list(
-      gelman = if (length(draws) >= 2L)
-        coda::gelman.diag(draws, autoburnin = FALSE,
-                          multivariate = FALSE) else NULL,
-      n_eff  = tryCatch(coda::effectiveSize(draws),
-                        error = function(e) NULL)
-    )
-  }, error = function(e) list(gelman = NULL, n_eff = NULL))
+  conv <- tryCatch(
+    {
+      list(
+        gelman = if (length(draws) >= 2L) {
+          coda::gelman.diag(draws, autoburnin = FALSE, multivariate = FALSE)
+        } else {
+          NULL
+        },
+        n_eff = tryCatch(coda::effectiveSize(draws), error = function(e) NULL)
+      )
+    },
+    error = function(e) list(gelman = NULL, n_eff = NULL)
+  )
 
   # ------- 5. Minimal $glm shim. ---------------------------------- #
   # ADR 0012 Sec.5: a minimal GLM-shaped shim built from the posterior
@@ -113,23 +140,23 @@
   )
   glm_shim <- list(
     coefficients = post_mean,
-    residuals    = numeric(0),
+    residuals = numeric(0),
     fitted.values = numeric(0),
-    rank         = length(post_mean),
-    family       = fam_obj,
+    rank = length(post_mean),
+    family = fam_obj,
     linear.predictors = numeric(0),
-    deviance     = NA_real_,
-    aic          = NA_real_,
+    deviance = NA_real_,
+    aic = NA_real_,
     null.deviance = NA_real_,
-    iter         = NA_integer_,
-    df.residual  = NA_integer_,
-    df.null      = NA_integer_,
-    converged    = TRUE,
-    boundary     = FALSE,
-    call         = the_call
+    iter = NA_integer_,
+    df.residual = NA_integer_,
+    df.null = NA_integer_,
+    converged = TRUE,
+    boundary = FALSE,
+    call = the_call
   )
   attr(glm_shim, "posterior_vcov") <- post_vcov
-  attr(glm_shim, "posterior_sd")   <- post_sd
+  attr(glm_shim, "posterior_sd") <- post_sd
   attr(glm_shim, "posterior_q025") <- post_q025
   attr(glm_shim, "posterior_q975") <- post_q975
   class(glm_shim) <- c("flexybayes_glm", "glm", "lm")
@@ -137,58 +164,62 @@
   # ------- 6. Assemble the classed result. ------------------------ #
   param_names <- colnames(all_draws)
   result <- list(
-    glm    = glm_shim,
-    greta  = list(
-      model         = model,
-      draws         = draws,
-      greta_arrays  = fb$greta_meta$arrays,
-      env           = new.env(parent = emptyenv())
+    glm = glm_shim,
+    greta = list(
+      model = model,
+      draws = draws,
+      greta_arrays = fb$greta_meta$arrays,
+      env = new.env(parent = emptyenv())
     ),
     extras = list(
-      summary       = data.frame(
+      summary = data.frame(
         param = param_names,
-        mean  = post_mean,
-        sd    = post_sd,
-        q025  = post_q025,
-        q975  = post_q975,
+        mean = post_mean,
+        sd = post_sd,
+        q025 = post_q025,
+        q975 = post_q975,
         stringsAsFactors = FALSE,
         row.names = NULL
       ),
-      convergence   = conv,
+      convergence = conv,
       variance_comps = NULL,
-      blups         = NULL,
-      predictions   = NULL,
-      code          = NA_character_,  # no flexyBayes-generated code
-      param_names   = param_names,
-      parse_info    = list(source = "greta",
-                          canonical_map = fb$greta_meta$canonical_map),
-      call_info     = list(
-        fixed    = quote(`<greta-direct entry>`),
-        random   = NULL,
-        rcov     = NULL,
-        chains   = chains,
-        n_samples = n_samples,
-        warmup   = warmup,
-        call     = the_call
+      blups = NULL,
+      predictions = NULL,
+      code = NA_character_, # no flexyBayes-generated code
+      param_names = param_names,
+      parse_info = list(
+        source = "greta",
+        canonical_map = fb$greta_meta$canonical_map
       ),
-      run_time      = run_time,
-      model_info    = list(
-        family   = fb$family,
-        link     = "identity",
+      call_info = list(
+        fixed = quote(`<greta-direct entry>`),
+        random = NULL,
+        rcov = NULL,
+        chains = chains,
+        n_samples = n_samples,
+        warmup = warmup,
+        call = the_call
+      ),
+      run_time = run_time,
+      model_info = list(
+        family = fb$family,
+        link = "identity",
         n_params = length(post_mean),
-        n_fixed  = length(post_mean),
+        n_fixed = length(post_mean),
         n_random = 0L,
-        n_obs    = fb$greta_meta$n_data %||% NA_integer_,
+        n_obs = fb$greta_meta$n_data %||% NA_integer_,
         likelihood = fb$greta_meta$likelihood,
         canonical_map = fb$greta_meta$canonical_map
       ),
-      fb_terms      = fb,
+      fb_terms = fb,
       backend_decision = list(
-        backend     = "greta",
-        path        = "direct_entry",
+        backend = "greta",
+        path = "direct_entry",
         gate_checks = NULL,
-        reason      = paste0("fb_greta() bypasses lgm_gate(); ",
-                             "user-built model accepted as-is.")
+        reason = paste0(
+          "fb_greta() bypasses lgm_gate(); ",
+          "user-built model accepted as-is."
+        )
       )
     )
   )
@@ -256,10 +287,13 @@ fb_greta <- function(...) {
   # fitting path.
   nm <- names(cl)
   if (!is.null(nm) && "model" %in% nm) {
-    if ("fixed" %in% nm)
-      stop("fb_greta(): pass the model once -- `model` (removed at ",
-           "v0.5.0) and `fixed` name the same model-spec slot.",
-           call. = FALSE)
+    if ("fixed" %in% nm) {
+      stop(
+        "fb_greta(): pass the model once -- `model` (removed at ",
+        "v0.5.0) and `fixed` name the same model-spec slot.",
+        call. = FALSE
+      )
+    }
     nm[nm == "model"] <- "fixed"
     names(cl) <- nm
   }
@@ -306,24 +340,30 @@ fb_greta <- function(...) {
 #'   }
 #' @export
 backend_decision <- function(fit) {
-  if (!inherits(fit, "flexybayes") && !inherits(fit, "flexybayes_inla"))
-    stop("`fit` must be a `flexybayes` (or `flexybayes_inla`) object.",
-         call. = FALSE)
+  if (!inherits(fit, "flexybayes") && !inherits(fit, "flexybayes_inla")) {
+    stop(
+      "`fit` must be a `flexybayes` (or `flexybayes_inla`) object.",
+      call. = FALSE
+    )
+  }
   decision <- fit$extras$backend_decision
-  if (is.null(decision))
+  if (is.null(decision)) {
     # Pre-ADR-0006 fit (no recorded decision): synthesise a minimal
     # legacy trace so downstream tooling never sees NULL.
     return(list(
-      backend                = if (inherits(fit, "flexybayes_inla")) "inla" else "greta",
-      path                   = "legacy_no_recorded_decision",
-      gate_checks            = NULL,
-      reason                 = paste0("fit predates dispatch-trace recording; ",
-                                       "backend inferred from class."),
-      preflight_summary      = NULL,
-      representation_plan    = NULL,
-      rejected_routes        = list(),
+      backend = if (inherits(fit, "flexybayes_inla")) "inla" else "greta",
+      path = "legacy_no_recorded_decision",
+      gate_checks = NULL,
+      reason = paste0(
+        "fit predates dispatch-trace recording; ",
+        "backend inferred from class."
+      ),
+      preflight_summary = NULL,
+      representation_plan = NULL,
+      rejected_routes = list(),
       routing_policy_version = NA_character_
     ))
+  }
   # Stage 4 (ADR 0024) v0.3.6+: surface the four new fields with
   # NULL defaults so pre-Stage-4 fits (those that recorded the
   # 4-field ADR-0006 trace before v0.3.6 landed) read out with the
@@ -332,17 +372,21 @@ backend_decision <- function(fit) {
   # `decision[["x"]] <- NULL` removes the slot rather than setting
   # it to NULL, which would silently drop the field on every read.
   rejected <- decision$rejected_routes
-  if (is.null(rejected)) rejected <- list()
+  if (is.null(rejected)) {
+    rejected <- list()
+  }
   version <- decision$routing_policy_version
-  if (is.null(version)) version <- NA_character_
+  if (is.null(version)) {
+    version <- NA_character_
+  }
   list(
-    backend                = decision$backend,
-    path                   = decision$path,
-    gate_checks            = decision$gate_checks,
-    reason                 = decision$reason,
-    preflight_summary      = decision$preflight_summary,
-    representation_plan    = decision$representation_plan,
-    rejected_routes        = rejected,
+    backend = decision$backend,
+    path = decision$path,
+    gate_checks = decision$gate_checks,
+    reason = decision$reason,
+    preflight_summary = decision$preflight_summary,
+    representation_plan = decision$representation_plan,
+    rejected_routes = rejected,
     routing_policy_version = version
   )
 }

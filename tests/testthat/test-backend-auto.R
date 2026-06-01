@@ -24,8 +24,8 @@ mk_lgm_data <- function() {
   n <- 30L
   data.frame(
     yield = rnorm(n, mean = 100, sd = 10),
-    env   = factor(rep(1:3, length.out = n)),
-    geno  = factor(rep(1:5, length.out = n))
+    env = factor(rep(1:3, length.out = n)),
+    geno = factor(rep(1:5, length.out = n))
   )
 }
 
@@ -37,12 +37,10 @@ mk_lgm_data <- function() {
 test_that("invalid backend value raises match.arg error", {
   d <- mk_lgm_data()
   err <- tryCatch(
-    flexybayes(yield ~ env, random = ~ geno, data = d,
-               backend = "stan"),
+    flexybayes(yield ~ env, random = ~geno, data = d, backend = "stan"),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("'arg'.*should be one of|match.arg",
-                    err, perl = TRUE))
+  expect_true(grepl("'arg'.*should be one of|match.arg", err, perl = TRUE))
 })
 
 
@@ -51,10 +49,15 @@ test_that("invalid backend value raises match.arg error", {
 # ---------------------------------------------------------------- #
 
 test_that("review_code = TRUE under backend != 'greta' raises a clean refusal", {
-  d   <- mk_lgm_data()
+  d <- mk_lgm_data()
   err <- tryCatch(
-    flexybayes(yield ~ env, random = ~ geno, data = d,
-               backend = "inla", review_code = TRUE),
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      data = d,
+      backend = "inla",
+      review_code = TRUE
+    ),
     error = function(e) e
   )
   expect_s3_class(err, "flexybayes_refusal_review_code_backend_unsupported")
@@ -74,10 +77,15 @@ test_that("backend = 'greta' records the explicit-greta trace", {
   testthat::skip_on_ci()
   d <- mk_lgm_data()
   fit <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit, "flexybayes")
   bd <- backend_decision(fit)
@@ -101,8 +109,12 @@ test_that("backend = 'auto' routes a Gaussian random-intercept model to INLA", {
   # the lgm_gate call. Aggregated-path coverage lives in
   # test-emit-gaussian-aggregated.R.
   fit <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    backend = "auto", aggregate = FALSE, verbose = FALSE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    backend = "auto",
+    aggregate = FALSE,
+    verbose = FALSE
   ))
   bd <- backend_decision(fit)
   expect_identical(bd$backend, "inla")
@@ -125,13 +137,20 @@ test_that("backend = 'inla' surfaces the INLA-side refusal cleanly", {
   # = "inla" the refusal surfaces as a clean error; under backend =
   # "auto" the same refusal triggers the greta fallback (subtest f).
   err <- tryCatch(
-    flexybayes(yield ~ env, random = ~ geno,
-               rcov = ~ at(env):units, data = d,
-               backend = "inla", verbose = FALSE),
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      rcov = ~ at(env):units,
+      data = d,
+      backend = "inla",
+      verbose = FALSE
+    ),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("backend = \"inla\"|INLA backend refused|emit_inla\\(\\) refused|does not support",
-                    err))
+  expect_true(grepl(
+    "backend = \"inla\"|INLA backend refused|emit_inla\\(\\) refused|does not support",
+    err
+  ))
 })
 
 
@@ -148,11 +167,16 @@ test_that("backend = 'auto' on a non-LGM model falls back to greta with trace", 
   msgs <- character()
   fit <- withCallingHandlers(
     suppressWarnings(flexybayes(
-      yield ~ env, random = ~ geno,
-      rcov = ~ at(env):units, data = d,
+      yield ~ env,
+      random = ~geno,
+      rcov = ~ at(env):units,
+      data = d,
       backend = "auto",
-      n_samples = 50L, warmup = 50L, chains = 1L,
-      verbose = FALSE, mcmc_verbose = FALSE
+      n_samples = 50L,
+      warmup = 50L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
     )),
     message = function(m) {
       msgs <<- c(msgs, conditionMessage(m))
@@ -185,18 +209,29 @@ test_that("ADR 0006 verification: explicit-greta + auto-accept + non-LGM refusal
   # default is now "auto", so the explicit-greta path must be requested
   # by name; an unpinned call here would take the aggregated-INLA path.)
   fit_g <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d, backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_s3_class(fit_g, "flexybayes")
   expect_identical(backend_decision(fit_g)$path, "explicit_greta")
 
   # backend = "inla" on a non-LGM model: structured refusal.
   err <- tryCatch(
-    flexybayes(yield ~ env, random = ~ geno,
-               rcov = ~ at(env):units, data = d,
-               backend = "inla", verbose = FALSE),
+    flexybayes(
+      yield ~ env,
+      random = ~geno,
+      rcov = ~ at(env):units,
+      data = d,
+      backend = "inla",
+      verbose = FALSE
+    ),
     error = function(e) conditionMessage(e)
   )
   expect_true(nzchar(err))

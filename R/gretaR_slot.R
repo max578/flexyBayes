@@ -20,7 +20,6 @@
 # The single source of truth for activation state is the option
 # `flexyBayes.gretaR_activated`, queried here only.
 
-
 # ---------------------------------------------------------------- #
 # Activation state introspection                                    #
 # ---------------------------------------------------------------- #
@@ -32,10 +31,12 @@
 .gretaR_dormancy_reason <- function() {
   activated <- isTRUE(getOption("flexyBayes.gretaR_activated", FALSE))
   installed <- nzchar(system.file(package = "gretaR"))
-  if (!installed)
+  if (!installed) {
     return("gretaR_not_installed")
-  if (!activated)
+  }
+  if (!activated) {
     return("slot_provisioned_not_activated")
+  }
   # Reachable only when the activation boolean is TRUE but no audit
   # mechanism has been wired yet. v0.2 has no audit mechanism, so
   # the activation boolean alone moves the slot from
@@ -49,19 +50,22 @@
 # has shipped; v0.3 will flip to the eligible flag when both the
 # activation boolean and the audit mechanism agree.
 .gretaR_slot_capability <- function() {
-  if (identical(.gretaR_dormancy_reason(), "gretaR_dispatch_eligible"))
+  if (identical(.gretaR_dormancy_reason(), "gretaR_dispatch_eligible")) {
     "gretaR_dispatch_eligible"
-  else
+  } else {
     "gretaR_slot_dormant"
+  }
 }
 
 # Standard activation procedure -- documented in one place so the
 # dispatch refusal, the canonical-name stub, and gretaR_status() all
 # surface the same instructions.
 .gretaR_activation_procedure <- function() {
-  c("Install the gretaR package when it goes public on CRAN.",
+  c(
+    "Install the gretaR package when it goes public on CRAN.",
     "Verify the local gretaR build against the audit checklist.",
-    "Run options(flexyBayes.gretaR_activated = TRUE) in the session.")
+    "Run options(flexyBayes.gretaR_activated = TRUE) in the session."
+  )
 }
 
 
@@ -75,9 +79,9 @@
 
 .mapper_gretaR_stub <- function(fit, fb_terms) {
   list(
-    map             = character(0),
-    transform       = list(),
-    source          = "scaffold_dormant",
+    map = character(0),
+    transform = list(),
+    source = "scaffold_dormant",
     dormancy_reason = .gretaR_dormancy_reason()
   )
 }
@@ -125,7 +129,6 @@
 #' @export
 gretaR_status <- function() {
   installed <- nzchar(system.file(package = "gretaR"))
-  activated_opt <- isTRUE(getOption("flexyBayes.gretaR_activated", FALSE))
   reason <- .gretaR_dormancy_reason()
   # v0.2: the slot is fully active only when the dormancy_reason
   # returns the eligibility sentinel. No code path produces that
@@ -133,10 +136,10 @@ gretaR_status <- function() {
   # the activation contract self-documenting.
   fully_active <- identical(reason, "gretaR_dispatch_eligible")
   list(
-    activated            = fully_active,
-    gretaR_installed     = installed,
-    audit_clean          = NA,
-    dormancy_reason      = reason,
+    activated = fully_active,
+    gretaR_installed = installed,
+    audit_clean = NA,
+    dormancy_reason = reason,
     activation_procedure = .gretaR_activation_procedure()
   )
 }
@@ -154,18 +157,22 @@ gretaR_status <- function() {
 
 .gretaR_dormant_refusal <- function(call = NULL) {
   reason <- .gretaR_dormancy_reason()
-  proc   <- .gretaR_activation_procedure()
+  proc <- .gretaR_activation_procedure()
   msg <- paste0(
     "The gretaR backend slot is currently dormant (reason: ",
-    reason, "). Recommended fallback: pass backend = \"greta\" ",
+    reason,
+    "). Recommended fallback: pass backend = \"greta\" ",
     "for the same model. Activation procedure:\n",
     paste0("  ", seq_along(proc), ". ", proc, collapse = "\n")
   )
   cond <- structure(
     class = c("gretaR_dormant_refusal", "error", "condition"),
-    list(message = msg, call = call,
-         dormancy_reason = reason,
-         activation_procedure = proc)
+    list(
+      message = msg,
+      call = call,
+      dormancy_reason = reason,
+      activation_procedure = proc
+    )
   )
   stop(cond)
 }
@@ -180,4 +187,3 @@ gretaR_status <- function() {
 # .mapper_gretaR_stub with .mapper_gretaR_real in one place here.
 
 register_canonical_mapper("gretaR", .mapper_gretaR_stub)
-

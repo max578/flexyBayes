@@ -44,46 +44,61 @@
 #
 # Not exported.
 
-.predict_resolve_factors <- function(newdata, fb_dataset,
-                                      allow_new_levels) {
-  if (is.null(fb_dataset) ||
+.predict_resolve_factors <- function(newdata, fb_dataset, allow_new_levels) {
+  if (
+    is.null(fb_dataset) ||
       is.null(fb_dataset$dictionaries) ||
-      length(fb_dataset$dictionaries) == 0L)
+      length(fb_dataset$dictionaries) == 0L
+  ) {
     return(newdata)
+  }
 
   if (!is.data.frame(newdata)) {
-    stop(".predict_resolve_factors() expects a data.frame newdata; ",
-         "got: ", paste(class(newdata), collapse = "/"),
-         call. = FALSE)
+    stop(
+      ".predict_resolve_factors() expects a data.frame newdata; ",
+      "got: ",
+      paste(class(newdata), collapse = "/"),
+      call. = FALSE
+    )
   }
 
   unknown_summary <- list()
-  for (col in intersect(names(fb_dataset$dictionaries),
-                         names(newdata))) {
+  for (col in intersect(names(fb_dataset$dictionaries), names(newdata))) {
     fit_levels <- fb_dataset$dictionaries[[col]]
-    col_vals   <- as.character(newdata[[col]])
-    unknown_idx <- which(!(col_vals %in% fit_levels) &
-                          !is.na(col_vals))
+    col_vals <- as.character(newdata[[col]])
+    unknown_idx <- which(
+      !(col_vals %in% fit_levels) &
+        !is.na(col_vals)
+    )
 
     if (length(unknown_idx) > 0L) {
       unknown_levels <- unique(col_vals[unknown_idx])
       unknown_summary[[col]] <- list(
-        n_rows         = length(unknown_idx),
+        n_rows = length(unknown_idx),
         unknown_levels = unknown_levels,
-        row_indices    = unknown_idx
+        row_indices = unknown_idx
       )
 
       if (identical(allow_new_levels, "refuse")) {
-        show <- if (length(unknown_levels) > 5L)
-                  c(unknown_levels[1:5], "...")
-                else unknown_levels
-        stop("predict.flexybayes(allow_new_levels = \"refuse\"): ",
-             "column `", col, "` carries level(s) not present in the ",
-             "fit-time dictionary. ",
-             length(unknown_idx), " row(s) affected across ",
-             length(unknown_levels), " unknown level(s): ",
-             paste(show, collapse = ", "), ".",
-             call. = FALSE)
+        show <- if (length(unknown_levels) > 5L) {
+          c(unknown_levels[1:5], "...")
+        } else {
+          unknown_levels
+        }
+        stop(
+          "predict.flexybayes(allow_new_levels = \"refuse\"): ",
+          "column `",
+          col,
+          "` carries level(s) not present in the ",
+          "fit-time dictionary. ",
+          length(unknown_idx),
+          " row(s) affected across ",
+          length(unknown_levels),
+          " unknown level(s): ",
+          paste(show, collapse = ", "),
+          ".",
+          call. = FALSE
+        )
       }
       # "population" and "sample" branches both set unknown rows to
       # NA in this column. Downstream model.matrix() drops NA rows
@@ -99,8 +114,11 @@
   }
 
   if (length(unknown_summary) > 0L) {
-    total_rows <- sum(vapply(unknown_summary,
-                              function(x) x$n_rows, integer(1L)))
+    total_rows <- sum(vapply(
+      unknown_summary,
+      function(x) x$n_rows,
+      integer(1L)
+    ))
     n_cols <- length(unknown_summary)
 
     if (identical(allow_new_levels, "sample")) {
@@ -114,17 +132,23 @@
       # "population" branch: surface the count via warning + a
       # caller-introspectable attribute. Population-level
       # prediction returns NA for these rows.
-      warning("predict.flexybayes(allow_new_levels = \"",
-              allow_new_levels, "\"): ", total_rows,
-              " row(s) carry unknown factor level(s) across ",
-              n_cols, " column(s) (", paste(names(unknown_summary),
-              collapse = ", "), "); set to NA. ",
-              "Population-level prediction returns NA for these rows. ",
-              "Pass `allow_new_levels = \"refuse\"` to stop ",
-              "explicitly on unknown levels, or ",
-              "`allow_new_levels = \"sample\"` to layer a sampled ",
-              "random-effect realisation onto each unknown row.",
-              call. = FALSE)
+      warning(
+        "predict.flexybayes(allow_new_levels = \"",
+        allow_new_levels,
+        "\"): ",
+        total_rows,
+        " row(s) carry unknown factor level(s) across ",
+        n_cols,
+        " column(s) (",
+        paste(names(unknown_summary), collapse = ", "),
+        "); set to NA. ",
+        "Population-level prediction returns NA for these rows. ",
+        "Pass `allow_new_levels = \"refuse\"` to stop ",
+        "explicitly on unknown levels, or ",
+        "`allow_new_levels = \"sample\"` to layer a sampled ",
+        "random-effect realisation onto each unknown row.",
+        call. = FALSE
+      )
       attr(newdata, "n_unknown_levels") <- unknown_summary
     }
   }
@@ -133,45 +157,58 @@
 }
 
 
-.predict_chunked_iterate <- function(object, newdata, chunk_size,
-                                      type, se.fit, allow_new_levels,
-                                      ...) {
+.predict_chunked_iterate <- function(
+  object,
+  newdata,
+  chunk_size,
+  type,
+  se.fit,
+  allow_new_levels,
+  ...
+) {
   n <- nrow(newdata)
-  if (n <= chunk_size)
-    return(predict.flexybayes(object,
-                              newdata           = newdata,
-                              type              = type,
-                              se.fit            = se.fit,
-                              chunk_size        = NULL,
-                              allow_new_levels  = allow_new_levels,
-                              ...))
+  if (n <= chunk_size) {
+    return(predict.flexybayes(
+      object,
+      newdata = newdata,
+      type = type,
+      se.fit = se.fit,
+      chunk_size = NULL,
+      allow_new_levels = allow_new_levels,
+      ...
+    ))
+  }
 
   n_chunks <- ceiling(n / chunk_size)
   fit_acc <- vector("list", n_chunks)
-  se_acc  <- if (isTRUE(se.fit)) vector("list", n_chunks) else NULL
+  se_acc <- if (isTRUE(se.fit)) vector("list", n_chunks) else NULL
 
   for (k in seq_len(n_chunks)) {
     lo <- (k - 1L) * chunk_size + 1L
     hi <- min(k * chunk_size, n)
     chunk <- newdata[lo:hi, , drop = FALSE]
-    out <- predict.flexybayes(object,
-                              newdata           = chunk,
-                              type              = type,
-                              se.fit            = se.fit,
-                              chunk_size        = NULL,
-                              allow_new_levels  = allow_new_levels,
-                              ...)
+    out <- predict.flexybayes(
+      object,
+      newdata = chunk,
+      type = type,
+      se.fit = se.fit,
+      chunk_size = NULL,
+      allow_new_levels = allow_new_levels,
+      ...
+    )
     if (isTRUE(se.fit)) {
       fit_acc[[k]] <- out$fit
-      se_acc[[k]]  <- out$se.fit
+      se_acc[[k]] <- out$se.fit
     } else {
       fit_acc[[k]] <- out
     }
   }
 
   if (isTRUE(se.fit)) {
-    list(fit    = unlist(fit_acc, use.names = FALSE),
-         se.fit = unlist(se_acc,  use.names = FALSE))
+    list(
+      fit = unlist(fit_acc, use.names = FALSE),
+      se.fit = unlist(se_acc, use.names = FALSE)
+    )
   } else {
     unlist(fit_acc, use.names = FALSE)
   }

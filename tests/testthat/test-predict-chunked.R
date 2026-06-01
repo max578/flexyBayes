@@ -12,9 +12,9 @@ suppressPackageStartupMessages({
 })
 
 old_opts <- options(
-  flexyBayes.silence_default_prior_note   = TRUE,
-  flexyBayes.silence_uniform_inla_approx  = TRUE,
-  flexyBayes.silence_auto_fallback_note   = TRUE,
+  flexyBayes.silence_default_prior_note = TRUE,
+  flexyBayes.silence_uniform_inla_approx = TRUE,
+  flexyBayes.silence_auto_fallback_note = TRUE,
   flexyBayes.silence_auto_inla_missing_note = TRUE
 )
 on.exit(options(old_opts), add = TRUE)
@@ -32,10 +32,17 @@ mk_predict_fit <- function(seed = 2026L, N = 60L, J = 4L) {
     y = rnorm(N)
   )
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = dat, backend = "greta",
-    n_samples = 50L, warmup = 30L, chains = 1L,
-    prior_fixed_sd = 10, prior_vc_sd = 1,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x + (1 | g),
+    data = dat,
+    backend = "greta",
+    n_samples = 50L,
+    warmup = 30L,
+    chains = 1L,
+    prior_fixed_sd = 10,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   list(fit = fit, dat = dat)
 }
 
@@ -50,8 +57,7 @@ test_that("Decision 1: fit carries extras$fb_dataset with dictionaries", {
   expect_false(is.null(fx$fit$extras$fb_dataset))
   expect_s3_class(fx$fit$extras$fb_dataset, "fb_dataset")
   expect_true("g" %in% names(fx$fit$extras$fb_dataset$dictionaries))
-  expect_setequal(fx$fit$extras$fb_dataset$dictionaries$g,
-                   letters[1:4])
+  expect_setequal(fx$fit$extras$fb_dataset$dictionaries$g, letters[1:4])
   expect_identical(fx$fit$extras$fb_dataset$n_rows, 60L)
 })
 
@@ -83,8 +89,10 @@ test_that("Decision 2: allow_new_levels match.arg rejects unknown values", {
   testthat::skip_if_not_installed("greta")
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
-  expect_error(predict(fx$fit, newdata = nd, allow_new_levels = "ignore"),
-               "should be one of")
+  expect_error(
+    predict(fx$fit, newdata = nd, allow_new_levels = "ignore"),
+    "should be one of"
+  )
 })
 
 test_that("Decision 2: allow_new_levels='population' default succeeds on known levels", {
@@ -146,7 +154,7 @@ test_that("Decision 2: allow_new_levels='population' is the default", {
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   p_default <- predict(fx$fit, newdata = nd)
-  p_pop     <- predict(fx$fit, newdata = nd, allow_new_levels = "population")
+  p_pop <- predict(fx$fit, newdata = nd, allow_new_levels = "population")
   expect_identical(p_default, p_pop)
 })
 
@@ -160,7 +168,7 @@ test_that("Decision 3: chunk_size=NULL preserves single-pass behaviour", {
   fx <- mk_predict_fit()
   nd <- fx$dat[1:20, ]
   p_default <- predict(fx$fit, newdata = nd)
-  p_null    <- predict(fx$fit, newdata = nd, chunk_size = NULL)
+  p_null <- predict(fx$fit, newdata = nd, chunk_size = NULL)
   expect_identical(p_default, p_null)
 })
 
@@ -169,7 +177,7 @@ test_that("Decision 3: chunk_size > nrow(newdata) bypasses chunked path", {
   fx <- mk_predict_fit()
   nd <- fx$dat[1:10, ]
   p_unchunked <- predict(fx$fit, newdata = nd)
-  p_above     <- predict(fx$fit, newdata = nd, chunk_size = 1000L)
+  p_above <- predict(fx$fit, newdata = nd, chunk_size = 1000L)
   expect_identical(p_unchunked, p_above)
 })
 
@@ -178,8 +186,8 @@ test_that("Decision 3: chunked vs unchunked produce identical output", {
   fx <- mk_predict_fit()
   # Replicate the data to get 180 rows, well above the chunk_size
   nd_big <- fx$dat[rep(seq_len(nrow(fx$dat)), 3), ]
-  p_full   <- predict(fx$fit, newdata = nd_big)
-  p_chunk  <- predict(fx$fit, newdata = nd_big, chunk_size = 50L)
+  p_full <- predict(fx$fit, newdata = nd_big)
+  p_chunk <- predict(fx$fit, newdata = nd_big, chunk_size = 50L)
   expect_equal(p_full, p_chunk)
 })
 
@@ -187,16 +195,20 @@ test_that("Decision 3: chunk_size + se.fit=TRUE assembles fit + se.fit", {
   testthat::skip_if_not_installed("greta")
   fx <- mk_predict_fit()
   nd_big <- fx$dat[rep(seq_len(nrow(fx$dat)), 3), ]
-  out_full  <- predict(fx$fit, newdata = nd_big, se.fit = TRUE)
-  out_chunk <- predict(fx$fit, newdata = nd_big, se.fit = TRUE,
-                        chunk_size = 50L)
+  out_full <- predict(fx$fit, newdata = nd_big, se.fit = TRUE)
+  out_chunk <- predict(
+    fx$fit,
+    newdata = nd_big,
+    se.fit = TRUE,
+    chunk_size = 50L
+  )
   expect_named(out_chunk, c("fit", "se.fit"))
-  expect_length(out_chunk$fit,    nrow(nd_big))
+  expect_length(out_chunk$fit, nrow(nd_big))
   expect_length(out_chunk$se.fit, nrow(nd_big))
   # Single-pass se.fit carries rowSums() names; chunked path
   # concatenates per-chunk vectors without names. Values are equal;
   # strip names for the comparison.
-  expect_equal(unname(out_full$fit),    unname(out_chunk$fit))
+  expect_equal(unname(out_full$fit), unname(out_chunk$fit))
   expect_equal(unname(out_full$se.fit), unname(out_chunk$se.fit))
 })
 
@@ -218,7 +230,7 @@ test_that("Backward-compat: legacy fit (no extras$fb_dataset) skips dictionary r
   nd$g[1] <- "ZZ"
   expect_warning(
     p <- predict(legacy_fit, newdata = nd, allow_new_levels = "population"),
-    NA  # asserts NO warning fires
+    NA # asserts NO warning fires
   )
   # The legacy path produces whatever the v0.3.3 behaviour produced;
   # the test commits only to "no crash, no spurious dictionary

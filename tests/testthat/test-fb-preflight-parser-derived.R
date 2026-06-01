@@ -13,14 +13,14 @@ test_that("preflight on parsed s(x, k = 6) matches object.size() of the basis", 
   skip_if_not_installed("mgcv")
 
   set.seed(2026)
-  n  <- 5000L
+  n <- 5000L
   dx <- data.frame(x = sort(stats::runif(n, 0, 10)))
   dx$y <- sin(dx$x) + stats::rnorm(n, 0, 0.2)
 
   fb <- fb_from_asreml(
-    fixed  = y ~ 1,
+    fixed = y ~ 1,
     random = ~ s(x, k = 6L),
-    data   = dx
+    data = dx
   )
 
   # Confirm the live IR shape -- audit's central observation.
@@ -54,9 +54,11 @@ test_that("preflight on parsed s(x, k = 6) matches object.size() of the basis", 
   # actually-allocated representation. The preflight estimator
   # uses 8 * N * k + 8 * k + 256; object.size() includes a few extra
   # bytes for SEXP header + dimnames + class attribute.
-  expect_equal(smooth_entries[[1L]]$design_memory_bytes,
-               actual_basis_bytes,
-               tolerance = 0.05)
+  expect_equal(
+    smooth_entries[[1L]]$design_memory_bytes,
+    actual_basis_bytes,
+    tolerance = 0.05
+  )
 
   # Sanity: the new estimate is much larger than the old fallthrough
   # (12N + 16k + 256 = 60,336 at N=5000, k=5) which was the audit-
@@ -66,14 +68,14 @@ test_that("preflight on parsed s(x, k = 6) matches object.size() of the basis", 
 
 test_that("preflight on parsed spl(x) matches splines::bs() basis size", {
   set.seed(2026)
-  n  <- 5000L
+  n <- 5000L
   dx <- data.frame(x = stats::runif(n, 0, 10))
   dx$y <- dx$x + stats::rnorm(n, 0, 0.2)
 
   fb <- fb_from_asreml(
-    fixed  = y ~ 1,
+    fixed = y ~ 1,
     random = ~ spl(x),
-    data   = dx
+    data = dx
   )
 
   spline_idx <- which(vapply(
@@ -99,28 +101,32 @@ test_that("preflight on parsed spl(x) matches splines::bs() basis size", {
   )
   expect_length(spline_entries, 1L)
 
-  expect_equal(spline_entries[[1L]]$design_memory_bytes,
-               actual_basis_bytes,
-               tolerance = 0.05)
+  expect_equal(
+    spline_entries[[1L]]$design_memory_bytes,
+    actual_basis_bytes,
+    tolerance = 0.05
+  )
 
   # 8 * 5000 * 8 + 8 * 8 + 256 = 320,320 -- the audit-confirmed
   # expected number, vs the v0.3.0 fallthrough 60,336.
-  expect_equal(spline_entries[[1L]]$design_memory_bytes,
-               8 * 5000 * 8 + 8 * 8 + 256)
+  expect_equal(
+    spline_entries[[1L]]$design_memory_bytes,
+    8 * 5000 * 8 + 8 * 8 + 256
+  )
 })
 
 test_that("preflight on parsed y ~ f1 * f2 sizes the factor:factor block", {
   set.seed(2026)
-  n  <- 1000L
+  n <- 1000L
   df <- data.frame(
-    y  = rnorm(n),
+    y = rnorm(n),
     f1 = factor(rep(letters[1:10], n / 10L)),
-    f2 = factor(rep(LETTERS[1:5],  each = n / 5L))
+    f2 = factor(rep(LETTERS[1:5], each = n / 5L))
   )
 
   fb <- fb_from_asreml(
     fixed = y ~ f1 * f2,
-    data  = df
+    data = df
   )
 
   # The parser produces three fixed-effect terms beyond the intercept:
@@ -138,7 +144,8 @@ test_that("preflight on parsed y ~ f1 * f2 sizes the factor:factor block", {
   # test-fb-preflight.R; excludes dimnames overhead from
   # model.matrix() which is not part of the design-representation
   # contract).
-  L1 <- nlevels(df$f1); L2 <- nlevels(df$f2)
+  L1 <- nlevels(df$f1)
+  L2 <- nlevels(df$f2)
   n_dummies <- (L1 - 1L) * (L2 - 1L)
   actual_inter_bytes <-
     as.numeric(utils::object.size(matrix(0, nrow(df), n_dummies))) +
@@ -153,9 +160,11 @@ test_that("preflight on parsed y ~ f1 * f2 sizes the factor:factor block", {
   )
   expect_length(fi_entries, 1L)
 
-  expect_equal(fi_entries[[1L]]$design_memory_bytes,
-               actual_inter_bytes,
-               tolerance = 0.05)
+  expect_equal(
+    fi_entries[[1L]]$design_memory_bytes,
+    actual_inter_bytes,
+    tolerance = 0.05
+  )
 
   # Sanity: vastly larger than the v0.3.0 fallthrough (8N + 8 + 256
   # = 8,264 bytes).

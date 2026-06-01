@@ -34,10 +34,9 @@ jobs:
         run: lintr::lint_package()
         shell: Rscript {0}
         env:
-          # Advisory: lints are surfaced as annotations but do not fail
-          # the check. There is a large pre-existing style backlog
-          # (long lines, commented code, brace placement across ~120
-          # files) that needs a dedicated `air format` + manual cleanup
-          # pass; until then lint runs informationally rather than as a
-          # blocking gate.
-          LINTR_ERROR_ON_LINT: false
+          # Hard gate: the style backlog was cleared on 2026-06-01 via a
+          # full `air format` pass + manual residue fixes, and the .lintr
+          # config (object_length / commented_code disabled with rationale,
+          # line_length relaxed for tests/) brings lint_package() to zero.
+          # Lints now fail the check.
+          LINTR_ERROR_ON_LINT: true

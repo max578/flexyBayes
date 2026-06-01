@@ -18,17 +18,28 @@
 # Helper: build a minimal flexybayes-shaped object carrying just the
 # slots the truth-display helpers consume ($exactness +
 # $extras$backend_decision + $extras$aggregation_meta).
-.test_truth_fit <- function(backend, path, exactness = "exact",
-                             N = NULL, K = NULL) {
-  am <- if (!is.null(N) && !is.null(K))
-          list(N = N, K = K) else NULL
-  structure(list(
-    exactness = exactness,
-    extras = list(
-      backend_decision = list(backend = backend, path = path),
-      aggregation_meta = am
-    )
-  ), class = "flexybayes")
+.test_truth_fit <- function(
+  backend,
+  path,
+  exactness = "exact",
+  N = NULL,
+  K = NULL
+) {
+  am <- if (!is.null(N) && !is.null(K)) {
+    list(N = N, K = K)
+  } else {
+    NULL
+  }
+  structure(
+    list(
+      exactness = exactness,
+      extras = list(
+        backend_decision = list(backend = backend, path = path),
+        aggregation_meta = am
+      )
+    ),
+    class = "flexybayes"
+  )
 }
 
 # ---------------------------------------------------------------- #
@@ -37,9 +48,9 @@
 
 test_that("Engine: greta MCMC for a greta-backed fit", {
   fit <- .test_truth_fit(backend = "greta", path = "explicit_greta")
-  repr   <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
+  repr <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
   engine <- flexyBayes:::.engine_label_for_fit(fit, fit$extras$backend_decision)
-  expect_equal(repr,   "exact")
+  expect_equal(repr, "exact")
   expect_equal(engine, "greta MCMC")
 })
 
@@ -49,9 +60,9 @@ test_that("Engine: greta MCMC for a greta-backed fit", {
 
 test_that("Engine: INLA Laplace for an INLA-backed fit", {
   fit <- .test_truth_fit(backend = "inla", path = "explicit_inla_accept")
-  repr   <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
+  repr <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
   engine <- flexyBayes:::.engine_label_for_fit(fit, fit$extras$backend_decision)
-  expect_equal(repr,   "exact")
+  expect_equal(repr, "exact")
   expect_equal(engine, "INLA Laplace")
 })
 
@@ -60,12 +71,16 @@ test_that("Engine: INLA Laplace for an INLA-backed fit", {
 # ---------------------------------------------------------------- #
 
 test_that("Representation: aggregated_exact (compression 5:1) for aggregated fit", {
-  fit <- .test_truth_fit(backend = "inla", path = "aggregated_inla",
-                          exactness = "aggregated_exact",
-                          N = 1000L, K = 200L)
-  repr   <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
+  fit <- .test_truth_fit(
+    backend = "inla",
+    path = "aggregated_inla",
+    exactness = "aggregated_exact",
+    N = 1000L,
+    K = 200L
+  )
+  repr <- flexyBayes:::.repr_label_for_fit(fit, fit$extras$backend_decision)
   engine <- flexyBayes:::.engine_label_for_fit(fit, fit$extras$backend_decision)
-  expect_equal(repr,   "aggregated_exact (compression 5:1)")
+  expect_equal(repr, "aggregated_exact (compression 5:1)")
   expect_equal(engine, "INLA Laplace (aggregated)")
 })
 
@@ -87,23 +102,37 @@ test_that("print.flexybayes emits Representation:/Engine: adjacent (no Exact.:)"
   # Synthesise a fuller fit so print.flexybayes() does not stumble on
   # the convergence + Params lines. Only the truth-display block is
   # checked.
-  fit <- structure(list(
-    exactness = "exact",
-    extras = list(
-      backend_decision = list(backend = "greta", path = "explicit_greta"),
-      call_info        = list(fixed = y ~ x, random = NULL, rcov = NULL,
-                              chains = 2, n_samples = 100, warmup = 50),
-      model_info       = list(family = "gaussian", link = "identity",
-                              n_params = 3L, n_fixed = 2L, n_random = 1L),
-      run_time         = 1.0,
-      convergence      = list(gelman = NULL, n_eff = NULL),
-      aggregation_meta = NULL
-    )
-  ), class = "flexybayes")
+  fit <- structure(
+    list(
+      exactness = "exact",
+      extras = list(
+        backend_decision = list(backend = "greta", path = "explicit_greta"),
+        call_info = list(
+          fixed = y ~ x,
+          random = NULL,
+          rcov = NULL,
+          chains = 2,
+          n_samples = 100,
+          warmup = 50
+        ),
+        model_info = list(
+          family = "gaussian",
+          link = "identity",
+          n_params = 3L,
+          n_fixed = 2L,
+          n_random = 1L
+        ),
+        run_time = 1.0,
+        convergence = list(gelman = NULL, n_eff = NULL),
+        aggregation_meta = NULL
+      )
+    ),
+    class = "flexybayes"
+  )
   out <- utils::capture.output(print(fit))
-  has_repr   <- grep("Representation:", out, fixed = TRUE)
-  has_engine <- grep("Engine:",         out, fixed = TRUE)
-  expect_length(has_repr,   1L)
+  has_repr <- grep("Representation:", out, fixed = TRUE)
+  has_engine <- grep("Engine:", out, fixed = TRUE)
+  expect_length(has_repr, 1L)
   expect_length(has_engine, 1L)
   expect_equal(has_engine[1L] - has_repr[1L], 1L)
   # And no legacy single-line Exact.: rendering.

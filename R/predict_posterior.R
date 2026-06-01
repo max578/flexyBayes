@@ -35,41 +35,61 @@
 #
 # Not exported.
 
-
 .predict_intervals <- function(per_draw_mat, level = 0.95) {
-  if (!is.numeric(level) || length(level) != 1L ||
-      level <= 0 || level >= 1)
-    stop(".predict_intervals(): `level` must be a numeric scalar in ",
-         "(0, 1); got: ", deparse(level), call. = FALSE)
+  if (!is.numeric(level) || length(level) != 1L || level <= 0 || level >= 1) {
+    stop(
+      ".predict_intervals(): `level` must be a numeric scalar in ",
+      "(0, 1); got: ",
+      deparse(level),
+      call. = FALSE
+    )
+  }
   alpha <- 1 - level
   probs <- c(alpha / 2, 1 - alpha / 2)
   point <- rowMeans(per_draw_mat)
-  q_mat <- apply(per_draw_mat, 1L, stats::quantile, probs = probs,
-                 names = FALSE)
+  q_mat <- apply(
+    per_draw_mat,
+    1L,
+    stats::quantile,
+    probs = probs,
+    names = FALSE
+  )
   # apply() on a single-row input returns a vector, not a matrix.
-  if (is.null(dim(q_mat))) q_mat <- matrix(q_mat, nrow = 2L)
-  list(point = unname(point),
-       lower = unname(q_mat[1L, ]),
-       upper = unname(q_mat[2L, ]))
+  if (is.null(dim(q_mat))) {
+    q_mat <- matrix(q_mat, nrow = 2L)
+  }
+  list(
+    point = unname(point),
+    lower = unname(q_mat[1L, ]),
+    upper = unname(q_mat[2L, ])
+  )
 }
 
 
-.predict_sample_re_for_unknowns <- function(object, unknown_summary,
-                                             n_draws_eff,
-                                             n_draws_cap = 4000L) {
-  if (length(unknown_summary) == 0L) return(list())
-  if (is.null(object$greta) || is.null(object$greta$draws))
-    stop(".predict_sample_re_for_unknowns(): allow_new_levels = ",
-         "\"sample\" requires posterior draws on $greta$draws. ",
-         "Fit does not carry them. INLA fits do not currently ",
-         "expose per-draw access; an INLA draws adapter is queued ",
-         "for a future release.", call. = FALSE)
+.predict_sample_re_for_unknowns <- function(
+  object,
+  unknown_summary,
+  n_draws_eff,
+  n_draws_cap = 4000L
+) {
+  if (length(unknown_summary) == 0L) {
+    return(list())
+  }
+  if (is.null(object$greta) || is.null(object$greta$draws)) {
+    stop(
+      ".predict_sample_re_for_unknowns(): allow_new_levels = ",
+      "\"sample\" requires posterior draws on $greta$draws. ",
+      "Fit does not carry them. INLA fits do not currently ",
+      "expose per-draw access; an INLA draws adapter is queued ",
+      "for a future release.",
+      call. = FALSE
+    )
+  }
 
   draws_mat <- do.call(rbind, lapply(object$greta$draws, as.matrix))
-  n_total   <- nrow(draws_mat)
+  n_total <- nrow(draws_mat)
   if (n_total > n_draws_cap) {
-    idx       <- as.integer(seq.int(1L, n_total,
-                                     length.out = n_draws_cap))
+    idx <- as.integer(seq.int(1L, n_total, length.out = n_draws_cap))
     draws_mat <- draws_mat[idx, , drop = FALSE]
   }
 
@@ -77,8 +97,8 @@
   for (col in names(unknown_summary)) {
     info <- unknown_summary[[col]]
     sigma_col <- paste0("sigma_", col)
-    tau_pat   <- paste0("^tau_", col, "(\\[|$)")
-    tau_cols  <- grep(tau_pat, colnames(draws_mat), value = TRUE)
+    tau_pat <- paste0("^tau_", col, "(\\[|$)")
+    tau_cols <- grep(tau_pat, colnames(draws_mat), value = TRUE)
 
     # Resolve a length-n_draws_eff vector of group-level RE SDs. The
     # codegen names the group's RE precision-scale as `sigma_<col>`
@@ -92,20 +112,28 @@
       tau_per_draw <- draws_mat[, sigma_col]
     } else if (length(tau_cols) > 0L) {
       # Per-draw empirical SD across the known levels.
-      tau_mat      <- draws_mat[, tau_cols, drop = FALSE]
+      tau_mat <- draws_mat[, tau_cols, drop = FALSE]
       tau_per_draw <- apply(tau_mat, 1L, stats::sd)
     } else {
-      stop(".predict_sample_re_for_unknowns(): no RE-scale draws ",
-           "found for column `", col, "`. Looked for `", sigma_col,
-           "` and `tau_", col, "[k]`. allow_new_levels = \"sample\" ",
-           "requires the fit's codegen to expose the RE-scale ",
-           "posterior; this fit does not.", call. = FALSE)
+      stop(
+        ".predict_sample_re_for_unknowns(): no RE-scale draws ",
+        "found for column `",
+        col,
+        "`. Looked for `",
+        sigma_col,
+        "` and `tau_",
+        col,
+        "[k]`. allow_new_levels = \"sample\" ",
+        "requires the fit's codegen to expose the RE-scale ",
+        "posterior; this fit does not.",
+        call. = FALSE
+      )
     }
 
     if (length(tau_per_draw) != n_draws_eff) {
       # Stride-subsample tau_per_draw to match n_draws_eff.
       n_t <- length(tau_per_draw)
-      i   <- as.integer(seq.int(1L, n_t, length.out = n_draws_eff))
+      i <- as.integer(seq.int(1L, n_t, length.out = n_draws_eff))
       tau_per_draw <- tau_per_draw[i]
     }
 
@@ -115,8 +143,7 @@
     row_indices <- info$row_indices
     for (i in row_indices) {
       key <- as.character(i)
-      out[[key]] <- stats::rnorm(n_draws_eff, mean = 0,
-                                  sd = tau_per_draw)
+      out[[key]] <- stats::rnorm(n_draws_eff, mean = 0, sd = tau_per_draw)
     }
   }
 
@@ -131,23 +158,23 @@
 # (or list when se.fit = TRUE). Single-pass; the in-memory sample
 # path does not chunk -- chunk-aware sample is in the file-output
 # path (.predict_to_file).
-.predict_in_memory_sample <- function(object, newdata, type,
-                                       se.fit) {
+.predict_in_memory_sample <- function(object, newdata, type, se.fit) {
   fam_link <- object$extras$parse_info$family
 
   sample_re_summary <- attr(newdata, "sample_re_summary")
-  draws_count <- nrow(do.call(rbind,
-                        lapply(object$greta$draws, as.matrix)))
+  draws_count <- nrow(do.call(rbind, lapply(object$greta$draws, as.matrix)))
   n_draws_eff <- min(draws_count, 4000L)
 
-  sampled_re <- if (!is.null(sample_re_summary))
-                  .predict_sample_re_for_unknowns(
-                    object          = object,
-                    unknown_summary = sample_re_summary,
-                    n_draws_eff     = n_draws_eff,
-                    n_draws_cap     = 4000L)
-                else
-                  NULL
+  sampled_re <- if (!is.null(sample_re_summary)) {
+    .predict_sample_re_for_unknowns(
+      object = object,
+      unknown_summary = sample_re_summary,
+      n_draws_eff = n_draws_eff,
+      n_draws_cap = 4000L
+    )
+  } else {
+    NULL
+  }
 
   # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route through the
   # shared kernel so sample-mode fits with s() smooths layer the
@@ -156,32 +183,44 @@
   # dropping the smooth basis).
   per_draw_lin <- tryCatch(
     .predict_linear_draws(
-      object      = object,
-      newdata     = newdata,
+      object = object,
+      newdata = newdata,
       n_draws_cap = 4000L,
-      sampled_re  = sampled_re,
-      include     = c("fixed", "smooth", "random_sampled")
+      sampled_re = sampled_re,
+      include = c("fixed", "smooth", "random_sampled")
     ),
     error = function(e) {
-      if (grepl("no fixed-effect draw columns", conditionMessage(e),
-                fixed = TRUE) ||
-          grepl("no overlap between newdata", conditionMessage(e),
-                fixed = TRUE))
+      if (
+        grepl(
+          "no fixed-effect draw columns",
+          conditionMessage(e),
+          fixed = TRUE
+        ) ||
+          grepl("no overlap between newdata", conditionMessage(e), fixed = TRUE)
+      ) {
         return(NULL)
+      }
       stop(e)
     }
   )
-  if (is.null(per_draw_lin))
-    return(if (isTRUE(se.fit))
-             list(fit    = rep(NA_real_, nrow(newdata)),
-                  se.fit = rep(NA_real_, nrow(newdata)))
-           else
-             rep(NA_real_, nrow(newdata)))
+  if (is.null(per_draw_lin)) {
+    return(
+      if (isTRUE(se.fit)) {
+        list(
+          fit = rep(NA_real_, nrow(newdata)),
+          se.fit = rep(NA_real_, nrow(newdata))
+        )
+      } else {
+        rep(NA_real_, nrow(newdata))
+      }
+    )
+  }
 
-  per_draw <- if (identical(type, "response"))
-                .apply_link_inverse(per_draw_lin, fam_link$link)
-              else
-                per_draw_lin
+  per_draw <- if (identical(type, "response")) {
+    .apply_link_inverse(per_draw_lin, fam_link$link)
+  } else {
+    per_draw_lin
+  }
 
   point <- rowMeans(per_draw)
   if (isTRUE(se.fit)) {

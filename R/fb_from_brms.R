@@ -95,30 +95,34 @@
 #' ir <- fb_from_brms(y ~ x + (1 | g), data = df)
 #' class(ir)
 #' @export
-fb_from_brms <- function(formula,
-                         data,
-                         family         = "gaussian",
-                         link           = NULL,
-                         prior          = NULL,
-                         weights        = NULL,
-                         prior_fixed_sd = 100,
-                         prior_vc_sd    = 1,
-                         carry_n_rows   = NULL,
-                         ...) {
-
+fb_from_brms <- function(
+  formula,
+  data,
+  family = "gaussian",
+  link = NULL,
+  prior = NULL,
+  weights = NULL,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1,
+  carry_n_rows = NULL,
+  ...
+) {
   if (inherits(formula, "brmsformula")) {
-    if (!requireNamespace("brms", quietly = TRUE))
-      stop("Package 'brms' is required to ingest brmsformula objects. ",
-           "Install via: install.packages(\"brms\")",
-           call. = FALSE)
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop(
+        "Package 'brms' is required to ingest brmsformula objects. ",
+        "Install via: install.packages(\"brms\")",
+        call. = FALSE
+      )
+    }
     formula <- formula$formula
   }
-  if (!inherits(formula, "formula"))
-    stop("`formula` must be a formula or a brmsformula object.",
-         call. = FALSE)
-  if (length(formula) < 3L)
-    stop("`formula` must be two-sided: response ~ predictors.",
-         call. = FALSE)
+  if (!inherits(formula, "formula")) {
+    stop("`formula` must be a formula or a brmsformula object.", call. = FALSE)
+  }
+  if (length(formula) < 3L) {
+    stop("`formula` must be two-sided: response ~ predictors.", call. = FALSE)
+  }
 
   # Stage 2 MVP metadata-only path: data = NULL + carry_n_rows lets
   # the caller build an IR for stress-testing the preflight layer
@@ -127,26 +131,36 @@ fb_from_brms <- function(formula,
   # random-term level counts are stripped from the IR so .fb_preflight()
   # reads them from the <fb_dataset>'s dictionaries instead.
   if (is.null(data)) {
-    if (is.null(carry_n_rows))
-      stop("`data` is NULL but `carry_n_rows` was not supplied. ",
-           "Pass `carry_n_rows = N` for the metadata-only IR path, ",
-           "or pass a real data.frame.",
-           call. = FALSE)
-    if (!is.numeric(carry_n_rows) || length(carry_n_rows) != 1L ||
-        carry_n_rows < 1)
-      stop("`carry_n_rows` must be a positive numeric scalar; got: ",
-           deparse(carry_n_rows), call. = FALSE)
+    if (is.null(carry_n_rows)) {
+      stop(
+        "`data` is NULL but `carry_n_rows` was not supplied. ",
+        "Pass `carry_n_rows = N` for the metadata-only IR path, ",
+        "or pass a real data.frame.",
+        call. = FALSE
+      )
+    }
+    if (
+      !is.numeric(carry_n_rows) ||
+        length(carry_n_rows) != 1L ||
+        carry_n_rows < 1
+    ) {
+      stop(
+        "`carry_n_rows` must be a positive numeric scalar; got: ",
+        deparse(carry_n_rows),
+        call. = FALSE
+      )
+    }
     data <- .fb_from_brms_placeholder_data(formula)
     fb <- fb_from_brms(
-      formula        = formula,
-      data           = data,
-      family         = family,
-      link           = link,
-      prior          = prior,
-      weights        = NULL,    # weights cannot be metadata-only
+      formula = formula,
+      data = data,
+      family = family,
+      link = link,
+      prior = prior,
+      weights = NULL, # weights cannot be metadata-only
       prior_fixed_sd = prior_fixed_sd,
-      prior_vc_sd    = prior_vc_sd,
-      carry_n_rows   = NULL,    # break the recursion
+      prior_vc_sd = prior_vc_sd,
+      carry_n_rows = NULL, # break the recursion
       ...
     )
     fb$data_summary$n <- as.integer(carry_n_rows)
@@ -154,13 +168,13 @@ fb_from_brms <- function(formula,
     # <fb_dataset>$dictionaries when var_n is NA. This keeps the
     # IR honest about not knowing the true group sizes.
     for (i in seq_along(fb$random_terms)) {
-      fb$random_terms[[i]]$var_n      <- NA_integer_
+      fb$random_terms[[i]]$var_n <- NA_integer_
       fb$random_terms[[i]]$var_levels <- NULL
     }
     for (i in seq_along(fb$fixed_terms)) {
       if (identical(fb$fixed_terms[[i]]$type, "factor")) {
         fb$fixed_terms[[i]]$n_levels <- NA_integer_
-        fb$fixed_terms[[i]]$levels   <- NULL
+        fb$fixed_terms[[i]]$levels <- NULL
       }
     }
     fb$source <- "brms_metadata_only"
@@ -179,58 +193,75 @@ fb_from_brms <- function(formula,
   # surface; refuse at ingest with a corpus-naming message rather
   # than fall through to the cryptic "Response variable not found
   # in data" error from the later names(data) lookup.
-  if (is.call(formula[[2L]]) &&
-      identical(formula[[2L]][[1L]], as.name("|")))
-    stop("v0.2 brms ingest does not yet support LHS addition forms ",
-         "(`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.). The ",
-         "supported brms corpus is single-column responses only ",
-         "(use `family = \"binomial\"` for Bernoulli with a 0/1 ",
-         "response). Addition forms are queued for a future ",
-         "expansion of the brms ingest layer. Got: ",
-         deparse(formula[[2L]]), call. = FALSE)
+  if (
+    is.call(formula[[2L]]) &&
+      identical(formula[[2L]][[1L]], as.name("|"))
+  ) {
+    stop(
+      "v0.2 brms ingest does not yet support LHS addition forms ",
+      "(`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.). The ",
+      "supported brms corpus is single-column responses only ",
+      "(use `family = \"binomial\"` for Bernoulli with a 0/1 ",
+      "response). Addition forms are queued for a future ",
+      "expansion of the brms ingest layer. Got: ",
+      deparse(formula[[2L]]),
+      call. = FALSE
+    )
+  }
 
   # ------------------------- Family + link ----------------------- #
   if (inherits(family, "family")) {
-    fam_name  <- family$family
+    fam_name <- family$family
     link_name <- if (!is.null(link)) link else family$link
   } else if (is.character(family) && length(family) == 1L) {
     fl <- .resolve_family(family, link)
-    fam_name  <- fl$family
+    fam_name <- fl$family
     link_name <- fl$link
   } else {
-    stop("`family` must be a character(1) name or a `family()` object.",
-         call. = FALSE)
+    stop(
+      "`family` must be a character(1) name or a `family()` object.",
+      call. = FALSE
+    )
   }
 
   # ------------------------- Response --------------------------- #
   response <- deparse(formula[[2]])
-  if (!response %in% names(data))
-    stop("Response variable '", response, "' not found in data.",
-         call. = FALSE)
+  if (!response %in% names(data)) {
+    stop("Response variable '", response, "' not found in data.", call. = FALSE)
+  }
 
   # ------------------------- Walk RHS --------------------------- #
   walked <- .brms_walk_rhs(formula[[3]])
 
   # Reject unsupported features fail-fast (per v0.1 minimum scope)
   if (length(walked$ext_terms) > 0L) {
-    classes <- vapply(walked$ext_terms, function(t) {
-      # deparse() returns a multi-line character vector for a
-      # sufficiently long call (e.g. s(x, k = 10, representation =
-      # list(scheme = "low_rank_smooth", rank = 5L))); collapse to a
-      # single string so this fail-fast refusal fires cleanly rather
-      # than tripping the vapply length-1 constraint.
-      paste0(t$type, " (", paste(t$deparse, collapse = " "), ")")
-    }, character(1))
-    stop("v0.1 brms ingest does not yet support: ",
-         paste(classes, collapse = ", "),
-         ". These features will be added in subsequent iterations.",
-         call. = FALSE)
+    classes <- vapply(
+      walked$ext_terms,
+      function(t) {
+        # deparse() returns a multi-line character vector for a
+        # sufficiently long call (e.g. s(x, k = 10, representation =
+        # list(scheme = "low_rank_smooth", rank = 5L))); collapse to a
+        # single string so this fail-fast refusal fires cleanly rather
+        # than tripping the vapply length-1 constraint.
+        paste0(t$type, " (", paste(t$deparse, collapse = " "), ")")
+      },
+      character(1)
+    )
+    stop(
+      "v0.1 brms ingest does not yet support: ",
+      paste(classes, collapse = ", "),
+      ". These features will be added in subsequent iterations.",
+      call. = FALSE
+    )
   }
 
   # Build a fixed-only formula and re-parse via .parse_fixed (gives
   # us byte-identical fixed_terms output to the asreml ingest path)
-  fixed_only_rhs <- if (length(walked$fixed_labels))
-    paste(walked$fixed_labels, collapse = " + ") else "1"
+  fixed_only_rhs <- if (length(walked$fixed_labels)) {
+    paste(walked$fixed_labels, collapse = " + ")
+  } else {
+    "1"
+  }
   fixed_form <- stats::as.formula(
     paste0(response, " ~ ", fixed_only_rhs)
   )
@@ -244,27 +275,36 @@ fb_from_brms <- function(formula,
   random_terms <- list()
   for (pair in walked$re_pairs) {
     rt <- .brms_re_to_fb(pair, data)
-    if (identical(rt$type, "brms_re_correlated_slope_unsupported"))
+    if (identical(rt$type, "brms_re_correlated_slope_unsupported")) {
       .stop_correlated_slope_unsupported(
         grouping_factor = rt$rhs,
-        slope_variable  = rt$slope_var
+        slope_variable = rt$slope_var
       )
-    if (identical(rt$type, "brms_re_unsupported"))
-      stop("v0.2 brms ingest does not yet support this random-effect ",
-           "specification. Found: ", rt$deparse,
-           ". Supported in v0.2.6: (1 | g), (1 || g), (x || g), ",
-           "(1 + x || g). Other forms (factor random slopes, ",
-           "multi-variable uncorrelated slopes, group-of-coefficients ",
-           "shorthand) are queued for later expansion of the brms ",
-           "ingest layer.", call. = FALSE)
+    }
+    if (identical(rt$type, "brms_re_unsupported")) {
+      stop(
+        "v0.2 brms ingest does not yet support this random-effect ",
+        "specification. Found: ",
+        rt$deparse,
+        ". Supported in v0.2.6: (1 | g), (1 || g), (x || g), ",
+        "(1 + x || g). Other forms (factor random slopes, ",
+        "multi-variable uncorrelated slopes, group-of-coefficients ",
+        "shorthand) are queued for later expansion of the brms ",
+        "ingest layer.",
+        call. = FALSE
+      )
+    }
     random_terms[[length(random_terms) + 1L]] <- rt
   }
 
   # ------------------------- Weights --------------------------- #
   addition_terms <- if (!is.null(weights)) {
-    if (!is.numeric(weights) || length(weights) != nrow(data))
-      stop("`weights` must be a numeric vector of length nrow(data).",
-           call. = FALSE)
+    if (!is.numeric(weights) || length(weights) != nrow(data)) {
+      stop(
+        "`weights` must be a numeric vector of length nrow(data).",
+        call. = FALSE
+      )
+    }
     list(list(type = "weights", values = weights))
   } else {
     list()
@@ -274,31 +314,31 @@ fb_from_brms <- function(formula,
   priors <- if (!is.null(prior)) {
     prior
   } else {
-    list(fixed_sd = prior_fixed_sd, vc_sd = prior_vc_sd,
-         legacy = TRUE)
+    list(fixed_sd = prior_fixed_sd, vc_sd = prior_vc_sd, legacy = TRUE)
   }
 
   data_summary <- list(
-    n              = nrow(data),
+    n = nrow(data),
     known_matrices = character(0)
   )
 
-  if (!is.null(override_n_rows))
+  if (!is.null(override_n_rows)) {
     data_summary$n <- as.integer(override_n_rows)
+  }
 
   new_fb_terms(
-    response       = response,
-    family         = fam_name,
-    link           = link_name,
-    intercept      = fixed_info$intercept,
-    fixed_terms    = fixed_info$terms,
-    random_terms   = random_terms,
-    rcov_terms     = list(),                # brms folds rcov into family
+    response = response,
+    family = fam_name,
+    link = link_name,
+    intercept = fixed_info$intercept,
+    fixed_terms = fixed_info$terms,
+    random_terms = random_terms,
+    rcov_terms = list(), # brms folds rcov into family
     addition_terms = addition_terms,
-    priors         = priors,
-    data_summary   = data_summary,
-    capabilities   = character(),
-    source         = "brms"
+    priors = priors,
+    data_summary = data_summary,
+    capabilities = character(),
+    source = "brms"
   )
 }
 
@@ -310,9 +350,13 @@ fb_from_brms <- function(formula,
 # walk so the preflight layer reads them from <fb_dataset> instead.
 .fb_from_brms_placeholder_data <- function(formula) {
   all_vars <- all.vars(formula)
-  if (!length(all_vars))
-    stop("formula references no variables; cannot synthesise ",
-         "placeholder data.", call. = FALSE)
+  if (!length(all_vars)) {
+    stop(
+      "formula references no variables; cannot synthesise ",
+      "placeholder data.",
+      call. = FALSE
+    )
+  }
   pl <- as.list(rep(1.0, length(all_vars)))
   names(pl) <- all_vars
   as.data.frame(pl, stringsAsFactors = FALSE)
@@ -333,8 +377,8 @@ fb_from_brms <- function(formula,
 #   )
 .brms_walk_rhs <- function(expr) {
   fixed_labels <- character(0)
-  re_pairs     <- list()
-  ext_terms    <- list()
+  re_pairs <- list()
+  ext_terms <- list()
 
   visit <- function(e) {
     # Strip parentheses around `(... | ...)` patterns first
@@ -344,13 +388,17 @@ fb_from_brms <- function(formula,
         op <- as.character(inner[[1]])
         if (op == "|") {
           re_pairs[[length(re_pairs) + 1L]] <<- list(
-            lhs = inner[[2]], rhs = inner[[3]], cor = TRUE
+            lhs = inner[[2]],
+            rhs = inner[[3]],
+            cor = TRUE
           )
           return(invisible())
         }
         if (op == "||") {
           re_pairs[[length(re_pairs) + 1L]] <<- list(
-            lhs = inner[[2]], rhs = inner[[3]], cor = FALSE
+            lhs = inner[[2]],
+            rhs = inner[[3]],
+            cor = FALSE
           )
           return(invisible())
         }
@@ -365,33 +413,44 @@ fb_from_brms <- function(formula,
       op <- as.character(e[[1]])
       if (op %in% c("+", "-")) {
         visit(e[[2]])
-        if (length(e) >= 3L) visit(e[[3]])
+        if (length(e) >= 3L) {
+          visit(e[[3]])
+        }
         return(invisible())
       }
 
       # Unsupported brms specials -- bucket into ext_terms
       if (op %in% c("s", "t2")) {
         ext_terms[[length(ext_terms) + 1L]] <<- list(
-          type = "smoother", fn = op, deparse = deparse(e)
+          type = "smoother",
+          fn = op,
+          deparse = deparse(e)
         )
         return(invisible())
       }
       if (op == "gp") {
         ext_terms[[length(ext_terms) + 1L]] <<- list(
-          type = "gp", deparse = deparse(e)
+          type = "gp",
+          deparse = deparse(e)
         )
         return(invisible())
       }
       if (op %in% c("ar", "ma", "arma", "cosy", "car")) {
         ext_terms[[length(ext_terms) + 1L]] <<- list(
-          type = "autocorrelation", fn = op, deparse = deparse(e)
+          type = "autocorrelation",
+          fn = op,
+          deparse = deparse(e)
         )
         return(invisible())
       }
-      if (op %in% c("cens", "trunc", "trials", "se", "mi",
-                    "weights", "subset", "rate")) {
+      if (
+        op %in%
+          c("cens", "trunc", "trials", "se", "mi", "weights", "subset", "rate")
+      ) {
         ext_terms[[length(ext_terms) + 1L]] <<- list(
-          type = "addition_form", fn = op, deparse = deparse(e)
+          type = "addition_form",
+          fn = op,
+          deparse = deparse(e)
         )
         return(invisible())
       }
@@ -407,8 +466,8 @@ fb_from_brms <- function(formula,
 
   list(
     fixed_labels = fixed_labels,
-    re_pairs     = re_pairs,
-    ext_terms    = ext_terms
+    re_pairs = re_pairs,
+    ext_terms = ext_terms
   )
 }
 
@@ -438,22 +497,30 @@ fb_from_brms <- function(formula,
   cor <- pair$cor
 
   group_name <- deparse(rhs)
-  lhs_str    <- deparse(lhs)
+  lhs_str <- deparse(lhs)
 
   is_one <- function(e) {
-    if (is.numeric(e) && length(e) == 1L &&
-        isTRUE(all.equal(as.numeric(e), 1)))
+    if (
+      is.numeric(e) && length(e) == 1L && isTRUE(all.equal(as.numeric(e), 1))
+    ) {
       return(TRUE)
-    if (is.name(e) && as.character(e) == "1")
+    }
+    if (is.name(e) && as.character(e) == "1") {
       return(TRUE)
+    }
     identical(deparse(e), "1")
   }
 
   is_simple_var <- function(e) {
-    if (!is.name(e)) return(FALSE)
+    if (!is.name(e)) {
+      return(FALSE)
+    }
     nm <- as.character(e)
-    nm %in% names(data) && !is.factor(data[[nm]]) &&
-      !is.character(data[[nm]]) && is.numeric(data[[nm]])
+    nm %in%
+      names(data) &&
+      !is.factor(data[[nm]]) &&
+      !is.character(data[[nm]]) &&
+      is.numeric(data[[nm]])
   }
 
   # Random intercept: (1 | g) or (1 || g).
@@ -461,7 +528,7 @@ fb_from_brms <- function(formula,
     out <- list(type = "simple", var = group_name)
     if (group_name %in% names(data)) {
       f <- factor(data[[group_name]])
-      out$var_n      <- nlevels(f)
+      out$var_n <- nlevels(f)
       out$var_levels <- levels(f)
     }
     return(out)
@@ -474,10 +541,10 @@ fb_from_brms <- function(formula,
   # default; explicit 0 + suppresses it (handled below).
   if (isFALSE(cor) && is_simple_var(lhs)) {
     return(.brms_re_to_fb_slope_uncor(
-      slope_var      = as.character(lhs),
-      group_name     = group_name,
+      slope_var = as.character(lhs),
+      group_name = group_name,
       with_intercept = TRUE,
-      data           = data
+      data = data
     ))
   }
 
@@ -488,28 +555,50 @@ fb_from_brms <- function(formula,
   # "brms_re_unsupported" refusal -- multi-slope (x + z || g) is
   # queued for a later expansion of the brms ingest layer.
   is_zero <- function(e) {
-    if (is.numeric(e) && length(e) == 1L &&
-        isTRUE(all.equal(as.numeric(e), 0))) return(TRUE)
-    if (is.name(e) && as.character(e) == "0") return(TRUE)
+    if (
+      is.numeric(e) && length(e) == 1L && isTRUE(all.equal(as.numeric(e), 0))
+    ) {
+      return(TRUE)
+    }
+    if (is.name(e) && as.character(e) == "0") {
+      return(TRUE)
+    }
     identical(deparse(e), "0")
   }
-  if (isFALSE(cor) && is.call(lhs) &&
-      identical(lhs[[1L]], as.name("+")) && length(lhs) == 3L) {
-    left  <- lhs[[2L]]
+  if (
+    isFALSE(cor) &&
+      is.call(lhs) &&
+      identical(lhs[[1L]], as.name("+")) &&
+      length(lhs) == 3L
+  ) {
+    left <- lhs[[2L]]
     right <- lhs[[3L]]
     sv <- NULL
     with_int <- NA
-    if (is_one(left)  && is_simple_var(right)) { sv <- as.character(right); with_int <- TRUE  }
-    if (is_one(right) && is_simple_var(left))  { sv <- as.character(left);  with_int <- TRUE  }
-    if (is_zero(left) && is_simple_var(right)) { sv <- as.character(right); with_int <- FALSE }
-    if (is_zero(right) && is_simple_var(left)) { sv <- as.character(left);  with_int <- FALSE }
-    if (!is.null(sv))
+    if (is_one(left) && is_simple_var(right)) {
+      sv <- as.character(right)
+      with_int <- TRUE
+    }
+    if (is_one(right) && is_simple_var(left)) {
+      sv <- as.character(left)
+      with_int <- TRUE
+    }
+    if (is_zero(left) && is_simple_var(right)) {
+      sv <- as.character(right)
+      with_int <- FALSE
+    }
+    if (is_zero(right) && is_simple_var(left)) {
+      sv <- as.character(left)
+      with_int <- FALSE
+    }
+    if (!is.null(sv)) {
       return(.brms_re_to_fb_slope_uncor(
-        slope_var      = sv,
-        group_name     = group_name,
+        slope_var = sv,
+        group_name = group_name,
         with_intercept = with_int,
-        data           = data
+        data = data
       ))
+    }
   }
 
   # Slope correlated: (x | g) or (1 + x | g). Refused with the
@@ -518,54 +607,65 @@ fb_from_brms <- function(formula,
     slope_var <- NA_character_
     if (is_simple_var(lhs)) {
       slope_var <- as.character(lhs)
-    } else if (is.call(lhs) && identical(lhs[[1L]], as.name("+")) &&
-               length(lhs) == 3L) {
-      left  <- lhs[[2L]]
+    } else if (
+      is.call(lhs) && identical(lhs[[1L]], as.name("+")) && length(lhs) == 3L
+    ) {
+      left <- lhs[[2L]]
       right <- lhs[[3L]]
-      if (is_one(left)  && is_simple_var(right)) slope_var <- as.character(right)
-      if (is_one(right) && is_simple_var(left))  slope_var <- as.character(left)
+      if (is_one(left) && is_simple_var(right)) {
+        slope_var <- as.character(right)
+      }
+      if (is_one(right) && is_simple_var(left)) slope_var <- as.character(left)
     }
-    if (!is.na(slope_var))
+    if (!is.na(slope_var)) {
       return(list(
-        type      = "brms_re_correlated_slope_unsupported",
-        lhs       = lhs_str,
-        rhs       = group_name,
+        type = "brms_re_correlated_slope_unsupported",
+        lhs = lhs_str,
+        rhs = group_name,
         slope_var = slope_var,
-        deparse   = paste0("(", lhs_str, " | ", group_name, ")")
+        deparse = paste0("(", lhs_str, " | ", group_name, ")")
       ))
+    }
   }
 
   list(
-    type    = "brms_re_unsupported",
-    lhs     = lhs_str,
-    rhs     = group_name,
-    cor     = cor,
-    deparse = paste0("(", lhs_str,
-                     if (isTRUE(cor)) " | " else " || ",
-                     group_name, ")")
+    type = "brms_re_unsupported",
+    lhs = lhs_str,
+    rhs = group_name,
+    cor = cor,
+    deparse = paste0(
+      "(",
+      lhs_str,
+      if (isTRUE(cor)) " | " else " || ",
+      group_name,
+      ")"
+    )
   )
 }
 
 # Build an IR slot for an uncorrelated random-slope term. Used by
 # both (x || g) and (1 + x || g). Carries the canonical-name pieces
 # (slope_var, var) that codegen + canonical_names + emit_brms read.
-.brms_re_to_fb_slope_uncor <- function(slope_var,
-                                        group_name,
-                                        with_intercept,
-                                        data) {
+.brms_re_to_fb_slope_uncor <- function(
+  slope_var,
+  group_name,
+  with_intercept,
+  data
+) {
   out <- list(
-    type           = "simple_slope_uncor",
-    var            = group_name,
-    slope_var      = slope_var,
+    type = "simple_slope_uncor",
+    var = group_name,
+    slope_var = slope_var,
     with_intercept = isTRUE(with_intercept)
   )
   if (group_name %in% names(data)) {
     f <- factor(data[[group_name]])
-    out$var_n      <- nlevels(f)
+    out$var_n <- nlevels(f)
     out$var_levels <- levels(f)
   }
-  if (slope_var %in% names(data))
+  if (slope_var %in% names(data)) {
     out$slope_var_values <- as.numeric(data[[slope_var]])
+  }
   out
 }
 
@@ -574,8 +674,10 @@ fb_from_brms <- function(formula,
 # carries the grouping factor, slope variable, deferral target, and
 # workaround so downstream tooling can pattern-match on the slots
 # without parsing free text.
-.stop_correlated_slope_unsupported <- function(grouping_factor,
-                                                slope_variable) {
+.stop_correlated_slope_unsupported <- function(
+  grouping_factor,
+  slope_variable
+) {
   msg <- paste0(
     "Correlated random slopes (x | g) are not yet supported in v0.2.6.\n",
     "Uncorrelated random slopes (x || g) are supported -- they fit the\n",
@@ -586,18 +688,21 @@ fb_from_brms <- function(formula,
     "Workaround: re-fit as (x || g) if the correlation is not of inferential\n",
     "interest, or use backend = \"greta\" via fb_brms() with a hand-rolled\n",
     "covariance prior.\n\n",
-    "Got: (", slope_variable, " | ", grouping_factor, ")"
+    "Got: (",
+    slope_variable,
+    " | ",
+    grouping_factor,
+    ")"
   )
   cond <- structure(
-    class = c("flexybayes_correlated_slope_unsupported",
-              "error", "condition"),
+    class = c("flexybayes_correlated_slope_unsupported", "error", "condition"),
     list(
-      message          = msg,
-      call             = NULL,
-      grouping_factor  = grouping_factor,
-      slope_variable   = slope_variable,
-      deferral_target  = "v0.3",
-      workaround       = "(x || g)"
+      message = msg,
+      call = NULL,
+      grouping_factor = grouping_factor,
+      slope_variable = slope_variable,
+      deferral_target = "v0.3",
+      workaround = "(x || g)"
     )
   )
   stop(cond)

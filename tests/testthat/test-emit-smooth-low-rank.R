@@ -6,7 +6,7 @@
 # projection. The exact dense smooth path is unchanged --- regression
 # checks confirm a plain s(x) carries no approximation.
 
-skip_if_no_mgcv  <- function() skip_if_not_installed("mgcv")
+skip_if_no_mgcv <- function() skip_if_not_installed("mgcv")
 skip_if_no_greta <- function() skip_if_not_installed("greta")
 
 mk_lr_data <- function() {
@@ -23,8 +23,12 @@ mk_lr_data <- function() {
 test_that(".truncate_smooth_basis() is an exact rank-K PCA truncation", {
   skip_if_no_mgcv()
   d <- mk_lr_data()
-  sm <- mgcv::smoothCon(mgcv::s(x, k = 12L), data = d,
-                        absorb.cons = TRUE, scale.penalty = TRUE)[[1L]]
+  sm <- mgcv::smoothCon(
+    mgcv::s(x, k = 12L),
+    data = d,
+    absorb.cons = TRUE,
+    scale.penalty = TRUE
+  )[[1L]]
   B <- sm$X
   tr <- flexyBayes:::.truncate_smooth_basis(B, rank = 5L, var = "x")
 
@@ -36,8 +40,7 @@ test_that(".truncate_smooth_basis() is an exact rank-K PCA truncation", {
   expect_equal(unname(tr$B_K), unname(B %*% tr$V_K))
   # capture == sum top-K singular^2 / sum all singular^2
   d_sv <- svd(B)$d
-  expect_equal(tr$frobenius_capture,
-               sum(d_sv[seq_len(5L)]^2) / sum(d_sv^2))
+  expect_equal(tr$frobenius_capture, sum(d_sv[seq_len(5L)]^2) / sum(d_sv^2))
   expect_true(tr$frobenius_capture > 0 && tr$frobenius_capture <= 1)
 })
 
@@ -49,23 +52,29 @@ test_that(".validate_low_rank_rank() enforces the rank contract", {
   # positive integer
   expect_error(
     flexyBayes:::.validate_low_rank_rank(0L, k = 10L, n = 50L),
-    class = "flexybayes_low_rank_rank_refusal")
+    class = "flexybayes_low_rank_rank_refusal"
+  )
   expect_error(
     flexyBayes:::.validate_low_rank_rank(2.5, k = 10L, n = 50L),
-    class = "flexybayes_low_rank_rank_refusal")
+    class = "flexybayes_low_rank_rank_refusal"
+  )
   expect_error(
     flexyBayes:::.validate_low_rank_rank(c(1L, 2L), k = 10L, n = 50L),
-    class = "flexybayes_low_rank_rank_refusal")
+    class = "flexybayes_low_rank_rank_refusal"
+  )
   # ceiling min(k, n)
   err <- tryCatch(
     flexyBayes:::.validate_low_rank_rank(11L, k = 10L, n = 50L),
-    flexybayes_low_rank_rank_refusal = function(e) e)
+    flexybayes_low_rank_rank_refusal = function(e) e
+  )
   expect_s3_class(err, "flexybayes_low_rank_rank_refusal")
   expect_match(conditionMessage(err), "exceeds the truncation ceiling")
   expect_identical(err$reason_code, "low_rank_rank_exceeds_basis")
   # valid rank returns an integer
   expect_identical(
-    flexyBayes:::.validate_low_rank_rank(4, k = 10L, n = 50L), 4L)
+    flexyBayes:::.validate_low_rank_rank(4, k = 10L, n = 50L),
+    4L
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -74,11 +83,16 @@ test_that(".validate_low_rank_rank() enforces the rank contract", {
 
 test_that("s(x, representation = ...) truncates the basis at parse time", {
   skip_if_no_mgcv()
-  d  <- mk_lr_data()
+  d <- mk_lr_data()
   fb <- flexyBayes:::fb_from_asreml(
     fixed = y ~ 1,
-    random = ~ s(x, k = 10L, representation = list(scheme = "low_rank_smooth", rank = 4L)),
-    data = d)
+    random = ~ s(
+      x,
+      k = 10L,
+      representation = list(scheme = "low_rank_smooth", rank = 4L)
+    ),
+    data = d
+  )
   rt <- fb$random_terms[[1L]]
   expect_identical(rt$type, "smooth_mgcv")
   expect_false(is.null(rt$approx_spec))
@@ -93,9 +107,8 @@ test_that("s(x, representation = ...) truncates the basis at parse time", {
 
 test_that("plain s(x) carries no approximation (regression)", {
   skip_if_no_mgcv()
-  d  <- mk_lr_data()
-  fb <- flexyBayes:::fb_from_asreml(fixed = y ~ 1, random = ~ s(x),
-                                    data = d)
+  d <- mk_lr_data()
+  fb <- flexyBayes:::fb_from_asreml(fixed = y ~ 1, random = ~ s(x), data = d)
   rt <- fb$random_terms[[1L]]
   expect_identical(rt$type, "smooth_mgcv")
   expect_null(rt$approx_spec)
@@ -111,20 +124,35 @@ test_that("parse-time refuses bad rank / unknown scheme / bad spec", {
   d <- mk_lr_data()
   # rank exceeds ceiling
   expect_error(
-    flexyBayes:::fb_from_asreml(fixed = y ~ 1,
-      random = ~ s(x, k = 10L, representation = list(scheme = "low_rank_smooth", rank = 99L)), data = d),
-    class = "flexybayes_low_rank_rank_refusal")
+    flexyBayes:::fb_from_asreml(
+      fixed = y ~ 1,
+      random = ~ s(
+        x,
+        k = 10L,
+        representation = list(scheme = "low_rank_smooth", rank = 99L)
+      ),
+      data = d
+    ),
+    class = "flexybayes_low_rank_rank_refusal"
+  )
   # unknown scheme
   expect_error(
-    flexyBayes:::fb_from_asreml(fixed = y ~ 1,
+    flexyBayes:::fb_from_asreml(
+      fixed = y ~ 1,
       random = ~ s(x, representation = list(scheme = "nope", rank = 3L)),
-      data = d),
-    regexp = "not a registered approximation scheme")
+      data = d
+    ),
+    regexp = "not a registered approximation scheme"
+  )
   # spec without a scheme
   expect_error(
-    flexyBayes:::fb_from_asreml(fixed = y ~ 1,
-      random = ~ s(x, representation = list(rank = 3L)), data = d),
-    class = "flexybayes_approximation_spec_invalid")
+    flexyBayes:::fb_from_asreml(
+      fixed = y ~ 1,
+      random = ~ s(x, representation = list(rank = 3L)),
+      data = d
+    ),
+    class = "flexybayes_approximation_spec_invalid"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -132,12 +160,20 @@ test_that("parse-time refuses bad rank / unknown scheme / bad spec", {
 # ---------------------------------------------------------------- #
 
 test_that("codegen emits dim = K on the low-rank path", {
-  skip_if_no_greta(); skip_if_no_mgcv()
+  skip_if_no_greta()
+  skip_if_no_mgcv()
   d <- mk_lr_data()
   code <- flexybayes(
     fixed = y ~ 1,
-    random = ~ s(x, k = 10L, representation = list(scheme = "low_rank_smooth", rank = 4L)),
-    data = d, verbose = FALSE, return_code = TRUE)
+    random = ~ s(
+      x,
+      k = 10L,
+      representation = list(scheme = "low_rank_smooth", rank = 4L)
+    ),
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
+  )
   expect_match(code, "s_x_raw <- normal\\(0, 1, dim = 4\\)")
   expect_match(code, "B_g_s_x <- as_data\\(B_s_x\\)")
 })
@@ -150,10 +186,18 @@ test_that("low_rank smooth refuses on explicit inla / brms backends", {
   skip_if_no_mgcv()
   d <- mk_lr_data()
   expect_error(
-    flexybayes(fixed = y ~ 1,
-      random = ~ s(x, representation = list(scheme = "low_rank_smooth", rank = 4L)),
-      data = d, backend = "inla", verbose = FALSE),
-    class = "flexybayes_low_rank_requires_greta")
+    flexybayes(
+      fixed = y ~ 1,
+      random = ~ s(
+        x,
+        representation = list(scheme = "low_rank_smooth", rank = 4L)
+      ),
+      data = d,
+      backend = "inla",
+      verbose = FALSE
+    ),
+    class = "flexybayes_low_rank_requires_greta"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -166,17 +210,28 @@ test_that("low_rank smooth refuses on explicit inla / brms backends", {
 # projection (the smooth must contribute, not collapse to flat zero).
 
 test_that("end-to-end low-rank greta fit, validation, and prediction", {
-  skip_if_no_greta(); skip_if_no_mgcv()
-  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true"))
+  skip_if_no_greta()
+  skip_if_no_mgcv()
+  if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true")) {
     skip("stress-gated end-to-end greta fit (set FLEXYBAYES_RUN_STRESS=true)")
+  }
 
   d <- mk_lr_data()
   fit <- flexybayes(
     fixed = y ~ 1,
-    random = ~ s(x, k = 10L, representation = list(scheme = "low_rank_smooth", rank = 4L)),
-    data = d, backend = "greta",
-    n_samples = 200L, warmup = 200L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE)
+    random = ~ s(
+      x,
+      k = 10L,
+      representation = list(scheme = "low_rank_smooth", rank = 4L)
+    ),
+    data = d,
+    backend = "greta",
+    n_samples = 200L,
+    warmup = 200L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  )
 
   expect_identical(fit$exactness, "approximate_low_rank_smooth")
   ap <- fit$extras$parse_info$approx
@@ -186,13 +241,20 @@ test_that("end-to-end low-rank greta fit, validation, and prediction", {
   v <- validate_approximation(fit)
   expect_s3_class(v, "fb_approximation_validation")
   expect_identical(v$scheme, "low_rank_smooth")
-  expect_true(v$per_smooth$x$frobenius_capture > 0 &&
-              v$per_smooth$x$frobenius_capture <= 1)
+  expect_true(
+    v$per_smooth$x$frobenius_capture > 0 &&
+      v$per_smooth$x$frobenius_capture <= 1
+  )
 
   nd <- data.frame(x = seq(0.5, 9.5, length.out = 25L))
   pr <- predict(fit, newdata = nd)
-  pe <- as.numeric(if (is.list(pr))
-    (pr$fit %||% pr$prediction %||% pr[[1L]]) else pr)
+  pe <- as.numeric(
+    if (is.list(pr)) {
+      (pr$fit %||% pr$prediction %||% pr[[1L]])
+    } else {
+      pr
+    }
+  )
   expect_length(pe, nrow(nd))
   expect_true(all(is.finite(pe)))
   # the projected smooth contributes -- not the silent flat-zero path

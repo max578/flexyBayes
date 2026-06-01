@@ -65,25 +65,27 @@
 #   NULL (the v0.3.5 calling convention), the gate behaves exactly
 #   as today -- 10 structural rules, no memory awareness.
 # @return fb_terms (pass / override) or lgm_refusal (default).
-lgm_gate <- function(fb,
-                     force                        = NULL,
-                     acknowledge_silent_bias_risk = FALSE,
-                     reason                       = NULL,
-                     preflight                    = NULL) {
-  if (!is_fb_terms(fb))
-    stop("`fb` must be an fb_terms object (see fb_from_asreml).",
-         call. = FALSE)
+lgm_gate <- function(
+  fb,
+  force = NULL,
+  acknowledge_silent_bias_risk = FALSE,
+  reason = NULL,
+  preflight = NULL
+) {
+  if (!is_fb_terms(fb)) {
+    stop("`fb` must be an fb_terms object (see fb_from_asreml).", call. = FALSE)
+  }
 
   checks <- list(
-    .lgm_check_family(fb),                       # check 1
-    .lgm_check_predictor(fb),                    # check 2
-    .lgm_check_distributional(fb),               # check 3
-    .lgm_check_re_prior(fb),                     # check 4
-    .lgm_check_latent_class(fb),                 # check 5
-    .lgm_check_hyperparam_budget(fb),            # check 6
-    .lgm_check_fixed_term_inla_support(fb),      # check 7 (ADR 0017)
-    .lgm_check_random_term_inla_support(fb),     # check 8 (ADR 0017)
-    .lgm_check_rcov_term_inla_support(fb),       # check 9 (ADR 0017)
+    .lgm_check_family(fb), # check 1
+    .lgm_check_predictor(fb), # check 2
+    .lgm_check_distributional(fb), # check 3
+    .lgm_check_re_prior(fb), # check 4
+    .lgm_check_latent_class(fb), # check 5
+    .lgm_check_hyperparam_budget(fb), # check 6
+    .lgm_check_fixed_term_inla_support(fb), # check 7 (ADR 0017)
+    .lgm_check_random_term_inla_support(fb), # check 8 (ADR 0017)
+    .lgm_check_rcov_term_inla_support(fb), # check 9 (ADR 0017)
     # check 10 (ADR 0019 §Decision 5) -- conditional INLA-mapping
     # verification for the factor_numeric_interaction term class.
     # Refuses the INLA emit path when verification has not been run
@@ -102,14 +104,14 @@ lgm_gate <- function(fb,
   )
 
   failures <- Filter(function(r) !isTRUE(r$pass), checks)
-  warnings <- Filter(function(r) isTRUE(r$pass) && !is.null(r$warning),
-                     checks)
+  warnings <- Filter(function(r) isTRUE(r$pass) && !is.null(r$warning), checks)
 
   # All structural checks passed.
   if (length(failures) == 0L) {
     caps <- c(fb$capabilities, "lgm_compatible")
-    for (w in warnings)
+    for (w in warnings) {
       caps <- c(caps, paste0("lgm_warning:", w$rule_id, ":", w$warning))
+    }
     # gretaR slot capability: informational at v0.2 (slot dormant);
     # at v0.3 the flag value flips to "gretaR_dispatch_eligible"
     # when the activation boolean + audit mechanism both agree.
@@ -124,16 +126,23 @@ lgm_gate <- function(fb,
   # user-overridable here; the numerical-confirm check runs post-fit in
   # the INLA emitter (see emit_inla.R) and is not overridable.
   if (identical(force, "inla") && isTRUE(acknowledge_silent_bias_risk)) {
-    if (is.null(reason) || !is.character(reason) ||
-        length(reason) != 1L || !nzchar(reason))
-      stop("`reason` (non-empty character(1)) is required when forcing ",
-           "INLA dispatch with acknowledge_silent_bias_risk = TRUE.",
-           call. = FALSE)
+    if (
+      is.null(reason) ||
+        !is.character(reason) ||
+        length(reason) != 1L ||
+        !nzchar(reason)
+    ) {
+      stop(
+        "`reason` (non-empty character(1)) is required when forcing ",
+        "INLA dispatch with acknowledge_silent_bias_risk = TRUE.",
+        call. = FALSE
+      )
+    }
     bypassed <- vapply(failures, function(f) f$rule_id, character(1))
     fb$capabilities <- c(
       fb$capabilities,
       "lgm_force_overridden",
-      paste0("lgm_force_reason:",   reason),
+      paste0("lgm_force_reason:", reason),
       paste0("lgm_force_bypassed:", paste(bypassed, collapse = ","))
     )
     return(fb)
@@ -149,13 +158,16 @@ lgm_gate <- function(fb,
 
 new_lgm_refusal <- function(failures, warnings = list(), fb = NULL) {
   obj <- list(
-    failures     = failures,
-    warnings     = warnings,
-    n_failures   = length(failures),
-    primary_rule = if (length(failures))
-      failures[[1]]$rule_id else NA_character_,
-    fb_source    = if (!is.null(fb)) fb$source    else NA_character_,
-    fb_response  = if (!is.null(fb)) fb$response  else NA_character_
+    failures = failures,
+    warnings = warnings,
+    n_failures = length(failures),
+    primary_rule = if (length(failures)) {
+      failures[[1]]$rule_id
+    } else {
+      NA_character_
+    },
+    fb_source = if (!is.null(fb)) fb$source else NA_character_,
+    fb_response = if (!is.null(fb)) fb$response else NA_character_
   )
   class(obj) <- c("lgm_refusal", "list")
   obj
@@ -176,29 +188,45 @@ is_lgm_refusal <- function(x) inherits(x, "lgm_refusal")
 #' @export
 print.lgm_refusal <- function(x, ...) {
   cat("flexyBayes: INLA backend refused for this model.\n")
-  cat("Reasons (", x$n_failures, " structural failure",
-      if (x$n_failures != 1L) "s" else "", "):\n", sep = "")
+  cat(
+    "Reasons (",
+    x$n_failures,
+    " structural failure",
+    if (x$n_failures != 1L) "s" else "",
+    "):\n",
+    sep = ""
+  )
   for (f in x$failures) {
     cat("  - [", f$rule_id, "] ", f$reason, "\n", sep = "")
-    if (!is.null(f$diagnostic))
+    if (!is.null(f$diagnostic)) {
       cat("    Diagnostic: ", f$diagnostic, "\n", sep = "")
+    }
   }
   if (length(x$warnings)) {
     cat("Warnings:\n")
-    for (w in x$warnings)
+    for (w in x$warnings) {
       cat("  - [", w$rule_id, "] ", w$warning, "\n", sep = "")
+    }
   }
-  cat("Re-route: try backend = \"brms\" via fb_brms() for the Stan ",
-      "passthrough\n  (model must be in the brms corpus), or ",
-      "backend = \"greta\" for the broader\n  flexyBayes formula ",
-      "path. NIMBLE is planned future work, not yet implemented.\n",
-      sep = "")
-  cat("For mixtures with <= 2 components, the planned ",
-      "INLA-within-MCMC escape\n  (Gomez-Rubio & Rue 2018) is on ",
-      "the roadmap.\n", sep = "")
+  cat(
+    "Re-route: try backend = \"brms\" via fb_brms() for the Stan ",
+    "passthrough\n  (model must be in the brms corpus), or ",
+    "backend = \"greta\" for the broader\n  flexyBayes formula ",
+    "path. NIMBLE is planned future work, not yet implemented.\n",
+    sep = ""
+  )
+  cat(
+    "For mixtures with <= 2 components, the planned ",
+    "INLA-within-MCMC escape\n  (Gomez-Rubio & Rue 2018) is on ",
+    "the roadmap.\n",
+    sep = ""
+  )
   cat("Override (not recommended): lgm_gate(fb, force = \"inla\",\n")
-  cat("  acknowledge_silent_bias_risk = TRUE, reason = \"<your ",
-      "reason>\")\n", sep = "")
+  cat(
+    "  acknowledge_silent_bias_risk = TRUE, reason = \"<your ",
+    "reason>\")\n",
+    sep = ""
+  )
   cat("Docs: vignette(\"flexyBayes-11-lgm-feasibility\").\n")
   invisible(x)
 }
@@ -215,13 +243,23 @@ print.lgm_refusal <- function(x, ...) {
 #        warning    = character(1) or NULL)
 
 .lgm_pass <- function(rule_id, warning = NULL) {
-  list(rule_id = rule_id, pass = TRUE,
-       reason = NULL, diagnostic = NULL, warning = warning)
+  list(
+    rule_id = rule_id,
+    pass = TRUE,
+    reason = NULL,
+    diagnostic = NULL,
+    warning = warning
+  )
 }
 
 .lgm_fail <- function(rule_id, reason, diagnostic = NULL) {
-  list(rule_id = rule_id, pass = FALSE,
-       reason = reason, diagnostic = diagnostic, warning = NULL)
+  list(
+    rule_id = rule_id,
+    pass = FALSE,
+    reason = reason,
+    diagnostic = diagnostic,
+    warning = NULL
+  )
 }
 
 # Check 1 -- Family allowlist
@@ -240,17 +278,25 @@ print.lgm_refusal <- function(x, ...) {
 # this check -- .resolve_family() refuses them up front. When adding
 # a family, register its emit path AND widen .resolve_family().
 .lgm_check_family <- function(fb) {
-  fam_name <- if (inherits(fb$family, "family"))
-    fb$family$family else as.character(fb$family)
+  fam_name <- if (inherits(fb$family, "family")) {
+    fb$family$family
+  } else {
+    as.character(fb$family)
+  }
 
   allowed <- .inla_likelihood_allowlist()
-  if (tolower(fam_name) %in% tolower(allowed))
+  if (tolower(fam_name) %in% tolower(allowed)) {
     return(.lgm_pass("family_allowlist"))
+  }
 
   .lgm_fail(
     "family_allowlist",
-    paste0("family \"", fam_name, "\" is not in the INLA likelihood ",
-           "allowlist (no built-in Laplace machinery)."),
+    paste0(
+      "family \"",
+      fam_name,
+      "\" is not in the INLA likelihood ",
+      "allowlist (no built-in Laplace machinery)."
+    ),
     diagnostic = paste0("fb$family = \"", fam_name, "\"")
   )
 }
@@ -260,8 +306,9 @@ print.lgm_refusal <- function(x, ...) {
   # (Suggests + Additional_repositories declared in DESCRIPTION).
   # Fall back to the static list otherwise.
   if (requireNamespace("INLA", quietly = TRUE)) {
-    dyn <- tryCatch(names(INLA::inla.models()$likelihood),
-                    error = function(e) NULL)
+    dyn <- tryCatch(names(INLA::inla.models()$likelihood), error = function(e) {
+      NULL
+    })
     if (!is.null(dyn) && length(dyn)) return(dyn)
   }
   .inla_likelihood_allowlist_static()
@@ -273,21 +320,41 @@ print.lgm_refusal <- function(x, ...) {
 .inla_likelihood_allowlist_static <- function() {
   c(
     # Continuous
-    "gaussian", "stdnormal", "lognormal", "logistic", "T",
-    "exponential", "loggaussian", "loglogistic", "loggamma",
-    "gamma", "beta",
+    "gaussian",
+    "stdnormal",
+    "lognormal",
+    "logistic",
+    "T",
+    "exponential",
+    "loggaussian",
+    "loglogistic",
+    "loggamma",
+    "gamma",
+    "beta",
     # Counts
-    "poisson", "zeroinflatedpoisson0", "zeroinflatedpoisson1",
-    "nbinomial", "nbinomial2",
-    "zeroinflatednbinomial0", "zeroinflatednbinomial1",
+    "poisson",
+    "zeroinflatedpoisson0",
+    "zeroinflatedpoisson1",
+    "nbinomial",
+    "nbinomial2",
+    "zeroinflatednbinomial0",
+    "zeroinflatednbinomial1",
     # Binary / binomial
-    "binomial", "binary", "betabinomial", "cbinomial",
-    "zeroinflatedbinomial0", "zeroinflatedbinomial1",
+    "binomial",
+    "binary",
+    "betabinomial",
+    "cbinomial",
+    "zeroinflatedbinomial0",
+    "zeroinflatedbinomial1",
     # Survival
-    "exponentialsurv", "weibullsurv", "loggaussiansurv",
-    "lognormalsurv", "coxph",
+    "exponentialsurv",
+    "weibullsurv",
+    "loggaussiansurv",
+    "lognormalsurv",
+    "coxph",
     # Negative-binomial alias common in asreml workflows
-    "negative_binomial", "negbinom"
+    "negative_binomial",
+    "negbinom"
   )
 }
 
@@ -298,17 +365,24 @@ print.lgm_refusal <- function(x, ...) {
 # `nl = TRUE` flag or surfaces a non-linear term type -- refuse
 # there.
 .lgm_check_predictor <- function(fb) {
-  has_nl <- any(vapply(fb$fixed_terms, function(t) {
-    isTRUE(t$type == "non_linear") || isTRUE(t$nl)
-  }, logical(1)))
-  if (has_nl)
+  has_nl <- any(vapply(
+    fb$fixed_terms,
+    function(t) {
+      isTRUE(t$type == "non_linear") || isTRUE(t$nl)
+    },
+    logical(1)
+  ))
+  if (has_nl) {
     return(.lgm_fail(
       "predictor_linearity",
-      paste0("non-linear predictor detected (brms `nl = TRUE` or ",
-             "equivalent). INLA stage-2 requires linearity in the ",
-             "latent field."),
+      paste0(
+        "non-linear predictor detected (brms `nl = TRUE` or ",
+        "equivalent). INLA stage-2 requires linearity in the ",
+        "latent field."
+      ),
       diagnostic = "fixed_terms with type = \"non_linear\""
     ))
+  }
   .lgm_pass("predictor_linearity")
 }
 
@@ -318,18 +392,26 @@ print.lgm_refusal <- function(x, ...) {
 # zi, hu) has a non-trivial RHS. asreml v0.1 has none -- addition
 # slot may carry weights but never dpar regressions.
 .lgm_check_distributional <- function(fb) {
-  dpar_terms <- Filter(function(t) {
-    isTRUE(grepl("^dpar_", t$type)) && !isTRUE(t$is_intercept_only)
-  }, fb$addition_terms)
-  if (length(dpar_terms))
+  dpar_terms <- Filter(
+    function(t) {
+      isTRUE(grepl("^dpar_", t$type)) && !isTRUE(t$is_intercept_only)
+    },
+    fb$addition_terms
+  )
+  if (length(dpar_terms)) {
     return(.lgm_fail(
       "distributional_regression",
-      paste0("auxiliary parameter has non-intercept RHS (",
-             paste(vapply(dpar_terms, function(t) t$type, character(1)),
-                   collapse = ", "),
-             "). INLA requires scalar dpars."),
+      paste0(
+        "auxiliary parameter has non-intercept RHS (",
+        paste(
+          vapply(dpar_terms, function(t) t$type, character(1)),
+          collapse = ", "
+        ),
+        "). INLA requires scalar dpars."
+      ),
       diagnostic = "addition_terms with type matching ^dpar_"
     ))
+  }
   .lgm_pass("distributional_regression")
 }
 
@@ -341,31 +423,38 @@ print.lgm_refusal <- function(x, ...) {
 # an explicit non-Gaussian random-effect prior fails the check, since
 # INLA's latent field is Gaussian by construction.
 .lgm_check_re_prior <- function(fb) {
-  if (isTRUE(fb$priors$legacy))
+  if (isTRUE(fb$priors$legacy)) {
     return(.lgm_pass("re_gaussian_prior"))
-  if (is.null(fb$priors))
+  }
+  if (is.null(fb$priors)) {
     return(.lgm_pass("re_gaussian_prior"))
+  }
 
   # If priors is an fb_prior object (deliverable 3), look for
   # explicit non-Gaussian RE priors. Until that DSL ships, accept.
   bad <- character(0)
   if (inherits(fb$priors, "fb_prior") && !is.null(fb$priors$re)) {
     for (entry in fb$priors$re) {
-      if (!is.null(entry$family) &&
-          !tolower(entry$family) %in% c("normal", "gaussian", "mvn",
-                                         "gmrf", "half_normal",
-                                         "exponential"))
+      if (
+        !is.null(entry$family) &&
+          !tolower(entry$family) %in%
+            c("normal", "gaussian", "mvn", "gmrf", "half_normal", "exponential")
+      ) {
         bad <- c(bad, entry$family)
+      }
     }
   }
-  if (length(bad))
+  if (length(bad)) {
     return(.lgm_fail(
       "re_gaussian_prior",
-      paste0("non-Gaussian random-effect prior detected (",
-             paste(unique(bad), collapse = ", "),
-             "). INLA's latent field is Gaussian by construction."),
+      paste0(
+        "non-Gaussian random-effect prior detected (",
+        paste(unique(bad), collapse = ", "),
+        "). INLA's latent field is Gaussian by construction."
+      ),
       diagnostic = "fb$priors$re entries with non-Gaussian family"
     ))
+  }
   .lgm_pass("re_gaussian_prior")
 }
 
@@ -381,26 +470,36 @@ print.lgm_refusal <- function(x, ...) {
   for (slot_name in c("fixed_terms", "random_terms", "rcov_terms")) {
     slot <- fb[[slot_name]]
     for (term in slot) {
-      if (is.character(term$type) && term$type %in% bad_types)
+      if (is.character(term$type) && term$type %in% bad_types) {
         found <- c(found, term$type)
+      }
     }
   }
-  fam_name <- if (inherits(fb$family, "family"))
-    fb$family$family else as.character(fb$family)
-  if (is.character(fam_name) &&
-      grepl("^mixture", tolower(fam_name)))
+  fam_name <- if (inherits(fb$family, "family")) {
+    fb$family$family
+  } else {
+    as.character(fb$family)
+  }
+  if (
+    is.character(fam_name) &&
+      grepl("^mixture", tolower(fam_name))
+  ) {
     found <- c(found, paste0("family:", fam_name))
+  }
 
-  if (length(found))
+  if (length(found)) {
     return(.lgm_fail(
       "latent_class",
-      paste0("latent-class structure detected (",
-             paste(unique(found), collapse = ", "),
-             "). INLA cannot represent finite mixtures or HMM ",
-             "directly without the INLA-within-MCMC escape ",
-             "(Gomez-Rubio & Rue 2018)."),
+      paste0(
+        "latent-class structure detected (",
+        paste(unique(found), collapse = ", "),
+        "). INLA cannot represent finite mixtures or HMM ",
+        "directly without the INLA-within-MCMC escape ",
+        "(Gomez-Rubio & Rue 2018)."
+      ),
       diagnostic = "fb$family or fb$<slot>_terms"
     ))
+  }
   .lgm_pass("latent_class")
 }
 
@@ -411,52 +510,70 @@ print.lgm_refusal <- function(x, ...) {
 # n*(n+1)/2 for us_gxe, etc.) + per heterogeneous-rcov term. Refuse
 # if total > 15 (CCD/grid intractable). Warn at >10 -- emit_inla
 # (deliverable 5+) will set int.strategy = "ccd" automatically.
-.lgm_check_hyperparam_budget <- function(fb,
-                                          hard_limit = 15L,
-                                          warn_limit = 10L) {
+.lgm_check_hyperparam_budget <- function(
+  fb,
+  hard_limit = 15L,
+  warn_limit = 10L
+) {
   n_hyp <- .lgm_count_hyperparams(fb)
 
-  if (n_hyp > hard_limit)
+  if (n_hyp > hard_limit) {
     return(.lgm_fail(
       "hyperparam_budget",
-      paste0("hyperparameter count = ", n_hyp,
-             " exceeds hard limit ", hard_limit,
-             " (CCD/grid integration intractable; INLA Laplace ",
-             "approximation deteriorates)."),
-      diagnostic = paste0("count = likelihood (",
-                          .lgm_family_hypers(fb),
-                          ") + random + rcov contributions")
+      paste0(
+        "hyperparameter count = ",
+        n_hyp,
+        " exceeds hard limit ",
+        hard_limit,
+        " (CCD/grid integration intractable; INLA Laplace ",
+        "approximation deteriorates)."
+      ),
+      diagnostic = paste0(
+        "count = likelihood (",
+        .lgm_family_hypers(fb),
+        ") + random + rcov contributions"
+      )
     ))
+  }
 
-  if (n_hyp > warn_limit)
+  if (n_hyp > warn_limit) {
     return(.lgm_pass(
       "hyperparam_budget",
-      warning = paste0("hyperparameter count = ", n_hyp,
-                       " exceeds soft limit ", warn_limit,
-                       "; emit_inla will set int.strategy = \"ccd\".")
+      warning = paste0(
+        "hyperparameter count = ",
+        n_hyp,
+        " exceeds soft limit ",
+        warn_limit,
+        "; emit_inla will set int.strategy = \"ccd\"."
+      )
     ))
+  }
 
   .lgm_pass("hyperparam_budget")
 }
 
 # Likelihood-side hyperparameter count, by family.
 .lgm_family_hypers <- function(fb) {
-  fam_name <- if (inherits(fb$family, "family"))
-    fb$family$family else as.character(fb$family)
-  switch(tolower(as.character(fam_name)),
-    "gaussian"          = 1L,
-    "stdnormal"         = 0L,
-    "binomial"          = 0L,
-    "binary"            = 0L,
-    "poisson"           = 0L,
+  fam_name <- if (inherits(fb$family, "family")) {
+    fb$family$family
+  } else {
+    as.character(fb$family)
+  }
+  switch(
+    tolower(as.character(fam_name)),
+    "gaussian" = 1L,
+    "stdnormal" = 0L,
+    "binomial" = 0L,
+    "binary" = 0L,
+    "poisson" = 0L,
     "negative_binomial" = 1L,
-    "negbinom"          = 1L,
-    "nbinomial"         = 1L,
-    "gamma"             = 1L,
-    "beta"              = 1L,
-    "t"                 = 2L,
-    "lognormal"         = 1L,
-    "exponential"       = 0L,
+    "negbinom" = 1L,
+    "nbinomial" = 1L,
+    "gamma" = 1L,
+    "beta" = 1L,
+    "t" = 2L,
+    "lognormal" = 1L,
+    "exponential" = 0L,
     1L
   )
 }
@@ -466,26 +583,36 @@ print.lgm_refusal <- function(x, ...) {
 
   re_hypers <- 0L
   for (term in fb$random_terms) {
-    contrib <- switch(term$type,
-      "simple"      = 1L,
-      "ide"         = 1L,
-      "id"          = 1L,
-      "vm"          = 1L,
-      "ped"         = 1L,
-      "fa"          = 2L,
-      "fa_gxe"      = if (!is.null(term$k))
-                        as.integer(2L * term$k) else 2L,
-      "us_gxe"      = {
+    contrib <- switch(
+      term$type,
+      "simple" = 1L,
+      "ide" = 1L,
+      "id" = 1L,
+      "vm" = 1L,
+      "ped" = 1L,
+      "fa" = 2L,
+      "fa_gxe" = if (!is.null(term$k)) {
+        as.integer(2L * term$k)
+      } else {
+        2L
+      },
+      "us_gxe" = {
         n <- if (!is.null(term$n_outer)) term$n_outer else 4L
         as.integer(n * (n + 1L) / 2L)
       },
-      "at_simple"   = if (!is.null(term$n_outer))
-                        as.integer(term$n_outer) else 2L,
-      "at_units"    = if (!is.null(term$n_var))
-                        as.integer(term$n_var) else 2L,
+      "at_simple" = if (!is.null(term$n_outer)) {
+        as.integer(term$n_outer)
+      } else {
+        2L
+      },
+      "at_units" = if (!is.null(term$n_var)) {
+        as.integer(term$n_var)
+      } else {
+        2L
+      },
       "ar1_spatial" = 3L,
-      "spline"      = 1L,
-      "polynomial"  = 1L,
+      "spline" = 1L,
+      "polynomial" = 1L,
       1L
     )
     re_hypers <- re_hypers + contrib
@@ -493,8 +620,9 @@ print.lgm_refusal <- function(x, ...) {
 
   rcov_hypers <- 0L
   for (term in fb$rcov_terms) {
-    if (term$type != "units")
+    if (term$type != "units") {
       rcov_hypers <- rcov_hypers + 1L
+    }
   }
 
   fam_hypers + re_hypers + rcov_hypers
@@ -529,9 +657,14 @@ print.lgm_refusal <- function(x, ...) {
 # the §3.4 INLA verification policy (see
 # .lgm_check_factor_numeric_interaction_inla_verified() below).
 .inla_fixed_term_type_allowlist <- function() {
-  c("factor", "continuous", "interaction",
-    "factor_interaction", "factor_numeric_interaction",
-    "expression")
+  c(
+    "factor",
+    "continuous",
+    "interaction",
+    "factor_interaction",
+    "factor_numeric_interaction",
+    "expression"
+  )
 }
 
 # Allowlist: random-term types that emit_inla()'s random-effect
@@ -562,27 +695,29 @@ print.lgm_refusal <- function(x, ...) {
 # semantic class (e.g., "variance-matrix / GBLUP") not just the
 # bare type string.
 .inla_random_term_class_label <- function(term_type) {
-  switch(term_type,
-    "vm"           = "variance-matrix (e.g., GBLUP / kinship-driven random effect)",
-    "ped"          = "pedigree-based (numerator relationship matrix)",
-    "at"           = "heterogeneous variance by factor level",
-    "at_simple"    = "heterogeneous variance by simple factor",
-    "us"           = "unstructured covariance",
-    "fa"           = "factor-analytic",
-    "fa_gxe"       = "factor-analytic G\u00d7E",
-    "us_gxe"       = "unstructured G\u00d7E",
-    "ar1"          = "autoregressive lag-1",
-    "ar1_spatial"  = "AR1 spatial",
-    "polynomial"   = "polynomial random effect",
+  switch(
+    term_type,
+    "vm" = "variance-matrix (e.g., GBLUP / kinship-driven random effect)",
+    "ped" = "pedigree-based (numerator relationship matrix)",
+    "at" = "heterogeneous variance by factor level",
+    "at_simple" = "heterogeneous variance by simple factor",
+    "us" = "unstructured covariance",
+    "fa" = "factor-analytic",
+    "fa_gxe" = "factor-analytic G\u00d7E",
+    "us_gxe" = "unstructured G\u00d7E",
+    "ar1" = "autoregressive lag-1",
+    "ar1_spatial" = "AR1 spatial",
+    "polynomial" = "polynomial random effect",
     paste0("random term type \"", term_type, "\"")
   )
 }
 
 # Human-readable label for a structured-rcov term type.
 .inla_rcov_term_class_label <- function(term_type) {
-  switch(term_type,
-    "at_units"  = "heterogeneous residual by factor",
-    "dsum"      = "diagonal heterogeneous residual",
+  switch(
+    term_type,
+    "at_units" = "heterogeneous residual by factor",
+    "dsum" = "diagonal heterogeneous residual",
     "ar1_units" = "AR1 residual",
     paste0("rcov term type \"", term_type, "\"")
   )
@@ -600,21 +735,28 @@ print.lgm_refusal <- function(x, ...) {
   allowed <- .inla_fixed_term_type_allowlist()
   bad <- character(0)
   for (term in fb$fixed_terms) {
-    if (!is.character(term$type) || !(term$type %in% allowed))
+    if (!is.character(term$type) || !(term$type %in% allowed)) {
       bad <- c(bad, as.character(term$type))
+    }
   }
-  if (length(bad))
+  if (length(bad)) {
     return(.lgm_fail(
       "fixed_term_type_inla",
-      paste0("fixed term type \"", bad[[1L]],
-             "\" is outside the INLA emit allowlist. ",
-             "Re-route via backend = \"greta\" (broader formula path) ",
-             "or backend = \"brms\" (Stan passthrough)."),
-      diagnostic = paste0("fb$fixed_terms type(s): ",
-                           paste(unique(bad), collapse = ", "),
-                           "; allowed: ",
-                           paste(allowed, collapse = ", "))
+      paste0(
+        "fixed term type \"",
+        bad[[1L]],
+        "\" is outside the INLA emit allowlist. ",
+        "Re-route via backend = \"greta\" (broader formula path) ",
+        "or backend = \"brms\" (Stan passthrough)."
+      ),
+      diagnostic = paste0(
+        "fb$fixed_terms type(s): ",
+        paste(unique(bad), collapse = ", "),
+        "; allowed: ",
+        paste(allowed, collapse = ", ")
+      )
     ))
+  }
   .lgm_pass("fixed_term_type_inla")
 }
 
@@ -635,42 +777,66 @@ print.lgm_refusal <- function(x, ...) {
 # workaround (re-express as precision via solve(V), or route via
 # backend = "greta").
 .lgm_check_random_term_inla_support <- function(fb) {
-  bad_terms   <- list()
+  bad_terms <- list()
   for (term in fb$random_terms) {
-    if (!.is_supported_random_term_for_inla(term))
+    if (!.is_supported_random_term_for_inla(term)) {
       bad_terms[[length(bad_terms) + 1L]] <- term
+    }
   }
   if (length(bad_terms)) {
-    first       <- bad_terms[[1L]]
-    first_type  <- as.character(first$type)
+    first <- bad_terms[[1L]]
+    first_type <- as.character(first$type)
     first_label <- .inla_random_term_class_label(first_type)
-    fmt         <- first$cov_representation$format
-    detail      <- if (first_type %in% c("vm", "ped") &&
-                       !is.null(fmt) &&
-                       fmt %in% c("dense", "chol")) {
-      paste0("INLA accepts vm/ped only with the sparse-precision, ",
-             "pedigree_sparse_precision, or blocks representation ",
-             "(format = \"precision\", \"pedigree_sparse_precision\", ",
-             "or \"blocks\"). The supplied format is \"", fmt,
-             "\". Re-express as vm(", first$var,
-             ", precision = solve(V)) to use INLA's generic0 ",
-             "sparse-precision path, or route via backend = \"greta\".")
+    fmt <- first$cov_representation$format
+    detail <- if (
+      first_type %in%
+        c("vm", "ped") &&
+        !is.null(fmt) &&
+        fmt %in% c("dense", "chol")
+    ) {
+      paste0(
+        "INLA accepts vm/ped only with the sparse-precision, ",
+        "pedigree_sparse_precision, or blocks representation ",
+        "(format = \"precision\", \"pedigree_sparse_precision\", ",
+        "or \"blocks\"). The supplied format is \"",
+        fmt,
+        "\". Re-express as vm(",
+        first$var,
+        ", precision = solve(V)) to use INLA's generic0 ",
+        "sparse-precision path, or route via backend = \"greta\"."
+      )
     } else {
-      paste0("INLA's f() machinery does not currently represent ",
-             "this structured-covariance class without an SPDE / ",
-             "kronecker expansion that the v0.2 emit does not ",
-             "produce. Re-route via backend = \"greta\".")
+      paste0(
+        "INLA's f() machinery does not currently represent ",
+        "this structured-covariance class without an SPDE / ",
+        "kronecker expansion that the v0.2 emit does not ",
+        "produce. Re-route via backend = \"greta\"."
+      )
     }
     return(.lgm_fail(
       "random_term_type_inla",
-      paste0("random term type \"", first_type,
-             "\" (", first_label, ") is outside the INLA emit ",
-             "allowlist. ", detail),
-      diagnostic = paste0("fb$random_terms type(s): ",
-                           paste(vapply(bad_terms, function(t)
-                                         as.character(t$type),
-                                       character(1L)),
-                                 collapse = ", "))
+      paste0(
+        "random term type \"",
+        first_type,
+        "\" (",
+        first_label,
+        ") is outside the INLA emit ",
+        "allowlist. ",
+        detail
+      ),
+      diagnostic = paste0(
+        "fb$random_terms type(s): ",
+        paste(
+          vapply(
+            bad_terms,
+            function(t) {
+              as.character(t$type)
+            },
+            character(1L)
+          ),
+          collapse = ", "
+        )
+      )
     ))
   }
   .lgm_pass("random_term_type_inla")
@@ -684,15 +850,20 @@ print.lgm_refusal <- function(x, ...) {
 # cov_representation slot carries the precision /
 # pedigree_sparse_precision format.
 .is_supported_random_term_for_inla <- function(term) {
-  if (!is.character(term$type)) return(FALSE)
-  if (term$type %in% c("simple", "ide", "id", "spline",
-                        "simple_slope_uncor"))
+  if (!is.character(term$type)) {
+    return(FALSE)
+  }
+  if (term$type %in% c("simple", "ide", "id", "spline", "simple_slope_uncor")) {
     return(TRUE)
+  }
   if (term$type %in% c("vm", "ped")) {
     cov <- term$cov_representation
-    if (is.null(cov)) return(FALSE)
-    return(cov$format %in% c("precision", "pedigree_sparse_precision",
-                              "blocks"))
+    if (is.null(cov)) {
+      return(FALSE)
+    }
+    return(
+      cov$format %in% c("precision", "pedigree_sparse_precision", "blocks")
+    )
   }
   FALSE
 }
@@ -707,28 +878,35 @@ print.lgm_refusal <- function(x, ...) {
 # case.
 .lgm_check_rcov_term_inla_support <- function(fb) {
   allowed <- .inla_rcov_term_type_allowlist()
-  bad     <- character(0)
-  labels  <- character(0)
+  bad <- character(0)
+  labels <- character(0)
   for (term in fb$rcov_terms) {
     if (!is.character(term$type) || !(term$type %in% allowed)) {
-      bad    <- c(bad, as.character(term$type))
+      bad <- c(bad, as.character(term$type))
       labels <- c(labels, .inla_rcov_term_class_label(term$type))
     }
   }
   if (length(bad)) {
-    first_type  <- bad[[1L]]
+    first_type <- bad[[1L]]
     first_label <- labels[[1L]]
     return(.lgm_fail(
       "rcov_term_type_inla",
-      paste0("rcov term type \"", first_type,
-             "\" (", first_label, ") is outside the INLA emit ",
-             "allowlist. INLA folds residual variance into the ",
-             "likelihood; structured-rcov forms refit via ",
-             "backend = \"greta\"."),
-      diagnostic = paste0("fb$rcov_terms type(s): ",
-                           paste(unique(bad), collapse = ", "),
-                           "; allowed: ",
-                           paste(allowed, collapse = ", "))
+      paste0(
+        "rcov term type \"",
+        first_type,
+        "\" (",
+        first_label,
+        ") is outside the INLA emit ",
+        "allowlist. INLA folds residual variance into the ",
+        "likelihood; structured-rcov forms refit via ",
+        "backend = \"greta\"."
+      ),
+      diagnostic = paste0(
+        "fb$rcov_terms type(s): ",
+        paste(unique(bad), collapse = ", "),
+        "; allowed: ",
+        paste(allowed, collapse = ", ")
+      )
     ))
   }
   .lgm_pass("rcov_term_type_inla")
@@ -750,10 +928,16 @@ print.lgm_refusal <- function(x, ...) {
 # check is a trivial pass -- the gate is term-class-specific.
 .lgm_check_factor_numeric_interaction_inla_verified <- function(fb) {
   rule_id <- "factor_numeric_interaction_inla_verified"
-  has_fni <- any(vapply(fb$fixed_terms, function(t)
-    identical(t$type, "factor_numeric_interaction"),
-    logical(1)))
-  if (!has_fni) return(.lgm_pass(rule_id))
+  has_fni <- any(vapply(
+    fb$fixed_terms,
+    function(t) {
+      identical(t$type, "factor_numeric_interaction")
+    },
+    logical(1)
+  ))
+  if (!has_fni) {
+    return(.lgm_pass(rule_id))
+  }
 
   # Probe the on-disk verification artefact. The artefact is written
   # by tests/testthat/test-factor-continuous-inla-verification.R after
@@ -761,21 +945,26 @@ print.lgm_refusal <- function(x, ...) {
   # to a recorded failure -- the §3.4 policy forbids silent translation
   # of an unverified mapping.
   verified <- .factor_numeric_interaction_inla_verified()
-  if (isTRUE(verified)) return(.lgm_pass(rule_id))
+  if (isTRUE(verified)) {
+    return(.lgm_pass(rule_id))
+  }
 
   .lgm_fail(
     rule_id,
-    paste0("factor:continuous indexed interaction INLA mapping ",
-           "deferred to v0.3 (no successful three-arbitrator ",
-           "verification artefact on this host). Re-route via ",
-           "backend = \"greta\" (treatment-coded indexed-slope emit ",
-           "ships in v0.2.6) or backend = \"brms\" (Stan ",
-           "passthrough)."),
+    paste0(
+      "factor:continuous indexed interaction INLA mapping ",
+      "deferred to v0.3 (no successful three-arbitrator ",
+      "verification artefact on this host). Re-route via ",
+      "backend = \"greta\" (treatment-coded indexed-slope emit ",
+      "ships in v0.2.6) or backend = \"brms\" (Stan ",
+      "passthrough)."
+    ),
     diagnostic = paste0(
       "verification artefact path: ",
       .factor_numeric_interaction_verification_path(),
       "; expected `pass = TRUE` on a stored ",
-      "<flexybayes_inla_verification> record.")
+      "<flexybayes_inla_verification> record."
+    )
   )
 }
 
@@ -786,9 +975,13 @@ print.lgm_refusal <- function(x, ...) {
 # pass = FALSE).
 .factor_numeric_interaction_inla_verified <- function() {
   path <- .factor_numeric_interaction_verification_path()
-  if (!file.exists(path)) return(FALSE)
+  if (!file.exists(path)) {
+    return(FALSE)
+  }
   rec <- tryCatch(readRDS(path), error = function(e) NULL)
-  if (is.null(rec)) return(FALSE)
+  if (is.null(rec)) {
+    return(FALSE)
+  }
   isTRUE(rec$pass)
 }
 
@@ -799,9 +992,12 @@ print.lgm_refusal <- function(x, ...) {
 # fresh checkout, in which case .factor_numeric_interaction_inla_verified()
 # returns FALSE as expected.
 .factor_numeric_interaction_verification_path <- function() {
-  base <- system.file("extdata", "inla-verification",
-                       package = "flexyBayes",
-                       mustWork = FALSE)
+  base <- system.file(
+    "extdata",
+    "inla-verification",
+    package = "flexyBayes",
+    mustWork = FALSE
+  )
   if (!nzchar(base)) {
     base <- file.path(tempdir(), "flexyBayes-inla-verification")
   }
@@ -849,12 +1045,18 @@ print.lgm_refusal <- function(x, ...) {
 # default 3).
 .lgm_check_memory_feasibility_inla <- function(fb, preflight) {
   rule_id <- "memory_feasibility_inla"
-  if (is.null(preflight)) return(.lgm_pass(rule_id))
-  if (!inherits(preflight, "fb_preflight"))
+  if (is.null(preflight)) {
     return(.lgm_pass(rule_id))
-  if (is.null(preflight$ceiling_bytes) ||
-      is.na(preflight$ceiling_bytes))
+  }
+  if (!inherits(preflight, "fb_preflight")) {
     return(.lgm_pass(rule_id))
+  }
+  if (
+    is.null(preflight$ceiling_bytes) ||
+      is.na(preflight$ceiling_bytes)
+  ) {
+    return(.lgm_pass(rule_id))
+  }
 
   # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
   # INLA memory estimator landed on `preflight$memory_estimate`, the
@@ -862,65 +1064,97 @@ print.lgm_refusal <- function(x, ...) {
   # the breakdown on refusal. Falls back to the v0.3.6 single-
   # multiplier path when memory_estimate is absent (legacy callers).
   mem <- preflight$memory_estimate
-  if (inherits(mem, "fb_memory_estimate") &&
-      !is.null(mem$total) && !is.na(mem$total)) {
+  if (
+    inherits(mem, "fb_memory_estimate") &&
+      !is.null(mem$total) &&
+      !is.na(mem$total)
+  ) {
     inla_estimate <- as.numeric(mem$total)
-    if (inla_estimate <= preflight$ceiling_bytes)
+    if (inla_estimate <= preflight$ceiling_bytes) {
       return(.lgm_pass(rule_id))
+    }
 
-    inla_gb    <- inla_estimate / 1024^3
+    inla_gb <- inla_estimate / 1024^3
     ceiling_gb <- preflight$ceiling_bytes / 1024^3
-    bd         <- mem$breakdown
-    top_share  <- if (nrow(bd) > 0L)
-                    bd[order(-bd$bytes), ][1L, ]
-                  else NULL
-    diag_text  <- if (!is.null(top_share))
-                    sprintf(
-                      "per-term total = %.2f GB (overhead %.1fx); largest contributor: %s (%s, %.0f%%)",
-                      inla_gb, mem$overhead_factor %||% 2,
-                      top_share$term_label, top_share$representation,
-                      (top_share$share %||% 0) * 100)
-                  else
-                    sprintf("per-term total = %.2f GB; ceiling = %.2f GB",
-                            inla_gb, ceiling_gb)
+    bd <- mem$breakdown
+    top_share <- if (nrow(bd) > 0L) {
+      bd[order(-bd$bytes), ][1L, ]
+    } else {
+      NULL
+    }
+    diag_text <- if (!is.null(top_share)) {
+      sprintf(
+        paste0(
+          "per-term total = %.2f GB (overhead %.1fx); ",
+          "largest contributor: %s (%s, %.0f%%)"
+        ),
+        inla_gb,
+        mem$overhead_factor %||% 2,
+        top_share$term_label,
+        top_share$representation,
+        (top_share$share %||% 0) * 100
+      )
+    } else {
+      sprintf(
+        "per-term total = %.2f GB; ceiling = %.2f GB",
+        inla_gb,
+        ceiling_gb
+      )
+    }
     return(.lgm_fail(
       "memory_feasibility_inla_per_term",
       sprintf(
-        paste0("INLA path's per-term memory estimate (%.2f GB) ",
-               "exceeds the active ceiling (%.2f GB). Re-route via ",
-               "backend = \"greta\" for the indexed representation, ",
-               "or reduce structured-cov cardinality."),
-        inla_gb, ceiling_gb),
+        paste0(
+          "INLA path's per-term memory estimate (%.2f GB) ",
+          "exceeds the active ceiling (%.2f GB). Re-route via ",
+          "backend = \"greta\" for the indexed representation, ",
+          "or reduce structured-cov cardinality."
+        ),
+        inla_gb,
+        ceiling_gb
+      ),
       diagnostic = diag_text
     ))
   }
 
   # Legacy single-multiplier path (v0.3.6 default; retained for
   # backward-compat when memory_estimate is unavailable).
-  if (is.null(preflight$total_estimate_bytes) ||
-      is.na(preflight$total_estimate_bytes))
+  if (
+    is.null(preflight$total_estimate_bytes) ||
+      is.na(preflight$total_estimate_bytes)
+  ) {
     return(.lgm_pass(rule_id))
+  }
   multiplier <- getOption("flexyBayes.inla_memory_multiplier", 3)
-  if (!is.numeric(multiplier) || length(multiplier) != 1L ||
-      multiplier <= 0)
+  if (!is.numeric(multiplier) || length(multiplier) != 1L || multiplier <= 0) {
     multiplier <- 3
+  }
   inla_estimate <- preflight$total_estimate_bytes * multiplier
-  if (inla_estimate <= preflight$ceiling_bytes)
+  if (inla_estimate <= preflight$ceiling_bytes) {
     return(.lgm_pass(rule_id))
+  }
 
-  inla_gb    <- inla_estimate / 1024^3
+  inla_gb <- inla_estimate / 1024^3
   ceiling_gb <- preflight$ceiling_bytes / 1024^3
   indexed_gb <- preflight$total_estimate_bytes / 1024^3
   .lgm_fail(
     rule_id,
     sprintf(
-      paste0("INLA path's projected design memory (%.2f GB; ",
-             "~%.0fx the indexed estimate) exceeds the active ",
-             "ceiling (%.2f GB). Re-route via backend = \"greta\" ",
-             "for the indexed representation."),
-      inla_gb, multiplier, ceiling_gb),
+      paste0(
+        "INLA path's projected design memory (%.2f GB; ",
+        "~%.0fx the indexed estimate) exceeds the active ",
+        "ceiling (%.2f GB). Re-route via backend = \"greta\" ",
+        "for the indexed representation."
+      ),
+      inla_gb,
+      multiplier,
+      ceiling_gb
+    ),
     diagnostic = sprintf(
       "indexed estimate = %.2f GB; INLA multiplier = %.0fx; ceiling = %.2f GB",
-      indexed_gb, multiplier, ceiling_gb)
+      indexed_gb,
+      multiplier,
+      ceiling_gb
+    )
   )
 }

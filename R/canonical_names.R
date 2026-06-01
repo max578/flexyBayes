@@ -21,7 +21,6 @@
 # (already brms-canonical) and translates the "Precision for ..."
 # hyperparameter names plus the precision-to-SD value transform.
 
-
 # ---------------------------------------------------------------- #
 # Internal registry                                                  #
 # ---------------------------------------------------------------- #
@@ -87,20 +86,26 @@
 #'       "Matched priors" note on [triangulate()]).}
 #'   }
 #' @export
-canonical_names <- function(fit, drop = FALSE, ...)
+canonical_names <- function(fit, drop = FALSE, ...) {
   UseMethod("canonical_names")
+}
 
 #' @rdname canonical_names
 #' @export
 canonical_names.flexybayes <- function(fit, drop = FALSE, ...) {
-  if (!is.null(fit$extras$canonical_map))
-    return(.maybe_attach_unmapped(fit$extras$canonical_map, fit,
-                                  drop, backend = "greta"))
+  if (!is.null(fit$extras$canonical_map)) {
+    return(.maybe_attach_unmapped(
+      fit$extras$canonical_map,
+      fit,
+      drop,
+      backend = "greta"
+    ))
+  }
   fb <- fit$extras$fb_terms %||% .parse_info_as_pseudo_fb(fit)
   mapper <- .canonical_mappers$greta
-  if (is.null(mapper))
-    return(list(map = character(0), transform = list(),
-                source = "no_mapper"))
+  if (is.null(mapper)) {
+    return(list(map = character(0), transform = list(), source = "no_mapper"))
+  }
   res <- mapper(fit, fb)
   res$source <- res$source %||% "registry"
   .maybe_attach_unmapped(res, fit, drop, backend = "greta")
@@ -109,14 +114,19 @@ canonical_names.flexybayes <- function(fit, drop = FALSE, ...) {
 #' @rdname canonical_names
 #' @export
 canonical_names.flexybayes_inla <- function(fit, drop = FALSE, ...) {
-  if (!is.null(fit$extras$canonical_map))
-    return(.maybe_attach_unmapped(fit$extras$canonical_map, fit,
-                                  drop, backend = "inla"))
+  if (!is.null(fit$extras$canonical_map)) {
+    return(.maybe_attach_unmapped(
+      fit$extras$canonical_map,
+      fit,
+      drop,
+      backend = "inla"
+    ))
+  }
   fb <- fit$extras$fb_terms %||% fit$fb
   mapper <- .canonical_mappers$inla
-  if (is.null(mapper))
-    return(list(map = character(0), transform = list(),
-                source = "no_mapper"))
+  if (is.null(mapper)) {
+    return(list(map = character(0), transform = list(), source = "no_mapper"))
+  }
   res <- mapper(fit, fb)
   res$source <- res$source %||% "registry"
   .maybe_attach_unmapped(res, fit, drop, backend = "inla")
@@ -125,14 +135,19 @@ canonical_names.flexybayes_inla <- function(fit, drop = FALSE, ...) {
 #' @rdname canonical_names
 #' @export
 canonical_names.flexybayes_brms <- function(fit, drop = FALSE, ...) {
-  if (!is.null(fit$extras$canonical_map))
-    return(.maybe_attach_unmapped(fit$extras$canonical_map, fit,
-                                  drop, backend = "brms"))
+  if (!is.null(fit$extras$canonical_map)) {
+    return(.maybe_attach_unmapped(
+      fit$extras$canonical_map,
+      fit,
+      drop,
+      backend = "brms"
+    ))
+  }
   fb <- fit$extras$fb_terms %||% fit$extras$parse_info
   mapper <- .canonical_mappers$brms
-  if (is.null(mapper))
-    return(list(map = character(0), transform = list(),
-                source = "no_mapper"))
+  if (is.null(mapper)) {
+    return(list(map = character(0), transform = list(), source = "no_mapper"))
+  }
   res <- mapper(fit, fb)
   res$source <- res$source %||% "registry"
   .maybe_attach_unmapped(res, fit, drop, backend = "brms")
@@ -140,19 +155,24 @@ canonical_names.flexybayes_brms <- function(fit, drop = FALSE, ...) {
 
 #' @rdname canonical_names
 #' @export
-canonical_names.flexybayes_direct_greta <- function(fit, drop = FALSE,
-                                                    ...) {
+canonical_names.flexybayes_direct_greta <- function(fit, drop = FALSE, ...) {
   cm <- fit$extras$model_info$canonical_map
-  if (is.null(cm))
-    return(list(map = character(0), transform = list(),
-                source = "no_canonical_map"))
+  if (is.null(cm)) {
+    return(list(
+      map = character(0),
+      transform = list(),
+      source = "no_canonical_map"
+    ))
+  }
   # When user supplied canonical_names, at least one name->canonical
   # pair differs from the identity; otherwise it's the verbatim
   # fallback per ADR 0012.
   has_renames <- any(names(cm) != unname(cm))
-  list(map = cm,
-       transform = list(),
-       source = if (has_renames) "user" else "registry_fallback_verbatim")
+  list(
+    map = cm,
+    transform = list(),
+    source = if (has_renames) "user" else "registry_fallback_verbatim"
+  )
 }
 
 
@@ -164,12 +184,19 @@ canonical_names.flexybayes_direct_greta <- function(fit, drop = FALSE,
 # author surface is documented. The helper attaches a mapper to the
 # .canonical_mappers registry under the given backend key.
 register_canonical_mapper <- function(backend, mapper) {
-  if (!is.character(backend) || length(backend) != 1L || !nzchar(backend))
-    stop("`backend` must be a non-empty length-1 character string.",
-         call. = FALSE)
-  if (!is.function(mapper))
-    stop("`mapper` must be a function (fit, fb_terms) -> ",
-         "list(map, transform).", call. = FALSE)
+  if (!is.character(backend) || length(backend) != 1L || !nzchar(backend)) {
+    stop(
+      "`backend` must be a non-empty length-1 character string.",
+      call. = FALSE
+    )
+  }
+  if (!is.function(mapper)) {
+    stop(
+      "`mapper` must be a function (fit, fb_terms) -> ",
+      "list(map, transform).",
+      call. = FALSE
+    )
+  }
   assign(backend, mapper, envir = .canonical_mappers)
   invisible(NULL)
 }
@@ -186,14 +213,15 @@ register_canonical_mapper <- function(backend, mapper) {
 # random_terms.
 .parse_info_as_pseudo_fb <- function(fit) {
   pi <- fit$extras$parse_info
-  if (is.null(pi))
+  if (is.null(pi)) {
     return(NULL)
+  }
   list(
-    response     = pi$fixed$response,
-    intercept    = pi$fixed$intercept %||% TRUE,
-    fixed_terms  = pi$fixed$terms     %||% list(),
-    random_terms = pi$random          %||% list(),
-    rcov_terms   = pi$rcov            %||% list()
+    response = pi$fixed$response,
+    intercept = pi$fixed$intercept %||% TRUE,
+    fixed_terms = pi$fixed$terms %||% list(),
+    random_terms = pi$random %||% list(),
+    rcov_terms = pi$rcov %||% list()
   )
 }
 
@@ -211,10 +239,16 @@ register_canonical_mapper <- function(backend, mapper) {
   # not appear there. Attached on both the drop = TRUE and drop = FALSE
   # paths since it is independent of the unmapped-draws logic.
   pp <- fit$extras$aggregation_meta$prior_parametrization
-  if (!is.null(pp)) res$prior_parametrization <- pp
-  if (isTRUE(drop)) return(res)
-  draws_names <- tryCatch(.backend_draw_names(fit, backend),
-                          error = function(e) character(0))
+  if (!is.null(pp)) {
+    res$prior_parametrization <- pp
+  }
+  if (isTRUE(drop)) {
+    return(res)
+  }
+  draws_names <- tryCatch(
+    .backend_draw_names(fit, backend),
+    error = function(e) character(0)
+  )
   if (length(draws_names) == 0L) {
     res$unmapped <- character(0)
     return(res)
@@ -228,20 +262,30 @@ register_canonical_mapper <- function(backend, mapper) {
 # rownames(summary.fixed) + rownames(summary.hyperpar).
 .backend_draw_names <- function(fit, backend) {
   if (identical(backend, "greta")) {
-    if (is.null(fit$greta) || is.null(fit$greta$draws))
+    if (is.null(fit$greta) || is.null(fit$greta$draws)) {
       return(character(0))
+    }
     m <- as.matrix(fit$greta$draws)
     if (is.null(colnames(m))) character(0) else colnames(m)
   } else if (identical(backend, "inla")) {
-    if (is.null(fit$inla)) return(character(0))
-    c(rownames(fit$inla$summary.fixed)     %||% character(0),
-      rownames(fit$inla$summary.hyperpar)  %||% character(0))
-  } else if (identical(backend, "brms")) {
-    if (is.null(fit$brms)) return(character(0))
-    if (!requireNamespace("posterior", quietly = TRUE))
+    if (is.null(fit$inla)) {
       return(character(0))
-    m <- tryCatch(as.matrix(posterior::as_draws_matrix(fit$brms)),
-                  error = function(e) NULL)
+    }
+    c(
+      rownames(fit$inla$summary.fixed) %||% character(0),
+      rownames(fit$inla$summary.hyperpar) %||% character(0)
+    )
+  } else if (identical(backend, "brms")) {
+    if (is.null(fit$brms)) {
+      return(character(0))
+    }
+    if (!requireNamespace("posterior", quietly = TRUE)) {
+      return(character(0))
+    }
+    m <- tryCatch(
+      as.matrix(posterior::as_draws_matrix(fit$brms)),
+      error = function(e) NULL
+    )
     if (is.null(m)) character(0) else colnames(m) %||% character(0)
   } else {
     character(0)
@@ -253,9 +297,10 @@ register_canonical_mapper <- function(backend, mapper) {
 # when the pattern does not match.
 .parse_tau_factor <- function(nm) {
   m <- regmatches(nm, regexec("^tau_([^\\[]+)\\[(\\d+),(\\d+)\\]$", nm))[[1]]
-  if (length(m) < 4L) return(NULL)
-  list(tag = m[2], level = as.integer(m[3]),
-       col = as.integer(m[4]))
+  if (length(m) < 4L) {
+    return(NULL)
+  }
+  list(tag = m[2], level = as.integer(m[3]), col = as.integer(m[4]))
 }
 
 # ADR 0019: parse an indexed-slope deviation name like
@@ -270,18 +315,29 @@ register_canonical_mapper <- function(backend, mapper) {
     nm,
     regexec("^slope_dev_(.+)_raw\\[(\\d+),(\\d+)\\]$", nm)
   )[[1]]
-  if (length(m) < 4L) return(NULL)
+  if (length(m) < 4L) {
+    return(NULL)
+  }
   tag <- m[2]
   raw_idx <- as.integer(m[3])
-  if (is.null(lookup[[tag]])) return(NULL)
+  if (is.null(lookup[[tag]])) {
+    return(NULL)
+  }
   lvls <- lookup[[tag]]
   # raw index i -> factor level i + 1 (treatment-coded; reference
   # level pinned at zero and absent from the raw vector).
   level_idx <- raw_idx + 1L
-  level_label <- if (level_idx >= 1L && level_idx <= length(lvls))
-    lvls[level_idx] else as.character(level_idx)
-  list(canonical = paste0("slope_", tag, "[", level_label, "]"),
-       tag = tag, raw_idx = raw_idx, level_label = level_label)
+  level_label <- if (level_idx >= 1L && level_idx <= length(lvls)) {
+    lvls[level_idx]
+  } else {
+    as.character(level_idx)
+  }
+  list(
+    canonical = paste0("slope_", tag, "[", level_label, "]"),
+    tag = tag,
+    raw_idx = raw_idx,
+    level_label = level_label
+  )
 }
 
 
@@ -296,28 +352,35 @@ register_canonical_mapper <- function(backend, mapper) {
 #   sigma_e_atg             -- residual SD on the gaussian path
 
 .mapper_greta <- function(fit, fb_terms) {
-  if (is.null(fit$greta) || is.null(fit$greta$draws))
+  if (is.null(fit$greta) || is.null(fit$greta$draws)) {
     return(list(map = character(0), transform = list()))
+  }
 
   m <- as.matrix(fit$greta$draws)
   draw_names <- colnames(m) %||% character(0)
-  if (length(draw_names) == 0L)
+  if (length(draw_names) == 0L) {
     return(list(map = character(0), transform = list()))
+  }
 
-  fixed_terms  <- fb_terms$fixed_terms  %||% list()
-  random_terms <- fb_terms$random_terms %||% list()
+  fixed_terms <- fb_terms$fixed_terms %||% list()
 
   # Build a lookup of canonical factor-level labels from the IR.
   # For each fixed term of type "factor" / "factor_interaction" we
   # know the levels in order; tau_<tag>[i,1] -> "<tag><lvl_i>".
   factor_lookup <- list()
   for (t in fixed_terms) {
-    if (is.null(t$type)) next
+    if (is.null(t$type)) {
+      next
+    }
     if (t$type %in% c("factor")) {
       tag <- t$var %||% t$label %||% NA_character_
-      if (is.na(tag)) next
+      if (is.na(tag)) {
+        next
+      }
       lvls <- t$levels %||% NULL
-      if (is.null(lvls)) next
+      if (is.null(lvls)) {
+        next
+      }
       factor_lookup[[tag]] <- as.character(lvls)
     }
   }
@@ -331,11 +394,18 @@ register_canonical_mapper <- function(backend, mapper) {
   # so raw index `i` maps to level `i + 1`).
   slope_dev_lookup <- list()
   for (t in fixed_terms) {
-    if (!identical(t$type, "factor_numeric_interaction")) next
-    fac <- t$factor; con <- t$continuous
-    if (is.null(fac) || is.null(con)) next
+    if (!identical(t$type, "factor_numeric_interaction")) {
+      next
+    }
+    fac <- t$factor
+    con <- t$continuous
+    if (is.null(fac) || is.null(con)) {
+      next
+    }
     lvls <- t$levels %||% NULL
-    if (is.null(lvls)) next
+    if (is.null(lvls)) {
+      next
+    }
     slope_dev_lookup[[paste0(fac, "_", con)]] <- as.character(lvls)
   }
 
@@ -343,16 +413,19 @@ register_canonical_mapper <- function(backend, mapper) {
   map <- character(0)
   for (nm in draw_names) {
     if (identical(nm, "mu_atg")) {
-      map[nm] <- "(Intercept)"; next
+      map[nm] <- "(Intercept)"
+      next
     }
     if (identical(nm, "sigma_e_atg")) {
-      map[nm] <- "sigma"; next
+      map[nm] <- "sigma"
+      next
     }
     if (startsWith(nm, "sigma_")) {
       # sigma_<group> -- SD of random group; canonical = sd_<group>.
       grp <- sub("^sigma_", "", nm)
-      if (nzchar(grp) && !identical(grp, "e_atg"))
+      if (nzchar(grp) && !identical(grp, "e_atg")) {
         map[nm] <- paste0("sd_", grp)
+      }
       next
     }
     if (startsWith(nm, "beta_")) {
@@ -363,10 +436,16 @@ register_canonical_mapper <- function(backend, mapper) {
       # "beta_"; surfaced by fb_brms() test 13 on continuous slopes
       # (asreml entries are factor-heavy and miss this row).
       term <- sub("^beta_", "", nm)
-      if (nzchar(term) &&
-          any(vapply(fixed_terms, function(t)
-            identical(t$label, term) || identical(t$var, term),
-            logical(1)))) {
+      if (
+        nzchar(term) &&
+          any(vapply(
+            fixed_terms,
+            function(t) {
+              identical(t$label, term) || identical(t$var, term)
+            },
+            logical(1)
+          ))
+      ) {
         map[nm] <- term
       }
       next
@@ -376,8 +455,11 @@ register_canonical_mapper <- function(backend, mapper) {
     if (!is.null(parsed)) {
       tag <- parsed$tag
       lvls <- factor_lookup[[tag]]
-      lvl <- if (!is.null(lvls) && parsed$level <= length(lvls))
-        lvls[parsed$level] else as.character(parsed$level)
+      lvl <- if (!is.null(lvls) && parsed$level <= length(lvls)) {
+        lvls[parsed$level]
+      } else {
+        as.character(parsed$level)
+      }
       map[nm] <- paste0(tag, lvl)
       next
     }
@@ -392,10 +474,17 @@ register_canonical_mapper <- function(backend, mapper) {
       next
     }
     # Continuous-slope column (raw term name in fixed_terms).
-    if (nm %in% draw_names &&
-        any(vapply(fixed_terms, function(t)
-          identical(t$label, nm) || identical(t$var, nm),
-          logical(1)))) {
+    if (
+      nm %in%
+        draw_names &&
+        any(vapply(
+          fixed_terms,
+          function(t) {
+            identical(t$label, nm) || identical(t$var, nm)
+          },
+          logical(1)
+        ))
+    ) {
       map[nm] <- nm
       next
     }
@@ -417,10 +506,11 @@ register_canonical_mapper <- function(backend, mapper) {
 #       "Precision for <group>"                   -> "sd_<group>" + sqrt(1/prec)
 
 .mapper_inla <- function(fit, fb_terms) {
-  if (is.null(fit$inla))
+  if (is.null(fit$inla)) {
     return(list(map = character(0), transform = list()))
+  }
 
-  map       <- character(0)
+  map <- character(0)
   transform <- list()
 
   # Fixed effects -- identity mapping (already brms-canonical). The
@@ -430,8 +520,8 @@ register_canonical_mapper <- function(backend, mapper) {
   # of which entry point feeds the consumer.
   fixed_names <- rownames(fit$inla$summary.fixed) %||% character(0)
   for (nm in fixed_names) {
-    map[nm]                  <- nm
-    map[paste0(nm, ":1")]    <- nm
+    map[nm] <- nm
+    map[paste0(nm, ":1")] <- nm
   }
 
   # Hyperparameters -- precision-side names; rename + sqrt(1/prec). The
@@ -447,13 +537,13 @@ register_canonical_mapper <- function(backend, mapper) {
   hyper_names <- rownames(fit$inla$summary.hyperpar) %||% character(0)
   for (nm in hyper_names) {
     if (identical(nm, "Precision for the Gaussian observations")) {
-      map[nm]         <- "sigma"
+      map[nm] <- "sigma"
       transform[[nm]] <- prec_to_sd
       next
     }
     if (startsWith(nm, "Precision for ")) {
       grp <- sub("^Precision for ", "", nm)
-      map[nm]         <- paste0("sd_", grp)
+      map[nm] <- paste0("sd_", grp)
       transform[[nm]] <- prec_to_sd
       next
     }
@@ -486,25 +576,31 @@ register_canonical_mapper <- function(backend, mapper) {
 # un-mapped and surface via `$unmapped`.
 
 .mapper_brms_via_stan <- function(fit, fb_terms) {
-  if (is.null(fit$brms))
+  if (is.null(fit$brms)) {
     return(list(map = character(0), transform = list()))
+  }
 
-  if (!requireNamespace("posterior", quietly = TRUE))
+  if (!requireNamespace("posterior", quietly = TRUE)) {
     return(list(map = character(0), transform = list()))
+  }
 
   draw_names <- tryCatch(
     colnames(as.matrix(posterior::as_draws_matrix(fit$brms))),
     error = function(e) character(0)
   )
-  if (length(draw_names) == 0L)
+  if (length(draw_names) == 0L) {
     return(list(map = character(0), transform = list()))
+  }
 
   # ADR 0019: build a {factor, continuous, levels} lookup for every
   # factor_numeric_interaction term in the IR so we can map brms's
   # `b_<fac><level>:<con>` (or `b_<con>:<fac><level>`) parameters
   # to the canonical `slope_<fac>_<con>[<level>]` slot.
-  fixed_terms_fb <- if (!is.null(fb_terms))
-    fb_terms$fixed_terms %||% list() else list()
+  fixed_terms_fb <- if (!is.null(fb_terms)) {
+    fb_terms$fixed_terms %||% list()
+  } else {
+    list()
+  }
   fni_terms <- Filter(
     function(t) identical(t$type, "factor_numeric_interaction"),
     fixed_terms_fb
@@ -513,7 +609,8 @@ register_canonical_mapper <- function(backend, mapper) {
   map <- character(0)
   for (nm in draw_names) {
     if (identical(nm, "b_Intercept")) {
-      map[nm] <- "(Intercept)"; next
+      map[nm] <- "(Intercept)"
+      next
     }
     # ADR 0019: factor:continuous indexed-slope translation.
     # brms emits these as `b_<term1>:<term2>` where `<term1>` is
@@ -539,8 +636,9 @@ register_canonical_mapper <- function(backend, mapper) {
       # subset of the __<x> rule.
       if (grepl("__Intercept$", bare)) {
         bare <- sub("__Intercept$", "", bare)
-        if (nzchar(bare))
+        if (nzchar(bare)) {
           map[nm] <- paste0("sd_", bare)
+        }
         next
       }
       m <- regmatches(bare, regexec("^([^_]+(?:_[^_]+)*?)__(.+)$", bare))[[1]]
@@ -551,12 +649,14 @@ register_canonical_mapper <- function(backend, mapper) {
         map[nm] <- paste0("sd_", x_part, "_", g_part)
         next
       }
-      if (nzchar(bare))
+      if (nzchar(bare)) {
         map[nm] <- paste0("sd_", bare)
+      }
       next
     }
     if (identical(nm, "sigma")) {
-      map[nm] <- "sigma"; next
+      map[nm] <- "sigma"
+      next
     }
     # Other names (lp__, Intercept-centered, r_<group>[<lvl>,Intercept],
     # cor_<group>__*, etc.) left un-mapped for v0.2; surfaced via
@@ -573,24 +673,41 @@ register_canonical_mapper <- function(backend, mapper) {
 # in the IR. Reference-level rows (level == lvls[1]) are absent from
 # brms's draws by design (treatment coding); they never match.
 .brms_factor_numeric_interaction <- function(nm, fni_terms) {
-  if (length(fni_terms) == 0L) return(NULL)
-  if (!startsWith(nm, "b_")) return(NULL)
+  if (length(fni_terms) == 0L) {
+    return(NULL)
+  }
+  if (!startsWith(nm, "b_")) {
+    return(NULL)
+  }
   body <- sub("^b_", "", nm)
-  if (!grepl(":", body, fixed = TRUE)) return(NULL)
+  if (!grepl(":", body, fixed = TRUE)) {
+    return(NULL)
+  }
   parts <- strsplit(body, ":", fixed = TRUE)[[1L]]
-  if (length(parts) != 2L) return(NULL)
+  if (length(parts) != 2L) {
+    return(NULL)
+  }
   for (t in fni_terms) {
-    fac <- t$factor; con <- t$continuous
+    fac <- t$factor
+    con <- t$continuous
     lvls <- t$levels %||% NULL
-    if (is.null(fac) || is.null(con) || is.null(lvls)) next
+    if (is.null(fac) || is.null(con) || is.null(lvls)) {
+      next
+    }
     # Try factor-first, then continuous-first.
     for (orient in list(c(1L, 2L), c(2L, 1L))) {
       fac_part <- parts[[orient[[1L]]]]
       con_part <- parts[[orient[[2L]]]]
-      if (!identical(con_part, con)) next
-      if (!startsWith(fac_part, fac)) next
+      if (!identical(con_part, con)) {
+        next
+      }
+      if (!startsWith(fac_part, fac)) {
+        next
+      }
       lvl <- substr(fac_part, nchar(fac) + 1L, nchar(fac_part))
-      if (!nzchar(lvl)) next
+      if (!nzchar(lvl)) {
+        next
+      }
       if (lvl %in% lvls && !identical(lvl, lvls[[1L]])) {
         return(paste0("slope_", fac, "_", con, "[", lvl, "]"))
       }
@@ -609,8 +726,8 @@ register_canonical_mapper <- function(backend, mapper) {
 # time triangulate() runs.
 
 register_canonical_mapper("greta", .mapper_greta)
-register_canonical_mapper("inla",  .mapper_inla)
-register_canonical_mapper("brms",  .mapper_brms_via_stan)
+register_canonical_mapper("inla", .mapper_inla)
+register_canonical_mapper("brms", .mapper_brms_via_stan)
 # The gretaR mapper stub registers from R/gretaR_slot.R (sourced
 # later in alphabetical order); kept with its definition for
 # v0.3-activation diff cleanliness.

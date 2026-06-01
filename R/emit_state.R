@@ -30,8 +30,9 @@
 # initialised, so callers can rely on a boolean without an existence
 # check.
 .emit_state_get <- function(key) {
-  if (!exists(key, envir = .flexybayes_emit_state, inherits = FALSE))
+  if (!exists(key, envir = .flexybayes_emit_state, inherits = FALSE)) {
     return(FALSE)
+  }
   isTRUE(.flexybayes_emit_state[[key]])
 }
 

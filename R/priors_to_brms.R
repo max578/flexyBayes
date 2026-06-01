@@ -36,32 +36,43 @@
 # via fb_brms()'s pass-through `...` argument (Decision-out-of-scope
 # block of the Stan-passthrough ADR).
 
-
 # ---------------------------------------------------------------- #
 # Pure spec list                                                    #
 # ---------------------------------------------------------------- #
 
-.priors_to_brms_specs <- function(prior, fb,
-                                  prior_fixed_sd = 100,
-                                  prior_vc_sd    = 1) {
+.priors_to_brms_specs <- function(
+  prior,
+  fb,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1
+) {
   family_has_sigma <- .brms_family_has_sigma(fb$family)
 
-  if (is.null(prior) ||
-      (is.list(prior) && isTRUE(prior$legacy))) {
+  if (
+    is.null(prior) ||
+      (is.list(prior) && isTRUE(prior$legacy))
+  ) {
     # Legacy-scalar bridge: normal(0, prior_fixed_sd) on every b
     # coefficient (including Intercept) + lognormal(0, prior_vc_sd)
     # on sigma (only for families that carry one) and every named
     # sd group.
-    return(.brms_legacy_specs(fb,
-                              prior_fixed_sd   = prior_fixed_sd,
-                              prior_vc_sd      = prior_vc_sd,
-                              family_has_sigma = family_has_sigma))
+    return(.brms_legacy_specs(
+      fb,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd = prior_vc_sd,
+      family_has_sigma = family_has_sigma
+    ))
   }
 
-  if (!inherits(prior, "fb_prior"))
-    stop("`.priors_to_brms()` expects an `fb_prior` object or NULL ",
-         "(legacy bridge). Got: ",
-         paste(class(prior), collapse = "/"), ".", call. = FALSE)
+  if (!inherits(prior, "fb_prior")) {
+    stop(
+      "`.priors_to_brms()` expects an `fb_prior` object or NULL ",
+      "(legacy bridge). Got: ",
+      paste(class(prior), collapse = "/"),
+      ".",
+      call. = FALSE
+    )
+  }
 
   # ADR 0020: build a lookup of (slope_var, grouping_factor) pairs for
   # every simple_slope_uncor random term in the IR. The flexyBayes
@@ -75,9 +86,13 @@
   # to any model parameter".
   slope_lookup <- list()
   for (t in fb$random_terms %||% list()) {
-    if (identical(t$type, "simple_slope_uncor") &&
-        !is.null(t$slope_var) && nzchar(t$slope_var) &&
-        !is.null(t$var)       && nzchar(t$var)) {
+    if (
+      identical(t$type, "simple_slope_uncor") &&
+        !is.null(t$slope_var) &&
+        nzchar(t$slope_var) &&
+        !is.null(t$var) &&
+        nzchar(t$var)
+    ) {
       syn <- paste0(t$slope_var, "_", t$var)
       slope_lookup[[syn]] <- list(coef = t$slope_var, group = t$var)
     }
@@ -91,20 +106,28 @@
     # not correspond to any model parameter`. Mirrors the behaviour
     # already established in priors_to_inla() (emit_inla.R
     # .build_inla_control_family).
-    if (identical(s$target$type %||% "", "sigma") &&
-        !family_has_sigma) next
+    if (
+      identical(s$target$type %||% "", "sigma") &&
+        !family_has_sigma
+    ) {
+      next
+    }
 
     # ADR 0020 slope-variance unwrap (per slope_lookup above).
-    if (identical(s$target$type %||% "", "sd") &&
+    if (
+      identical(s$target$type %||% "", "sd") &&
         !is.null(s$target$group) &&
-        s$target$group %in% names(slope_lookup)) {
+        s$target$group %in% names(slope_lookup)
+    ) {
       pair <- slope_lookup[[s$target$group]]
       s$target$group <- pair$group
-      s$target$coef  <- pair$coef
+      s$target$coef <- pair$coef
     }
 
     row <- .one_brms_spec(s)
-    if (is.null(row)) next
+    if (is.null(row)) {
+      next
+    }
     specs[[length(specs) + 1L]] <- row
   }
   specs
@@ -115,10 +138,21 @@
 # dropping sigma priors on families that lack the parameter keeps
 # the cross-engine prior surface uniform.
 .brms_family_has_sigma <- function(fam) {
-  if (is.null(fam)) return(TRUE)
+  if (is.null(fam)) {
+    return(TRUE)
+  }
   tolower(as.character(fam)) %in%
-    c("gaussian", "stdnormal", "lognormal", "gamma", "beta",
-      "t", "logistic", "student", "skew_normal")
+    c(
+      "gaussian",
+      "stdnormal",
+      "lognormal",
+      "gamma",
+      "beta",
+      "t",
+      "logistic",
+      "student",
+      "skew_normal"
+    )
 }
 
 # Translate a single fb_prior spec to a brms-prior row. Returns
@@ -126,27 +160,31 @@
 # such case in v0.2 -- structured refusal fires instead).
 .one_brms_spec <- function(s) {
   target <- s$target
-  spec   <- s$spec
+  spec <- s$spec
 
   # ------------------------------ b() / Intercept ------------------------ #
   if (identical(target$type, "b")) {
     nm <- target$name
     if (identical(spec$family, "normal")) {
-      mean_v <- as.numeric(.named_or_positional(spec$args,
-                                                "mean", 1L, default = 0))
-      sd_v   <- as.numeric(.named_or_positional(spec$args,
-                                                "sd",   2L, default = 1))
-      string <- sprintf("normal(%s, %s)",
-                        .fmt_num(mean_v), .fmt_num(sd_v))
+      mean_v <- as.numeric(.named_or_positional(
+        spec$args,
+        "mean",
+        1L,
+        default = 0
+      ))
+      sd_v <- as.numeric(.named_or_positional(spec$args, "sd", 2L, default = 1))
+      string <- sprintf("normal(%s, %s)", .fmt_num(mean_v), .fmt_num(sd_v))
       return(.brms_b_row(nm, string))
     }
     if (identical(spec$family, "student_t")) {
-      df_v <- as.numeric(.named_or_positional(spec$args,
-                                              "df",    1L, default = 3))
-      sc_v <- as.numeric(.named_or_positional(spec$args,
-                                              "scale", 2L, default = 1))
-      string <- sprintf("student_t(%s, 0, %s)",
-                        .fmt_num(df_v), .fmt_num(sc_v))
+      df_v <- as.numeric(.named_or_positional(spec$args, "df", 1L, default = 3))
+      sc_v <- as.numeric(.named_or_positional(
+        spec$args,
+        "scale",
+        2L,
+        default = 1
+      ))
+      string <- sprintf("student_t(%s, 0, %s)", .fmt_num(df_v), .fmt_num(sc_v))
       return(.brms_b_row(nm, string))
     }
     .brms_unsupported(spec$family, "b()")
@@ -160,27 +198,42 @@
       string <- sprintf("uniform(%s, %s)", .fmt_num(lo), .fmt_num(hi))
       # brms requires lb/ub for uniform priors so the parser bounds
       # the parameter to the prior's support; sigma must be >= 0.
-      return(list(string = string, class = "sigma",
-                  coef = NA_character_, group = NA_character_,
-                  lb = max(0, lo), ub = hi))
+      return(list(
+        string = string,
+        class = "sigma",
+        coef = NA_character_,
+        group = NA_character_,
+        lb = max(0, lo),
+        ub = hi
+      ))
     }
     if (identical(spec$family, "half_normal")) {
       sc_v <- as.numeric(spec$args$scale %||% 1)
       # brms half-normal: normal(0, scale) plus the natural sigma
       # positivity bound (lb = 0).
       string <- sprintf("normal(0, %s)", .fmt_num(sc_v))
-      return(list(string = string, class = "sigma",
-                  coef = NA_character_, group = NA_character_,
-                  lb = 0, ub = NA_real_))
+      return(list(
+        string = string,
+        class = "sigma",
+        coef = NA_character_,
+        group = NA_character_,
+        lb = 0,
+        ub = NA_real_
+      ))
     }
     if (identical(spec$family, "pc")) {
       u <- as.numeric(spec$args$upper %||% 1)
-      p <- as.numeric(spec$args$prob  %||% 0.01)
+      p <- as.numeric(spec$args$prob %||% 0.01)
       rate <- -log(p) / u
       string <- sprintf("exponential(%s)", .fmt_num(rate))
-      return(list(string = string, class = "sigma",
-                  coef = NA_character_, group = NA_character_,
-                  lb = 0, ub = NA_real_))
+      return(list(
+        string = string,
+        class = "sigma",
+        coef = NA_character_,
+        group = NA_character_,
+        lb = 0,
+        ub = NA_real_
+      ))
     }
     .brms_unsupported(spec$family, "sigma")
   }
@@ -197,31 +250,55 @@
       lo <- as.numeric(spec$args$lower %||% 0)
       hi <- as.numeric(spec$args$upper)
       string <- sprintf("uniform(%s, %s)", .fmt_num(lo), .fmt_num(hi))
-      return(list(string = string, class = "sd",
-                  coef = coef_v, group = grp,
-                  lb = max(0, lo), ub = hi))
+      return(list(
+        string = string,
+        class = "sd",
+        coef = coef_v,
+        group = grp,
+        lb = max(0, lo),
+        ub = hi
+      ))
     }
     if (identical(spec$family, "half_normal")) {
       sc_v <- as.numeric(spec$args$scale %||% 1)
       string <- sprintf("normal(0, %s)", .fmt_num(sc_v))
-      return(list(string = string, class = "sd",
-                  coef = coef_v, group = grp,
-                  lb = 0, ub = NA_real_))
+      return(list(
+        string = string,
+        class = "sd",
+        coef = coef_v,
+        group = grp,
+        lb = 0,
+        ub = NA_real_
+      ))
     }
     if (identical(spec$family, "pc")) {
       u <- as.numeric(spec$args$upper %||% 1)
-      p <- as.numeric(spec$args$prob  %||% 0.01)
+      p <- as.numeric(spec$args$prob %||% 0.01)
       rate <- -log(p) / u
       string <- sprintf("exponential(%s)", .fmt_num(rate))
-      return(list(string = string, class = "sd",
-                  coef = coef_v, group = grp,
-                  lb = 0, ub = NA_real_))
+      return(list(
+        string = string,
+        class = "sd",
+        coef = coef_v,
+        group = grp,
+        lb = 0,
+        ub = NA_real_
+      ))
     }
-    .brms_unsupported(spec$family,
-                      paste0("sd(group = \"", grp, "\"",
-                             if (!is.na(coef_v))
-                               paste0(", coef = \"", coef_v, "\"") else "",
-                             ")"))
+    .brms_unsupported(
+      spec$family,
+      paste0(
+        "sd(group = \"",
+        grp,
+        "\"",
+        if (!is.na(coef_v)) {
+          paste0(", coef = \"", coef_v, "\"")
+        } else {
+          ""
+        },
+        ")"
+      )
+    )
   }
 
   # ------------------------------ cor / smooth / name -------------------- #
@@ -238,13 +315,23 @@
 .brms_b_row <- function(coef_name, string) {
   is_intercept <- coef_name %in% c("(Intercept)", "Intercept")
   if (is_intercept) {
-    list(string = string, class = "Intercept",
-         coef = NA_character_, group = NA_character_,
-         lb = NA_real_, ub = NA_real_)
+    list(
+      string = string,
+      class = "Intercept",
+      coef = NA_character_,
+      group = NA_character_,
+      lb = NA_real_,
+      ub = NA_real_
+    )
   } else {
-    list(string = string, class = "b",
-         coef = coef_name, group = NA_character_,
-         lb = NA_real_, ub = NA_real_)
+    list(
+      string = string,
+      class = "b",
+      coef = coef_name,
+      group = NA_character_,
+      lb = NA_real_,
+      ub = NA_real_
+    )
   }
 }
 
@@ -254,11 +341,13 @@
 # significand precision (matches Stan's double precision) with the
 # scientific suffix disabled.
 .fmt_num <- function(x) {
-  if (!is.finite(x))
+  if (!is.finite(x)) {
     stop("Non-finite numeric in brms prior spec: ", x, call. = FALSE)
-  if (x == as.integer(x) && abs(x) < 1e9) return(format(as.integer(x)))
-  format(x, scientific = FALSE, trim = TRUE, drop0trailing = TRUE,
-         digits = 15)
+  }
+  if (x == as.integer(x) && abs(x) < 1e9) {
+    return(format(as.integer(x)))
+  }
+  format(x, scientific = FALSE, trim = TRUE, drop0trailing = TRUE, digits = 15)
 }
 
 # Fetch a value from the args list by name first, falling back to
@@ -268,7 +357,9 @@
 # `normal(0, 50)` and `normal(mean = 0, sd = 50)` yield the same
 # spec.
 .named_or_positional <- function(args, nm, pos, default) {
-  if (!is.null(args[[nm]])) return(args[[nm]])
+  if (!is.null(args[[nm]])) {
+    return(args[[nm]])
+  }
   if (length(args) >= pos) {
     val <- args[[pos]]
     # Skip positional slots that R named with the empty string and
@@ -283,35 +374,43 @@
 # Refusal for an unsupported distribution family on a recognised
 # target.
 .brms_unsupported <- function(family, target_label) {
-  stop("Stan-passthrough emit does not yet translate `",
-       family, "` priors on ", target_label,
-       ". v0.2.6 supports: ",
-       "b()/Intercept ~ normal(mean, sd) | student_t(df, scale); ",
-       "sigma ~ uniform(lower, upper) | half_normal(scale) | pc(upper, prob); ",
-       "sd(group) ~ uniform | half_normal | pc (intercept-variance row); ",
-       "sd(group, coef = <slope>) ~ uniform | half_normal | pc ",
-       "(slope-variance row). ",
-       "For unsupported priors, pass a brms `prior` object directly ",
-       "via `...` (e.g. ",
-       "`fb_brms(..., backend = \"brms\", prior = brms::prior(...))` -- ",
-       "this bypasses the flexyBayes prior DSL on the Stan path).",
-       call. = FALSE)
+  stop(
+    "Stan-passthrough emit does not yet translate `",
+    family,
+    "` priors on ",
+    target_label,
+    ". v0.2.6 supports: ",
+    "b()/Intercept ~ normal(mean, sd) | student_t(df, scale); ",
+    "sigma ~ uniform(lower, upper) | half_normal(scale) | pc(upper, prob); ",
+    "sd(group) ~ uniform | half_normal | pc (intercept-variance row); ",
+    "sd(group, coef = <slope>) ~ uniform | half_normal | pc ",
+    "(slope-variance row). ",
+    "For unsupported priors, pass a brms `prior` object directly ",
+    "via `...` (e.g. ",
+    "`fb_brms(..., backend = \"brms\", prior = brms::prior(...))` -- ",
+    "this bypasses the flexyBayes prior DSL on the Stan path).",
+    call. = FALSE
+  )
 }
 
 # Refusal for an unsupported target (cor() / smooth() / generic name).
 .brms_unsupported_target <- function(target) {
-  label <- switch(target$type %||% "<unknown>",
-    "cor"    = paste0("cor(group = \"", target$group, "\")"),
+  label <- switch(
+    target$type %||% "<unknown>",
+    "cor" = paste0("cor(group = \"", target$group, "\")"),
     "smooth" = paste0("smooth(\"", target$var, "\")"),
-    "name"   = paste0("name = \"", target$name, "\""),
+    "name" = paste0("name = \"", target$name, "\""),
     target$type %||% "<unknown>"
   )
-  stop("Stan-passthrough emit does not yet handle prior target `",
-       label, "`. v0.2 supports b()/Intercept/sigma/sd(group) ",
-       "targets; smoothers and structured covariances are queued ",
-       "for v0.2.5 hardening. For full brms-side control, pass a ",
-       "brms `prior` object via `...` on the Stan-passthrough call.",
-       call. = FALSE)
+  stop(
+    "Stan-passthrough emit does not yet handle prior target `",
+    label,
+    "`. v0.2 supports b()/Intercept/sigma/sd(group) ",
+    "targets; smoothers and structured covariances are queued ",
+    "for v0.2.5 hardening. For full brms-side control, pass a ",
+    "brms `prior` object via `...` on the Stan-passthrough call.",
+    call. = FALSE
+  )
 }
 
 # Legacy-scalar bridge: builds the spec list that mirrors the v0.1
@@ -321,29 +420,39 @@
 # prior on variance components is lognormal(0, vc_sd) (codegen.R
 # .sigma_decl); the brms-side row preserves that shape without a
 # positivity bound (brms applies the natural sigma >= 0 anyway).
-.brms_legacy_specs <- function(fb, prior_fixed_sd, prior_vc_sd,
-                                family_has_sigma = TRUE) {
+.brms_legacy_specs <- function(
+  fb,
+  prior_fixed_sd,
+  prior_vc_sd,
+  family_has_sigma = TRUE
+) {
   specs <- list()
 
   # Intercept (class = "Intercept") gets the same normal prior.
   if (isTRUE(fb$intercept)) {
     specs[[length(specs) + 1L]] <- list(
       string = sprintf("normal(0, %s)", .fmt_num(prior_fixed_sd)),
-      class  = "Intercept",
-      coef   = NA_character_, group = NA_character_,
-      lb = NA_real_, ub = NA_real_
+      class = "Intercept",
+      coef = NA_character_,
+      group = NA_character_,
+      lb = NA_real_,
+      ub = NA_real_
     )
   }
 
   # Class = "b" applies to every non-intercept fixed-effect coef.
   # A single class-only row in brms covers all `b` coefficients.
-  if (length(fb$fixed_terms) > 0L ||
-      length(fb$rcov_terms %||% list()) > 0L) {
+  if (
+    length(fb$fixed_terms) > 0L ||
+      length(fb$rcov_terms %||% list()) > 0L
+  ) {
     specs[[length(specs) + 1L]] <- list(
       string = sprintf("normal(0, %s)", .fmt_num(prior_fixed_sd)),
-      class  = "b",
-      coef   = NA_character_, group = NA_character_,
-      lb = NA_real_, ub = NA_real_
+      class = "b",
+      coef = NA_character_,
+      group = NA_character_,
+      lb = NA_real_,
+      ub = NA_real_
     )
   }
 
@@ -356,9 +465,11 @@
   if (isTRUE(family_has_sigma)) {
     specs[[length(specs) + 1L]] <- list(
       string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
-      class  = "sigma",
-      coef   = NA_character_, group = NA_character_,
-      lb = 0, ub = NA_real_
+      class = "sigma",
+      coef = NA_character_,
+      group = NA_character_,
+      lb = 0,
+      ub = NA_real_
     )
   }
 
@@ -373,16 +484,22 @@
   # double-pipe + intercept form (1 + x || g) both ship the slope
   # row; only (1 + x || g) also ships the intercept row.
   for (term in fb$random_terms %||% list()) {
-    if (is.null(term$type)) next
+    if (is.null(term$type)) {
+      next
+    }
     grp <- term$var
-    if (is.null(grp) || !nzchar(grp)) next
+    if (is.null(grp) || !nzchar(grp)) {
+      next
+    }
 
     if (term$type %in% c("simple", "ide", "id")) {
       specs[[length(specs) + 1L]] <- list(
         string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
-        class  = "sd",
-        coef   = NA_character_, group = grp,
-        lb = 0, ub = NA_real_
+        class = "sd",
+        coef = NA_character_,
+        group = grp,
+        lb = 0,
+        ub = NA_real_
       )
       next
     }
@@ -392,17 +509,21 @@
       if (isTRUE(term$with_intercept)) {
         specs[[length(specs) + 1L]] <- list(
           string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
-          class  = "sd",
-          coef   = NA_character_, group = grp,
-          lb = 0, ub = NA_real_
+          class = "sd",
+          coef = NA_character_,
+          group = grp,
+          lb = 0,
+          ub = NA_real_
         )
       }
       if (!is.null(sv) && nzchar(sv)) {
         specs[[length(specs) + 1L]] <- list(
           string = sprintf("lognormal(0, %s)", .fmt_num(prior_vc_sd)),
-          class  = "sd",
-          coef   = sv, group = grp,
-          lb = 0, ub = NA_real_
+          class = "sd",
+          coef = sv,
+          group = grp,
+          lb = 0,
+          ub = NA_real_
         )
       }
       next
@@ -420,12 +541,13 @@
 # Public-style internal entry: returns a single brms-prior data.frame
 # (the kind brms::brm() accepts on its `prior` argument). Requires
 # brms. emit_brms.R calls this after the brms namespace check.
-.priors_to_brms <- function(prior, fb,
-                            prior_fixed_sd = 100,
-                            prior_vc_sd    = 1) {
-  specs <- .priors_to_brms_specs(prior, fb,
-                                  prior_fixed_sd = prior_fixed_sd,
-                                  prior_vc_sd    = prior_vc_sd)
+.priors_to_brms <- function(prior, fb, prior_fixed_sd = 100, prior_vc_sd = 1) {
+  specs <- .priors_to_brms_specs(
+    prior,
+    fb,
+    prior_fixed_sd = prior_fixed_sd,
+    prior_vc_sd = prior_vc_sd
+  )
   .brms_specs_to_object(specs)
 }
 
@@ -434,25 +556,36 @@
 # return NULL so the caller can decide whether to fall back to brms's
 # own defaults.
 .brms_specs_to_object <- function(specs) {
-  if (length(specs) == 0L) return(NULL)
-  if (!requireNamespace("brms", quietly = TRUE))
-    stop("Package 'brms' is required to compile flexyBayes priors ",
-         "into a brms prior object. Install via ",
-         "install.packages('brms').", call. = FALSE)
+  if (length(specs) == 0L) {
+    return(NULL)
+  }
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop(
+      "Package 'brms' is required to compile flexyBayes priors ",
+      "into a brms prior object. Install via ",
+      "install.packages('brms').",
+      call. = FALSE
+    )
+  }
 
   rows <- lapply(specs, function(s) {
     args <- list(prior = s$string, class = s$class)
     has_coef <- !is.na(s$coef %||% NA_character_) && nzchar(s$coef)
-    if (has_coef) args$coef  <- s$coef
-    if (!is.na(s$group %||% NA_character_) && nzchar(s$group))
+    if (has_coef) {
+      args$coef <- s$coef
+    }
+    if (!is.na(s$group %||% NA_character_) && nzchar(s$group)) {
       args$group <- s$group
+    }
     # ADR 0020: brms refuses `Prior argument 'coef' may not be
     # specified when using boundaries` -- when a coef-keyed sd row
     # carries lb/ub the parser rejects the spec. For sd rows the
     # natural sd >= 0 bound is implicit in brms's Stan emit anyway;
     # drop the lb/ub when coef is set.
     if (!has_coef) {
-      if (!is.na(s$lb %||% NA_real_)) args$lb <- s$lb
+      if (!is.na(s$lb %||% NA_real_)) {
+        args$lb <- s$lb
+      }
       if (!is.na(s$ub %||% NA_real_)) args$ub <- s$ub
     }
     do.call(brms::prior_string, args)

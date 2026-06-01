@@ -15,34 +15,47 @@
 # ---------------------------------------------------------------- #
 
 fb_as_draws_simple.synthetic_greta <- function(fit, ...) fit$draws
-fb_as_draws_simple.synthetic_inla  <- function(fit, ...) fit$draws
-.S3method("fb_as_draws_simple", "synthetic_greta",
-          fb_as_draws_simple.synthetic_greta)
-.S3method("fb_as_draws_simple", "synthetic_inla",
-          fb_as_draws_simple.synthetic_inla)
+fb_as_draws_simple.synthetic_inla <- function(fit, ...) fit$draws
+.S3method(
+  "fb_as_draws_simple",
+  "synthetic_greta",
+  fb_as_draws_simple.synthetic_greta
+)
+.S3method(
+  "fb_as_draws_simple",
+  "synthetic_inla",
+  fb_as_draws_simple.synthetic_inla
+)
 
-.mk_greta_fit <- function(draws)
+.mk_greta_fit <- function(draws) {
   structure(list(draws = draws), class = c("synthetic_greta", "flexybayes"))
-.mk_inla_fit <- function(draws)
-  structure(list(draws = draws),
-            class = c("synthetic_inla", "flexybayes_inla"))
+}
+.mk_inla_fit <- function(draws) {
+  structure(list(draws = draws), class = c("synthetic_inla", "flexybayes_inla"))
+}
 
 # ---------------------------------------------------------------- #
 # Closed vocabulary                                                 #
 # ---------------------------------------------------------------- #
 
 test_that("the axis vocabulary is exactly the three controlled values", {
-  expect_setequal(flexyBayes:::.AXIS_VOCABULARY,
-                  c("algorithmic", "implementation", "specification"))
+  expect_setequal(
+    flexyBayes:::.AXIS_VOCABULARY,
+    c("algorithmic", "implementation", "specification")
+  )
 })
 
 test_that("registering an unknown axis refuses with a vocabulary error", {
   err <- tryCatch(
     flexyBayes:::.register_pair_independence(
-      pair = c("aa", "bb"), axes = c("magic"),
+      pair = c("aa", "bb"),
+      axes = c("magic"),
       paradigms = list(aa = "x", bb = "y"),
-      justification = "test", registered_in_adr = "test"),
-    error = function(e) conditionMessage(e))
+      justification = "test",
+      registered_in_adr = "test"
+    ),
+    error = function(e) conditionMessage(e)
+  )
   expect_match(err, "unknown axis")
   expect_match(err, "magic")
 })
@@ -52,10 +65,14 @@ test_that("a valid registration on the locked registry refuses with the lock err
   # proves both the lock and that valid axes clear the vocabulary gate.
   err <- tryCatch(
     flexyBayes:::.register_pair_independence(
-      pair = c("aa", "bb"), axes = c("algorithmic"),
+      pair = c("aa", "bb"),
+      axes = c("algorithmic"),
       paradigms = list(aa = "x", bb = "y"),
-      justification = "test", registered_in_adr = "test"),
-    error = function(e) conditionMessage(e))
+      justification = "test",
+      registered_in_adr = "test"
+    ),
+    error = function(e) conditionMessage(e)
+  )
   expect_match(err, "locked")
 })
 
@@ -83,8 +100,10 @@ test_that("every registry entry carries the five required fields", {
   reg <- flexyBayes:::.backend_independence_registry
   for (k in ls(reg)) {
     entry <- get(k, envir = reg, inherits = FALSE)
-    expect_true(all(c("pair", "axes", "paradigms", "justification",
-                      "registered_in_adr") %in% names(entry)))
+    expect_true(all(
+      c("pair", "axes", "paradigms", "justification", "registered_in_adr") %in%
+        names(entry)
+    ))
   }
 })
 
@@ -104,7 +123,8 @@ test_that("an unregistered or same-backend pair looks up to NULL", {
 
 test_that("the backend-independence registry is locked after .onLoad()", {
   expect_true(environmentIsLocked(
-    flexyBayes:::.backend_independence_registry))
+    flexyBayes:::.backend_independence_registry
+  ))
 })
 
 # ---------------------------------------------------------------- #
@@ -125,8 +145,11 @@ test_that("triangulate() on an unregistered pair leaves the axis fields empty (b
   set.seed(2L)
   mk <- function(d) structure(list(draws = d), class = "synthetic_fit")
   fb_as_draws_simple.synthetic_fit <<- function(fit, ...) fit$draws
-  .S3method("fb_as_draws_simple", "synthetic_fit",
-            fb_as_draws_simple.synthetic_fit)
+  .S3method(
+    "fb_as_draws_simple",
+    "synthetic_fit",
+    fb_as_draws_simple.synthetic_fit
+  )
   d <- list(beta = rnorm(100L))
   tri <- triangulate(mk(d), mk(d))
   expect_length(tri$independence, 0L)
@@ -150,13 +173,18 @@ test_that("print.triangulate_result shows the independence line for a registered
 # ---------------------------------------------------------------- #
 
 test_that("axis-label rendering is stable across the registered pairs", {
-  withr::local_options(cli.num_colors = 1L)   # plain text -> stable snapshot
+  withr::local_options(cli.num_colors = 1L) # plain text -> stable snapshot
   reg <- flexyBayes:::.backend_independence_registry
   expect_snapshot({
     for (k in sort(ls(reg))) {
       entry <- get(k, envir = reg, inherits = FALSE)
-      cat(paste(entry$pair, collapse = "--"), ": ",
-          flexyBayes:::.format_independence_axes(entry$axes), "\n", sep = "")
+      cat(
+        paste(entry$pair, collapse = "--"),
+        ": ",
+        flexyBayes:::.format_independence_axes(entry$axes),
+        "\n",
+        sep = ""
+      )
     }
   })
 })

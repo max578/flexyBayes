@@ -17,7 +17,6 @@
 # with the coefficient names (e.g. factor interactions on the over-
 # parameterised greta basis) are refused rather than silently mis-mapped.
 
-
 # Data frame a fit was trained on (greta keeps it on the glm shim;
 # INLA keeps it at the top level).
 .fb_fit_data <- function(object) {
@@ -28,10 +27,14 @@
 # grid is coded against the fit-time factor levels.
 .fb_xlev <- function(trms, data) {
   vars <- all.vars(trms)
-  fac  <- vars[vapply(vars, function(v)
-    is.factor(data[[v]]) || is.character(data[[v]]), logical(1L))]
-  stats::setNames(lapply(fac, function(v) levels(as.factor(data[[v]]))),
-                  fac)
+  fac <- vars[vapply(
+    vars,
+    function(v) {
+      is.factor(data[[v]]) || is.character(data[[v]])
+    },
+    logical(1L)
+  )]
+  stats::setNames(lapply(fac, function(v) levels(as.factor(data[[v]]))), fac)
 }
 
 # Decide, per factor in `trms`, whether the fit's coefficient names use
@@ -40,12 +43,14 @@
 # factors that need all-levels coding; treatment-coded factors are left
 # to model.matrix()'s default.
 .fb_detect_contrasts <- function(trms, target_names, data) {
-  vars  <- all.vars(trms)
+  vars <- all.vars(trms)
   contr <- list()
   for (v in vars) {
     col <- data[[v]]
-    if (is.null(col) || !(is.factor(col) || is.character(col))) next
-    lev     <- levels(as.factor(col))
+    if (is.null(col) || !(is.factor(col) || is.character(col))) {
+      next
+    }
+    lev <- levels(as.factor(col))
     ref_col <- paste0(v, lev[1L])
     if (ref_col %in% target_names) {
       # All-levels (cell-means) coding. Use a level-labelled identity so
@@ -65,24 +70,38 @@
 # Refuses (structured message) when the reconciliation is not exact.
 .fb_fixef_model_matrix <- function(trms, grid, target_names, data) {
   contr <- .fb_detect_contrasts(trms, target_names, data)
-  xlev  <- .fb_xlev(trms, data)
+  xlev <- .fb_xlev(trms, data)
   X <- tryCatch(
-    stats::model.matrix(trms, data = grid,
-                        contrasts.arg = if (length(contr)) contr else NULL,
-                        xlev = xlev),
-    error = function(e)
-      stop("Could not build the fixed-effect design matrix for this ",
-           "fit: ", conditionMessage(e), call. = FALSE)
+    stats::model.matrix(
+      trms,
+      data = grid,
+      contrasts.arg = if (length(contr)) contr else NULL,
+      xlev = xlev
+    ),
+    error = function(e) {
+      stop(
+        "Could not build the fixed-effect design matrix for this ",
+        "fit: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
+    }
   )
-  if (!setequal(colnames(X), target_names))
-    stop("The downstream-ecosystem integration (emmeans / ",
-         "marginaleffects) could not reconcile this model's fixed-effect ",
-         "design matrix (columns: ", paste(colnames(X), collapse = ", "),
-         ") with the fitted coefficients (", paste(target_names,
-         collapse = ", "), "). This happens for fixed-effect structures ",
-         "whose model-matrix columns do not line up one-to-one with the ",
-         "fitted coefficient basis. Work with the posterior draws via ",
-         "fb_as_draws_simple() for this model.", call. = FALSE)
+  if (!setequal(colnames(X), target_names)) {
+    stop(
+      "The downstream-ecosystem integration (emmeans / ",
+      "marginaleffects) could not reconcile this model's fixed-effect ",
+      "design matrix (columns: ",
+      paste(colnames(X), collapse = ", "),
+      ") with the fitted coefficients (",
+      paste(target_names, collapse = ", "),
+      "). This happens for fixed-effect structures ",
+      "whose model-matrix columns do not line up one-to-one with the ",
+      "fitted coefficient basis. Work with the posterior draws via ",
+      "fb_as_draws_simple() for this model.",
+      call. = FALSE
+    )
+  }
   X[, target_names, drop = FALSE]
 }
 

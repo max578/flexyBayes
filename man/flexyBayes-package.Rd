@@ -4,7 +4,7 @@
 \name{flexyBayes-package}
 \alias{flexyBayes}
 \alias{flexyBayes-package}
-\title{flexyBayes: Bayesian Mixed Models with ASReml Syntax, Powered by Greta and INLA}
+\title{flexyBayes: Bayesian Mixed Models with ASReml Syntax via Greta and INLA}
 \description{
 \code{flexyBayes} lets you fit Bayesian mixed models using the formula syntax
 you already know from ASReml or \code{lme4}/\code{brms}, dispatched through one of

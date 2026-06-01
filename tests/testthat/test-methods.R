@@ -5,17 +5,17 @@
 make_mock_flexybayes <- function() {
   n <- 50
   dat <- data.frame(
-    y   = rnorm(n, 50, 5),
+    y = rnorm(n, 50, 5),
     env = factor(rep(paste0("E", 1:5), each = 10)),
-    x   = rnorm(n)
+    x = rnorm(n)
   )
 
   # Simulate posterior draws as mcmc.list
   n_samples <- 100
   draws_mat <- matrix(rnorm(n_samples * 3), ncol = 3)
-  draws_mat[, 1] <- draws_mat[, 1] + 50   # mu_atg ~ 50
-  draws_mat[, 2] <- abs(draws_mat[, 2])    # sigma_geno > 0
-  draws_mat[, 3] <- abs(draws_mat[, 3]) + 1  # sigma_e_atg > 0
+  draws_mat[, 1] <- draws_mat[, 1] + 50 # mu_atg ~ 50
+  draws_mat[, 2] <- abs(draws_mat[, 2]) # sigma_geno > 0
+  draws_mat[, 3] <- abs(draws_mat[, 3]) + 1 # sigma_e_atg > 0
   colnames(draws_mat) <- c("mu_atg", "sigma_geno", "sigma_e_atg")
   draws <- coda::mcmc.list(coda::mcmc(draws_mat))
 
@@ -26,20 +26,20 @@ make_mock_flexybayes <- function() {
   resid_vals <- dat$y - fitted_vals
 
   glm_obj <- list(
-    coefficients      = beta,
-    residuals         = resid_vals,
-    fitted.values     = fitted_vals,
-    family            = gaussian(),
-    formula           = y ~ 1,
-    terms             = terms(y ~ 1, data = dat),
-    model             = model.frame(y ~ 1, data = dat),
-    data              = dat,
-    df.residual       = n - 1L,
-    rank              = 1L,
-    y                 = dat$y,
+    coefficients = beta,
+    residuals = resid_vals,
+    fitted.values = fitted_vals,
+    family = gaussian(),
+    formula = y ~ 1,
+    terms = terms(y ~ 1, data = dat),
+    model = model.frame(y ~ 1, data = dat),
+    data = dat,
+    df.residual = n - 1L,
+    rank = 1L,
+    y = dat$y,
     linear.predictors = fitted_vals,
-    call              = quote(flexybayes(fixed = y ~ 1, data = dat)),
-    qr                = qr(matrix(1, n, 1))
+    call = quote(flexybayes(fixed = y ~ 1, data = dat)),
+    qr = qr(matrix(1, n, 1))
   )
   attr(glm_obj, "posterior_vcov") <- V
   class(glm_obj) <- c("flexybayes_glm", "glm", "lm")
@@ -47,10 +47,10 @@ make_mock_flexybayes <- function() {
   # Build greta component (mock)
   greta_out <- structure(
     list(
-      model        = NULL,
-      draws        = draws,
+      model = NULL,
+      draws = draws,
       greta_arrays = list(),
-      env          = new.env(parent = emptyenv())
+      env = new.env(parent = emptyenv())
     ),
     class = "flexybayes_greta"
   )
@@ -59,42 +59,57 @@ make_mock_flexybayes <- function() {
   post_summary <- summary(draws)
   vc_table <- data.frame(
     component = c("sigma_geno", "sigma_e_atg"),
-    estimate  = c(1.0, 2.0),
-    sd        = c(0.3, 0.2),
-    q2.5      = c(0.5, 1.5),
-    q50       = c(1.0, 2.0),
-    q97.5     = c(1.5, 2.5),
+    estimate = c(1.0, 2.0),
+    sd = c(0.3, 0.2),
+    q2.5 = c(0.5, 1.5),
+    q50 = c(1.0, 2.0),
+    q97.5 = c(1.5, 2.5),
     stringsAsFactors = FALSE
   )
 
   extras <- structure(
     list(
-      summary        = post_summary,
-      convergence    = list(n_eff = coda::effectiveSize(draws), gelman = NULL),
+      summary = post_summary,
+      convergence = list(n_eff = coda::effectiveSize(draws), gelman = NULL),
       variance_comps = vc_table,
-      blups          = list(u_geno = rnorm(5)),
-      predictions    = data.frame(obs = 1:n, observed = dat$y,
-                                  fitted = fitted_vals,
-                                  residual = resid_vals),
-      code           = "mu_atg <- normal(0, 10)",
-      param_names    = c("mu_atg", "sigma_geno", "sigma_e_atg"),
-      parse_info     = list(
-        fixed  = list(response = "y", intercept = TRUE, terms = list()),
+      blups = list(u_geno = rnorm(5)),
+      predictions = data.frame(
+        obs = 1:n,
+        observed = dat$y,
+        fitted = fitted_vals,
+        residual = resid_vals
+      ),
+      code = "mu_atg <- normal(0, 10)",
+      param_names = c("mu_atg", "sigma_geno", "sigma_e_atg"),
+      parse_info = list(
+        fixed = list(response = "y", intercept = TRUE, terms = list()),
         random = list(),
-        rcov   = list(list(type = "units")),
+        rcov = list(list(type = "units")),
         family = list(family = "gaussian", link = "identity")
       ),
-      call_info      = list(
-        fixed = y ~ 1, random = NULL, rcov = NULL,
-        data_name = "dat", family = "gaussian", link = NULL,
-        known_matrices = list(), weights = NULL,
-        n_samples = 100, warmup = 50, chains = 1,
-        prior_fixed_sd = 10, prior_vc_sd = 1
+      call_info = list(
+        fixed = y ~ 1,
+        random = NULL,
+        rcov = NULL,
+        data_name = "dat",
+        family = "gaussian",
+        link = NULL,
+        known_matrices = list(),
+        weights = NULL,
+        n_samples = 100,
+        warmup = 50,
+        chains = 1,
+        prior_fixed_sd = 10,
+        prior_vc_sd = 1
       ),
-      run_time       = 1.5,
-      model_info     = list(
-        n_obs = n, n_fixed = 1L, n_random = 0L, n_params = 3L,
-        family = "gaussian", link = "identity"
+      run_time = 1.5,
+      model_info = list(
+        n_obs = n,
+        n_fixed = 1L,
+        n_random = 0L,
+        n_params = 3L,
+        family = "gaussian",
+        link = "identity"
       )
     ),
     class = "flexybayes_extras"

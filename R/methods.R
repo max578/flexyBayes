@@ -12,19 +12,38 @@ print.flexybayes <- function(x, ...) {
   cat(strrep("-", 55), "\n")
 
   cat("  Fixed  :", deparse(ci$fixed), "\n")
-  if (!is.null(ci$random)) cat("  Random :", deparse(ci$random), "\n")
-  if (!is.null(ci$rcov) && !identical(deparse(ci$rcov), "~units"))
+  if (!is.null(ci$random)) {
+    cat("  Random :", deparse(ci$random), "\n")
+  }
+  if (!is.null(ci$rcov) && !identical(deparse(ci$rcov), "~units")) {
     cat("  Rcov   :", deparse(ci$rcov), "\n")
+  }
   cat("  Family :", mi$family, "(", mi$link, "link )\n")
 
   nch <- ci$chains
-  ns  <- ci$n_samples
-  cat("  MCMC   :", nch, "chain(s) x", ns, "samples",
-      "(warmup =", ci$warmup, ") --",
-      round(x$extras$run_time, 1), "sec\n")
+  ns <- ci$n_samples
+  cat(
+    "  MCMC   :",
+    nch,
+    "chain(s) x",
+    ns,
+    "samples",
+    "(warmup =",
+    ci$warmup,
+    ") --",
+    round(x$extras$run_time, 1),
+    "sec\n"
+  )
 
-  cat("  Params :", mi$n_params, "monitored;",
-      mi$n_fixed, "fixed,", mi$n_random, "random terms\n")
+  cat(
+    "  Params :",
+    mi$n_params,
+    "monitored;",
+    mi$n_fixed,
+    "fixed,",
+    mi$n_random,
+    "random terms\n"
+  )
 
   # ADR 0030 Decision 4 (v0.3.8): the truth-display surface --
   # "Representation:" and "Engine:" as two adjacent lines. Replaces
@@ -35,24 +54,31 @@ print.flexybayes <- function(x, ...) {
   # fall through silently.
   if (!is.null(x$exactness)) {
     bd <- x$extras$backend_decision
-    cat("  Representation: ",
-        .repr_label_for_fit(x, bd), "\n", sep = "")
-    cat("  Engine:         ",
-        .engine_label_for_fit(x, bd), "\n", sep = "")
+    cat("  Representation: ", .repr_label_for_fit(x, bd), "\n", sep = "")
+    cat("  Engine:         ", .engine_label_for_fit(x, bd), "\n", sep = "")
   }
 
   # Quick convergence
   if (!is.null(x$extras$convergence$gelman)) {
     rhat <- x$extras$convergence$gelman$psrf[, "Point est."]
     max_rhat <- max(rhat, na.rm = TRUE)
-    flag <- if (max_rhat < 1.05) " [OK]" else
-            if (max_rhat < 1.10) " [borderline]" else " [!]"
+    flag <- if (max_rhat < 1.05) {
+      " [OK]"
+    } else if (max_rhat < 1.10) {
+      " [borderline]"
+    } else {
+      " [!]"
+    }
     cat("  Max Rhat:", round(max_rhat, 3), flag, "\n")
   }
-  min_eff <- if (!is.null(x$extras$convergence$n_eff))
-               min(x$extras$convergence$n_eff, na.rm = TRUE) else NA
-  if (!is.na(min_eff))
+  min_eff <- if (!is.null(x$extras$convergence$n_eff)) {
+    min(x$extras$convergence$n_eff, na.rm = TRUE)
+  } else {
+    NA
+  }
+  if (!is.na(min_eff)) {
     cat("  Min ESS:", round(min_eff, 0), "\n")
+  }
 
   cat(strrep("-", 55), "\n")
   cat("  $glm    -- GLM-compatible (summary, emmeans, etc.)\n")
@@ -75,10 +101,19 @@ summary.flexybayes <- function(object, ...) {
   cat("Bayesian mixed model summary  [flexyBayes]\n")
   cat(strrep("=", 60), "\n")
   cat("  Fixed  :", deparse(ci$fixed), "\n")
-  if (!is.null(ci$random)) cat("  Random :", deparse(ci$random), "\n")
+  if (!is.null(ci$random)) {
+    cat("  Random :", deparse(ci$random), "\n")
+  }
   cat("  Family :", mi$family, "/", mi$link, "\n")
-  cat("  N =", mi$n_obs, ", chains =", ci$chains,
-      ", samples =", ci$n_samples, "\n")
+  cat(
+    "  N =",
+    mi$n_obs,
+    ", chains =",
+    ci$chains,
+    ", samples =",
+    ci$n_samples,
+    "\n"
+  )
 
   # ADR 0030 Decision 4 (v0.3.8): Representation:/Engine: two-line
   # truth display, replacing the single-line "Exact.:". The
@@ -88,19 +123,21 @@ summary.flexybayes <- function(object, ...) {
   # 2026-05-25 audit Critical Fix #4.
   if (!is.null(object$exactness)) {
     bd <- object$extras$backend_decision
-    cat("  Representation: ",
-        .repr_label_for_fit(object, bd), "\n", sep = "")
-    cat("  Engine:         ",
-        .engine_label_for_fit(object, bd), "\n", sep = "")
+    cat("  Representation: ", .repr_label_for_fit(object, bd), "\n", sep = "")
+    cat("  Engine:         ", .engine_label_for_fit(object, bd), "\n", sep = "")
   }
   am <- object$extras$aggregation_meta
-  if (identical(object$exactness, "aggregated_exact") &&
-      !is.null(am) && am$N / am$K >= 2) {
+  if (
+    identical(object$exactness, "aggregated_exact") &&
+      !is.null(am) &&
+      am$N / am$K >= 2
+  ) {
     cat(sprintf(
       "  Agg.   : N = %s rows -> K = %s cells (ratio %.0f:1)\n",
       format(am$N, big.mark = " ", scientific = FALSE),
       format(am$K, big.mark = " ", scientific = FALSE),
-      am$N / am$K))
+      am$N / am$K
+    ))
   }
   cat("\n")
 
@@ -110,10 +147,10 @@ summary.flexybayes <- function(object, ...) {
   if (length(beta) > 0) {
     ci_mat <- confint(object)
     fx_df <- data.frame(
-      Estimate   = beta,
-      Post.SD    = sqrt(diag(vcov(object))),
-      `2.5%`     = ci_mat[, 1],
-      `97.5%`    = ci_mat[, 2],
+      Estimate = beta,
+      Post.SD = sqrt(diag(vcov(object))),
+      `2.5%` = ci_mat[, 1],
+      `97.5%` = ci_mat[, 2],
       check.names = FALSE
     )
     print(round(fx_df, 4))
@@ -127,10 +164,10 @@ summary.flexybayes <- function(object, ...) {
   if (!is.null(vc) && nrow(vc) > 0) {
     print(data.frame(
       Component = vc$component,
-      Estimate  = round(vc$estimate, 4),
-      SD        = round(vc$sd, 4),
-      `2.5%`    = round(vc$q2.5, 4),
-      `97.5%`   = round(vc$q97.5, 4),
+      Estimate = round(vc$estimate, 4),
+      SD = round(vc$sd, 4),
+      `2.5%` = round(vc$q2.5, 4),
+      `97.5%` = round(vc$q97.5, 4),
       check.names = FALSE,
       row.names = NULL
     ))
@@ -143,12 +180,22 @@ summary.flexybayes <- function(object, ...) {
   conv <- object$extras$convergence
   if (!is.null(conv$gelman)) {
     rhat <- conv$gelman$psrf[, "Point est."]
-    cat("  Rhat range:", round(min(rhat, na.rm = TRUE), 3), "-",
-        round(max(rhat, na.rm = TRUE), 3), "\n")
+    cat(
+      "  Rhat range:",
+      round(min(rhat, na.rm = TRUE), 3),
+      "-",
+      round(max(rhat, na.rm = TRUE), 3),
+      "\n"
+    )
   }
   if (!is.null(conv$n_eff)) {
-    cat("  ESS  range:", round(min(conv$n_eff, na.rm = TRUE), 0), "-",
-        round(max(conv$n_eff, na.rm = TRUE), 0), "\n")
+    cat(
+      "  ESS  range:",
+      round(min(conv$n_eff, na.rm = TRUE), 0),
+      "-",
+      round(max(conv$n_eff, na.rm = TRUE), 0),
+      "\n"
+    )
   }
   cat("  Run time  :", round(object$extras$run_time, 1), "sec\n")
 
@@ -162,12 +209,15 @@ summary.flexybayes <- function(object, ...) {
 # default prior); the "custom" case flags that an explicit prior was
 # supplied and points at prior_summary().
 .agg_prior_label <- function(pp) {
-  switch(pp,
-    per_row_equivalent =
-      "per-row-equivalent (default prior; aggregated posterior matches per-row)",
-    custom =
-      "custom (explicit prior supplied; see prior_summary())",
-    pp)
+  switch(
+    pp,
+    per_row_equivalent = paste0(
+      "per-row-equivalent (default prior; ",
+      "aggregated posterior matches per-row)"
+    ),
+    custom = "custom (explicit prior supplied; see prior_summary())",
+    pp
+  )
 }
 
 #' Print a flexybayes_aggregated object
@@ -196,17 +246,19 @@ print.flexybayes_aggregated <- function(x, ...) {
   cat("  backend:   ", bd$backend, "(path =", bd$path, ")\n")
   cat("  runtime:   ", round(x$extras$run_time, 2), "sec\n")
   # ADR 0030 Decision 4 (v0.3.8): truth display as adjacent lines.
-  cat("  Representation: ",
-      .repr_label_for_fit(x, bd), "\n", sep = "")
-  cat("  Engine:         ",
-      .engine_label_for_fit(x, bd), "\n", sep = "")
-  if (!is.null(am) && am$N / am$K >= 2)
-    cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
-                format(am$N, big.mark = " ", scientific = FALSE),
-                format(am$K, big.mark = " ", scientific = FALSE),
-                am$N / am$K))
-  if (!is.null(am$prior_parametrization))
+  cat("  Representation: ", .repr_label_for_fit(x, bd), "\n", sep = "")
+  cat("  Engine:         ", .engine_label_for_fit(x, bd), "\n", sep = "")
+  if (!is.null(am) && am$N / am$K >= 2) {
+    cat(sprintf(
+      "  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
+      format(am$N, big.mark = " ", scientific = FALSE),
+      format(am$K, big.mark = " ", scientific = FALSE),
+      am$N / am$K
+    ))
+  }
+  if (!is.null(am$prior_parametrization)) {
     cat("  priors:    ", .agg_prior_label(am$prior_parametrization), "\n")
+  }
   cat(strrep("-", 60), "\n")
   cat("  $glm      -- per-row reconstructed fitted values + coef shim\n")
   cat("  $inla     -- raw aggregated INLA fit (use INLA's summary etc.)\n")
@@ -237,13 +289,17 @@ summary.flexybayes_aggregated <- function(object, ...) {
   cat("  N =", mi$n_obs, ", K =", mi$n_cells, "\n")
   cat("  backend:   ", bd$backend, "\n")
   cat("  exactness: ", object$exactness, "\n")
-  if (!is.null(am$prior_parametrization))
+  if (!is.null(am$prior_parametrization)) {
     cat("  priors:    ", .agg_prior_label(am$prior_parametrization), "\n")
-  if (!is.null(am) && am$N / am$K >= 2)
-    cat(sprintf("  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
-                format(am$N, big.mark = " ", scientific = FALSE),
-                format(am$K, big.mark = " ", scientific = FALSE),
-                am$N / am$K))
+  }
+  if (!is.null(am) && am$N / am$K >= 2) {
+    cat(sprintf(
+      "  aggregation: N = %s rows -> K = %s cells (ratio %.0f:1)\n",
+      format(am$N, big.mark = " ", scientific = FALSE),
+      format(am$K, big.mark = " ", scientific = FALSE),
+      am$N / am$K
+    ))
+  }
   cat("\n")
 
   cat("-- Fixed effects (posterior) ", strrep("-", 35), "\n")
@@ -252,11 +308,13 @@ summary.flexybayes_aggregated <- function(object, ...) {
     sds <- sqrt(diag(ps$beta_vcov))
     fx_df <- data.frame(
       Estimate = round(beta, 4),
-      Post.SD  = round(sds,  4),
+      Post.SD = round(sds, 4),
       row.names = names(beta)
     )
     print(fx_df)
-  } else cat("  (none)\n")
+  } else {
+    cat("  (none)\n")
+  }
 
   cat("\n-- Variance components ", strrep("-", 40), "\n")
   vc <- list(sigma = ps$sigma_means, tau = ps$tau_means)
@@ -309,10 +367,10 @@ confint.flexybayes <- function(object, parm = NULL, level = 0.95, ...) {
 
   # Get fixed effect column names
   beta_names <- names(coef(object))
-  if (length(beta_names) == 0) return(matrix(nrow = 0, ncol = 2))
+  if (length(beta_names) == 0) {
+    return(matrix(nrow = 0, ncol = 2))
+  }
 
-  # Map coefficient names back to draw column names
-  coef_info <- .extract_fixed_coefs(object$extras$parse_info$fixed, draws)
   # Use the raw draw columns
   col_names <- colnames(all_draws)
 
@@ -320,15 +378,20 @@ confint.flexybayes <- function(object, parm = NULL, level = 0.95, ...) {
   fixed_info <- object$extras$parse_info$fixed
   fixed_draw_cols <- .get_fixed_draw_columns(fixed_info, col_names)
 
-  if (length(fixed_draw_cols) == 0)
+  if (length(fixed_draw_cols) == 0) {
     return(matrix(nrow = 0, ncol = 2))
+  }
 
   alpha <- 1 - level
   probs <- c(alpha / 2, 1 - alpha / 2)
 
   avail <- fixed_draw_cols[fixed_draw_cols %in% col_names]
-  ci_mat <- t(apply(all_draws[, avail, drop = FALSE], 2, quantile,
-                    probs = probs))
+  ci_mat <- t(apply(
+    all_draws[, avail, drop = FALSE],
+    2,
+    quantile,
+    probs = probs
+  ))
   rownames(ci_mat) <- beta_names[seq_along(avail)]
   colnames(ci_mat) <- paste0(round(probs * 100, 1), "%")
 
@@ -347,8 +410,11 @@ confint.flexybayes <- function(object, parm = NULL, level = 0.95, ...) {
   }
   for (term in fixed_info$terms) {
     if (term$type == "factor") {
-      prefix <- if (fixed_info$intercept) paste0("tau_", term$var) else
-                paste0("alpha_", term$var)
+      prefix <- if (fixed_info$intercept) {
+        paste0("tau_", term$var)
+      } else {
+        paste0("alpha_", term$var)
+      }
       matches <- grep(paste0("^", prefix), col_names, value = TRUE)
       result <- c(result, matches)
     } else if (term$type == "continuous") {
@@ -356,8 +422,11 @@ confint.flexybayes <- function(object, parm = NULL, level = 0.95, ...) {
       if (nm %in% col_names) result <- c(result, nm)
     } else if (term$type == "factor_interaction") {
       tag <- paste(term$vars, collapse = "_x_")
-      prefix <- if (fixed_info$intercept) paste0("tau_", tag) else
-                paste0("alpha_", tag)
+      prefix <- if (fixed_info$intercept) {
+        paste0("tau_", tag)
+      } else {
+        paste0("alpha_", tag)
+      }
       matches <- grep(paste0("^", prefix), col_names, value = TRUE)
       result <- c(result, matches)
     } else if (term$type %in% c("interaction", "expression")) {
@@ -409,7 +478,8 @@ residuals.flexybayes <- function(object, ...) {
 #'   `chunk_size = 10000L`.
 #' @param allow_new_levels One of `"population"` (default), `"sample"`,
 #'   or `"refuse"`. Policy for handling factor levels in `newdata`
-#'   that are not in the fit-time dictionary. `"population"` sets unknown-level rows to NA on the
+#'   that are not in the fit-time dictionary. `"population"` sets
+#'   unknown-level rows to NA on the
 #'   affected column and emits a warning naming the count; downstream
 #'   prediction returns NA for these rows. `"refuse"` raises a
 #'   structured stop on the first unknown level. `"sample"` (active
@@ -451,27 +521,31 @@ residuals.flexybayes <- function(object, ...) {
 #'   that was written to. Otherwise: if `se.fit = FALSE`, a numeric
 #'   vector. If `se.fit = TRUE`, a list with `fit` and `se.fit`.
 #' @export
-predict.flexybayes <- function(object, newdata = NULL,
-                               type = c("response", "link"),
-                               se.fit = FALSE,
-                               chunk_size = NULL,
-                               allow_new_levels = c("population",
-                                                     "sample",
-                                                     "refuse"),
-                               output_file = NULL,
-                               format = c("auto", "csv", "rds", "fst"),
-                               interop = FALSE,
-                               ...) {
+predict.flexybayes <- function(
+  object,
+  newdata = NULL,
+  type = c("response", "link"),
+  se.fit = FALSE,
+  chunk_size = NULL,
+  allow_new_levels = c("population", "sample", "refuse"),
+  output_file = NULL,
+  format = c("auto", "csv", "rds", "fst"),
+  interop = FALSE,
+  ...
+) {
   type <- match.arg(type)
   allow_new_levels <- match.arg(allow_new_levels)
   format <- match.arg(format)
 
   if (is.null(newdata)) {
-    if (!is.null(output_file))
-      stop("predict.flexybayes(): `output_file` is only supported ",
-           "with `newdata`. For fitted-value persistence, write the ",
-           "fit's $glm$fitted.values to disk directly.",
-           call. = FALSE)
+    if (!is.null(output_file)) {
+      stop(
+        "predict.flexybayes(): `output_file` is only supported ",
+        "with `newdata`. For fitted-value persistence, write the ",
+        "fit's $glm$fitted.values to disk directly.",
+        call. = FALSE
+      )
+    }
     if (type == "link") {
       pred <- object$glm$linear.predictors
     } else {
@@ -494,8 +568,11 @@ predict.flexybayes <- function(object, newdata = NULL,
   # RE realisation onto each unknown row per draw.
   fb_dataset_meta <- object$extras$fb_dataset
   if (!is.null(fb_dataset_meta)) {
-    newdata <- .predict_resolve_factors(newdata, fb_dataset_meta,
-                                         allow_new_levels)
+    newdata <- .predict_resolve_factors(
+      newdata,
+      fb_dataset_meta,
+      allow_new_levels
+    )
   }
 
   # Stage 3B (ADR 0023 Decision 4) file-backed output path. Routes
@@ -507,15 +584,15 @@ predict.flexybayes <- function(object, newdata = NULL,
   # `nrow(newdata)` / fst availability. Returns invisible(path).
   if (!is.null(output_file)) {
     return(.predict_to_file(
-      object             = object,
-      newdata            = newdata,
-      output_file        = output_file,
-      format             = format,
-      interop            = interop,
-      type               = type,
-      se.fit             = se.fit,
-      chunk_size         = chunk_size,
-      allow_new_levels   = allow_new_levels
+      object = object,
+      newdata = newdata,
+      output_file = output_file,
+      format = format,
+      interop = interop,
+      type = type,
+      se.fit = se.fit,
+      chunk_size = chunk_size,
+      allow_new_levels = allow_new_levels
     ))
   }
 
@@ -527,13 +604,15 @@ predict.flexybayes <- function(object, newdata = NULL,
   # iteration would re-sample per chunk and break ADR 0023 §6.d
   # bitwise equivalence; chunked sample is only supported via
   # `output_file`).
-  if (identical(allow_new_levels, "sample") &&
-      !is.null(attr(newdata, "sample_re_summary"))) {
+  if (
+    identical(allow_new_levels, "sample") &&
+      !is.null(attr(newdata, "sample_re_summary"))
+  ) {
     return(.predict_in_memory_sample(
-      object  = object,
+      object = object,
       newdata = newdata,
-      type    = type,
-      se.fit  = se.fit
+      type = type,
+      se.fit = se.fit
     ))
   }
 
@@ -547,17 +626,22 @@ predict.flexybayes <- function(object, newdata = NULL,
   # since known-level factor columns round-trip as identity, but the
   # outer-level resolution gives a single warning + single attribute
   # rather than n_chunks worth.)
-  if (!is.null(chunk_size) &&
+  if (
+    !is.null(chunk_size) &&
       is.numeric(chunk_size) &&
       length(chunk_size) == 1L &&
       chunk_size > 0L &&
-      nrow(newdata) > chunk_size) {
-    return(.predict_chunked_iterate(object, newdata,
-                                     chunk_size       = as.integer(chunk_size),
-                                     type             = type,
-                                     se.fit           = se.fit,
-                                     allow_new_levels = allow_new_levels,
-                                     ...))
+      nrow(newdata) > chunk_size
+  ) {
+    return(.predict_chunked_iterate(
+      object,
+      newdata,
+      chunk_size = as.integer(chunk_size),
+      type = type,
+      se.fit = se.fit,
+      allow_new_levels = allow_new_levels,
+      ...
+    ))
   }
 
   # ADR 0018: smooth-aware prediction on newdata. The smooth terms
@@ -570,117 +654,133 @@ predict.flexybayes <- function(object, newdata = NULL,
   # populated, use mgcv::PredictMat() per smooth and column-bind to
   # the linear-only design matrix.
   fixed_formula <- object$glm$formula
-  random_terms  <- object$extras$parse_info$random
-  smooths_slot  <- object$extras$parse_info$smooths
+  random_terms <- object$extras$parse_info$random
+  smooths_slot <- object$extras$parse_info$smooths
   has_smooth_in_ir <- !is.null(random_terms) &&
-    any(vapply(random_terms,
-               function(t) !is.null(t$type) && t$type == "smooth_mgcv",
-               logical(1)))
+    any(vapply(
+      random_terms,
+      function(t) !is.null(t$type) && t$type == "smooth_mgcv",
+      logical(1)
+    ))
 
-  if (has_smooth_in_ir &&
-      (is.null(smooths_slot) || length(smooths_slot) == 0L))
-    stop("predict.flexybayes(): the fit was produced before smooth-",
-         "basis retention shipped (or via fb_greta() where smooth ",
-         "basis is user-managed). Refusing to use stats::model.matrix() ",
-         "on smooth terms -- it would produce silently wrong ",
-         "predictions on newdata. Re-fit via flexybayes() / fb_brms() ",
-         "on the current package version to enable predict() with ",
-         "newdata.", call. = FALSE)
+  if (
+    has_smooth_in_ir &&
+      (is.null(smooths_slot) || length(smooths_slot) == 0L)
+  ) {
+    stop(
+      "predict.flexybayes(): the fit was produced before smooth-",
+      "basis retention shipped (or via fb_greta() where smooth ",
+      "basis is user-managed). Refusing to use stats::model.matrix() ",
+      "on smooth terms -- it would produce silently wrong ",
+      "predictions on newdata. Re-fit via flexybayes() / fb_brms() ",
+      "on the current package version to enable predict() with ",
+      "newdata.",
+      call. = FALSE
+    )
+  }
 
-  tryCatch({
-    if (has_smooth_in_ir && length(smooths_slot) > 0L) {
-      # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route the smooth
-      # in-memory path through the shared kernel so it matches the
-      # file-backed (.predict_to_file) and sampled-RE
-      # (.predict_in_memory_sample) paths byte-for-byte. The kernel
-      # builds the linear-only design matrix via .linear_formula(),
-      # multiplies the fixed-effect per-draw beta block, layers the
-      # per-smooth Bnew %*% (raw * sigma) contribution per draw, and
-      # returns the n_rows x n_draws_eff linear predictor matrix.
-      # Posterior aggregation (mean point + Monte Carlo se.fit) is
-      # applied here so the kernel stays contract-neutral.
-      per_draw_lin <- .predict_linear_draws(
-        object      = object,
-        newdata     = newdata,
-        n_draws_cap = 4000L,
-        sampled_re  = NULL,
-        include     = c("fixed", "smooth")
+  tryCatch(
+    {
+      if (has_smooth_in_ir && length(smooths_slot) > 0L) {
+        # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route the smooth
+        # in-memory path through the shared kernel so it matches the
+        # file-backed (.predict_to_file) and sampled-RE
+        # (.predict_in_memory_sample) paths byte-for-byte. The kernel
+        # builds the linear-only design matrix via .linear_formula(),
+        # multiplies the fixed-effect per-draw beta block, layers the
+        # per-smooth Bnew %*% (raw * sigma) contribution per draw, and
+        # returns the n_rows x n_draws_eff linear predictor matrix.
+        # Posterior aggregation (mean point + Monte Carlo se.fit) is
+        # applied here so the kernel stays contract-neutral.
+        per_draw_lin <- .predict_linear_draws(
+          object = object,
+          newdata = newdata,
+          n_draws_cap = 4000L,
+          sampled_re = NULL,
+          include = c("fixed", "smooth")
+        )
+        fam_link <- object$extras$parse_info$family
+        per_draw <- if (identical(type, "response")) {
+          .apply_link_inverse(per_draw_lin, fam_link$link)
+        } else {
+          per_draw_lin
+        }
+        pred <- rowMeans(per_draw)
+        if (se.fit) {
+          se <- apply(per_draw, 1L, stats::sd)
+          return(list(fit = pred, se.fit = se))
+        }
+        return(pred)
+      }
+
+      # No-smooth path. Preserves the coef()-based posterior-mean
+      # computation so INLA fits (which do not currently expose
+      # per-draw access on $greta$draws) continue to predict() on
+      # newdata. Per ADR 0023 the file-backed and sampled-RE paths
+      # remain greta-only; the kernel refuses cleanly there.
+      mm <- stats::model.matrix(
+        stats::delete.response(stats::terms(fixed_formula)),
+        data = newdata
       )
-      fam_link <- object$extras$parse_info$family
-      per_draw <- if (identical(type, "response"))
-                    .apply_link_inverse(per_draw_lin, fam_link$link)
-                  else
-                    per_draw_lin
-      pred <- rowMeans(per_draw)
+      beta <- coef(object)
+
+      common <- intersect(colnames(mm), names(beta))
+      if (length(common) == 0) {
+        warning("No matching coefficients for newdata prediction.")
+        pred <- rep(NA_real_, nrow(newdata))
+      } else {
+        pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
+      }
+
+      if (type == "response") {
+        fam_link <- object$extras$parse_info$family
+        pred <- switch(
+          fam_link$link,
+          "identity" = pred,
+          "log" = exp(pred),
+          "logit" = 1 / (1 + exp(-pred)),
+          "probit" = pnorm(pred),
+          pred
+        )
+      }
+
       if (se.fit) {
-        se <- apply(per_draw, 1L, stats::sd)
+        V <- vcov(object)
+        common <- intersect(colnames(mm), names(beta))
+        if (length(common) > 0 && nrow(V) > 0) {
+          se <- sqrt(rowSums(
+            (mm[, common, drop = FALSE] %*% V[common, common]) *
+              mm[, common, drop = FALSE]
+          ))
+        } else {
+          se <- rep(NA_real_, nrow(newdata))
+        }
         return(list(fit = pred, se.fit = se))
       }
-      return(pred)
-    }
 
-    # No-smooth path. Preserves the coef()-based posterior-mean
-    # computation so INLA fits (which do not currently expose
-    # per-draw access on $greta$draws) continue to predict() on
-    # newdata. Per ADR 0023 the file-backed and sampled-RE paths
-    # remain greta-only; the kernel refuses cleanly there.
-    mm <- stats::model.matrix(
-      stats::delete.response(stats::terms(fixed_formula)),
-      data = newdata
-    )
-    beta <- coef(object)
-
-    common <- intersect(colnames(mm), names(beta))
-    if (length(common) == 0) {
-      warning("No matching coefficients for newdata prediction.")
-      pred <- rep(NA_real_, nrow(newdata))
-    } else {
-      pred <- as.numeric(mm[, common, drop = FALSE] %*% beta[common])
-    }
-
-    if (type == "response") {
-      fam_link <- object$extras$parse_info$family
-      pred <- switch(fam_link$link,
-        "identity" = pred,
-        "log"      = exp(pred),
-        "logit"    = 1 / (1 + exp(-pred)),
-        "probit"   = pnorm(pred),
-        pred
-      )
-    }
-
-    if (se.fit) {
-      V <- vcov(object)
-      common <- intersect(colnames(mm), names(beta))
-      if (length(common) > 0 && nrow(V) > 0) {
-        se <- sqrt(rowSums(
-          (mm[, common, drop = FALSE] %*% V[common, common]) *
-           mm[, common, drop = FALSE]
-        ))
-      } else {
-        se <- rep(NA_real_, nrow(newdata))
+      pred
+    },
+    error = function(e) {
+      # ADR 0018: the legacy-fit correctness refusal above is a
+      # deliberate stop() with a structured message; re-raise it
+      # rather than swallow into a warning + NA vector.
+      msg <- conditionMessage(e)
+      if (grepl("smooth-basis retention", msg, fixed = TRUE)) {
+        stop(msg, call. = FALSE)
       }
-      return(list(fit = pred, se.fit = se))
+      warning("Prediction with newdata failed: ", msg)
+      rep(NA_real_, nrow(newdata))
     }
-
-    pred
-  }, error = function(e) {
-    # ADR 0018: the legacy-fit correctness refusal above is a
-    # deliberate stop() with a structured message; re-raise it
-    # rather than swallow into a warning + NA vector.
-    msg <- conditionMessage(e)
-    if (grepl("smooth-basis retention", msg, fixed = TRUE))
-      stop(msg, call. = FALSE)
-    warning("Prediction with newdata failed: ", msg)
-    rep(NA_real_, nrow(newdata))
-  })
+  )
 }
 
 # ADR 0018 internal helper: TRUE when the rhs of `f` contains at
 # least one s() smooth specification. Used by predict.flexybayes()
 # to drive the smooth-aware branch + the legacy-fit refusal.
 .formula_has_smooth <- function(f) {
-  if (!inherits(f, "formula")) return(FALSE)
+  if (!inherits(f, "formula")) {
+    return(FALSE)
+  }
   rhs <- f[[length(f)]]
   any(grepl("\\bs\\(", deparse(rhs)))
 }
@@ -692,7 +792,9 @@ predict.flexybayes <- function(object, newdata = NULL,
 # build the linear-only design matrix before column-binding the
 # per-smooth basis from mgcv::PredictMat().
 .linear_formula <- function(f) {
-  if (!inherits(f, "formula")) return(f)
+  if (!inherits(f, "formula")) {
+    return(f)
+  }
   tt <- stats::terms(f)
   labs <- attr(tt, "term.labels")
   keep <- !grepl("^s\\(", labs)
@@ -717,35 +819,43 @@ logLik.flexybayes <- function(object, ...) {
   fitted <- fitted(object)
   fam_link <- object$extras$parse_info$family
 
-  ll <- tryCatch({
-    if (fam_link$family == "gaussian") {
-      # Get residual SD from posterior
-      all_draws <- do.call(rbind, lapply(object$greta$draws, as.matrix))
-      sigma_cols <- grep("^sigma_e_atg", colnames(all_draws), value = TRUE)
-      if (length(sigma_cols) > 0) {
-        sigma_e <- mean(all_draws[, sigma_cols[1]])
+  ll <- tryCatch(
+    {
+      if (fam_link$family == "gaussian") {
+        # Get residual SD from posterior
+        all_draws <- do.call(rbind, lapply(object$greta$draws, as.matrix))
+        sigma_cols <- grep("^sigma_e_atg", colnames(all_draws), value = TRUE)
+        if (length(sigma_cols) > 0) {
+          sigma_e <- mean(all_draws[, sigma_cols[1]])
+        } else {
+          sigma_e <- sqrt(mean((y - fitted)^2))
+        }
+        sum(dnorm(y, mean = fitted, sd = sigma_e, log = TRUE))
+      } else if (fam_link$family %in% c("binomial", "binary")) {
+        p <- pmax(pmin(fitted, 1 - 1e-10), 1e-10)
+        sum(dbinom(y, size = 1, prob = p, log = TRUE))
+      } else if (fam_link$family == "poisson") {
+        sum(dpois(y, lambda = pmax(fitted, 1e-10), log = TRUE))
       } else {
-        sigma_e <- sqrt(mean((y - fitted)^2))
+        NA_real_
       }
-      sum(dnorm(y, mean = fitted, sd = sigma_e, log = TRUE))
-    } else if (fam_link$family %in% c("binomial", "binary")) {
-      p <- pmax(pmin(fitted, 1 - 1e-10), 1e-10)
-      sum(dbinom(y, size = 1, prob = p, log = TRUE))
-    } else if (fam_link$family == "poisson") {
-      sum(dpois(y, lambda = pmax(fitted, 1e-10), log = TRUE))
-    } else {
+    },
+    error = function(e) {
+      # Surface the failure rather than silently returning NA (charter:
+      # never swallow an error). Downstream anova() / AIC() see the NA and
+      # the user sees why.
+      warning(
+        "logLik() could not be computed (",
+        conditionMessage(e),
+        "); returning NA.",
+        call. = FALSE
+      )
       NA_real_
     }
-  }, error = function(e) {
-    # Surface the failure rather than silently returning NA (charter:
-    # never swallow an error). Downstream anova() / AIC() see the NA and
-    # the user sees why.
-    warning("logLik() could not be computed (", conditionMessage(e),
-            "); returning NA.", call. = FALSE)
-    NA_real_
-  })
+  )
 
-  structure(ll,
+  structure(
+    ll,
     df = object$extras$model_info$n_params,
     nobs = object$extras$model_info$n_obs,
     class = "logLik"
@@ -801,19 +911,19 @@ update.flexybayes <- function(object, ...) {
   dots <- list(...)
 
   args <- list(
-    fixed          = cl$fixed,
-    random         = cl$random,
-    rcov           = cl$rcov,
-    data           = object$glm$data,
-    family         = cl$family,
-    link           = cl$link,
+    fixed = cl$fixed,
+    random = cl$random,
+    rcov = cl$rcov,
+    data = object$glm$data,
+    family = cl$family,
+    link = cl$link,
     known_matrices = cl$known_matrices,
-    weights        = cl$weights,
-    n_samples      = cl$n_samples,
-    warmup         = cl$warmup,
-    chains         = cl$chains,
+    weights = cl$weights,
+    n_samples = cl$n_samples,
+    warmup = cl$warmup,
+    chains = cl$chains,
     prior_fixed_sd = cl$prior_fixed_sd,
-    prior_vc_sd    = cl$prior_vc_sd
+    prior_vc_sd = cl$prior_vc_sd
   )
 
   # Override with user-supplied arguments
@@ -837,14 +947,22 @@ anova.flexybayes <- function(object, ...) {
   n_models <- length(models)
 
   # Compute log-likelihoods
-  lls <- vapply(models, function(m) {
-    ll <- logLik(m)
-    as.numeric(ll)
-  }, numeric(1))
+  lls <- vapply(
+    models,
+    function(m) {
+      ll <- logLik(m)
+      as.numeric(ll)
+    },
+    numeric(1)
+  )
 
-  n_params <- vapply(models, function(m) {
-    m$extras$model_info$n_params
-  }, integer(1))
+  n_params <- vapply(
+    models,
+    function(m) {
+      m$extras$model_info$n_params
+    },
+    integer(1)
+  )
 
   # Approximate DIC-like comparison
   dic <- -2 * lls + 2 * n_params
@@ -852,11 +970,11 @@ anova.flexybayes <- function(object, ...) {
   model_names <- paste0("Model ", seq_len(n_models))
 
   result <- data.frame(
-    Model   = model_names,
-    logLik  = round(lls, 2),
-    npar    = n_params,
-    DIC     = round(dic, 2),
-    delta   = round(dic - min(dic), 2),
+    Model = model_names,
+    logLik = round(lls, 2),
+    npar = n_params,
+    DIC = round(dic, 2),
+    delta = round(dic - min(dic), 2),
     row.names = NULL,
     stringsAsFactors = FALSE
   )
@@ -864,8 +982,10 @@ anova.flexybayes <- function(object, ...) {
   cat("Bayesian model comparison\n")
   cat(strrep("-", 50), "\n")
   print(result)
-  cat("\nNote: DIC is approximate. For rigorous comparison,\n",
-      "use loo::loo() on the greta draws.\n")
+  cat(
+    "\nNote: DIC is approximate. For rigorous comparison,\n",
+    "use loo::loo() on the greta draws.\n"
+  )
 
   invisible(result)
 }
@@ -893,19 +1013,34 @@ anova.flexybayes <- function(object, ...) {
 #' @return Invisibly returns `x`.
 #' @export
 print.flexybayes_direct_greta <- function(x, ...) {
-  ci  <- x$extras$call_info
-  mi  <- x$extras$model_info
-  cm  <- mi$canonical_map
+  ci <- x$extras$call_info
+  mi <- x$extras$model_info
+  cm <- mi$canonical_map
 
   cat("Bayesian model  [flexyBayes / direct-greta entry]\n")
   cat(strrep("-", 55), "\n")
   cat("  Entry  : fb_greta() (user-built greta model)\n")
   cat("  Family :", mi$family, "(likelihood:", mi$likelihood, ")\n")
-  cat("  MCMC   :", ci$chains, "chain(s) x", ci$n_samples, "samples",
-      "(warmup =", ci$warmup, ") --",
-      round(x$extras$run_time, 1), "sec\n")
-  cat("  Params :", mi$n_params, "monitored",
-      "(", length(cm), "target greta_arrays)\n")
+  cat(
+    "  MCMC   :",
+    ci$chains,
+    "chain(s) x",
+    ci$n_samples,
+    "samples",
+    "(warmup =",
+    ci$warmup,
+    ") --",
+    round(x$extras$run_time, 1),
+    "sec\n"
+  )
+  cat(
+    "  Params :",
+    mi$n_params,
+    "monitored",
+    "(",
+    length(cm),
+    "target greta_arrays)\n"
+  )
 
   if (length(cm) > 0L) {
     cat("  Targets:", paste(names(cm), collapse = ", "), "\n")
@@ -913,8 +1048,9 @@ print.flexybayes_direct_greta <- function(x, ...) {
     if (has_renames) {
       cat("  Canonical map:\n")
       for (i in seq_along(cm)) {
-        if (names(cm)[i] != cm[i])
+        if (names(cm)[i] != cm[i]) {
           cat("    ", names(cm)[i], " -> ", cm[i], "\n", sep = "")
+        }
       }
     }
   }
@@ -922,18 +1058,30 @@ print.flexybayes_direct_greta <- function(x, ...) {
   if (!is.null(x$extras$convergence$gelman)) {
     rhat <- x$extras$convergence$gelman$psrf[, "Point est."]
     max_rhat <- max(rhat, na.rm = TRUE)
-    flag <- if (max_rhat < 1.05) " [OK]" else
-            if (max_rhat < 1.10) " [borderline]" else " [!]"
+    flag <- if (max_rhat < 1.05) {
+      " [OK]"
+    } else if (max_rhat < 1.10) {
+      " [borderline]"
+    } else {
+      " [!]"
+    }
     cat("  Max Rhat:", round(max_rhat, 3), flag, "\n")
   }
-  min_eff <- if (!is.null(x$extras$convergence$n_eff))
-               min(x$extras$convergence$n_eff, na.rm = TRUE) else NA
-  if (!is.na(min_eff))
+  min_eff <- if (!is.null(x$extras$convergence$n_eff)) {
+    min(x$extras$convergence$n_eff, na.rm = TRUE)
+  } else {
+    NA
+  }
+  if (!is.na(min_eff)) {
     cat("  Min ESS:", round(min_eff, 0), "\n")
+  }
 
   cat(strrep("-", 55), "\n")
-  cat("  $glm    -- minimal GLM-compatible shim ",
-      "(posterior means of target params)\n", sep = "")
+  cat(
+    "  $glm    -- minimal GLM-compatible shim ",
+    "(posterior means of target params)\n",
+    sep = ""
+  )
   cat("  $greta  -- native greta (model, draws, greta_arrays)\n")
   cat("  $extras -- diagnostics, canonical_map, backend_decision\n")
 
@@ -982,22 +1130,32 @@ coef.flexybayes_direct_greta <- function(object, ...) {
 #' @param ... Additional arguments (ignored).
 #' @return Numeric vector of length `nrow(newdata)`.
 #' @export
-predict.flexybayes_direct_greta <- function(object,
-                                            newdata,
-                                            predictor,
-                                            type = c("response", "link"),
-                                            n_draws = 500L,
-                                            ...) {
+predict.flexybayes_direct_greta <- function(
+  object,
+  newdata,
+  predictor,
+  type = c("response", "link"),
+  n_draws = 500L,
+  ...
+) {
   type <- match.arg(type)
-  if (missing(newdata) || is.null(newdata))
-    stop("`newdata` must be supplied to predict() on an fb_greta() ",
-         "fit (the IR does not encode a Wilkinson-Rogers formula ",
-         "that predict() can mechanically apply).", call. = FALSE)
-  if (missing(predictor) || !is.function(predictor))
-    stop("`predictor` must be a function `function(theta, newdata) ",
-         "-> numeric` mapping a named parameter vector and newdata to ",
-         "a vector of predictions. See ?predict.flexybayes_direct_greta ",
-         "for the contract.", call. = FALSE)
+  if (missing(newdata) || is.null(newdata)) {
+    stop(
+      "`newdata` must be supplied to predict() on an fb_greta() ",
+      "fit (the IR does not encode a Wilkinson-Rogers formula ",
+      "that predict() can mechanically apply).",
+      call. = FALSE
+    )
+  }
+  if (missing(predictor) || !is.function(predictor)) {
+    stop(
+      "`predictor` must be a function `function(theta, newdata) ",
+      "-> numeric` mapping a named parameter vector and newdata to ",
+      "a vector of predictions. See ?predict.flexybayes_direct_greta ",
+      "for the contract.",
+      call. = FALSE
+    )
+  }
 
   draws <- object$greta$draws
   all_draws <- do.call(rbind, lapply(draws, as.matrix))
@@ -1006,9 +1164,11 @@ predict.flexybayes_direct_greta <- function(object,
   # predictor sees the canonical names (consistent with coef()).
   cm <- object$extras$model_info$canonical_map
   greta_names <- names(cm)
-  canon       <- unname(cm)
+  canon <- unname(cm)
   for (i in seq_along(greta_names)) {
-    if (identical(greta_names[i], canon[i])) next
+    if (identical(greta_names[i], canon[i])) {
+      next
+    }
     pat <- paste0("^", greta_names[i], "(\\[|$)")
     repl <- paste0(canon[i], "\\1")
     colnames(all_draws) <- sub(pat, repl, colnames(all_draws))
@@ -1021,17 +1181,29 @@ predict.flexybayes_direct_greta <- function(object,
     idx <- sort(sample.int(n_total, n_draws, replace = FALSE))
   }
 
-  preds_mat <- vapply(idx, function(k) {
-    theta <- setNames(as.numeric(all_draws[k, ]), colnames(all_draws))
-    out <- predictor(theta, newdata)
-    if (!is.numeric(out) || length(out) != nrow(newdata))
-      stop("`predictor(theta, newdata)` must return a numeric vector ",
-           "of length nrow(newdata) = ", nrow(newdata),
-           "; got length ", length(out), ".", call. = FALSE)
-    out
-  }, numeric(nrow(newdata)))
+  preds_mat <- vapply(
+    idx,
+    function(k) {
+      theta <- setNames(as.numeric(all_draws[k, ]), colnames(all_draws))
+      out <- predictor(theta, newdata)
+      if (!is.numeric(out) || length(out) != nrow(newdata)) {
+        stop(
+          "`predictor(theta, newdata)` must return a numeric vector ",
+          "of length nrow(newdata) = ",
+          nrow(newdata),
+          "; got length ",
+          length(out),
+          ".",
+          call. = FALSE
+        )
+      }
+      out
+    },
+    numeric(nrow(newdata))
+  )
 
-  if (is.null(dim(preds_mat))) preds_mat <- matrix(preds_mat, nrow = 1L)
+  if (is.null(dim(preds_mat))) {
+    preds_mat <- matrix(preds_mat, nrow = 1L)
+  }
   rowMeans(preds_mat)
 }
- 

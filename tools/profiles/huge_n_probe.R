@@ -24,34 +24,35 @@ t0 <- Sys.time()
 # ---- Synthetic data ---------------------------------------------------
 
 n_rows <- 5e6L
-n_grp  <- 200L
+n_grp <- 200L
 set.seed(20260527L)
 d <- data.frame(
   group = factor(sample.int(n_grp, n_rows, replace = TRUE)),
-  x     = stats::rnorm(n_rows),
-  y     = stats::rnorm(n_rows)
+  x = stats::rnorm(n_rows),
+  y = stats::rnorm(n_rows)
 )
-cat(sprintf("Generated synthetic dataset: %d rows, %d groups.\n",
-            n_rows, n_grp))
+cat(sprintf(
+  "Generated synthetic dataset: %d rows, %d groups.\n",
+  n_rows,
+  n_grp
+))
 
 # ---- Preflight shape probe -------------------------------------------
 
 cat("\n-- preflight shape --\n")
 pf <- tryCatch(
   flexyBayes:::.fb_preflight(
-    fixed  = y ~ x,
-    random = ~ group,
-    data   = d
+    fixed = y ~ x,
+    random = ~group,
+    data = d
   ),
   error = function(e) {
-    cat(sprintf("preflight raised expected refusal: %s\n",
-                conditionMessage(e)))
+    cat(sprintf("preflight raised expected refusal: %s\n", conditionMessage(e)))
     NULL
   }
 )
 if (!is.null(pf)) {
-  cat(sprintf("preflight class: %s\n",
-              paste(class(pf), collapse = ", ")))
+  cat(sprintf("preflight class: %s\n", paste(class(pf), collapse = ", ")))
   agg <- attr(pf, "aggregation_plan")
   if (!is.null(agg)) {
     cat(sprintf("aggregation_plan code: %s\n", agg$code))
@@ -65,20 +66,21 @@ if (!is.null(pf)) {
 cat("\n-- aggregation plan probe --\n")
 plan <- tryCatch(
   flexyBayes:::.fb_aggregation_plan(
-    fixed  = y ~ x,
-    random = ~ group,
-    data   = d
+    fixed = y ~ x,
+    random = ~group,
+    data = d
   ),
   error = function(e) {
-    cat(sprintf("aggregation_plan raised: %s\n",
-                conditionMessage(e)))
+    cat(sprintf("aggregation_plan raised: %s\n", conditionMessage(e)))
     NULL
   }
 )
 if (!is.null(plan)) {
-  cat(sprintf("plan code: %s; n_cells = %s\n",
-              plan$code,
-              if (is.null(plan$n_cells)) "NA" else plan$n_cells))
+  cat(sprintf(
+    "plan code: %s; n_cells = %s\n",
+    plan$code,
+    if (is.null(plan$n_cells)) "NA" else plan$n_cells
+  ))
 }
 
 # ---- Prediction-kernel file-output shape probe -----------------------
@@ -91,18 +93,27 @@ if (!is.null(plan)) {
 
 cat("\n-- prediction-kernel format resolution --\n")
 fst_ok <- requireNamespace("fst", quietly = TRUE)
-fmt_auto   <- flexyBayes:::.resolve_format("auto", n_rows, FALSE, fst_ok)
+fmt_auto <- flexyBayes:::.resolve_format("auto", n_rows, FALSE, fst_ok)
 fmt_interop <- flexyBayes:::.resolve_format("auto", n_rows, TRUE, fst_ok)
 cat(sprintf("fst installed: %s\n", fst_ok))
-cat(sprintf("format(auto, N=%g): %s  (expected %s)\n",
-            n_rows, fmt_auto, if (fst_ok) "fst" else "rds"))
-cat(sprintf("format(auto, N=%g, interop): %s  (expected csv)\n",
-            n_rows, fmt_interop))
+cat(sprintf(
+  "format(auto, N=%g): %s  (expected %s)\n",
+  n_rows,
+  fmt_auto,
+  if (fst_ok) "fst" else "rds"
+))
+cat(sprintf(
+  "format(auto, N=%g, interop): %s  (expected csv)\n",
+  n_rows,
+  fmt_interop
+))
 stopifnot(identical(fmt_auto, if (fst_ok) "fst" else "rds"))
 stopifnot(identical(fmt_interop, "csv"))
 
 elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-cat(sprintf("\n=== huge_n_probe COMPLETE (v0.4.0) -- %.1fs ===\n",
-            elapsed))
-cat("All three huge-N shape paths (preflight, aggregation, prediction ",
-    "format resolution) handled the N = 5e6 data shape.\n", sep = "")
+cat(sprintf("\n=== huge_n_probe COMPLETE (v0.4.0) -- %.1fs ===\n", elapsed))
+cat(
+  "All three huge-N shape paths (preflight, aggregation, prediction ",
+  "format resolution) handled the N = 5e6 data shape.\n",
+  sep = ""
+)

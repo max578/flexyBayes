@@ -40,7 +40,9 @@ mk_nomm_data <- function(n = 60L, n_group = 6L, seed = 20260523L) {
   set.seed(seed)
   g <- factor(rep(seq_len(n_group), length.out = n))
   x <- stats::rnorm(n)
-  y <- 1 + 0.4 * x + stats::rnorm(n_group, 0, 0.3)[as.integer(g)] +
+  y <- 1 +
+    0.4 * x +
+    stats::rnorm(n_group, 0, 0.3)[as.integer(g)] +
     stats::rnorm(n, 0, 0.5)
   data.frame(y = y, x = x, g = g)
 }
@@ -50,15 +52,22 @@ mk_nomm_data <- function(n = 60L, n_group = 6L, seed = 20260523L) {
 # offending match for diagnostic clarity.
 expect_no_model_matrix_in_code <- function(code, label) {
   testthat::expect_type(code, "character")
-  testthat::expect_true(nzchar(code),
-                        info = paste0(label, ": codegen returned empty string"))
+  testthat::expect_true(
+    nzchar(code),
+    info = paste0(label, ": codegen returned empty string")
+  )
   # Match any of: model.matrix(, stats::model.matrix(, base::model.matrix(.
   pat <- "(stats::|base::)?model\\.matrix\\("
   hit <- regmatches(code, regexpr(pat, code))
   testthat::expect_false(
     grepl(pat, code),
-    info = paste0(label, ": fit-time code contains a model.matrix() ",
-                  "call (match: '", paste(hit, collapse = ", "), "')")
+    info = paste0(
+      label,
+      ": fit-time code contains a model.matrix() ",
+      "call (match: '",
+      paste(hit, collapse = ", "),
+      "')"
+    )
   )
 }
 
@@ -70,11 +79,11 @@ test_that("greta fit-time code path emits no model.matrix() call for simple fixe
   skip_if_no_greta()
   d <- mk_nomm_data()
   code <- suppressMessages(flexybayes(
-    fixed         = y ~ g,
-    data          = d,
-    return_code   = TRUE,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    fixed = y ~ g,
+    data = d,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_no_model_matrix_in_code(code, "fixed_factor_simple")
 })
@@ -87,12 +96,12 @@ test_that("greta fit-time code path emits no model.matrix() call for random inte
   skip_if_no_greta()
   d <- mk_nomm_data()
   code <- suppressMessages(flexybayes(
-    fixed         = y ~ x,
-    random        = ~ g,
-    data          = d,
-    return_code   = TRUE,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_no_model_matrix_in_code(code, "random_intercept")
 })
@@ -106,12 +115,12 @@ test_that("greta fit-time code path emits no model.matrix() call for smooth s(x)
   skip_if_no_mgcv()
   d <- mk_nomm_data()
   code <- suppressMessages(flexybayes(
-    fixed         = y ~ 1,
-    random        = ~ s(x, k = 6L),
-    data          = d,
-    return_code   = TRUE,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    fixed = y ~ 1,
+    random = ~ s(x, k = 6L),
+    data = d,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_no_model_matrix_in_code(code, "smooth")
 })
@@ -130,17 +139,25 @@ test_that("greta fit-time code path emits no model.matrix() call for smooth s(x)
 test_that("indexed emit keeps return_code size bounded across n for random intercept", {
   skip_if_no_greta()
   d_small <- mk_nomm_data(n = 100L)
-  d_big   <- mk_nomm_data(n = 5000L)
+  d_big <- mk_nomm_data(n = 5000L)
   code_small <- suppressMessages(flexybayes(
-    fixed = y ~ x, random = ~ g, data = d_small,
-    return_code = TRUE, verbose = FALSE, mcmc_verbose = FALSE
+    fixed = y ~ x,
+    random = ~g,
+    data = d_small,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   code_big <- suppressMessages(flexybayes(
-    fixed = y ~ x, random = ~ g, data = d_big,
-    return_code = TRUE, verbose = FALSE, mcmc_verbose = FALSE
+    fixed = y ~ x,
+    random = ~g,
+    data = d_big,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   n_small <- nchar(code_small)
-  n_big   <- nchar(code_big)
+  n_big <- nchar(code_big)
   # Allow 2x because of incidental seed-text or repr drift; the
   # important property is that code size is not linear in n. A
   # dense fall-back at n = 5000 would inline a 5000-row matrix
@@ -156,11 +173,11 @@ test_that("greta fit-time code path emits no model.matrix() call for factor:nume
   skip_if_no_greta()
   d <- mk_nomm_data()
   code <- suppressMessages(flexybayes(
-    fixed         = y ~ g:x,
-    data          = d,
-    return_code   = TRUE,
-    verbose       = FALSE,
-    mcmc_verbose  = FALSE
+    fixed = y ~ g:x,
+    data = d,
+    return_code = TRUE,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   expect_no_model_matrix_in_code(code, "factor_numeric_interaction")
 })
@@ -177,10 +194,10 @@ test_that("greta fit-time code path emits no model.matrix() call for (x || g)", 
   # no model.matrix() call in the greta-side codegen.
   code <- suppressMessages(fb(
     y ~ x + (x || g),
-    data        = d,
-    backend     = "greta",
+    data = d,
+    backend = "greta",
     return_code = TRUE,
-    verbose     = FALSE
+    verbose = FALSE
   ))
   expect_no_model_matrix_in_code(code, "uncorrelated_random_slopes")
 })

@@ -11,21 +11,29 @@
 
 library(flexyBayes)
 data(met_example)
-dat    <- met_example$dat
-G_mat  <- met_example$G_mat
-A_mat  <- met_example$A_mat
+dat <- met_example$dat
+G_mat <- met_example$G_mat
+A_mat <- met_example$A_mat
 
-cat("Dataset:", nrow(dat), "observations,",
-    met_example$n_geno, "genotypes x",
-    met_example$n_env, "environments\n\n")
+cat(
+  "Dataset:",
+  nrow(dat),
+  "observations,",
+  met_example$n_geno,
+  "genotypes x",
+  met_example$n_env,
+  "environments\n\n"
+)
 
 ## ── 1. Baseline: Intercept-only ─────────────────────────────────────────────
 
 cat("=== Model 1: Intercept-only ===\n")
 fit1 <- flexybayes(
-  fixed     = yield ~ 1,
-  data      = dat,
-  n_samples = 500, warmup = 200, chains = 2
+  fixed = yield ~ 1,
+  data = dat,
+  n_samples = 500,
+  warmup = 200,
+  chains = 2
 )
 summary(fit1)
 
@@ -33,10 +41,12 @@ summary(fit1)
 
 cat("\n=== Model 2: Fixed env + random geno ===\n")
 fit2 <- flexybayes(
-  fixed     = yield ~ env,
-  random    = ~ geno,
-  data      = dat,
-  n_samples = 500, warmup = 200, chains = 2
+  fixed = yield ~ env,
+  random = ~geno,
+  data = dat,
+  n_samples = 500,
+  warmup = 200,
+  chains = 2
 )
 summary(fit2)
 cat("\nBLUPs:\n")
@@ -46,11 +56,13 @@ print(round(fit2$extras$blups$u_geno, 3))
 
 cat("\n=== Model 3: GBLUP ===\n")
 fit3 <- flexybayes(
-  fixed          = yield ~ env,
-  random         = ~ vm(geno, Gmat),
-  data           = dat,
+  fixed = yield ~ env,
+  random = ~ vm(geno, Gmat),
+  data = dat,
   known_matrices = list(Gmat = G_mat),
-  n_samples      = 500, warmup = 200, chains = 2
+  n_samples = 500,
+  warmup = 200,
+  chains = 2
 )
 summary(fit3)
 
@@ -58,10 +70,12 @@ summary(fit3)
 
 cat("\n=== Model 4: at(env):geno (diagonal GxE) ===\n")
 fit4 <- flexybayes(
-  fixed     = yield ~ env,
-  random    = ~ at(env):geno,
-  data      = dat,
-  n_samples = 500, warmup = 200, chains = 2
+  fixed = yield ~ env,
+  random = ~ at(env):geno,
+  data = dat,
+  n_samples = 500,
+  warmup = 200,
+  chains = 2
 )
 summary(fit4)
 
@@ -69,11 +83,13 @@ summary(fit4)
 
 cat("\n=== Model 5: Heterogeneous residual ===\n")
 fit5 <- flexybayes(
-  fixed     = yield ~ env,
-  random    = ~ geno,
-  rcov      = ~ at(env):units,
-  data      = dat,
-  n_samples = 500, warmup = 200, chains = 2
+  fixed = yield ~ env,
+  random = ~geno,
+  rcov = ~ at(env):units,
+  data = dat,
+  n_samples = 500,
+  warmup = 200,
+  chains = 2
 )
 summary(fit5)
 
