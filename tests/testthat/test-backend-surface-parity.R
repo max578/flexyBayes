@@ -89,7 +89,7 @@ test_that("triangulate() puts INLA variance components on the SD scale, not prec
 # 2. plot() dispatches across backend fit classes                   #
 # ---------------------------------------------------------------- #
 
-test_that("plot() dispatches on an INLA fit: effects renders, MCMC-only types degrade to a message", {
+test_that("plot() dispatches on an INLA fit: effects + residuals render, MCMC-only types degrade to a message", {
   skip_on_cran()
   skip_if_not_installed("INLA")
   silence_notes()
@@ -117,10 +117,15 @@ test_that("plot() dispatches on an INLA fit: effects renders, MCMC-only types de
   # The forest plot reads coef() / confint(), which INLA supports.
   expect_no_error(plot(fi, type = "effects"))
 
-  # Trace / residual plots need MCMC draws / fitted values the INLA fit
-  # does not expose -- they must message, never crash to plot.default.
+  # The residual plot reads fitted() / residuals(), which the INLA fit now
+  # exposes (fitted.flexybayes_inla / residuals.flexybayes_inla, added
+  # 2026-06-02 after the corner-to-corner stress run found they silently
+  # returned NULL) -- so it renders rather than degrading.
+  expect_no_error(plot(fi, type = "residuals"))
+
+  # Trace / diagnostics plots genuinely need MCMC draws the INLA (Laplace)
+  # fit does not have -- they must message, never crash to plot.default.
   expect_message(plot(fi, type = "diagnostics"), "not available")
-  expect_message(plot(fi, type = "residuals"), "not available")
 })
 
 

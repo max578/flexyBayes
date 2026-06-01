@@ -167,6 +167,96 @@ family.flexybayes_inla <- function(object, ...) {
   list(family = mi$family %||% "gaussian", link = mi$link %||% "identity")
 }
 
+#' In-sample fitted values from a per-row INLA fit
+#'
+#' Returns INLA's posterior-mean fitted values (response scale) for the
+#' observed rows, taken from `summary.fitted.values`. Without this method
+#' `fitted()` dispatched to `stats::fitted.default`, which silently returned
+#' `NULL` for an INLA fit because the object does not populate a `$glm` slot.
+#'
+#' @param object A `flexybayes_inla` fit.
+#' @param ... Ignored.
+#' @return A numeric vector of posterior-mean fitted values, one per observation.
+#' @export
+fitted.flexybayes_inla <- function(object, ...) {
+  sf <- object$inla$summary.fitted.values
+  if (is.null(sf) || is.null(sf$mean)) {
+    stop(
+      "fitted.flexybayes_inla(): this INLA fit does not carry fitted ",
+      "values (no `$inla$summary.fitted.values`).",
+      call. = FALSE
+    )
+  }
+  out <- as.numeric(sf$mean)
+  n_obs <- tryCatch(nrow(object$data), error = function(e) length(out))
+  if (is.finite(n_obs) && length(out) > n_obs) {
+    out <- out[seq_len(n_obs)]
+  }
+  out
+}
+
+#' Response residuals from a per-row INLA fit
+#'
+#' Observed response minus the posterior-mean fitted value (on the response
+#' scale). The response is recovered from the fit's fixed-effect formula
+#' evaluated against the stored data, so a transformed response
+#' (`log(y) ~ ...`) residualises on the modelled scale.
+#'
+#' @param object A `flexybayes_inla` fit.
+#' @param ... Ignored.
+#' @return A numeric vector of response residuals, one per observation.
+#' @export
+residuals.flexybayes_inla <- function(object, ...) {
+  fit_vals <- fitted(object)
+  f <- formula(object)
+  y <- if (length(f) == 3L) {
+    tryCatch(as.numeric(eval(f[[2L]], envir = object$data)),
+             error = function(e) NULL)
+  } else {
+    NULL
+  }
+  if (is.null(y) || length(y) != length(fit_vals)) {
+    stop(
+      "residuals.flexybayes_inla(): could not recover the response on the ",
+      "fitted scale from the stored data.",
+      call. = FALSE
+    )
+  }
+  y - fit_vals
+}
+
+#' Log-likelihood of a per-row INLA fit (not computed)
+#'
+#' INLA reports a *marginal* log-likelihood (the model evidence, available
+#' through [summary()]), not the *conditional* model log-likelihood that the
+#' `logLik()` generic denotes and that the greta / brms backends expose.
+#' Returning the marginal quantity under the `logLik` name would conflate two
+#' different things, so this method honestly returns `NA` (with the degrees of
+#' freedom and observation count filled in) and a one-line note. This also
+#' lets downstream summaries (for example [glance()]) degrade gracefully
+#' instead of erroring with "no applicable method".
+#'
+#' @param object A `flexybayes_inla` fit.
+#' @param ... Ignored.
+#' @return A `logLik` object whose value is `NA_real_`, carrying `df` and
+#'   `nobs` attributes.
+#' @export
+logLik.flexybayes_inla <- function(object, ...) {
+  message(
+    "logLik() is not defined for INLA fits: INLA reports a *marginal* ",
+    "log-likelihood (model evidence; see summary()), not the conditional ",
+    "log-likelihood logLik() denotes. Returning NA."
+  )
+  np <- tryCatch(nrow(object$inla$summary.fixed),
+                 error = function(e) NA_integer_)
+  n_obs <- tryCatch(nrow(object$data), error = function(e) NA_integer_)
+  val <- NA_real_
+  attr(val, "df") <- np
+  attr(val, "nobs") <- n_obs
+  class(val) <- "logLik"
+  val
+}
+
 #' Population-level predictions from a per-row INLA fit
 #'
 #' Fixed-effect (population-level) predictions: the linear predictor is
