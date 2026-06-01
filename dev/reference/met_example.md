@@ -153,15 +153,15 @@ if (requireNamespace("greta", quietly = TRUE)) {
 #> 
 #> -- Fixed effects (posterior)  ----------------------------------- 
 #>             Estimate Post.SD
-#> (Intercept)  47.9118  0.6635
-#> envE2         2.1194  0.4597
-#> envE3         3.4470  0.4597
-#> envE4         6.0062  0.4597
+#> (Intercept)  47.9118  0.6643
+#> envE2         2.1194  0.4602
+#> envE3         3.4470  0.4602
+#> envE4         6.0062  0.4602
 #> 
 #> -- Variance components  ---------------------------------------- 
-#>   sigma (residual SD): 1.7654
-#>   tau_1  (random SD): 1.5997
+#>   sigma (residual SD): 1.7651
+#>   tau_1  (random SD): 1.6090
 #> 
-#>   Run time: 0.47 sec
+#>   Run time: 0.46 sec
 # }
 ```
