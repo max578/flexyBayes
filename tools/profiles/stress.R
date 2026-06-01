@@ -13,16 +13,21 @@ suppressMessages(devtools::load_all("flexyBayes", quiet = TRUE))
 
 t0 <- Sys.time()
 res <- testthat::test_dir(
-  path            = "flexyBayes/tests/testthat",
-  reporter        = "progress",
+  path = "flexyBayes/tests/testthat",
+  reporter = "progress",
   stop_on_failure = FALSE
 )
 df <- as.data.frame(res)
 elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
 cat("\n=== stress profile ===\n")
-cat(sprintf("PASS: %d  FAIL: %d  SKIP: %d  WALL: %.1fs\n",
-            sum(df$passed), sum(df$failed), sum(df$skipped), elapsed))
+cat(sprintf(
+  "PASS: %d  FAIL: %d  SKIP: %d  WALL: %.1fs\n",
+  sum(df$passed),
+  sum(df$failed),
+  sum(df$skipped),
+  elapsed
+))
 
 if (sum(df$failed) > 0L) {
   cat("\nStress profile FAILED.  Inspect output above.\n")

@@ -11,7 +11,7 @@
 #' @export
 summary.flexybayes_glm <- function(object, ...) {
   beta <- object$coefficients
-  V    <- attr(object, "posterior_vcov")
+  V <- attr(object, "posterior_vcov")
 
   if (length(beta) == 0 || is.null(V) || nrow(V) == 0) {
     cat("No fixed effects to summarise.\n")
@@ -24,9 +24,9 @@ summary.flexybayes_glm <- function(object, ...) {
   pd <- pnorm(abs(beta / se))
 
   coef_table <- cbind(
-    Estimate   = beta,
-    `Post.SD`  = se,
-    `z value`  = beta / se,
+    Estimate = beta,
+    `Post.SD` = se,
+    `z value` = beta / se,
     `Pr(>|z|)` = 2 * (1 - pd)
   )
 
@@ -34,10 +34,16 @@ summary.flexybayes_glm <- function(object, ...) {
   cat("Family:", object$family$family, "\n")
   cat("Link:  ", object$family$link, "\n\n")
   cat("Coefficients (posterior means):\n")
-  printCoefmat(coef_table, P.values = TRUE, has.Pvalue = TRUE,
-               signif.stars = FALSE)
-  cat("\n(Note: Pr(>|z|) is approximate posterior probability of direction,\n",
-      " not a frequentist p-value.)\n")
+  printCoefmat(
+    coef_table,
+    P.values = TRUE,
+    has.Pvalue = TRUE,
+    signif.stars = FALSE
+  )
+  cat(
+    "\n(Note: Pr(>|z|) is approximate posterior probability of direction,\n",
+    " not a frequentist p-value.)\n"
+  )
   cat("Residual df:", object$df.residual, "\n")
 
   invisible(coef_table)
@@ -54,7 +60,7 @@ summary.flexybayes_glm <- function(object, ...) {
 #' @export
 confint.flexybayes_glm <- function(object, parm = NULL, level = 0.95, ...) {
   beta <- object$coefficients
-  V    <- attr(object, "posterior_vcov")
+  V <- attr(object, "posterior_vcov")
 
   if (length(beta) == 0 || is.null(V)) {
     return(matrix(nrow = 0, ncol = 2))

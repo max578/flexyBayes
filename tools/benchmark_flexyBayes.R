@@ -59,8 +59,10 @@
 
 suppressPackageStartupMessages({
   if (!requireNamespace("data.table", quietly = TRUE)) {
-    stop("Package 'data.table' is required for this benchmark harness.",
-         call. = FALSE)
+    stop(
+      "Package 'data.table' is required for this benchmark harness.",
+      call. = FALSE
+    )
   }
 })
 
@@ -101,8 +103,12 @@ parse_args <- function(x) {
 }
 
 as_bool <- function(x, default = FALSE) {
-  if (is.null(x)) return(default)
-  if (is.logical(x)) return(isTRUE(x))
+  if (is.null(x)) {
+    return(default)
+  }
+  if (is.logical(x)) {
+    return(isTRUE(x))
+  }
   tolower(as.character(x)) %in% c("true", "t", "yes", "y", "1")
 }
 
@@ -116,8 +122,10 @@ load_local_flexybayes <- function(pkg_dir = "flexyBayes") {
   } else if (requireNamespace("pkgload", quietly = TRUE)) {
     suppressMessages(pkgload::load_all(pkg_dir, quiet = TRUE))
   } else {
-    stop("Need devtools or pkgload to load local flexyBayes source.",
-         call. = FALSE)
+    stop(
+      "Need devtools or pkgload to load local flexyBayes source.",
+      call. = FALSE
+    )
   }
   invisible(TRUE)
 }
@@ -129,15 +137,30 @@ pkg_version_from_description <- function(pkg_dir = "flexyBayes") {
 
 installed_table <- function() {
   ip <- installed.packages()[, c("Package", "Version"), drop = FALSE]
-  pkgs <- c("devtools", "pkgload", "data.table", "testthat", "greta",
-            "INLA", "brms", "posterior", "lme4", "mgcv", "coda",
-            "Matrix", "sn", "vdiffr")
+  pkgs <- c(
+    "devtools",
+    "pkgload",
+    "data.table",
+    "testthat",
+    "greta",
+    "INLA",
+    "brms",
+    "posterior",
+    "lme4",
+    "mgcv",
+    "coda",
+    "Matrix",
+    "sn",
+    "vdiffr"
+  )
   dt(
     package = pkgs,
     installed = pkgs %in% ip[, "Package"],
-    version = ifelse(pkgs %in% ip[, "Package"],
-                     ip[match(pkgs, ip[, "Package"]), "Version"],
-                     NA_character_)
+    version = ifelse(
+      pkgs %in% ip[, "Package"],
+      ip[match(pkgs, ip[, "Package"]), "Version"],
+      NA_character_
+    )
   )
 }
 
@@ -169,7 +192,9 @@ make_structured_data <- function(seed = 3L) {
     rep = seq_len(2L)
   )
   dat$x <- stats::rnorm(nrow(dat))
-  dat$y <- 10 + as.numeric(dat$env) + 0.5 * dat$x +
+  dat$y <- 10 +
+    as.numeric(dat$env) +
+    0.5 * dat$x +
     stats::rnorm(nrow(dat), 0, 1)
   A <- crossprod(matrix(stats::rnorm(n_geno * n_geno), n_geno, n_geno))
   diag(A) <- diag(A) + 0.1
@@ -202,13 +227,16 @@ bench_expr <- function(id, group, label, reps, expr) {
   err <- NA_character_
   status <- "ok"
   for (i in seq_len(reps)) {
-    ok <- tryCatch({
-      eval(expr_sub, envir = expr_env)
-      TRUE
-    }, error = function(e) {
-      err <<- conditionMessage(e)
-      FALSE
-    })
+    ok <- tryCatch(
+      {
+        eval(expr_sub, envir = expr_env)
+        TRUE
+      },
+      error = function(e) {
+        err <<- conditionMessage(e)
+        FALSE
+      }
+    )
     if (!ok) {
       status <- "error"
       break
@@ -227,8 +255,11 @@ bench_expr <- function(id, group, label, reps, expr) {
   )
 }
 
-run_microbenchmarks <- function(pkg_dir = "flexyBayes", reps = 100L,
-                                cores = 4L) {
+run_microbenchmarks <- function(
+  pkg_dir = "flexyBayes",
+  reps = 100L,
+  cores = 4L
+) {
   load_local_flexybayes(pkg_dir)
 
   fb_from_brms <- getFromNamespace("fb_from_brms", "flexyBayes")
@@ -236,8 +267,10 @@ run_microbenchmarks <- function(pkg_dir = "flexyBayes", reps = 100L,
   lgm_gate <- getFromNamespace("lgm_gate", "flexyBayes")
   priors_to_inla <- getFromNamespace("priors_to_inla", "flexyBayes")
   priors_to_legacy <- getFromNamespace("priors_to_legacy", "flexyBayes")
-  priors_to_brms_specs <- getFromNamespace(".priors_to_brms_specs",
-                                           "flexyBayes")
+  priors_to_brms_specs <- getFromNamespace(
+    ".priors_to_brms_specs",
+    "flexyBayes"
+  )
 
   d_g <- make_gaussian_ri(80L, 8L, 11L)
   d_p <- make_poisson_ri(100L, 10L, 12L)
@@ -251,61 +284,125 @@ run_microbenchmarks <- function(pkg_dir = "flexyBayes", reps = 100L,
   )
 
   jobs <- list(
-    function() bench_expr("parse_brms_fixed", "parse_ir",
-                          "fb_from_brms fixed-only gaussian", reps,
-                          fb_from_brms(y ~ x, data = d_g)),
-    function() bench_expr("parse_brms_ri", "parse_ir",
-                          "fb_from_brms gaussian random intercept", reps,
-                          fb_from_brms(y ~ x + (1 | g), data = d_g)),
-    function() bench_expr("parse_brms_crossed", "parse_ir",
-                          "fb_from_brms crossed random intercepts", reps,
-                          {
-                            dd <- d_g
-                            dd$h <- factor(rep(1:4, length.out = nrow(dd)))
-                            fb_from_brms(y ~ x + (1 | g) + (1 | h),
-                                         data = dd)
-                          }),
-    function() bench_expr("parse_asreml_ri", "parse_ir",
-                          "fb_from_asreml random intercept", reps,
-                          fb_from_asreml(y ~ x, random = ~ g, data = d_g)),
-    function() bench_expr("parse_asreml_vm_code_ir", "parse_ir",
-                          "fb_from_asreml vm(geno, Gmat)", max(10L, reps %/% 5L),
-                          fb_from_asreml(
-                            y ~ env + x,
-                            random = ~ vm(geno, Gmat),
-                            data = sdat$dat,
-                            known_matrices = list(Gmat = sdat$Gmat)
-                          )),
-    function() bench_expr("lgm_gate_accept", "gate",
-                          "lgm_gate accepted gaussian RI", reps,
-                          lgm_gate(fb_ri)),
-    function() bench_expr("lgm_gate_refuse_us", "gate",
-                          "lgm_gate structured covariance refusal",
-                          max(10L, reps %/% 5L),
-                          {
-                            fb_us <- fb_from_asreml(
-                              y ~ env + x,
-                              random = ~ us(env):id(geno),
-                              data = sdat$dat
-                            )
-                            lgm_gate(fb_us)
-                          }),
-    function() bench_expr("prior_parse", "priors",
-                          "fb_prior DSL parse", reps,
-                          fb_prior(
-                            sigma ~ uniform(0, 5),
-                            sd(group = "g") ~ pc(2, 0.05),
-                            b("x") ~ normal(0, 10)
-                          )),
-    function() bench_expr("prior_to_inla", "priors",
-                          "priors_to_inla translation", reps,
-                          priors_to_inla(p)),
-    function() bench_expr("prior_to_legacy", "priors",
-                          "priors_to_legacy translation", reps,
-                          priors_to_legacy(p, fixed_sd_default = 100)),
-    function() bench_expr("prior_to_brms_specs", "priors",
-                          "priors_to_brms_specs translation", reps,
-                          priors_to_brms_specs(p, fb_ri))
+    function() {
+      bench_expr(
+        "parse_brms_fixed",
+        "parse_ir",
+        "fb_from_brms fixed-only gaussian",
+        reps,
+        fb_from_brms(y ~ x, data = d_g)
+      )
+    },
+    function() {
+      bench_expr(
+        "parse_brms_ri",
+        "parse_ir",
+        "fb_from_brms gaussian random intercept",
+        reps,
+        fb_from_brms(y ~ x + (1 | g), data = d_g)
+      )
+    },
+    function() {
+      bench_expr(
+        "parse_brms_crossed",
+        "parse_ir",
+        "fb_from_brms crossed random intercepts",
+        reps,
+        {
+          dd <- d_g
+          dd$h <- factor(rep(1:4, length.out = nrow(dd)))
+          fb_from_brms(y ~ x + (1 | g) + (1 | h), data = dd)
+        }
+      )
+    },
+    function() {
+      bench_expr(
+        "parse_asreml_ri",
+        "parse_ir",
+        "fb_from_asreml random intercept",
+        reps,
+        fb_from_asreml(y ~ x, random = ~g, data = d_g)
+      )
+    },
+    function() {
+      bench_expr(
+        "parse_asreml_vm_code_ir",
+        "parse_ir",
+        "fb_from_asreml vm(geno, Gmat)",
+        max(10L, reps %/% 5L),
+        fb_from_asreml(
+          y ~ env + x,
+          random = ~ vm(geno, Gmat),
+          data = sdat$dat,
+          known_matrices = list(Gmat = sdat$Gmat)
+        )
+      )
+    },
+    function() {
+      bench_expr(
+        "lgm_gate_accept",
+        "gate",
+        "lgm_gate accepted gaussian RI",
+        reps,
+        lgm_gate(fb_ri)
+      )
+    },
+    function() {
+      bench_expr(
+        "lgm_gate_refuse_us",
+        "gate",
+        "lgm_gate structured covariance refusal",
+        max(10L, reps %/% 5L),
+        {
+          fb_us <- fb_from_asreml(
+            y ~ env + x,
+            random = ~ us(env):id(geno),
+            data = sdat$dat
+          )
+          lgm_gate(fb_us)
+        }
+      )
+    },
+    function() {
+      bench_expr(
+        "prior_parse",
+        "priors",
+        "fb_prior DSL parse",
+        reps,
+        fb_prior(
+          sigma ~ uniform(0, 5),
+          sd(group = "g") ~ pc(2, 0.05),
+          b("x") ~ normal(0, 10)
+        )
+      )
+    },
+    function() {
+      bench_expr(
+        "prior_to_inla",
+        "priors",
+        "priors_to_inla translation",
+        reps,
+        priors_to_inla(p)
+      )
+    },
+    function() {
+      bench_expr(
+        "prior_to_legacy",
+        "priors",
+        "priors_to_legacy translation",
+        reps,
+        priors_to_legacy(p, fixed_sd_default = 100)
+      )
+    },
+    function() {
+      bench_expr(
+        "prior_to_brms_specs",
+        "priors",
+        "priors_to_brms_specs translation",
+        reps,
+        priors_to_brms_specs(p, fb_ri)
+      )
+    }
   )
 
   # Fork only pure-R / parse-level work here. Heavy backend fits are
@@ -348,7 +445,9 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
   set.seed(seed)
   g <- factor(rep(seq_len(n_group), length.out = n))
   x <- stats::rnorm(n)
-  y <- 1 + 0.4 * x + stats::rnorm(n_group, 0, 0.3)[as.integer(g)] +
+  y <- 1 +
+    0.4 * x +
+    stats::rnorm(n_group, 0, 0.3)[as.integer(g)] +
     stats::rnorm(n, 0, 0.5)
   data.frame(y = y, x = x, g = g)
 }
@@ -361,7 +460,8 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
 # the emit path actually allocates -- not what model.matrix() would
 # allocate on a hypothetical dense fall-back.
 .repr_pre_fit_object_size <- function(term_class, data, fb = NULL) {
-  switch(term_class,
+  switch(
+    term_class,
     fixed_factor_simple = {
       # Indexed emit binds the factor level vector (integer per row).
       utils::object.size(as.integer(data$g))
@@ -374,8 +474,11 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
     smooth = {
       # Smooth emit binds the basis matrix B_s_x; the largest pre-fit
       # object is therefore that matrix, not a model.matrix() expansion.
-      if (!is.null(fb) && length(fb$random_terms) >= 1L &&
-          !is.null(fb$random_terms[[1L]]$smooth_obj)) {
+      if (
+        !is.null(fb) &&
+          length(fb$random_terms) >= 1L &&
+          !is.null(fb$random_terms[[1L]]$smooth_obj)
+      ) {
         smobj <- fb$random_terms[[1L]]$smooth_obj
         if (!is.null(smobj$X)) {
           return(utils::object.size(smobj$X))
@@ -383,8 +486,12 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
       }
       # Defensive fallback: synthesise the basis using mgcv directly.
       if (requireNamespace("mgcv", quietly = TRUE)) {
-        sm <- mgcv::smoothCon(mgcv::s(x, k = 6L), data = data,
-                              knots = NULL, absorb.cons = TRUE)[[1L]]
+        sm <- mgcv::smoothCon(
+          mgcv::s(x, k = 6L),
+          data = data,
+          knots = NULL,
+          absorb.cons = TRUE
+        )[[1L]]
         utils::object.size(sm$X)
       } else {
         NA_real_
@@ -396,10 +503,11 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
 
 .repr_one_cell <- function(term_class, n, pkg_dir) {
   d <- make_repr_data(n)
-  formula_pieces <- switch(term_class,
-    fixed_factor_simple = list(fixed = y ~ g,             random = NULL),
-    random_intercept    = list(fixed = y ~ x,             random = ~ g),
-    smooth              = list(fixed = y ~ 1,             random = ~ s(x, k = 6L)),
+  formula_pieces <- switch(
+    term_class,
+    fixed_factor_simple = list(fixed = y ~ g, random = NULL),
+    random_intercept = list(fixed = y ~ x, random = ~g),
+    smooth = list(fixed = y ~ 1, random = ~ s(x, k = 6L)),
     stop("unknown term_class: ", term_class, call. = FALSE)
   )
 
@@ -407,12 +515,12 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
   t0 <- proc.time()[["elapsed"]]
   code <- tryCatch(
     suppressMessages(flexybayes(
-      fixed         = formula_pieces$fixed,
-      random        = formula_pieces$random,
-      data          = d,
-      return_code   = TRUE,
-      verbose       = FALSE,
-      mcmc_verbose  = FALSE
+      fixed = formula_pieces$fixed,
+      random = formula_pieces$random,
+      data = d,
+      return_code = TRUE,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
     )),
     error = function(e) structure(NA_character_, error = conditionMessage(e))
   )
@@ -420,15 +528,15 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
 
   if (is.na(code) || is.null(code) || !is.character(code)) {
     return(dt(
-      task_id          = paste("repr", term_class, n, sep = "_"),
-      group            = "representation",
-      term_class       = term_class,
-      n                = n,
-      status           = "error",
+      task_id = paste("repr", term_class, n, sep = "_"),
+      group = "representation",
+      term_class = term_class,
+      n = n,
+      status = "error",
       generated_code_size_bytes = NA_real_,
       pre_fit_object_size_bytes = NA_real_,
-      code_generation_time_sec  = elapsed,
-      error            = attr(code, "error") %||% "codegen returned non-character"
+      code_generation_time_sec = elapsed,
+      error = attr(code, "error") %||% "codegen returned non-character"
     ))
   }
 
@@ -447,41 +555,41 @@ make_repr_data <- function(n, n_group = 8L, seed = 71L) {
   )
 
   dt(
-    task_id          = paste("repr", term_class, n, sep = "_"),
-    group            = "representation",
-    term_class       = term_class,
-    n                = n,
-    status           = "ok",
+    task_id = paste("repr", term_class, n, sep = "_"),
+    group = "representation",
+    term_class = term_class,
+    n = n,
+    status = "ok",
     generated_code_size_bytes = as.numeric(nchar(code, type = "bytes")),
     pre_fit_object_size_bytes = as.numeric(
       .repr_pre_fit_object_size(term_class, d, fb_for_size)
     ),
-    code_generation_time_sec  = elapsed,
-    error            = NA_character_
+    code_generation_time_sec = elapsed,
+    error = NA_character_
   )
 }
 
-run_representation_benchmarks <- function(pkg_dir = "flexyBayes",
-                                          n_grid = c(50L, 500L, 5000L),
-                                          term_classes = c("fixed_factor_simple",
-                                                           "random_intercept",
-                                                           "smooth"),
-                                          cores = 2L) {
+run_representation_benchmarks <- function(
+  pkg_dir = "flexyBayes",
+  n_grid = c(50L, 500L, 5000L),
+  term_classes = c("fixed_factor_simple", "random_intercept", "smooth"),
+  cores = 2L
+) {
   # Loaded greta is required only because the greta-emit codegen path
   # itself touches greta's namespace at code-build time. We skip the
   # representation block cleanly if greta is not installed rather than
   # erroring -- the rest of the harness should still run.
   if (!requireNamespace("greta", quietly = TRUE)) {
     return(dt(
-      task_id          = "representation_skipped_no_greta",
-      group            = "representation",
-      term_class       = NA_character_,
-      n                = NA_integer_,
-      status           = "skipped",
+      task_id = "representation_skipped_no_greta",
+      group = "representation",
+      term_class = NA_character_,
+      n = NA_integer_,
+      status = "skipped",
       generated_code_size_bytes = NA_real_,
       pre_fit_object_size_bytes = NA_real_,
-      code_generation_time_sec  = NA_real_,
-      error            = "greta not installed; representation block skipped"
+      code_generation_time_sec = NA_real_,
+      error = "greta not installed; representation block skipped"
     ))
   }
 
@@ -497,13 +605,22 @@ run_representation_benchmarks <- function(pkg_dir = "flexyBayes",
     .repr_one_cell(cells$term_class[i], cells$n[i], pkg_dir)
   }
 
-  ans <- parallel::mclapply(seq_len(nrow(cells)), worker,
-                            mc.cores = max(1L, cores))
+  ans <- parallel::mclapply(
+    seq_len(nrow(cells)),
+    worker,
+    mc.cores = max(1L, cores)
+  )
   data.table::rbindlist(ans, fill = TRUE)
 }
 
-child_result <- function(task_id, group, status, elapsed_sec, details = list(),
-                         error = NA_character_) {
+child_result <- function(
+  task_id,
+  group,
+  status,
+  elapsed_sec,
+  details = list(),
+  error = NA_character_
+) {
   structure(
     list(
       task_id = task_id,
@@ -521,213 +638,314 @@ run_child_task <- function(task_id, pkg_dir = "flexyBayes") {
   t0 <- proc.time()[["elapsed"]]
   load_local_flexybayes(pkg_dir)
 
-  finish <- function(group, status = "ok", details = list(),
-                     error = NA_character_) {
-    child_result(task_id, group, status,
-                 proc.time()[["elapsed"]] - t0, details, error)
+  finish <- function(
+    group,
+    status = "ok",
+    details = list(),
+    error = NA_character_
+  ) {
+    child_result(
+      task_id,
+      group,
+      status,
+      proc.time()[["elapsed"]] - t0,
+      details,
+      error
+    )
   }
 
-  tryCatch({
-    if (identical(task_id, "review_code_greta")) {
-      d <- make_gaussian_ri(60L, 6L, 101L)
-      rev <- suppressMessages(flexybayes(
-        fixed = y ~ x, random = ~ g, data = d,
-        review_code = TRUE, verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      code <- capture.output(cat_code(rev))
-      return(finish("code_review", details = list(
-        class = paste(class(rev), collapse = "/"),
-        code_lines = length(code),
-        code_chars = sum(nchar(code))
-      )))
-    }
-
-    if (identical(task_id, "structured_cov_return_code")) {
-      sdat <- make_structured_data(102L)
-      code <- suppressMessages(flexybayes(
-        fixed = y ~ env + x,
-        random = ~ vm(geno, Gmat) + at(env):geno,
-        data = sdat$dat,
-        known_matrices = list(Gmat = sdat$Gmat),
-        return_code = TRUE,
-        verbose = FALSE,
-        mcmc_verbose = FALSE
-      ))
-      return(finish("code_generation", details = list(
-        code_lines = length(strsplit(code, "\n", fixed = TRUE)[[1L]]),
-        code_chars = nchar(code),
-        has_vm = grepl("L_G_geno", code, fixed = TRUE),
-        has_at = grepl("sigma_geno_env", code, fixed = TRUE)
-      )))
-    }
-
-    if (identical(task_id, "inla_gaussian_ri")) {
-      d <- make_gaussian_ri(100L, 10L, 201L)
-      fit <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "inla", verbose = FALSE
-      ))
-      cn <- canonical_names(fit)
-      bd <- backend_decision(fit)
-      return(finish("backend_fit", details = list(
-        backend = bd$backend,
-        path = bd$path,
-        n_fixed = nrow(fit$inla$summary.fixed),
-        n_hyper = nrow(fit$inla$summary.hyperpar),
-        canonical_n = length(cn$map),
-        numerical_confirm = isTRUE(fit$num_check$pass)
-      )))
-    }
-
-    if (identical(task_id, "inla_poisson_ri")) {
-      d <- make_poisson_ri(120L, 10L, 202L)
-      fit <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, family = "poisson",
-        backend = "inla", verbose = FALSE
-      ))
-      bd <- backend_decision(fit)
-      return(finish("backend_fit", details = list(
-        backend = bd$backend,
-        path = bd$path,
-        n_fixed = nrow(fit$inla$summary.fixed),
-        n_hyper = nrow(fit$inla$summary.hyperpar),
-        numerical_confirm = isTRUE(fit$num_check$pass)
-      )))
-    }
-
-    if (identical(task_id, "greta_gaussian_fixed")) {
-      d <- make_gaussian_ri(50L, 5L, 301L)
-      fit <- suppressMessages(fb_brms(
-        y ~ x, data = d, backend = "greta",
-        n_samples = 60L, warmup = 60L, chains = 1L,
-        verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      bd <- backend_decision(fit)
-      return(finish("backend_fit", details = list(
-        backend = bd$backend,
-        path = bd$path,
-        n_params = fit$extras$model_info$n_params,
-        max_rhat = suppressWarnings(max(
-          fit$extras$convergence$gelman$psrf[, "Point est."],
-          na.rm = TRUE
+  tryCatch(
+    {
+      if (identical(task_id, "review_code_greta")) {
+        d <- make_gaussian_ri(60L, 6L, 101L)
+        rev <- suppressMessages(flexybayes(
+          fixed = y ~ x,
+          random = ~g,
+          data = d,
+          review_code = TRUE,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
         ))
-      )))
-    }
+        code <- capture.output(cat_code(rev))
+        return(finish(
+          "code_review",
+          details = list(
+            class = paste(class(rev), collapse = "/"),
+            code_lines = length(code),
+            code_chars = sum(nchar(code))
+          )
+        ))
+      }
 
-    if (identical(task_id, "greta_gaussian_ri")) {
-      d <- make_gaussian_ri(60L, 6L, 302L)
-      fit <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "greta",
-        n_samples = 60L, warmup = 60L, chains = 1L,
-        verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      bd <- backend_decision(fit)
-      ps <- prior_summary(fit)
-      return(finish("backend_fit", details = list(
-        backend = bd$backend,
-        path = bd$path,
-        n_params = fit$extras$model_info$n_params,
-        prior_kind = ps$kind,
-        prior_origin = ps$default_origin
-      )))
-    }
+      if (identical(task_id, "structured_cov_return_code")) {
+        sdat <- make_structured_data(102L)
+        code <- suppressMessages(flexybayes(
+          fixed = y ~ env + x,
+          random = ~ vm(geno, Gmat) + at(env):geno,
+          data = sdat$dat,
+          known_matrices = list(Gmat = sdat$Gmat),
+          return_code = TRUE,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        return(finish(
+          "code_generation",
+          details = list(
+            code_lines = length(strsplit(code, "\n", fixed = TRUE)[[1L]]),
+            code_chars = nchar(code),
+            has_vm = grepl("L_G_geno", code, fixed = TRUE),
+            has_at = grepl("sigma_geno_env", code, fixed = TRUE)
+          )
+        ))
+      }
 
-    if (identical(task_id, "brms_stancode")) {
-      d <- make_gaussian_ri(60L, 6L, 401L)
-      rev <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "brms",
-        review_code = TRUE, verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      return(finish("stan_passthrough", details = list(
-        class = paste(class(rev), collapse = "/"),
-        backend = rev$backend,
-        code_chars = nchar(rev$code),
-        has_parameters_block = grepl("parameters", rev$code, fixed = TRUE)
-      )))
-    }
+      if (identical(task_id, "inla_gaussian_ri")) {
+        d <- make_gaussian_ri(100L, 10L, 201L)
+        fit <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "inla",
+          verbose = FALSE
+        ))
+        cn <- canonical_names(fit)
+        bd <- backend_decision(fit)
+        return(finish(
+          "backend_fit",
+          details = list(
+            backend = bd$backend,
+            path = bd$path,
+            n_fixed = nrow(fit$inla$summary.fixed),
+            n_hyper = nrow(fit$inla$summary.hyperpar),
+            canonical_n = length(cn$map),
+            numerical_confirm = isTRUE(fit$num_check$pass)
+          )
+        ))
+      }
 
-    if (identical(task_id, "brms_gaussian_fit")) {
-      d <- make_gaussian_ri(50L, 5L, 402L)
-      fit <- suppressMessages(suppressWarnings(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "brms",
-        n_samples = 80L, warmup = 80L, chains = 1L,
-        verbose = FALSE, mcmc_verbose = FALSE
-      )))
-      bd <- backend_decision(fit)
-      return(finish("backend_fit", details = list(
-        backend = bd$backend,
-        path = bd$path,
-        n_params = fit$extras$model_info$n_params,
-        coef_names = paste(names(coef(fit)), collapse = ",")
-      )))
-    }
+      if (identical(task_id, "inla_poisson_ri")) {
+        d <- make_poisson_ri(120L, 10L, 202L)
+        fit <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          family = "poisson",
+          backend = "inla",
+          verbose = FALSE
+        ))
+        bd <- backend_decision(fit)
+        return(finish(
+          "backend_fit",
+          details = list(
+            backend = bd$backend,
+            path = bd$path,
+            n_fixed = nrow(fit$inla$summary.fixed),
+            n_hyper = nrow(fit$inla$summary.hyperpar),
+            numerical_confirm = isTRUE(fit$num_check$pass)
+          )
+        ))
+      }
 
-    if (identical(task_id, "triangulate_greta_inla")) {
-      d <- make_gaussian_ri(60L, 6L, 501L)
-      fit_g <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "greta",
-        n_samples = 60L, warmup = 60L, chains = 1L,
-        verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      fit_i <- suppressMessages(fb_brms(
-        y ~ x + (1 | g), data = d, backend = "inla", verbose = FALSE
-      ))
-      tri <- triangulate(fit_g, fit_i, n_samples = 200L)
-      return(finish("triangulation", details = list(
-        source_a = tri$source_a,
-        source_b = tri$source_b,
-        n_common = tri$n_common,
-        common = paste(tri$common, collapse = ","),
-        max_wasserstein = if (nrow(tri$metrics)) {
-          max(tri$metrics$wasserstein_1, na.rm = TRUE)
-        } else NA_real_
-      )))
-    }
+      if (identical(task_id, "greta_gaussian_fixed")) {
+        d <- make_gaussian_ri(50L, 5L, 301L)
+        fit <- suppressMessages(fb_brms(
+          y ~ x,
+          data = d,
+          backend = "greta",
+          n_samples = 60L,
+          warmup = 60L,
+          chains = 1L,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        bd <- backend_decision(fit)
+        return(finish(
+          "backend_fit",
+          details = list(
+            backend = bd$backend,
+            path = bd$path,
+            n_params = fit$extras$model_info$n_params,
+            max_rhat = suppressWarnings(max(
+              fit$extras$convergence$gelman$psrf[, "Point est."],
+              na.rm = TRUE
+            ))
+          )
+        ))
+      }
 
-    if (identical(task_id, "smooth_greta_fit")) {
-      d <- make_gaussian_ri(60L, 6L, 601L)
-      fit <- suppressMessages(flexybayes(
-        fixed = y ~ 1,
-        random = ~ s(x),
-        data = d,
-        backend = "greta",
-        n_samples = 60L, warmup = 60L, chains = 1L,
-        verbose = FALSE, mcmc_verbose = FALSE
-      ))
-      pred <- predict(fit)
-      return(finish("smooths", details = list(
-        n_pred = length(pred),
-        pred_has_na = anyNA(pred),
-        n_params = fit$extras$model_info$n_params
-      )))
-    }
+      if (identical(task_id, "greta_gaussian_ri")) {
+        d <- make_gaussian_ri(60L, 6L, 302L)
+        fit <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "greta",
+          n_samples = 60L,
+          warmup = 60L,
+          chains = 1L,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        bd <- backend_decision(fit)
+        ps <- prior_summary(fit)
+        return(finish(
+          "backend_fit",
+          details = list(
+            backend = bd$backend,
+            path = bd$path,
+            n_params = fit$extras$model_info$n_params,
+            prior_kind = ps$kind,
+            prior_origin = ps$default_origin
+          )
+        ))
+      }
 
-    if (identical(task_id, "testthat_tally")) {
-      # This runs the project's own tally script. It can be expensive
-      # because NOT_CRAN=true lets selected greta/INLA integration
-      # tests run. The parent process enforces the timeout.
-      Sys.setenv(NOT_CRAN = "true")
-      out <- utils::capture.output(source("tools/tally.R", local = TRUE))
-      line <- out[grepl("PASS:", out, fixed = TRUE)]
-      return(finish("test_suite", details = list(
-        tally_line = paste(line, collapse = " | "),
-        output_lines = length(out)
-      )))
-    }
+      if (identical(task_id, "brms_stancode")) {
+        d <- make_gaussian_ri(60L, 6L, 401L)
+        rev <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "brms",
+          review_code = TRUE,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        return(finish(
+          "stan_passthrough",
+          details = list(
+            class = paste(class(rev), collapse = "/"),
+            backend = rev$backend,
+            code_chars = nchar(rev$code),
+            has_parameters_block = grepl("parameters", rev$code, fixed = TRUE)
+          )
+        ))
+      }
 
-    finish("unknown", status = "error",
-           error = paste("Unknown child task:", task_id))
-  }, error = function(e) {
-    finish("runtime", status = "error", error = conditionMessage(e))
-  })
+      if (identical(task_id, "brms_gaussian_fit")) {
+        d <- make_gaussian_ri(50L, 5L, 402L)
+        fit <- suppressMessages(suppressWarnings(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "brms",
+          n_samples = 80L,
+          warmup = 80L,
+          chains = 1L,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        )))
+        bd <- backend_decision(fit)
+        return(finish(
+          "backend_fit",
+          details = list(
+            backend = bd$backend,
+            path = bd$path,
+            n_params = fit$extras$model_info$n_params,
+            coef_names = paste(names(coef(fit)), collapse = ",")
+          )
+        ))
+      }
+
+      if (identical(task_id, "triangulate_greta_inla")) {
+        d <- make_gaussian_ri(60L, 6L, 501L)
+        fit_g <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "greta",
+          n_samples = 60L,
+          warmup = 60L,
+          chains = 1L,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        fit_i <- suppressMessages(fb_brms(
+          y ~ x + (1 | g),
+          data = d,
+          backend = "inla",
+          verbose = FALSE
+        ))
+        tri <- triangulate(fit_g, fit_i, n_samples = 200L)
+        return(finish(
+          "triangulation",
+          details = list(
+            source_a = tri$source_a,
+            source_b = tri$source_b,
+            n_common = tri$n_common,
+            common = paste(tri$common, collapse = ","),
+            max_wasserstein = if (nrow(tri$metrics)) {
+              max(tri$metrics$wasserstein_1, na.rm = TRUE)
+            } else {
+              NA_real_
+            }
+          )
+        ))
+      }
+
+      if (identical(task_id, "smooth_greta_fit")) {
+        d <- make_gaussian_ri(60L, 6L, 601L)
+        fit <- suppressMessages(flexybayes(
+          fixed = y ~ 1,
+          random = ~ s(x),
+          data = d,
+          backend = "greta",
+          n_samples = 60L,
+          warmup = 60L,
+          chains = 1L,
+          verbose = FALSE,
+          mcmc_verbose = FALSE
+        ))
+        pred <- predict(fit)
+        return(finish(
+          "smooths",
+          details = list(
+            n_pred = length(pred),
+            pred_has_na = anyNA(pred),
+            n_params = fit$extras$model_info$n_params
+          )
+        ))
+      }
+
+      if (identical(task_id, "testthat_tally")) {
+        # This runs the project's own tally script. It can be expensive
+        # because NOT_CRAN=true lets selected greta/INLA integration
+        # tests run. The parent process enforces the timeout.
+        Sys.setenv(NOT_CRAN = "true")
+        out <- utils::capture.output(source("tools/tally.R", local = TRUE))
+        line <- out[grepl("PASS:", out, fixed = TRUE)]
+        return(finish(
+          "test_suite",
+          details = list(
+            tally_line = paste(line, collapse = " | "),
+            output_lines = length(out)
+          )
+        ))
+      }
+
+      finish(
+        "unknown",
+        status = "error",
+        error = paste("Unknown child task:", task_id)
+      )
+    },
+    error = function(e) {
+      finish("runtime", status = "error", error = conditionMessage(e))
+    }
+  )
 }
 
 child_to_dt <- function(x) {
   det <- x$details %||% list()
   detail_json <- paste(
-    sprintf("%s=%s", names(det), vapply(det, function(v) {
-      if (length(v) == 0L) return("")
-      paste(as.character(v), collapse = ";")
-    }, character(1))),
+    sprintf(
+      "%s=%s",
+      names(det),
+      vapply(
+        det,
+        function(v) {
+          if (length(v) == 0L) {
+            return("")
+          }
+          paste(as.character(v), collapse = ";")
+        },
+        character(1)
+      )
+    ),
     collapse = " | "
   )
   dt(
@@ -740,26 +958,37 @@ child_to_dt <- function(x) {
   )
 }
 
-run_child_as_process <- function(script, task_id, out_dir, timeout_sec,
-                                 pkg_dir = "flexyBayes") {
+run_child_as_process <- function(
+  script,
+  task_id,
+  out_dir,
+  timeout_sec,
+  pkg_dir = "flexyBayes"
+) {
   child_rds <- file.path(out_dir, paste0("child_", task_id, ".rds"))
   child_log <- file.path(out_dir, paste0("child_", task_id, ".log"))
   args <- c(
-    "--vanilla", normalizePath(script),
-    "--child", task_id,
-    "--out", child_rds,
-    "--pkg-dir", pkg_dir
+    "--vanilla",
+    normalizePath(script),
+    "--child",
+    task_id,
+    "--out",
+    child_rds,
+    "--pkg-dir",
+    pkg_dir
   )
 
   t0 <- proc.time()[["elapsed"]]
   warn_msg <- NA_character_
   status <- tryCatch(
     withCallingHandlers(
-      system2(file.path(R.home("bin"), "Rscript"),
-              args = args,
-              stdout = child_log,
-              stderr = child_log,
-              timeout = timeout_sec),
+      system2(
+        file.path(R.home("bin"), "Rscript"),
+        args = args,
+        stdout = child_log,
+        stderr = child_log,
+        timeout = timeout_sec
+      ),
       warning = function(w) {
         warn_msg <<- conditionMessage(w)
         invokeRestart("muffleWarning")
@@ -777,8 +1006,10 @@ run_child_as_process <- function(script, task_id, out_dir, timeout_sec,
   }
 
   log_tail <- if (file.exists(child_log)) {
-    paste(utils::tail(readLines(child_log, warn = FALSE), 20L),
-          collapse = " / ")
+    paste(
+      utils::tail(readLines(child_log, warn = FALSE), 20L),
+      collapse = " / "
+    )
   } else {
     ""
   }
@@ -788,10 +1019,12 @@ run_child_as_process <- function(script, task_id, out_dir, timeout_sec,
     group = "child_process",
     status = if (identical(as.integer(status), 124L)) "timeout" else "error",
     elapsed_sec = elapsed,
-    error = paste0("child did not produce RDS; system status = ",
-                   paste(status, collapse = ","),
-                   if (!is.na(warn_msg)) paste0("; warning: ", warn_msg) else "",
-                   if (nzchar(log_tail)) paste0("; log tail: ", log_tail) else ""),
+    error = paste0(
+      "child did not produce RDS; system status = ",
+      paste(status, collapse = ","),
+      if (!is.na(warn_msg)) paste0("; warning: ", warn_msg) else "",
+      if (nzchar(log_tail)) paste0("; log tail: ", log_tail) else ""
+    ),
     details = paste0("timeout_sec=", timeout_sec)
   )
 }
@@ -812,16 +1045,30 @@ task_plan <- function(profile = "standard", include_brms_fit = FALSE) {
       "triangulate_greta_inla",
       "smooth_greta_fit"
     ),
-    tier = c("light", "light", "fit", "fit", "fit", "fit",
-             "light", "fit", "fit"),
+    tier = c(
+      "light",
+      "light",
+      "fit",
+      "fit",
+      "fit",
+      "fit",
+      "light",
+      "fit",
+      "fit"
+    ),
     timeout_sec = c(300, 300, 600, 600, 1200, 1200, 900, 1800, 1200)
   )
 
   if (identical(profile, "smoke")) {
-    base <- base[task_id %chin% c("review_code_greta",
-                                  "structured_cov_return_code",
-                                  "inla_gaussian_ri",
-                                  "brms_stancode")]
+    base <- base[
+      task_id %chin%
+        c(
+          "review_code_greta",
+          "structured_cov_return_code",
+          "inla_gaussian_ri",
+          "brms_stancode"
+        )
+    ]
   }
 
   if (identical(profile, "full")) {
@@ -843,14 +1090,25 @@ task_plan <- function(profile = "standard", include_brms_fit = FALSE) {
   base[]
 }
 
-run_child_batch <- function(plan, script, out_dir, cores, pkg_dir,
-                            budget_deadline) {
-  if (!nrow(plan)) return(dt())
+run_child_batch <- function(
+  plan,
+  script,
+  out_dir,
+  cores,
+  pkg_dir,
+  budget_deadline
+) {
+  if (!nrow(plan)) {
+    return(dt())
+  }
 
   worker <- function(row_i) {
     row <- plan[row_i]
-    remaining <- as.numeric(difftime(budget_deadline, Sys.time(),
-                                     units = "secs"))
+    remaining <- as.numeric(difftime(
+      budget_deadline,
+      Sys.time(),
+      units = "secs"
+    ))
     if (!is.finite(remaining) || remaining <= 60) {
       return(dt(
         task_id = row$task_id,
@@ -862,16 +1120,30 @@ run_child_batch <- function(plan, script, out_dir, cores, pkg_dir,
       ))
     }
     timeout <- min(row$timeout_sec, max(60, floor(remaining - 30)))
-    run_child_as_process(script, row$task_id, out_dir, timeout,
-                         pkg_dir = pkg_dir)
+    run_child_as_process(
+      script,
+      row$task_id,
+      out_dir,
+      timeout,
+      pkg_dir = pkg_dir
+    )
   }
 
   ans <- parallel::mclapply(seq_len(nrow(plan)), worker, mc.cores = cores)
   data.table::rbindlist(ans, fill = TRUE)
 }
 
-write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
-                         config, started, finished, repr_dt = NULL) {
+write_report <- function(
+  out_dir,
+  env_dt,
+  micro_dt,
+  child_dt,
+  summary_dt,
+  config,
+  started,
+  finished,
+  repr_dt = NULL
+) {
   pkg <- pkg_version_from_description(config$pkg_dir)
   ok_child <- if (nrow(child_dt)) sum(child_dt$status == "ok") else 0L
   fail_child <- if (nrow(child_dt)) sum(child_dt$status != "ok") else 0L
@@ -883,8 +1155,10 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
     "",
     paste0("Started: ", format(started, "%Y-%m-%d %H:%M:%S %Z")),
     paste0("Finished: ", format(finished, "%Y-%m-%d %H:%M:%S %Z")),
-    paste0("Elapsed minutes: ",
-           round(as.numeric(difftime(finished, started, units = "mins")), 2)),
+    paste0(
+      "Elapsed minutes: ",
+      round(as.numeric(difftime(finished, started, units = "mins")), 2)
+    ),
     "",
     "## Configuration",
     "",
@@ -911,10 +1185,21 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
         "| group | tasks | ok | non_ok | elapsed_sec_median | elapsed_sec_max |",
         "|---|---:|---:|---:|---:|---:|",
         apply(summary_dt, 1L, function(r) {
-          paste0("| ", r[["group"]], " | ", r[["tasks"]], " | ",
-                 r[["ok"]], " | ", r[["non_ok"]], " | ",
-                 r[["elapsed_sec_median"]], " | ",
-                 r[["elapsed_sec_max"]], " |")
+          paste0(
+            "| ",
+            r[["group"]],
+            " | ",
+            r[["tasks"]],
+            " | ",
+            r[["ok"]],
+            " | ",
+            r[["non_ok"]],
+            " | ",
+            r[["elapsed_sec_median"]],
+            " | ",
+            r[["elapsed_sec_max"]],
+            " |"
+          )
         })
       )
     } else {
@@ -929,9 +1214,17 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
         "|---|---|---:|---|",
         apply(child_dt[status != "ok"], 1L, function(r) {
           err <- gsub("\\|", "/", r[["error"]] %||% "")
-          paste0("| ", r[["task_id"]], " | ", r[["status"]], " | ",
-                 round(as.numeric(r[["elapsed_sec"]]), 2), " | ",
-                 err, " |")
+          paste0(
+            "| ",
+            r[["task_id"]],
+            " | ",
+            r[["status"]],
+            " | ",
+            round(as.numeric(r[["elapsed_sec"]]), 2),
+            " | ",
+            err,
+            " |"
+          )
         })
       )
     } else {
@@ -947,10 +1240,19 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
         "|---|---|---|---:|---|",
         apply(top, 1L, function(r) {
           det <- gsub("\\|", "/", r[["details"]] %||% "")
-          paste0("| ", r[["task_id"]], " | ", r[["group"]], " | ",
-                 r[["status"]], " | ",
-                 round(as.numeric(r[["elapsed_sec"]]), 2), " | ",
-                 det, " |")
+          paste0(
+            "| ",
+            r[["task_id"]],
+            " | ",
+            r[["group"]],
+            " | ",
+            r[["status"]],
+            " | ",
+            round(as.numeric(r[["elapsed_sec"]]), 2),
+            " | ",
+            det,
+            " |"
+          )
         })
       )
     } else {
@@ -980,11 +1282,21 @@ write_report <- function(out_dir, env_dt, micro_dt, child_dt, summary_dt,
         "|---|---|---:|---|---:|---:|---:|",
         apply(repr_dt, 1L, function(r) {
           paste0(
-            "| ", r[["task_id"]], " | ", r[["term_class"]], " | ",
-            r[["n"]], " | ", r[["status"]], " | ",
-            r[["generated_code_size_bytes"]], " | ",
-            r[["pre_fit_object_size_bytes"]], " | ",
-            round(as.numeric(r[["code_generation_time_sec"]]), 4), " |"
+            "| ",
+            r[["task_id"]],
+            " | ",
+            r[["term_class"]],
+            " | ",
+            r[["n"]],
+            " | ",
+            r[["status"]],
+            " | ",
+            r[["generated_code_size_bytes"]],
+            " | ",
+            r[["pre_fit_object_size_bytes"]],
+            " | ",
+            round(as.numeric(r[["code_generation_time_sec"]]), 4),
+            " |"
           )
         })
       )
@@ -1011,8 +1323,8 @@ main <- function() {
 
   # Child mode: run exactly one task and save a compact RDS result.
   if (!is.null(args$child)) {
-    out <- args$out %||% stop("--out is required in --child mode",
-                              call. = FALSE)
+    out <- args$out %||%
+      stop("--out is required in --child mode", call. = FALSE)
     pkg_dir <- args[["pkg-dir"]] %||% "flexyBayes"
     res <- run_child_task(args$child, pkg_dir = pkg_dir)
     saveRDS(res, out)
@@ -1024,15 +1336,22 @@ main <- function() {
   profile <- args$profile %||% "standard"
   budget_min <- as.numeric(args[["budget-min"]] %||% 180)
   detected <- parallel::detectCores(logical = TRUE)
-  max_cores <- min(as.integer(args[["max-cores"]] %||% 8L),
-                   detected %||% 1L, 8L)
+  max_cores <- min(
+    as.integer(args[["max-cores"]] %||% 8L),
+    detected %||% 1L,
+    8L
+  )
   max_cores <- max(1L, max_cores)
   fit_cores <- min(max_cores, as.integer(args[["fit-cores"]] %||% 4L))
   include_brms_fit <- as_bool(args[["include-brms-fit"]], default = FALSE)
-  reps <- as.integer(args$reps %||% if (identical(profile, "full")) 150L else 80L)
+  reps <- as.integer(
+    args$reps %||% if (identical(profile, "full")) 150L else 80L
+  )
 
   out_root <- args[["out-root"]] %||% "benchmark_results"
-  pkg_meta_early <- pkg_version_from_description(args[["pkg-dir"]] %||% "flexyBayes")
+  pkg_meta_early <- pkg_version_from_description(
+    args[["pkg-dir"]] %||% "flexyBayes"
+  )
   out_dir <- file.path(
     out_root,
     paste0("flexyBayes_", pkg_meta_early$version, "_", now_stamp())
@@ -1052,19 +1371,34 @@ main <- function() {
   cat("flexyBayes benchmark harness\n")
   cat("  output: ", out_dir, "\n", sep = "")
   cat("  profile: ", profile, "\n", sep = "")
-  cat("  cores: ", max_cores, " total; ", fit_cores,
-      " heavy-backend workers\n", sep = "")
+  cat(
+    "  cores: ",
+    max_cores,
+    " total; ",
+    fit_cores,
+    " heavy-backend workers\n",
+    sep = ""
+  )
   cat("  budget: ", budget_min, " minutes\n", sep = "")
 
   env_dt <- installed_table()
   pkg <- pkg_version_from_description(pkg_dir)
   env_dt <- rbind(
-    dt(package = "LOCAL_SOURCE", installed = TRUE,
-       version = paste(pkg$package, pkg$version)),
-    dt(package = "R", installed = TRUE,
-       version = paste(R.version$major, R.version$minor, sep = ".")),
-    dt(package = "logical_cores_detected", installed = TRUE,
-       version = as.character(detected)),
+    dt(
+      package = "LOCAL_SOURCE",
+      installed = TRUE,
+      version = paste(pkg$package, pkg$version)
+    ),
+    dt(
+      package = "R",
+      installed = TRUE,
+      version = paste(R.version$major, R.version$minor, sep = ".")
+    ),
+    dt(
+      package = "logical_cores_detected",
+      installed = TRUE,
+      version = as.character(detected)
+    ),
     env_dt,
     fill = TRUE
   )
@@ -1073,8 +1407,11 @@ main <- function() {
   budget_deadline <- started + budget_min * 60
 
   cat("Running parse/gate/prior microbenchmarks...\n")
-  micro_dt <- run_microbenchmarks(pkg_dir, reps = reps,
-                                  cores = min(max_cores, 8L))
+  micro_dt <- run_microbenchmarks(
+    pkg_dir,
+    reps = reps,
+    cores = min(max_cores, 8L)
+  )
   data.table::fwrite(micro_dt, file.path(out_dir, "microbench_results.csv"))
 
   cat("Running representation benchmarks (merged-v2 plan 4.2.3)...\n")
@@ -1090,8 +1427,7 @@ main <- function() {
     n_grid = repr_n_grid,
     cores = min(max_cores, 2L)
   )
-  data.table::fwrite(repr_dt,
-                     file.path(out_dir, "representation_results.csv"))
+  data.table::fwrite(repr_dt, file.path(out_dir, "representation_results.csv"))
 
   plan <- task_plan(profile, include_brms_fit = include_brms_fit)
 
@@ -1102,8 +1438,7 @@ main <- function() {
 
   ca <- commandArgs(FALSE)
   file_arg <- ca[grep("^--file=", ca)][1]
-  script_path <- normalizePath(sub("^--file=", "", file_arg),
-                               mustWork = FALSE)
+  script_path <- normalizePath(sub("^--file=", "", file_arg), mustWork = FALSE)
   if (!file.exists(script_path)) {
     # Fallback for interactive/source() use.
     script_path <- normalizePath("tools/benchmark_flexyBayes.R")
@@ -1111,20 +1446,28 @@ main <- function() {
 
   cat("Running light child tasks...\n")
   if (nrow(light_plan)) {
-    light_dt <- run_child_batch(light_plan, script = script_path,
-                                out_dir = out_dir, cores = max_cores,
-                                pkg_dir = pkg_dir,
-                                budget_deadline = budget_deadline)
+    light_dt <- run_child_batch(
+      light_plan,
+      script = script_path,
+      out_dir = out_dir,
+      cores = max_cores,
+      pkg_dir = pkg_dir,
+      budget_deadline = budget_deadline
+    )
   } else {
     light_dt <- dt()
   }
 
   cat("Running backend / integration child tasks...\n")
   if (nrow(fit_plan)) {
-    fit_dt <- run_child_batch(fit_plan, script = script_path,
-                              out_dir = out_dir, cores = fit_cores,
-                              pkg_dir = pkg_dir,
-                              budget_deadline = budget_deadline)
+    fit_dt <- run_child_batch(
+      fit_plan,
+      script = script_path,
+      out_dir = out_dir,
+      cores = fit_cores,
+      pkg_dir = pkg_dir,
+      budget_deadline = budget_deadline
+    )
   } else {
     fit_dt <- dt()
   }
@@ -1132,19 +1475,25 @@ main <- function() {
   child_dt <- data.table::rbindlist(list(light_dt, fit_dt), fill = TRUE)
   data.table::fwrite(child_dt, file.path(out_dir, "child_task_results.csv"))
 
-  all_elapsed <- data.table::rbindlist(list(
-    micro_dt[, .(group, status, elapsed_sec)],
-    child_dt[, .(group, status, elapsed_sec)]
-  ), fill = TRUE)
+  all_elapsed <- data.table::rbindlist(
+    list(
+      micro_dt[, .(group, status, elapsed_sec)],
+      child_dt[, .(group, status, elapsed_sec)]
+    ),
+    fill = TRUE
+  )
 
   summary_dt <- if (nrow(all_elapsed)) {
-    all_elapsed[, .(
-      tasks = .N,
-      ok = sum(status == "ok"),
-      non_ok = sum(status != "ok"),
-      elapsed_sec_median = round(stats::median(elapsed_sec, na.rm = TRUE), 3),
-      elapsed_sec_max = round(max(elapsed_sec, na.rm = TRUE), 3)
-    ), by = group][order(group)]
+    all_elapsed[,
+      .(
+        tasks = .N,
+        ok = sum(status == "ok"),
+        non_ok = sum(status != "ok"),
+        elapsed_sec_median = round(stats::median(elapsed_sec, na.rm = TRUE), 3),
+        elapsed_sec_max = round(max(elapsed_sec, na.rm = TRUE), 3)
+      ),
+      by = group
+    ][order(group)]
   } else {
     dt()
   }
@@ -1163,14 +1512,26 @@ main <- function() {
   )
   saveRDS(raw, file.path(out_dir, "raw_results.rds"))
 
-  write_report(out_dir, env_dt, micro_dt, child_dt, summary_dt,
-               config, started, finished, repr_dt = repr_dt)
+  write_report(
+    out_dir,
+    env_dt,
+    micro_dt,
+    child_dt,
+    summary_dt,
+    config,
+    started,
+    finished,
+    repr_dt = repr_dt
+  )
 
   cat("Benchmark complete.\n")
   cat("  report: ", file.path(out_dir, "benchmark_report.md"), "\n", sep = "")
-  cat("  elapsed minutes: ",
-      round(as.numeric(difftime(finished, started, units = "mins")), 2),
-      "\n", sep = "")
+  cat(
+    "  elapsed minutes: ",
+    round(as.numeric(difftime(finished, started, units = "mins")), 2),
+    "\n",
+    sep = ""
+  )
   invisible(raw)
 }
 

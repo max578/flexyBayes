@@ -94,59 +94,99 @@
 #                           for every backend today (the proposed
 #                           brms -> stan rename was reversed 2026-05-31).
 #   registered_in_adr chr(1)
-.register_backend <- function(name, status, engine, grammars, paradigm,
-                              available_pkg, default_in_auto,
-                              capability_predicate = function(fb) TRUE,
-                              rename_to = NA_character_,
-                              registered_in_adr = "0031") {
+.register_backend <- function(
+  name,
+  status,
+  engine,
+  grammars,
+  paradigm,
+  available_pkg,
+  default_in_auto,
+  capability_predicate = function(fb) TRUE,
+  rename_to = NA_character_,
+  registered_in_adr = "0031"
+) {
   # Validate inputs before checking mutability, so a caller passing an
   # unknown status / grammar sees the actionable vocabulary error rather
   # than a lock error even on a loaded (locked) package.
-  if (!is.character(name) || length(name) != 1L || is.na(name) ||
-      !nzchar(name))
-    stop(".register_backend(): `name` must be a single non-empty string.",
-         call. = FALSE)
-  if (!identical(length(status), 1L) ||
-      !status %in% .BACKEND_STATUS_VOCABULARY)
-    stop(".register_backend(): unknown status '", status,
-         "'. The closed vocabulary is ",
-         paste(.BACKEND_STATUS_VOCABULARY, collapse = ", "),
-         "; expanding it requires an ADR 0031 amendment.", call. = FALSE)
+  if (
+    !is.character(name) || length(name) != 1L || is.na(name) || !nzchar(name)
+  ) {
+    stop(
+      ".register_backend(): `name` must be a single non-empty string.",
+      call. = FALSE
+    )
+  }
+  if (
+    !identical(length(status), 1L) ||
+      !status %in% .BACKEND_STATUS_VOCABULARY
+  ) {
+    stop(
+      ".register_backend(): unknown status '",
+      status,
+      "'. The closed vocabulary is ",
+      paste(.BACKEND_STATUS_VOCABULARY, collapse = ", "),
+      "; expanding it requires an ADR 0031 amendment.",
+      call. = FALSE
+    )
+  }
   unknown_g <- setdiff(grammars, .BACKEND_GRAMMAR_VOCABULARY)
-  if (length(unknown_g) > 0L)
-    stop(".register_backend(): unknown grammar ",
-         paste0("'", unknown_g, "'", collapse = ", "),
-         ". The closed vocabulary is ",
-         paste(.BACKEND_GRAMMAR_VOCABULARY, collapse = ", "), ".",
-         call. = FALSE)
-  if (!is.logical(default_in_auto) || length(default_in_auto) != 1L ||
-      is.na(default_in_auto))
-    stop(".register_backend(): `default_in_auto` must be TRUE or FALSE.",
-         call. = FALSE)
+  if (length(unknown_g) > 0L) {
+    stop(
+      ".register_backend(): unknown grammar ",
+      paste0("'", unknown_g, "'", collapse = ", "),
+      ". The closed vocabulary is ",
+      paste(.BACKEND_GRAMMAR_VOCABULARY, collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+  if (
+    !is.logical(default_in_auto) ||
+      length(default_in_auto) != 1L ||
+      is.na(default_in_auto)
+  ) {
+    stop(
+      ".register_backend(): `default_in_auto` must be TRUE or FALSE.",
+      call. = FALSE
+    )
+  }
 
-  if (environmentIsLocked(.backend_registry))
-    stop(".register_backend(): the backend registry is locked; ",
-         "backends must be registered before .lock_backend_registry() ",
-         "fires at end of .onLoad().", call. = FALSE)
+  if (environmentIsLocked(.backend_registry)) {
+    stop(
+      ".register_backend(): the backend registry is locked; ",
+      "backends must be registered before .lock_backend_registry() ",
+      "fires at end of .onLoad().",
+      call. = FALSE
+    )
+  }
 
-  if (exists(name, envir = .backend_registry, inherits = FALSE))
-    stop(".register_backend(): backend '", name, "' is already ",
-         "registered. Backend vocabulary is append-only.", call. = FALSE)
+  if (exists(name, envir = .backend_registry, inherits = FALSE)) {
+    stop(
+      ".register_backend(): backend '",
+      name,
+      "' is already ",
+      "registered. Backend vocabulary is append-only.",
+      call. = FALSE
+    )
+  }
 
-  assign(name,
-         list(
-           name              = name,
-           status            = status,
-           engine            = engine,
-           grammars          = grammars,
-           paradigm          = paradigm,
-           available_pkg     = available_pkg,
-           default_in_auto   = default_in_auto,
-           capability_predicate = capability_predicate,
-           rename_to         = rename_to,
-           registered_in_adr = registered_in_adr
-         ),
-         envir = .backend_registry)
+  assign(
+    name,
+    list(
+      name = name,
+      status = status,
+      engine = engine,
+      grammars = grammars,
+      paradigm = paradigm,
+      available_pkg = available_pkg,
+      default_in_auto = default_in_auto,
+      capability_predicate = capability_predicate,
+      rename_to = rename_to,
+      registered_in_adr = registered_in_adr
+    ),
+    envir = .backend_registry
+  )
 
   invisible(NULL)
 }
@@ -156,9 +196,14 @@
 # .lookup_backend() --- internal accessor returning the full entry, or
 # NULL when the name is not registered.
 .lookup_backend <- function(name) {
-  if (!is.character(name) || length(name) != 1L || is.na(name) ||
-      !exists(name, envir = .backend_registry, inherits = FALSE))
+  if (
+    !is.character(name) ||
+      length(name) != 1L ||
+      is.na(name) ||
+      !exists(name, envir = .backend_registry, inherits = FALSE)
+  ) {
     return(NULL)
+  }
   get(name, envir = .backend_registry, inherits = FALSE)
 }
 
@@ -177,7 +222,9 @@
   out <- character(0)
   for (nm in .registered_backend_names()) {
     e <- .lookup_backend(nm)
-    if (!identical(e$status, "active")) next
+    if (!identical(e$status, "active")) {
+      next
+    }
     ok <- is.na(e$available_pkg) ||
       requireNamespace(e$available_pkg, quietly = TRUE)
     if (ok) out <- c(out, nm)
@@ -200,8 +247,9 @@
 # --- lock --------------------------------------------------------- #
 
 .lock_backend_registry <- function() {
-  if (!environmentIsLocked(.backend_registry))
+  if (!environmentIsLocked(.backend_registry)) {
     lockEnvironment(.backend_registry, bindings = TRUE)
+  }
   invisible(NULL)
 }
 
@@ -223,8 +271,9 @@
 # authority, no duplication).
 .capability_inla <- function(fb) {
   gated <- tryCatch(lgm_gate(fb), error = function(e) NULL)
-  if (is.null(gated) || is_lgm_refusal(gated))
+  if (is.null(gated) || is_lgm_refusal(gated)) {
     return("inla_not_lgm_feasible")
+  }
   TRUE
 }
 
@@ -239,12 +288,16 @@
 .capability_brms <- function(fb) {
   rt <- fb$random_terms %||% list()
   has_structured <- any(vapply(
-    rt, function(t) (t$type %||% "") %in% .STRUCTURED_COV_TYPES,
-    logical(1L)))
-  if (has_structured)
+    rt,
+    function(t) (t$type %||% "") %in% .STRUCTURED_COV_TYPES,
+    logical(1L)
+  ))
+  if (has_structured) {
     return("stan_cannot_represent_structured_cov")
-  if (length(.collect_approx(rt)) > 0L)
+  }
+  if (length(.collect_approx(rt)) > 0L) {
     return("stan_cannot_represent_low_rank_approx")
+  }
   TRUE
 }
 
@@ -256,10 +309,15 @@
 .backend_can_fit <- function(backend, fb) {
   e <- .lookup_backend(backend)
   pred <- if (!is.null(e)) e$capability_predicate else NULL
-  if (is.null(pred)) return(list(ok = TRUE))
+  if (is.null(pred)) {
+    return(list(ok = TRUE))
+  }
   res <- pred(fb)
-  if (isTRUE(res)) list(ok = TRUE)
-  else list(ok = FALSE, reason_code = res)
+  if (isTRUE(res)) {
+    list(ok = TRUE)
+  } else {
+    list(ok = FALSE, reason_code = res)
+  }
 }
 
 # .backend_emit_fn() --- dispatch-facing resolver for a backend's emit
@@ -273,13 +331,25 @@
 # dispatched without hard-coding its emit symbol at the call site.
 .backend_emit_fn <- function(name) {
   e <- .lookup_backend(name)
-  if (is.null(e))
-    stop(".backend_emit_fn(): backend '", name, "' is not registered.",
-         call. = FALSE)
-  if (is.na(e$engine))
-    stop(".backend_emit_fn(): backend '", name, "' has no emit engine ",
-         "(status '", e$status, "'); it cannot be dispatched.",
-         call. = FALSE)
+  if (is.null(e)) {
+    stop(
+      ".backend_emit_fn(): backend '",
+      name,
+      "' is not registered.",
+      call. = FALSE
+    )
+  }
+  if (is.na(e$engine)) {
+    stop(
+      ".backend_emit_fn(): backend '",
+      name,
+      "' has no emit engine ",
+      "(status '",
+      e$status,
+      "'); it cannot be dispatched.",
+      call. = FALSE
+    )
+  }
   get(e$engine, envir = asNamespace("flexyBayes"), inherits = FALSE)
 }
 
@@ -296,24 +366,44 @@
 # .available_backend_names() / .auto_default_backend_names().
 .populate_backend_registry_v050 <- function() {
   .register_backend(
-    name = "greta", status = "active", engine = "emit_greta",
-    grammars = c("asreml", "brms", "greta"), paradigm = "hmc_nuts",
-    available_pkg = "greta", default_in_auto = TRUE,
-    capability_predicate = .capability_greta)
+    name = "greta",
+    status = "active",
+    engine = "emit_greta",
+    grammars = c("asreml", "brms", "greta"),
+    paradigm = "hmc_nuts",
+    available_pkg = "greta",
+    default_in_auto = TRUE,
+    capability_predicate = .capability_greta
+  )
   .register_backend(
-    name = "inla", status = "active", engine = "emit_inla",
-    grammars = c("asreml", "brms"), paradigm = "laplace_approximation",
-    available_pkg = "INLA", default_in_auto = TRUE,
-    capability_predicate = .capability_inla)
+    name = "inla",
+    status = "active",
+    engine = "emit_inla",
+    grammars = c("asreml", "brms"),
+    paradigm = "laplace_approximation",
+    available_pkg = "INLA",
+    default_in_auto = TRUE,
+    capability_predicate = .capability_inla
+  )
   .register_backend(
-    name = "brms", status = "active", engine = "emit_brms",
-    grammars = c("asreml", "brms"), paradigm = "hmc_nuts",
-    available_pkg = "brms", default_in_auto = FALSE,
-    capability_predicate = .capability_brms)
+    name = "brms",
+    status = "active",
+    engine = "emit_brms",
+    grammars = c("asreml", "brms"),
+    paradigm = "hmc_nuts",
+    available_pkg = "brms",
+    default_in_auto = FALSE,
+    capability_predicate = .capability_brms
+  )
   .register_backend(
-    name = "gretaR", status = "dormant", engine = NA_character_,
-    grammars = "greta", paradigm = "hmc_nuts",
-    available_pkg = NA_character_, default_in_auto = TRUE,
-    registered_in_adr = "0013/0031")
+    name = "gretaR",
+    status = "dormant",
+    engine = NA_character_,
+    grammars = "greta",
+    paradigm = "hmc_nuts",
+    available_pkg = NA_character_,
+    default_in_auto = TRUE,
+    registered_in_adr = "0013/0031"
+  )
   invisible(NULL)
 }

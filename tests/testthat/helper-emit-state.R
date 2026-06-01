@@ -30,12 +30,15 @@ reset_emit_state <- function() {
 local_clean_emit_state <- function(.local_envir = parent.frame()) {
   snapshot <- as.list(flexyBayes:::.flexybayes_emit_state)
   flexyBayes:::.reset_emit_state_for_test()
-  withr::defer({
-    flexyBayes:::.reset_emit_state_for_test()
-    for (k in names(snapshot)) {
-      flexyBayes:::.emit_state_set(k, snapshot[[k]])
-    }
-  }, envir = .local_envir)
+  withr::defer(
+    {
+      flexyBayes:::.reset_emit_state_for_test()
+      for (k in names(snapshot)) {
+        flexyBayes:::.emit_state_set(k, snapshot[[k]])
+      }
+    },
+    envir = .local_envir
+  )
   invisible(NULL)
 }
 

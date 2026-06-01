@@ -31,12 +31,18 @@ test_that("fb() and flexybayes() byte-identical on the same call", {
   d <- mk_fb_data()
 
   via_fb <- fb(
-    fixed = y ~ x, random = ~ g, data = d,
-    verbose = FALSE, return_code = TRUE
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
   )
   via_flexy <- flexybayes(
-    fixed = y ~ x, random = ~ g, data = d,
-    verbose = FALSE, return_code = TRUE
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_identical(via_fb, via_flexy)
 })
@@ -50,8 +56,10 @@ test_that("fb() generates greta code for fixed-only model", {
   skip_if_no_greta()
   d <- mk_fb_data()
   code <- fb(
-    fixed = y ~ x, data = d,
-    verbose = FALSE, return_code = TRUE
+    fixed = y ~ x,
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_type(code, "character")
   expect_true(nzchar(code))
@@ -62,8 +70,11 @@ test_that("fb() generates RE code for asreml-style random intercept", {
   skip_if_no_greta()
   d <- mk_fb_data()
   code <- fb(
-    fixed = y ~ x, random = ~ g, data = d,
-    verbose = FALSE, return_code = TRUE
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_type(code, "character")
   expect_match(code, "sigma_g")

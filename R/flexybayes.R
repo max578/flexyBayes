@@ -190,28 +190,28 @@
 #' @importFrom splines bs
 #' @export
 flexybayes <- function(
-    fixed,
-    random           = NULL,
-    rcov             = NULL,
-    data,
-    family           = "gaussian",
-    link             = NULL,
-    known_matrices   = list(),
-    weights          = NULL,
-    n_samples        = 1000,
-    warmup           = 500,
-    chains           = 4,
-    prior            = NULL,
-    prior_fixed_sd   = 100,
-    prior_vc_sd      = 1,
-    verbose          = TRUE,
-    mcmc_verbose     = TRUE,
-    return_code      = FALSE,
-    review_code      = FALSE,
-    backend          = c("auto", "greta", "inla", "brms"),
-    aggregate        = "auto",
-    plan             = FALSE,
-    syntax           = c("auto", "asreml", "brms", "greta")
+  fixed,
+  random = NULL,
+  rcov = NULL,
+  data,
+  family = "gaussian",
+  link = NULL,
+  known_matrices = list(),
+  weights = NULL,
+  n_samples = 1000,
+  warmup = 500,
+  chains = 4,
+  prior = NULL,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1,
+  verbose = TRUE,
+  mcmc_verbose = TRUE,
+  return_code = FALSE,
+  review_code = FALSE,
+  backend = c("auto", "greta", "inla", "brms"),
+  aggregate = "auto",
+  plan = FALSE,
+  syntax = c("auto", "asreml", "brms", "greta")
 ) {
   # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
   # before match.arg fires its generic "should be one of" error.
@@ -223,17 +223,21 @@ flexybayes <- function(
   # Resolve to the engine-name string before the approximate-scheme
   # check + match.arg, then apply the engine's sampler-control opts.
   engine_in <- backend
-  backend   <- .resolve_engine_string(engine_in)
+  backend <- .resolve_engine_string(engine_in)
   .check_approximate_scheme(backend)
-  backend   <- match.arg(backend)
-  eng_opts  <- .fb_engine_opts(engine_in)
+  backend <- match.arg(backend)
+  eng_opts <- .fb_engine_opts(engine_in)
   if (!is.null(eng_opts)) {
-    if (!is.null(eng_opts$n_samples)) n_samples <- eng_opts$n_samples
-    if (!is.null(eng_opts$warmup))    warmup    <- eng_opts$warmup
-    if (!is.null(eng_opts$chains))    chains    <- eng_opts$chains
+    if (!is.null(eng_opts$n_samples)) {
+      n_samples <- eng_opts$n_samples
+    }
+    if (!is.null(eng_opts$warmup)) {
+      warmup <- eng_opts$warmup
+    }
+    if (!is.null(eng_opts$chains)) chains <- eng_opts$chains
   }
   aggregate <- .normalise_aggregate(aggregate)
-  syntax    <- match.arg(syntax)
+  syntax <- match.arg(syntax)
 
   # ADR 0031 Phase 3.6: the universal entry accepts a native greta_model
   # graph or a prebuilt greta-source IR (from fb_from_greta()) on the
@@ -242,7 +246,9 @@ flexybayes <- function(
   # it. Detect before `data` is forced below.
   spec_is_greta_native <- inherits(fixed, "greta_model") ||
     (inherits(fixed, "fb_terms") && identical(fixed$source, "greta"))
-  if (spec_is_greta_native && missing(data)) data <- NULL
+  if (spec_is_greta_native && missing(data)) {
+    data <- NULL
+  }
 
   # Defer the greta package check to the emit-greta branch. For
   # backend = "inla" we don't need greta installed; for backend =
@@ -253,18 +259,21 @@ flexybayes <- function(
   # backend guard, otherwise options(flexyBayes.review_code_default =
   # TRUE) would slip past the refusal on backend = "inla" / "auto"
   # (audit P1.1, 2026-05-24). Argument at call time wins.
-  if (missing(review_code))
-    review_code <- isTRUE(getOption("flexyBayes.review_code_default",
-                                    FALSE))
+  if (missing(review_code)) {
+    review_code <- isTRUE(getOption("flexyBayes.review_code_default", FALSE))
+  }
 
   # Q1 (ADR 0031 Phase 2b): the code-inspection modes return generated
   # backend code, which only greta produces under this entry. When
   # backend resolves to "auto", pick greta -- the engine that satisfies
   # the request -- rather than refusing or returning a non-code INLA
   # object. auto's contract is to resolve to a capable engine.
-  if (identical(backend, "auto") &&
-      (isTRUE(return_code) || isTRUE(review_code)))
+  if (
+    identical(backend, "auto") &&
+      (isTRUE(return_code) || isTRUE(review_code))
+  ) {
     backend <- "greta"
+  }
 
   # review_code = TRUE is scoped to the code-emitting engines: greta
   # (greta source via the codegen path) and brms (Stan source via
@@ -275,29 +284,40 @@ flexybayes <- function(
   # silently emitting code for an engine that did not author it.
   # (ADR 0031 Phase 3.6: brms support folded in here from the recast
   # fb_brms() pin, which now routes through this shared review branch.)
-  if (isTRUE(review_code) && !backend %in% c("greta", "brms"))
+  if (isTRUE(review_code) && !backend %in% c("greta", "brms")) {
     stop(.fb_refusal_condition(
       reason_code = "review_code_backend_unsupported",
-      message     = paste0(
+      message = paste0(
         "`review_code = TRUE` is supported with backend = \"greta\" ",
         "(greta code) or backend = \"brms\" (Stan code via ",
-        "brms::make_stancode()). Under backend = \"", backend, "\" ",
+        "brms::make_stancode()). Under backend = \"",
+        backend,
+        "\" ",
         "the inspect-then-fit token would need an INLA-side code ",
         "slot, queued for a subsequent release. Pass ",
-        "backend = \"greta\" / \"brms\", or drop review_code.")))
+        "backend = \"greta\" / \"brms\", or drop review_code."
+      )
+    ))
+  }
 
-  if (isTRUE(review_code) && isTRUE(return_code))
+  if (isTRUE(review_code) && isTRUE(return_code)) {
     stop(.fb_refusal_condition(
       reason_code = "code_flags_mutually_exclusive",
-      message     = paste0(
+      message = paste0(
         "`return_code` and `review_code` are mutually exclusive. ",
         "Use `review_code = TRUE` for inspect-then-fit (returns a ",
         "<flexybayes_review> object); use `return_code = TRUE` for ",
-        "the code string only.")))
+        "the code string only."
+      )
+    ))
+  }
 
-  the_call  <- match.call()
-  data_name <- if (spec_is_greta_native) "<greta-native>"
-               else deparse(substitute(data))
+  the_call <- match.call()
+  data_name <- if (spec_is_greta_native) {
+    "<greta-native>"
+  } else {
+    deparse(substitute(data))
+  }
 
   # Detect "all defaults" -- user supplied neither an fb_prior() nor
   # an explicit prior_vc_sd. In that case the v0.1 default fires:
@@ -315,18 +335,18 @@ flexybayes <- function(
   # call; `syntax = ` forces a grammar. See .build_ir_polymorphic() in
   # R/fb.R (ADR 0031 Phase 3).
   fb <- .build_ir_polymorphic(
-    fixed          = fixed,
-    random         = random,
-    rcov           = rcov,
-    data           = data,
-    family         = family,
-    link           = link,
-    weights        = weights,
+    fixed = fixed,
+    random = random,
+    rcov = rcov,
+    data = data,
+    family = family,
+    link = link,
+    weights = weights,
     known_matrices = known_matrices,
-    prior          = prior,
+    prior = prior,
     prior_fixed_sd = prior_fixed_sd,
-    prior_vc_sd    = prior_vc_sd,
-    syntax         = syntax
+    prior_vc_sd = prior_vc_sd,
+    syntax = syntax
   )
 
   # ADR 0031 Phase 3.6: a native greta model graph is fit directly by
@@ -336,19 +356,21 @@ flexybayes <- function(
   # and assembles the flexybayes_direct_greta result. Everything below
   # (default-prior expansion, plan, review, the formula emit dispatch) is
   # formula-specific and bypassed.
-  if (identical(fb$source, "greta"))
+  if (identical(fb$source, "greta")) {
     return(.dispatch_native_greta(
-      fb           = fb,
-      backend      = backend,
-      n_samples    = n_samples,
-      warmup       = warmup,
-      chains       = chains,
-      verbose      = verbose,
+      fb = fb,
+      backend = backend,
+      n_samples = n_samples,
+      warmup = warmup,
+      chains = chains,
+      verbose = verbose,
       mcmc_verbose = mcmc_verbose,
-      return_code  = return_code,
-      review_code  = review_code,
-      plan         = plan,
-      the_call     = the_call))
+      return_code = return_code,
+      review_code = review_code,
+      plan = plan,
+      the_call = the_call
+    ))
+  }
 
   if (default_prior_active) {
     # ADR 0020: simple_slope_uncor contributes BOTH the standard
@@ -357,36 +379,46 @@ flexybayes <- function(
     # per-group uniform-on-SD machinery covers both hyperparameters.
     grp_names <- character(0)
     for (t in fb$random_terms) {
-      if (is.null(t$var)) next
-      if (t$type %in% c("simple", "ide", "id"))
+      if (is.null(t$var)) {
+        next
+      }
+      if (t$type %in% c("simple", "ide", "id")) {
         grp_names <- c(grp_names, t$var)
+      }
       if (identical(t$type, "simple_slope_uncor")) {
-        if (isTRUE(t$with_intercept))
+        if (isTRUE(t$with_intercept)) {
           grp_names <- c(grp_names, t$var)
-        if (!is.null(t$slope_var) && nzchar(t$slope_var))
-          grp_names <- c(grp_names,
-                         paste0(t$slope_var, "_", t$var))
+        }
+        if (!is.null(t$slope_var) && nzchar(t$slope_var)) {
+          grp_names <- c(grp_names, paste0(t$slope_var, "_", t$var))
+        }
       }
     }
     grp_names <- unique(grp_names)
     # AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups
     # also receive the uniform-on-SD default (extends ADR 0004).
-    vm_ped_names <- vapply(fb$random_terms,
+    vm_ped_names <- vapply(
+      fb$random_terms,
       function(t) {
-        if (!is.null(t$var) && t$type %in% c("vm", "ped"))
-          t$var else NA_character_
-      }, character(1))
+        if (!is.null(t$var) && t$type %in% c("vm", "ped")) {
+          t$var
+        } else {
+          NA_character_
+        }
+      },
+      character(1)
+    )
     vm_ped_names <- vm_ped_names[!is.na(vm_ped_names)]
     unif_default <- .default_uniform_prior(
-      data           = data,
-      response       = fb$response,
-      family         = family,
-      link           = link,
-      random_groups  = grp_names,
-      vm_ped_groups  = vm_ped_names
+      data = data,
+      response = fb$response,
+      family = family,
+      link = link,
+      random_groups = grp_names,
+      vm_ped_groups = vm_ped_names
     )
     fb$priors <- unif_default
-    prior     <- unif_default
+    prior <- unif_default
     .default_prior_note_once(
       scale = attr(unif_default, "fb_prior_default_scale"),
       basis = attr(unif_default, "fb_prior_default_basis")
@@ -398,18 +430,19 @@ flexybayes <- function(
   # courtesy alternative invocation that lets asreml-style callers
   # reach the same planning object without re-typing the formula in
   # brms shape.
-  if (isTRUE(plan))
+  if (isTRUE(plan)) {
     return(.fb_plan_from_ir(
-      fb                = fb,
-      data              = data,
-      backend           = backend,
-      known_matrices    = known_matrices,
-      aggregate         = aggregate,
+      fb = fb,
+      data = data,
+      backend = backend,
+      known_matrices = known_matrices,
+      aggregate = aggregate,
       memory_ceiling_gb = NULL,
-      predict_plan      = NULL,
-      the_call          = the_call,
-      data_name         = data_name
+      predict_plan = NULL,
+      the_call = the_call,
+      data_name = data_name
     ))
+  }
 
   # Review-mode branch. Build the deferred-execution token instead
   # of firing the backend. Code generation does not consume RNG; the
@@ -421,24 +454,33 @@ flexybayes <- function(
     # The emit engine for the review code: greta source on the greta
     # path; Stan source (brms::make_stancode()) on the brms path.
     review_emit_backend <- if (identical(backend, "brms")) "brms" else "greta"
-    if (review_emit_backend == "greta" &&
-        !requireNamespace("greta", quietly = TRUE))
-      stop("Package 'greta' is required to generate the review-code ",
-           "string. Install with:\n",
-           "  install.packages('greta'); greta::install_greta_deps()",
-           call. = FALSE)
-    if (review_emit_backend == "brms" &&
-        !requireNamespace("brms", quietly = TRUE))
-      stop("Package 'brms' is required to generate Stan review code. ",
-           "Install with: install.packages('brms'). A working C++ ",
-           "toolchain (rstan or cmdstanr) is required for the ",
-           "downstream fit.", call. = FALSE)
-    if (!exists(".Random.seed", envir = globalenv(),
-                inherits = FALSE)) {
-      runif(1)  # initialise RNG so the snapshot is reproducible
+    if (
+      review_emit_backend == "greta" &&
+        !requireNamespace("greta", quietly = TRUE)
+    ) {
+      stop(
+        "Package 'greta' is required to generate the review-code ",
+        "string. Install with:\n",
+        "  install.packages('greta'); greta::install_greta_deps()",
+        call. = FALSE
+      )
     }
-    seed_snapshot <- get(".Random.seed", envir = globalenv(),
-                         inherits = FALSE)
+    if (
+      review_emit_backend == "brms" &&
+        !requireNamespace("brms", quietly = TRUE)
+    ) {
+      stop(
+        "Package 'brms' is required to generate Stan review code. ",
+        "Install with: install.packages('brms'). A working C++ ",
+        "toolchain (rstan or cmdstanr) is required for the ",
+        "downstream fit.",
+        call. = FALSE
+      )
+    }
+    if (!exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+      runif(1) # initialise RNG so the snapshot is reproducible
+    }
+    seed_snapshot <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
 
     # Build a `the_call` for the deferred fit that does not reach
     # back into the caller's frame for symbol resolution. `match.call()`
@@ -455,76 +497,91 @@ flexybayes <- function(
     # `$call`) keeps the original symbol form for diagnostic clarity.
     the_call_proceed <- the_call
     the_call_proceed$data <- data
-    if (!is.null(weights))        the_call_proceed$weights        <- weights
-    if (length(known_matrices))   the_call_proceed$known_matrices <- known_matrices
-    if (!is.null(prior))          the_call_proceed$prior          <- prior
+    if (!is.null(weights)) {
+      the_call_proceed$weights <- weights
+    }
+    if (length(known_matrices)) {
+      the_call_proceed$known_matrices <- known_matrices
+    }
+    if (!is.null(prior)) {
+      the_call_proceed$prior <- prior
+    }
 
     # Stage 2 MVP -- run preflight upstream of the code emit so the
     # review token carries the design-memory summary and a refusal
     # short-circuits before any code generation happens. Below the
     # 1e5-row threshold .maybe_preflight() returns NULL and the
     # review object's $preflight slot stays NULL (v0.2 behaviour).
-    review_preflight <- .maybe_preflight(fb = fb, data = data,
-                                          the_call = the_call)
+    review_preflight <- .maybe_preflight(
+      fb = fb,
+      data = data,
+      the_call = the_call
+    )
 
     # ADR 0031 Phase 3.6: emit the review code from the engine the user
     # pinned -- greta source (codegen) or Stan source (make_stancode()).
     # Both emit paths derive the model from the IR on return_code = TRUE,
     # so the fixed / random / rcov args (display-only) pass through as-is.
-    emit_review_fn <- if (review_emit_backend == "brms") emit_brms
-                      else emit_greta
+    emit_review_fn <- if (review_emit_backend == "brms") {
+      emit_brms
+    } else {
+      emit_greta
+    }
     review_code_str <- emit_review_fn(
-      fb             = fb,
-      data           = data,
+      fb = fb,
+      data = data,
       known_matrices = known_matrices,
-      weights        = weights,
-      n_samples      = n_samples,
-      warmup         = warmup,
-      chains         = chains,
+      weights = weights,
+      n_samples = n_samples,
+      warmup = warmup,
+      chains = chains,
       prior_fixed_sd = prior_fixed_sd,
-      prior_vc_sd    = prior_vc_sd,
-      verbose        = FALSE,
-      mcmc_verbose   = mcmc_verbose,
-      return_code    = TRUE,
-      the_call       = the_call,
-      fixed          = fixed,
-      random         = random,
-      rcov           = rcov,
-      family         = family,
-      link           = link,
-      data_name      = data_name
+      prior_vc_sd = prior_vc_sd,
+      verbose = FALSE,
+      mcmc_verbose = mcmc_verbose,
+      return_code = TRUE,
+      the_call = the_call,
+      fixed = fixed,
+      random = random,
+      rcov = rcov,
+      family = family,
+      link = link,
+      data_name = data_name
     )
 
     return(.new_flexybayes_review(
-      code         = review_code_str,
-      backend      = if (review_emit_backend == "brms")
-                       "stan_via_brms" else "greta",
-      ir           = fb,
-      prior        = prior,
-      data_name    = data_name,
-      call         = the_call,
-      seed         = seed_snapshot,
-      preflight    = review_preflight,
+      code = review_code_str,
+      backend = if (review_emit_backend == "brms") {
+        "stan_via_brms"
+      } else {
+        "greta"
+      },
+      ir = fb,
+      prior = prior,
+      data_name = data_name,
+      call = the_call,
+      seed = seed_snapshot,
+      preflight = review_preflight,
       proceed_args = list(
-        fb             = fb,
-        data           = data,
+        fb = fb,
+        data = data,
         known_matrices = known_matrices,
-        weights        = weights,
-        n_samples      = n_samples,
-        warmup         = warmup,
-        chains         = chains,
+        weights = weights,
+        n_samples = n_samples,
+        warmup = warmup,
+        chains = chains,
         prior_fixed_sd = prior_fixed_sd,
-        prior_vc_sd    = prior_vc_sd,
-        verbose        = FALSE,
-        mcmc_verbose   = mcmc_verbose,
-        return_code    = FALSE,
-        the_call       = the_call_proceed,
-        fixed          = fixed,
-        random         = random,
-        rcov           = rcov,
-        family         = family,
-        link           = link,
-        data_name      = data_name
+        prior_vc_sd = prior_vc_sd,
+        verbose = FALSE,
+        mcmc_verbose = mcmc_verbose,
+        return_code = FALSE,
+        the_call = the_call_proceed,
+        fixed = fixed,
+        random = random,
+        rcov = rcov,
+        family = family,
+        link = link,
+        data_name = data_name
       )
     ))
   }
@@ -536,27 +593,27 @@ flexybayes <- function(
   # the refusal on non-LGM; backend = "auto" gate-then-route with
   # silenceable fall-back notes.
   .dispatch_backend(
-    fb             = fb,
-    data           = data,
-    backend        = backend,
+    fb = fb,
+    data = data,
+    backend = backend,
     known_matrices = known_matrices,
-    weights        = weights,
-    n_samples      = n_samples,
-    warmup         = warmup,
-    chains         = chains,
+    weights = weights,
+    n_samples = n_samples,
+    warmup = warmup,
+    chains = chains,
     prior_fixed_sd = prior_fixed_sd,
-    prior_vc_sd    = prior_vc_sd,
-    verbose        = verbose,
-    mcmc_verbose   = mcmc_verbose,
-    return_code    = return_code,
-    the_call       = the_call,
-    fixed          = fixed,
-    random         = random,
-    rcov           = rcov,
-    family         = family,
-    link           = link,
-    data_name      = data_name,
-    aggregate      = aggregate
+    prior_vc_sd = prior_vc_sd,
+    verbose = verbose,
+    mcmc_verbose = mcmc_verbose,
+    return_code = return_code,
+    the_call = the_call,
+    fixed = fixed,
+    random = random,
+    rcov = rcov,
+    family = family,
+    link = link,
+    data_name = data_name,
+    aggregate = aggregate
   )
 }
 

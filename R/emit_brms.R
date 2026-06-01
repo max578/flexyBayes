@@ -42,75 +42,93 @@
 # Public-style entry -- internal in v0.2                            #
 # ---------------------------------------------------------------- #
 
-emit_brms <- function(fb,
-                      data,
-                      known_matrices = list(),
-                      weights        = NULL,
-                      n_samples      = 1000L,
-                      warmup         = 500L,
-                      chains         = 4L,
-                      prior_fixed_sd = 100,
-                      prior_vc_sd    = 1,
-                      verbose        = TRUE,
-                      mcmc_verbose   = TRUE,
-                      return_code    = FALSE,
-                      the_call       = NULL,
-                      fixed          = NULL,
-                      random         = NULL,
-                      rcov           = NULL,
-                      family         = NULL,
-                      link           = NULL,
-                      data_name      = NA_character_,
-                      ...) {
-
-  if (!is_fb_terms(fb))
+emit_brms <- function(
+  fb,
+  data,
+  known_matrices = list(),
+  weights = NULL,
+  n_samples = 1000L,
+  warmup = 500L,
+  chains = 4L,
+  prior_fixed_sd = 100,
+  prior_vc_sd = 1,
+  verbose = TRUE,
+  mcmc_verbose = TRUE,
+  return_code = FALSE,
+  the_call = NULL,
+  fixed = NULL,
+  random = NULL,
+  rcov = NULL,
+  family = NULL,
+  link = NULL,
+  data_name = NA_character_,
+  ...
+) {
+  if (!is_fb_terms(fb)) {
     stop("`fb` must be an fb_terms object.", call. = FALSE)
+  }
 
-  if (!requireNamespace("brms", quietly = TRUE))
-    stop("Package 'brms' is required for backend = \"brms\". ",
-         "Install via:\n  install.packages('brms')\n",
-         "A working C++ toolchain (rstan or cmdstanr) is required ",
-         "for Stan compilation.", call. = FALSE)
-  if (!requireNamespace("posterior", quietly = TRUE))
-    stop("Package 'posterior' is required for the brms posterior ",
-         "extraction shim. Install via install.packages('posterior').",
-         call. = FALSE)
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop(
+      "Package 'brms' is required for backend = \"brms\". ",
+      "Install via:\n  install.packages('brms')\n",
+      "A working C++ toolchain (rstan or cmdstanr) is required ",
+      "for Stan compilation.",
+      call. = FALSE
+    )
+  }
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    stop(
+      "Package 'posterior' is required for the brms posterior ",
+      "extraction shim. Install via install.packages('posterior').",
+      call. = FALSE
+    )
+  }
 
   # -- formula + family + prior ------------------------------------
-  brms_form   <- .fb_to_brms_formula(fb)
+  brms_form <- .fb_to_brms_formula(fb)
   brms_family <- .fb_family_to_brms(fb$family, fb$link)
-  brms_prior  <- .priors_to_brms(
-    fb$priors %||% list(legacy = TRUE,
-                         fixed_sd = prior_fixed_sd,
-                         vc_sd    = prior_vc_sd),
+  brms_prior <- .priors_to_brms(
+    fb$priors %||%
+      list(legacy = TRUE, fixed_sd = prior_fixed_sd, vc_sd = prior_vc_sd),
     fb,
     prior_fixed_sd = prior_fixed_sd,
-    prior_vc_sd    = prior_vc_sd
+    prior_vc_sd = prior_vc_sd
   )
 
   # -- return_code: skip the fit; emit the Stan code only -----------
   if (isTRUE(return_code)) {
     stancode <- tryCatch(
-      brms::make_stancode(formula = brms_form,
-                          data    = data,
-                          family  = brms_family,
-                          prior   = brms_prior,
-                          silent  = 2L),
-      error = function(e)
-        stop("brms::make_stancode() failed: ", conditionMessage(e),
-             call. = FALSE)
+      brms::make_stancode(
+        formula = brms_form,
+        data = data,
+        family = brms_family,
+        prior = brms_prior,
+        silent = 2L
+      ),
+      error = function(e) {
+        stop(
+          "brms::make_stancode() failed: ",
+          conditionMessage(e),
+          call. = FALSE
+        )
+      }
     )
     return(invisible(as.character(stancode)))
   }
 
   if (verbose) {
-    cat("\n-- flexyBayes: brms (Stan passthrough) fit ",
-        paste(rep("-", 18), collapse = ""), "\n", sep = "")
+    cat(
+      "\n-- flexyBayes: brms (Stan passthrough) fit ",
+      paste(rep("-", 18), collapse = ""),
+      "\n",
+      sep = ""
+    )
     cat("  formula: ", deparse(brms_form), "\n", sep = "")
-    cat("  family : ", .deparse_brms_family(brms_family), "\n",
-        sep = "")
-    if (!is.null(brms_prior))
+    cat("  family : ", .deparse_brms_family(brms_family), "\n", sep = "")
+    if (!is.null(brms_prior)) {
       cat("  priors : ", nrow(brms_prior), " row(s)\n", sep = "")
+    }
     cat(paste(rep("-", 60), collapse = ""), "\n\n")
   }
 
@@ -134,33 +152,47 @@ emit_brms <- function(fb,
     withCallingHandlers(
       brms::brm(
         formula = brms_form,
-        data    = data,
-        family  = brms_family,
-        prior   = brms_prior,
-        chains  = as.integer(chains),
-        iter    = iter,
-        warmup  = as.integer(warmup),
-        silent  = if (isTRUE(verbose)) 0L else 2L,
+        data = data,
+        family = brms_family,
+        prior = brms_prior,
+        chains = as.integer(chains),
+        iter = iter,
+        warmup = as.integer(warmup),
+        silent = if (isTRUE(verbose)) 0L else 2L,
         refresh = if (isTRUE(mcmc_verbose)) 200L else 0L,
         ...
       ),
       warning = function(w) {
-        if (grepl("upper bounded prior on a parameter that has no natural upper bound",
-                  conditionMessage(w), fixed = TRUE))
+        if (
+          grepl(
+            paste0(
+              "upper bounded prior on a parameter that has ",
+              "no natural upper bound"
+            ),
+            conditionMessage(w),
+            fixed = TRUE
+          )
+        ) {
           invokeRestart("muffleWarning")
+        }
       }
     ),
-    error = function(e)
+    error = function(e) {
       stop("brms::brm() failed: ", conditionMessage(e), call. = FALSE)
+    }
   )
   elapsed <- unname((proc.time() - t0)["elapsed"])
 
   # -- post-fit summaries ------------------------------------------
   draws_arr <- tryCatch(
     posterior::as_draws_matrix(brmsfit),
-    error = function(e)
-      stop("posterior::as_draws_matrix() failed on the brms fit: ",
-           conditionMessage(e), call. = FALSE)
+    error = function(e) {
+      stop(
+        "posterior::as_draws_matrix() failed on the brms fit: ",
+        conditionMessage(e),
+        call. = FALSE
+      )
+    }
   )
   draws_mat <- as.matrix(draws_arr)
 
@@ -168,7 +200,8 @@ emit_brms <- function(fb,
   # summary methods. Single-chain treatment matches the way the
   # generic flexybayes summary expects mean / sd / quantiles.
   post_summary <- tryCatch(
-    summary(brmsfit), error = function(e) NULL
+    summary(brmsfit),
+    error = function(e) NULL
   )
 
   # Convergence diagnostics: brms / posterior expose ess_bulk and
@@ -183,9 +216,13 @@ emit_brms <- function(fb,
   # b_<term> convention with the b_ prefix stripped (brms convention
   # for canonical names; see canonical_names.flexybayes_brms in
   # R/canonical_names.R for the matching identity mapper).
-  glm_obj <- .brms_glm_shim(brmsfit, draws_mat, data,
-                             family = brms_family,
-                             formula_used = brms_form)
+  glm_obj <- .brms_glm_shim(
+    brmsfit,
+    draws_mat,
+    data,
+    family = brms_family,
+    formula_used = brms_form
+  )
 
   # Variance components: extract sd_<group>__Intercept rows from the
   # brms posterior + the residual sigma. Same shape as the existing
@@ -194,63 +231,66 @@ emit_brms <- function(fb,
 
   extras <- structure(
     list(
-      summary        = post_summary,
-      convergence    = conv_diag,
+      summary = post_summary,
+      convergence = conv_diag,
       variance_comps = vc_table,
-      blups          = NULL,      # brms ranef() lives on $brms slot
-      predictions    = NULL,      # brms posterior_predict on demand
-      code           = NULL,      # populated only on review_code path
-      param_names    = colnames(draws_mat),
-      parse_info     = list(
-        fixed  = list(response  = fb$response,
-                      intercept = isTRUE(fb$intercept),
-                      terms     = fb$fixed_terms),
+      blups = NULL, # brms ranef() lives on $brms slot
+      predictions = NULL, # brms posterior_predict on demand
+      code = NULL, # populated only on review_code path
+      param_names = colnames(draws_mat),
+      parse_info = list(
+        fixed = list(
+          response = fb$response,
+          intercept = isTRUE(fb$intercept),
+          terms = fb$fixed_terms
+        ),
         random = fb$random_terms,
-        rcov   = fb$rcov_terms,
+        rcov = fb$rcov_terms,
         family = list(family = fb$family, link = fb$link)
       ),
-      call_info      = list(
-        fixed          = fixed,
-        random         = random,
-        rcov           = rcov,
-        data_name      = data_name,
-        family         = family,
-        link           = link,
+      call_info = list(
+        fixed = fixed,
+        random = random,
+        rcov = rcov,
+        data_name = data_name,
+        family = family,
+        link = link,
         known_matrices = known_matrices,
-        weights        = weights,
-        n_samples      = n_samples,
-        warmup         = warmup,
-        chains         = chains,
+        weights = weights,
+        n_samples = n_samples,
+        warmup = warmup,
+        chains = chains,
         prior_fixed_sd = prior_fixed_sd,
-        prior_vc_sd    = prior_vc_sd
+        prior_vc_sd = prior_vc_sd
       ),
-      run_time       = elapsed,
-      model_info     = list(
-        n_obs    = nrow(data),
+      run_time = elapsed,
+      model_info = list(
+        n_obs = nrow(data),
         # ADR 0020: brms_form may carry `(x || g)` which
         # stats::model.matrix() rejects (`||` requires logical(1)
         # operands). Compute n_fixed off a fixed-only formula
         # reconstructed from the IR's fixed_terms slot so the
         # random-effects block never reaches model.matrix.
-        n_fixed  = ncol(stats::model.matrix(
-          .fb_to_fixed_only_formula(fb), data = data
+        n_fixed = ncol(stats::model.matrix(
+          .fb_to_fixed_only_formula(fb),
+          data = data
         )),
         n_random = length(fb$random_terms),
         n_params = ncol(draws_mat),
-        family   = fb$family,
-        link     = fb$link
+        family = fb$family,
+        link = fb$link
       ),
-      the_call       = the_call,
-      formula        = brms_form,
-      brms_prior     = brms_prior
+      the_call = the_call,
+      formula = brms_form,
+      brms_prior = brms_prior
     ),
     class = "flexybayes_extras"
   )
 
   structure(
     list(
-      glm    = glm_obj,
-      brms   = brmsfit,
+      glm = glm_obj,
+      brms = brmsfit,
       extras = extras
     ),
     class = c("flexybayes_brms", "flexybayes", "list")
@@ -270,35 +310,57 @@ emit_brms <- function(fb,
 # we see here only carries supported shapes.
 .fb_to_brms_formula <- function(fb) {
   response <- fb$response
-  if (is.null(response) || !nzchar(response))
-    stop("IR is missing the response slot; cannot reconstruct the ",
-         "brms formula.", call. = FALSE)
+  if (is.null(response) || !nzchar(response)) {
+    stop(
+      "IR is missing the response slot; cannot reconstruct the ",
+      "brms formula.",
+      call. = FALSE
+    )
+  }
 
-  fixed_labels <- vapply(fb$fixed_terms, function(t) {
-    if (!is.null(t$label)) t$label
-    else if (!is.null(t$var)) t$var
-    else if (!is.null(t$expr)) deparse(t$expr)
-    else NA_character_
-  }, character(1))
+  fixed_labels <- vapply(
+    fb$fixed_terms,
+    function(t) {
+      if (!is.null(t$label)) {
+        t$label
+      } else if (!is.null(t$var)) {
+        t$var
+      } else if (!is.null(t$expr)) {
+        deparse(t$expr)
+      } else {
+        NA_character_
+      }
+    },
+    character(1)
+  )
   fixed_labels <- fixed_labels[!is.na(fixed_labels)]
 
-  fixed_rhs <- if (length(fixed_labels) > 0L)
-    paste(fixed_labels, collapse = " + ") else "1"
-  if (!isTRUE(fb$intercept))
+  fixed_rhs <- if (length(fixed_labels) > 0L) {
+    paste(fixed_labels, collapse = " + ")
+  } else {
+    "1"
+  }
+  if (!isTRUE(fb$intercept)) {
     fixed_rhs <- paste0(fixed_rhs, " - 1")
+  }
 
   re_terms <- character(0)
   for (term in fb$random_terms) {
-    if (is.null(term$type) ||
-        !term$type %in% c("simple", "ide", "id",
-                          "simple_slope_uncor"))
-      stop("emit_brms() does not yet support random term type \"",
-           term$type %||% "<unknown>",
-           "\". Re-route via backend = \"greta\".", call. = FALSE)
+    if (
+      is.null(term$type) ||
+        !term$type %in% c("simple", "ide", "id", "simple_slope_uncor")
+    ) {
+      stop(
+        "emit_brms() does not yet support random term type \"",
+        term$type %||% "<unknown>",
+        "\". Re-route via backend = \"greta\".",
+        call. = FALSE
+      )
+    }
     grp <- term$var
-    if (is.null(grp) || !nzchar(grp))
-      stop("Random-effect term missing the group variable.",
-           call. = FALSE)
+    if (is.null(grp) || !nzchar(grp)) {
+      stop("Random-effect term missing the group variable.", call. = FALSE)
+    }
     # ADR 0020: uncorrelated random slope. Round-trip to the brms
     # double-pipe shape -- (x || g) for the intercept + slope form
     # (the lme4 / brms-default semantics for the bare slope),
@@ -306,21 +368,30 @@ emit_brms <- function(fb,
     # intercept suppression).
     if (identical(term$type, "simple_slope_uncor")) {
       sv <- term$slope_var
-      if (is.null(sv) || !nzchar(sv))
-        stop("Uncorrelated random-slope term missing slope_var.",
-             call. = FALSE)
-      re_terms <- c(re_terms, paste0(
-        "(",
-        if (isTRUE(term$with_intercept)) "" else "0 + ",
-        sv, " || ", grp, ")"
-      ))
+      if (is.null(sv) || !nzchar(sv)) {
+        stop("Uncorrelated random-slope term missing slope_var.", call. = FALSE)
+      }
+      re_terms <- c(
+        re_terms,
+        paste0(
+          "(",
+          if (isTRUE(term$with_intercept)) "" else "0 + ",
+          sv,
+          " || ",
+          grp,
+          ")"
+        )
+      )
       next
     }
     re_terms <- c(re_terms, paste0("(1 | ", grp, ")"))
   }
 
-  rhs <- if (length(re_terms) > 0L)
-    paste(c(fixed_rhs, re_terms), collapse = " + ") else fixed_rhs
+  rhs <- if (length(re_terms) > 0L) {
+    paste(c(fixed_rhs, re_terms), collapse = " + ")
+  } else {
+    fixed_rhs
+  }
 
   stats::as.formula(paste(response, "~", rhs))
 }
@@ -334,18 +405,31 @@ emit_brms <- function(fb,
 # random-effects block.
 .fb_to_fixed_only_formula <- function(fb) {
   response <- fb$response
-  fixed_labels <- vapply(fb$fixed_terms, function(t) {
-    if (!is.null(t$label)) t$label
-    else if (!is.null(t$var)) t$var
-    else if (!is.null(t$expr)) deparse(t$expr)
-    else NA_character_
-  }, character(1))
+  fixed_labels <- vapply(
+    fb$fixed_terms,
+    function(t) {
+      if (!is.null(t$label)) {
+        t$label
+      } else if (!is.null(t$var)) {
+        t$var
+      } else if (!is.null(t$expr)) {
+        deparse(t$expr)
+      } else {
+        NA_character_
+      }
+    },
+    character(1)
+  )
   fixed_labels <- fixed_labels[!is.na(fixed_labels)]
 
-  fixed_rhs <- if (length(fixed_labels) > 0L)
-    paste(fixed_labels, collapse = " + ") else "1"
-  if (!isTRUE(fb$intercept))
+  fixed_rhs <- if (length(fixed_labels) > 0L) {
+    paste(fixed_labels, collapse = " + ")
+  } else {
+    "1"
+  }
+  if (!isTRUE(fb$intercept)) {
     fixed_rhs <- paste0(fixed_rhs, " - 1")
+  }
   stats::as.formula(paste(response, "~", fixed_rhs))
 }
 
@@ -362,30 +446,50 @@ emit_brms <- function(fb,
   ns <- asNamespace("brms")
 
   if (fam == "gaussian") {
-    return(if (is.null(link_clean)) stats::gaussian()
-           else stats::gaussian(link = link_clean))
+    return(
+      if (is.null(link_clean)) {
+        stats::gaussian()
+      } else {
+        stats::gaussian(link = link_clean)
+      }
+    )
   }
   if (fam %in% c("binomial", "binary", "bernoulli")) {
     # Single-column 0/1 corpus shape -> Bernoulli logit.
-    return(if (is.null(link_clean))
-             get("bernoulli", envir = ns)()
-           else
-             get("bernoulli", envir = ns)(link = link_clean))
+    return(
+      if (is.null(link_clean)) {
+        get("bernoulli", envir = ns)()
+      } else {
+        get("bernoulli", envir = ns)(link = link_clean)
+      }
+    )
   }
   if (fam == "poisson") {
-    return(if (is.null(link_clean)) stats::poisson()
-           else stats::poisson(link = link_clean))
+    return(
+      if (is.null(link_clean)) {
+        stats::poisson()
+      } else {
+        stats::poisson(link = link_clean)
+      }
+    )
   }
-  if (fam %in% c("negbin", "negbinom", "negative_binomial",
-                 "nbinomial")) {
-    return(if (is.null(link_clean))
-             get("negbinomial", envir = ns)()
-           else
-             get("negbinomial", envir = ns)(link = link_clean))
+  if (fam %in% c("negbin", "negbinom", "negative_binomial", "nbinomial")) {
+    return(
+      if (is.null(link_clean)) {
+        get("negbinomial", envir = ns)()
+      } else {
+        get("negbinomial", envir = ns)(link = link_clean)
+      }
+    )
   }
   if (fam == "gamma") {
-    return(if (is.null(link_clean)) stats::Gamma(link = "log")
-           else stats::Gamma(link = link_clean))
+    return(
+      if (is.null(link_clean)) {
+        stats::Gamma(link = "log")
+      } else {
+        stats::Gamma(link = link_clean)
+      }
+    )
   }
   if (fam == "lognormal") {
     return(get("lognormal", envir = ns)())
@@ -393,17 +497,20 @@ emit_brms <- function(fb,
   if (fam == "beta") {
     return(get("Beta", envir = ns)())
   }
-  stop("emit_brms() does not yet translate family = \"", fam,
-       "\". v0.2 supports: gaussian, binomial (single-column ",
-       "Bernoulli), poisson, negative_binomial, gamma, lognormal, ",
-       "beta. Other families are queued for v0.2.5+.",
-       call. = FALSE)
+  stop(
+    "emit_brms() does not yet translate family = \"",
+    fam,
+    "\". v0.2 supports: gaussian, binomial (single-column ",
+    "Bernoulli), poisson, negative_binomial, gamma, lognormal, ",
+    "beta. Other families are queued for v0.2.5+.",
+    call. = FALSE
+  )
 }
 
 .deparse_brms_family <- function(fam) {
   if (inherits(fam, "family") || inherits(fam, "brmsfamily")) {
     nm <- fam$family %||% "<unknown>"
-    lk <- fam$link   %||% "default"
+    lk <- fam$link %||% "default"
     return(paste0(nm, " (", lk, " link)"))
   }
   as.character(fam)
@@ -419,23 +526,27 @@ emit_brms <- function(fb,
 # names follow the canonical (brms-stripped) convention: b_<term>
 # rows from the posterior are exposed as <term>; the Intercept row
 # becomes "(Intercept)".
-.brms_glm_shim <- function(brmsfit, draws_mat, data,
-                           family, formula_used) {
+.brms_glm_shim <- function(brmsfit, draws_mat, data, family, formula_used) {
   cn <- colnames(draws_mat)
 
-  b_cols      <- cn[grepl("^b_", cn)]
-  canon_names <- vapply(b_cols, function(nm) {
-    bare <- sub("^b_", "", nm)
-    if (identical(bare, "Intercept")) "(Intercept)" else bare
-  }, character(1), USE.NAMES = FALSE)
+  b_cols <- cn[grepl("^b_", cn)]
+  canon_names <- vapply(
+    b_cols,
+    function(nm) {
+      bare <- sub("^b_", "", nm)
+      if (identical(bare, "Intercept")) "(Intercept)" else bare
+    },
+    character(1),
+    USE.NAMES = FALSE
+  )
 
   if (length(b_cols) > 0L) {
-    coefs   <- colMeans(draws_mat[, b_cols, drop = FALSE])
+    coefs <- colMeans(draws_mat[, b_cols, drop = FALSE])
     vcov_mx <- stats::cov(draws_mat[, b_cols, drop = FALSE])
     rownames(vcov_mx) <- colnames(vcov_mx) <- canon_names
     names(coefs) <- canon_names
   } else {
-    coefs   <- numeric(0)
+    coefs <- numeric(0)
     vcov_mx <- matrix(numeric(0), 0L, 0L)
   }
 
@@ -451,27 +562,31 @@ emit_brms <- function(fb,
     error = function(e) rep(NA_real_, nrow(data))
   )
   linear_pred <- tryCatch(
-    as.numeric(stats::fitted(brmsfit, scale = "linear",
-                              summary = TRUE)[, "Estimate"]),
+    as.numeric(stats::fitted(brmsfit, scale = "linear", summary = TRUE)[,
+      "Estimate"
+    ]),
     error = function(e) fitted_vals
   )
   response_col <- all.vars(formula_used[[2L]])[1L]
-  y_vec <- if (!is.null(response_col) && response_col %in% names(data))
-    as.numeric(data[[response_col]]) else rep(NA_real_, nrow(data))
+  y_vec <- if (!is.null(response_col) && response_col %in% names(data)) {
+    as.numeric(data[[response_col]])
+  } else {
+    rep(NA_real_, nrow(data))
+  }
   residual_vec <- y_vec - fitted_vals
 
   fixed_formula <- .brms_fixed_only_formula(formula_used)
 
   glm_obj <- structure(
     list(
-      coefficients      = coefs,
-      fitted.values     = fitted_vals,
+      coefficients = coefs,
+      fitted.values = fitted_vals,
       linear.predictors = linear_pred,
-      residuals         = residual_vec,
-      family            = family,
-      formula           = fixed_formula,
-      data              = data,
-      y                 = y_vec
+      residuals = residual_vec,
+      family = family,
+      formula = fixed_formula,
+      data = data,
+      y = y_vec
     ),
     class = c("flexybayes_glm", "list"),
     posterior_vcov = vcov_mx
@@ -484,7 +599,9 @@ emit_brms <- function(fb,
 .brms_fixed_only_formula <- function(form) {
   rhs <- form[[3L]]
   no_re <- .strip_re_terms(rhs)
-  if (is.null(no_re)) no_re <- quote(1)
+  if (is.null(no_re)) {
+    no_re <- quote(1)
+  }
   out <- form
   out[[3L]] <- no_re
   out
@@ -494,15 +611,25 @@ emit_brms <- function(fb,
   if (is.call(expr) && identical(expr[[1L]], as.name("+"))) {
     l <- .strip_re_terms(expr[[2L]])
     r <- .strip_re_terms(expr[[3L]])
-    if (is.null(l)) return(r)
-    if (is.null(r)) return(l)
+    if (is.null(l)) {
+      return(r)
+    }
+    if (is.null(r)) {
+      return(l)
+    }
     return(call("+", l, r))
   }
-  if (is.call(expr) && identical(expr[[1L]], as.name("|"))) return(NULL)
-  if (is.call(expr) && identical(expr[[1L]], as.name("||"))) return(NULL)
+  if (is.call(expr) && identical(expr[[1L]], as.name("|"))) {
+    return(NULL)
+  }
+  if (is.call(expr) && identical(expr[[1L]], as.name("||"))) {
+    return(NULL)
+  }
   if (is.call(expr) && identical(expr[[1L]], as.name("("))) {
     inner <- .strip_re_terms(expr[[2L]])
-    if (is.null(inner)) return(NULL)
+    if (is.null(inner)) {
+      return(NULL)
+    }
     return(call("(", inner))
   }
   expr
@@ -513,26 +640,33 @@ emit_brms <- function(fb,
 # including "Point est."; we synthesise it from posterior::rhat.
 # n_eff is a numeric vector of ess_bulk values keyed by parameter.
 .brms_convergence <- function(brmsfit, draws_mat) {
-  if (!requireNamespace("posterior", quietly = TRUE))
+  if (!requireNamespace("posterior", quietly = TRUE)) {
     return(list(gelman = NULL, n_eff = NULL))
+  }
 
   summ <- tryCatch(
     posterior::summarise_draws(
       posterior::as_draws_array(brmsfit),
-      "rhat", "ess_bulk"
+      "rhat",
+      "ess_bulk"
     ),
     error = function(e) NULL
   )
-  if (is.null(summ)) return(list(gelman = NULL, n_eff = NULL))
+  if (is.null(summ)) {
+    return(list(gelman = NULL, n_eff = NULL))
+  }
 
-  psrf <- matrix(c(summ$rhat, rep(NA_real_, nrow(summ))),
-                 nrow = nrow(summ), ncol = 2L)
+  psrf <- matrix(
+    c(summ$rhat, rep(NA_real_, nrow(summ))),
+    nrow = nrow(summ),
+    ncol = 2L
+  )
   colnames(psrf) <- c("Point est.", "Upper C.I.")
   rownames(psrf) <- summ$variable
 
   list(
     gelman = list(psrf = psrf),
-    n_eff  = stats::setNames(summ$ess_bulk, summ$variable)
+    n_eff = stats::setNames(summ$ess_bulk, summ$variable)
   )
 }
 
@@ -541,32 +675,36 @@ emit_brms <- function(fb,
 .brms_variance_comps <- function(brmsfit, draws_mat) {
   cn <- colnames(draws_mat)
   vc_cols <- cn[grepl("^sd_", cn) | cn == "sigma"]
-  if (length(vc_cols) == 0L)
-    return(data.frame(component = character(0),
-                      estimate  = numeric(0),
-                      sd        = numeric(0),
-                      q2.5      = numeric(0),
-                      q97.5     = numeric(0),
-                      stringsAsFactors = FALSE))
+  if (length(vc_cols) == 0L) {
+    return(data.frame(
+      component = character(0),
+      estimate = numeric(0),
+      sd = numeric(0),
+      q2.5 = numeric(0),
+      q97.5 = numeric(0),
+      stringsAsFactors = FALSE
+    ))
+  }
 
   rows <- lapply(vc_cols, function(nm) {
     x <- draws_mat[, nm]
-    qs <- stats::quantile(x, c(0.025, 0.975), names = FALSE,
-                          na.rm = TRUE)
-    list(component = .brms_vc_canonical_name(nm),
-         estimate  = mean(x, na.rm = TRUE),
-         sd        = stats::sd(x, na.rm = TRUE),
-         q2.5      = qs[1L],
-         q97.5     = qs[2L])
+    qs <- stats::quantile(x, c(0.025, 0.975), names = FALSE, na.rm = TRUE)
+    list(
+      component = .brms_vc_canonical_name(nm),
+      estimate = mean(x, na.rm = TRUE),
+      sd = stats::sd(x, na.rm = TRUE),
+      q2.5 = qs[1L],
+      q97.5 = qs[2L]
+    )
   })
-  do.call(rbind,
-          lapply(rows, as.data.frame,
-                 stringsAsFactors = FALSE))
+  do.call(rbind, lapply(rows, as.data.frame, stringsAsFactors = FALSE))
 }
 
 # brms VC names: sd_<group>__Intercept -> sd_<group>; sigma stays.
 .brms_vc_canonical_name <- function(nm) {
-  if (identical(nm, "sigma")) return("sigma")
+  if (identical(nm, "sigma")) {
+    return("sigma")
+  }
   bare <- sub("^sd_", "", nm)
   bare <- sub("__Intercept$", "", bare)
   paste0("sd_", bare)
@@ -594,23 +732,47 @@ print.flexybayes_brms <- function(x, ...) {
   cat("Bayesian mixed model  [flexyBayes / brms passthrough]\n")
   cat(strrep("-", 55), "\n")
   cat("  Fixed  :", deparse(ci$fixed), "\n")
-  if (!is.null(ci$random)) cat("  Random :", deparse(ci$random), "\n")
+  if (!is.null(ci$random)) {
+    cat("  Random :", deparse(ci$random), "\n")
+  }
   cat("  Family :", mi$family, "(", mi$link, "link )\n")
 
-  nch <- ci$chains; ns <- ci$n_samples
-  cat("  MCMC   :", nch, "chain(s) x", ns, "samples",
-      "(warmup =", ci$warmup, ") --",
-      round(x$extras$run_time, 1), "sec (Stan via brms)\n")
+  nch <- ci$chains
+  ns <- ci$n_samples
+  cat(
+    "  MCMC   :",
+    nch,
+    "chain(s) x",
+    ns,
+    "samples",
+    "(warmup =",
+    ci$warmup,
+    ") --",
+    round(x$extras$run_time, 1),
+    "sec (Stan via brms)\n"
+  )
 
-  cat("  Params :", mi$n_params, "monitored;",
-      mi$n_fixed, "fixed,", mi$n_random, "random terms\n")
+  cat(
+    "  Params :",
+    mi$n_params,
+    "monitored;",
+    mi$n_fixed,
+    "fixed,",
+    mi$n_random,
+    "random terms\n"
+  )
 
   if (!is.null(x$extras$convergence$gelman)) {
     rhat <- x$extras$convergence$gelman$psrf[, "Point est."]
     if (length(rhat)) {
       mx <- max(rhat, na.rm = TRUE)
-      flag <- if (mx < 1.05) " [OK]" else
-              if (mx < 1.10) " [borderline]" else " [!]"
+      flag <- if (mx < 1.05) {
+        " [OK]"
+      } else if (mx < 1.10) {
+        " [borderline]"
+      } else {
+        " [!]"
+      }
       cat("  Max Rhat:", round(mx, 3), flag, "\n")
     }
   }
@@ -640,29 +802,45 @@ print.flexybayes_brms <- function(x, ...) {
 #' @param level Credible level (default 0.95).
 #' @param ... Ignored.
 #' @export
-confint.flexybayes_brms <- function(object, parm = NULL,
-                                    level = 0.95, ...) {
-  if (!requireNamespace("posterior", quietly = TRUE))
-    stop("Package 'posterior' is required for confint() on brms ",
-         "fits.", call. = FALSE)
+confint.flexybayes_brms <- function(object, parm = NULL, level = 0.95, ...) {
+  if (!requireNamespace("posterior", quietly = TRUE)) {
+    stop(
+      "Package 'posterior' is required for confint() on brms ",
+      "fits.",
+      call. = FALSE
+    )
+  }
   draws <- as.matrix(posterior::as_draws_matrix(object$brms))
   cn <- colnames(draws)
   b_cols <- cn[grepl("^b_", cn)]
-  if (length(b_cols) == 0L)
+  if (length(b_cols) == 0L) {
     return(matrix(numeric(0), 0L, 2L))
+  }
 
   alpha <- 1 - level
   probs <- c(alpha / 2, 1 - alpha / 2)
-  ci_mat <- t(apply(draws[, b_cols, drop = FALSE], 2L,
-                    stats::quantile, probs = probs,
-                    names = FALSE, na.rm = TRUE))
-  rownames(ci_mat) <- vapply(b_cols, function(nm) {
-    bare <- sub("^b_", "", nm)
-    if (identical(bare, "Intercept")) "(Intercept)" else bare
-  }, character(1), USE.NAMES = FALSE)
+  ci_mat <- t(apply(
+    draws[, b_cols, drop = FALSE],
+    2L,
+    stats::quantile,
+    probs = probs,
+    names = FALSE,
+    na.rm = TRUE
+  ))
+  rownames(ci_mat) <- vapply(
+    b_cols,
+    function(nm) {
+      bare <- sub("^b_", "", nm)
+      if (identical(bare, "Intercept")) "(Intercept)" else bare
+    },
+    character(1),
+    USE.NAMES = FALSE
+  )
   colnames(ci_mat) <- paste0(round(probs * 100, 1), "%")
 
-  if (!is.null(parm)) ci_mat <- ci_mat[parm, , drop = FALSE]
+  if (!is.null(parm)) {
+    ci_mat <- ci_mat[parm, , drop = FALSE]
+  }
   ci_mat
 }
 
@@ -697,36 +875,51 @@ confint.flexybayes_brms <- function(object, parm = NULL,
 #' @param ... Forwarded to `brms::posterior_epred()` /
 #'   `brms::posterior_linpred()`.
 #' @export
-predict.flexybayes_brms <- function(object, newdata = NULL,
-                                    type = c("response", "link"),
-                                    re_formula = NULL,
-                                    se.fit = FALSE,
-                                    summary = TRUE, ...) {
+predict.flexybayes_brms <- function(
+  object,
+  newdata = NULL,
+  type = c("response", "link"),
+  re_formula = NULL,
+  se.fit = FALSE,
+  summary = TRUE,
+  ...
+) {
   type <- match.arg(type)
-  if (is.null(object$brms))
-    stop("Cannot predict from a flexybayes_brms object with an ",
-         "empty $brms slot.", call. = FALSE)
+  if (is.null(object$brms)) {
+    stop(
+      "Cannot predict from a flexybayes_brms object with an ",
+      "empty $brms slot.",
+      call. = FALSE
+    )
+  }
 
   # brms exports `posterior_epred` (response-scale) and
   # `posterior_linpred` (linear-predictor scale) as generics; the
   # `.brmsfit` methods dispatch automatically via the generic.
   # Pull the exported generic directly from the brms namespace so
   # the call is portable whether or not the user has loaded brms.
-  if (!requireNamespace("brms", quietly = TRUE))
-    stop("Package 'brms' is required for predict() on a ",
-         "flexybayes_brms object.", call. = FALSE)
-  brms_fn <- if (type == "link")
+  if (!requireNamespace("brms", quietly = TRUE)) {
+    stop(
+      "Package 'brms' is required for predict() on a ",
+      "flexybayes_brms object.",
+      call. = FALSE
+    )
+  }
+  brms_fn <- if (type == "link") {
     get("posterior_linpred", envir = asNamespace("brms"))
-  else
+  } else {
     get("posterior_epred", envir = asNamespace("brms"))
+  }
 
-  post_mat <- if (is.null(newdata))
+  post_mat <- if (is.null(newdata)) {
     brms_fn(object$brms, re_formula = re_formula, ...)
-  else
-    brms_fn(object$brms, newdata = newdata,
-            re_formula = re_formula, ...)
+  } else {
+    brms_fn(object$brms, newdata = newdata, re_formula = re_formula, ...)
+  }
 
-  if (!isTRUE(summary)) return(post_mat)
+  if (!isTRUE(summary)) {
+    return(post_mat)
+  }
 
   fit_vec <- as.numeric(colMeans(post_mat))
   if (isTRUE(se.fit)) {
@@ -756,12 +949,17 @@ logLik.flexybayes_brms <- function(object, ...) {
   } else {
     ll_fn <- get("log_lik", envir = asNamespace("brms"))
     ll_mat <- tryCatch(ll_fn(object$brms), error = function(e) NULL)
-    ll_val <- if (is.null(ll_mat)) NA_real_
-              else mean(rowSums(ll_mat, na.rm = TRUE))
+    ll_val <- if (is.null(ll_mat)) {
+      NA_real_
+    } else {
+      mean(rowSums(ll_mat, na.rm = TRUE))
+    }
   }
 
-  structure(ll_val,
-    df   = object$extras$model_info$n_params,
+  structure(
+    ll_val,
+    df = object$extras$model_info$n_params,
     nobs = object$extras$model_info$n_obs,
-    class = "logLik")
+    class = "logLik"
+  )
 }

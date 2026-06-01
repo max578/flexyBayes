@@ -24,18 +24,22 @@
 #   leak across files in tally.R's single-process loop, so all
 #   reset-style side effects must be scoped to the test.
 
-local_tf_seed <- function(seed,
-                          .local_envir = parent.frame(),
-                          deterministic_ops = FALSE) {
+local_tf_seed <- function(
+  seed,
+  .local_envir = parent.frame(),
+  deterministic_ops = FALSE
+) {
   set.seed(seed)
   if (requireNamespace("tensorflow", quietly = TRUE)) {
     tf <- tensorflow::tf
-    tryCatch(tf$random$set_seed(as.integer(seed)),
-             error = function(e) invisible(NULL))
+    tryCatch(tf$random$set_seed(as.integer(seed)), error = function(e) {
+      invisible(NULL)
+    })
     if (isTRUE(deterministic_ops)) {
       tryCatch(
         tf$config$experimental$enable_op_determinism(),
-        error = function(e) invisible(NULL))
+        error = function(e) invisible(NULL)
+      )
     }
   }
   invisible(NULL)

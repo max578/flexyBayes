@@ -7,7 +7,7 @@
 # prior priority (uniform_per_vc -> pc_per_vc -> legacy lognormal).
 
 skip_if_no_greta <- function() skip_if_not_installed("greta")
-skip_if_no_mgcv  <- function() skip_if_not_installed("mgcv")
+skip_if_no_mgcv <- function() skip_if_not_installed("mgcv")
 
 mk_smooth_data <- function() {
   set.seed(2026L)
@@ -23,14 +23,16 @@ mk_smooth_data <- function() {
 
 test_that(".enrich() builds the smoothCon basis for s(x)", {
   skip_if_no_mgcv()
-  d  <- mk_smooth_data()
+  d <- mk_smooth_data()
   fb <- flexyBayes:::fb_from_asreml(
-    fixed  = y ~ 1, random = ~ s(x), data = d
+    fixed = y ~ 1,
+    random = ~ s(x),
+    data = d
   )
   expect_length(fb$random_terms, 1L)
   rt <- fb$random_terms[[1]]
   expect_identical(rt$type, "smooth_mgcv")
-  expect_identical(rt$var,  "x")
+  expect_identical(rt$var, "x")
   expect_true(is.matrix(rt$X))
   expect_identical(nrow(rt$X), nrow(d))
   expect_true(rt$k >= 1L)
@@ -39,9 +41,11 @@ test_that(".enrich() builds the smoothCon basis for s(x)", {
 
 test_that("s(x, k = 6) honours user-supplied k", {
   skip_if_no_mgcv()
-  d  <- mk_smooth_data()
+  d <- mk_smooth_data()
   fb <- flexyBayes:::fb_from_asreml(
-    fixed  = y ~ 1, random = ~ s(x, k = 6), data = d
+    fixed = y ~ 1,
+    random = ~ s(x, k = 6),
+    data = d
   )
   rt <- fb$random_terms[[1]]
   expect_identical(rt$type, "smooth_mgcv")
@@ -55,7 +59,9 @@ test_that(".enrich() errors politely when s() variable is missing from data", {
   d <- mk_smooth_data()
   expect_error(
     flexyBayes:::fb_from_asreml(
-      fixed = y ~ 1, random = ~ s(missing_var), data = d
+      fixed = y ~ 1,
+      random = ~ s(missing_var),
+      data = d
     ),
     regexp = "not found in data"
   )
@@ -66,14 +72,18 @@ test_that(".enrich() errors politely when s() variable is missing from data", {
 # ---------------------------------------------------------------- #
 
 test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
-  skip_if_no_greta(); skip_if_no_mgcv()
+  skip_if_no_greta()
+  skip_if_no_mgcv()
   d <- mk_smooth_data()
   local_clean_emit_state()
   set_emit_state("default_prior_note", TRUE)
   code <- flexybayes(
-    fixed       = y ~ 1, random = ~ s(x),
-    data        = d, prior_vc_sd = 1,
-    verbose     = FALSE, return_code = TRUE
+    fixed = y ~ 1,
+    random = ~ s(x),
+    data = d,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    return_code = TRUE
   )
   # ADR 0018 / merged-v2 §4.1: the basis matrix is bound into the
   # model env as B_s_x; the emitted code references it via
@@ -87,7 +97,8 @@ test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
 })
 
 test_that("default uniform prior reaches the smooth's sigma via .sigma_decl", {
-  skip_if_no_greta(); skip_if_no_mgcv()
+  skip_if_no_greta()
+  skip_if_no_mgcv()
   # v0.3.9 emit-state migration + bare-options leak cleanup: the
   # default_prior_note once-flag now lives in a package-internal env
   # (R/emit_state.R), shielded from the options() namespace where
@@ -107,8 +118,11 @@ test_that("default uniform prior reaches the smooth's sigma via .sigma_decl", {
   local_clean_emit_state()
   expect_false(flexyBayes:::.emit_state_get("default_prior_note"))
   code <- flexybayes(
-    fixed   = y ~ 1, random = ~ s(x),
-    data    = d, verbose = FALSE, return_code = TRUE
+    fixed = y ~ 1,
+    random = ~ s(x),
+    data = d,
+    verbose = FALSE,
+    return_code = TRUE
   )
   expect_true(flexyBayes:::.emit_state_get("default_prior_note"))
   # Both the residual sigma and the smooth's sigma should be uniform

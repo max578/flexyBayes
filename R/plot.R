@@ -12,18 +12,28 @@
 #'   - `"pp_check"`: posterior predictive check (observed vs replicated)
 #' @param ... Additional arguments passed to plotting functions
 #' @export
-plot.flexybayes <- function(x, type = c("diagnostics", "residuals", "effects",
-                                        "variance", "blups", "pp_check"),
-                            ...) {
+plot.flexybayes <- function(
+  x,
+  type = c(
+    "diagnostics",
+    "residuals",
+    "effects",
+    "variance",
+    "blups",
+    "pp_check"
+  ),
+  ...
+) {
   type <- match.arg(type)
 
-  switch(type,
+  switch(
+    type,
     "diagnostics" = .plot_diagnostics(x, ...),
-    "residuals"   = .plot_residuals(x, ...),
-    "effects"     = .plot_effects(x, ...),
-    "variance"    = .plot_variance(x, ...),
-    "blups"       = .plot_blups(x, ...),
-    "pp_check"    = .plot_pp_check(x, ...)
+    "residuals" = .plot_residuals(x, ...),
+    "effects" = .plot_effects(x, ...),
+    "variance" = .plot_variance(x, ...),
+    "blups" = .plot_blups(x, ...),
+    "pp_check" = .plot_pp_check(x, ...)
   )
 }
 
@@ -62,17 +72,18 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
 # that reads a slot the backend never populates degrades to a message
 # rather than crashing through to graphics::plot.default().
 .plot_unavailable <- function(type, reason) {
-  message("plot(type = \"", type, "\") is not available for this fit: ",
-          reason)
+  message("plot(type = \"", type, "\") is not available for this fit: ", reason)
   invisible(NULL)
 }
 
 # MCMC diagnostics: trace + density
 .plot_diagnostics <- function(x, ...) {
-  if (is.null(x$greta$draws))
+  if (is.null(x$greta$draws)) {
     return(.plot_unavailable(
       "diagnostics",
-      "trace / density plots require MCMC draws (greta or brms backend)."))
+      "trace / density plots require MCMC draws (greta or brms backend)."
+    ))
+  }
   if (requireNamespace("bayesplot", quietly = TRUE)) {
     draws <- x$greta$draws
     p1 <- bayesplot::mcmc_trace(draws, ...)
@@ -93,16 +104,21 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
       for (ch in seq_along(draws)) {
         vals <- as.matrix(draws[[ch]])[, nm]
         if (ch == 1) {
-          plot(vals, type = "l", main = paste("Trace:", nm),
-               xlab = "", ylab = "", col = ch)
+          plot(
+            vals,
+            type = "l",
+            main = paste("Trace:", nm),
+            xlab = "",
+            ylab = "",
+            col = ch
+          )
         } else {
           lines(vals, col = ch)
         }
       }
       # Density
       vals <- all_draws[, nm]
-      plot(density(vals), main = paste("Density:", nm),
-           xlab = "", ylab = "")
+      plot(density(vals), main = paste("Density:", nm), xlab = "", ylab = "")
     }
   }
   invisible(NULL)
@@ -111,13 +127,19 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
 # Residual diagnostics
 .plot_residuals <- function(x, ...) {
   fitted_vals <- tryCatch(stats::fitted(x), error = function(e) NULL)
-  resid_vals  <- tryCatch(stats::residuals(x), error = function(e) NULL)
+  resid_vals <- tryCatch(stats::residuals(x), error = function(e) NULL)
 
-  if (is.null(fitted_vals) || is.null(resid_vals) ||
-      length(fitted_vals) == 0L || length(resid_vals) == 0L)
+  if (
+    is.null(fitted_vals) ||
+      is.null(resid_vals) ||
+      length(fitted_vals) == 0L ||
+      length(resid_vals) == 0L
+  ) {
     return(.plot_unavailable(
       "residuals",
-      "fitted values and residuals are not available for this backend."))
+      "fitted values and residuals are not available for this backend."
+    ))
+  }
 
   if (any(is.na(fitted_vals)) || any(is.na(resid_vals))) {
     message("Cannot plot residuals: fitted values contain NA.")
@@ -128,9 +150,15 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
   on.exit(par(old_par))
 
   # 1. Residuals vs Fitted
-  plot(fitted_vals, resid_vals,
-       xlab = "Fitted values", ylab = "Residuals",
-       main = "Residuals vs Fitted", pch = 16, col = "#00000060")
+  plot(
+    fitted_vals,
+    resid_vals,
+    xlab = "Fitted values",
+    ylab = "Residuals",
+    main = "Residuals vs Fitted",
+    pch = 16,
+    col = "#00000060"
+  )
   abline(h = 0, lty = 2, col = "red")
   lines(lowess(fitted_vals, resid_vals), col = "blue")
 
@@ -139,14 +167,26 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
   qqline(resid_vals, col = "red")
 
   # 3. Scale-Location
-  plot(fitted_vals, sqrt(abs(resid_vals)),
-       xlab = "Fitted values", ylab = "sqrt(|Residuals|)",
-       main = "Scale-Location", pch = 16, col = "#00000060")
+  plot(
+    fitted_vals,
+    sqrt(abs(resid_vals)),
+    xlab = "Fitted values",
+    ylab = "sqrt(|Residuals|)",
+    main = "Scale-Location",
+    pch = 16,
+    col = "#00000060"
+  )
   lines(lowess(fitted_vals, sqrt(abs(resid_vals))), col = "blue")
 
   # 4. Histogram of residuals
-  hist(resid_vals, breaks = 30, main = "Residual Distribution",
-       xlab = "Residuals", col = "lightblue", border = "white")
+  hist(
+    resid_vals,
+    breaks = 30,
+    main = "Residual Distribution",
+    xlab = "Residuals",
+    col = "lightblue",
+    border = "white"
+  )
 
   invisible(NULL)
 }
@@ -160,10 +200,12 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
   }
 
   ci <- tryCatch(stats::confint(x, level = level), error = function(e) NULL)
-  if (is.null(ci) || nrow(ci) != length(beta))
+  if (is.null(ci) || nrow(ci) != length(beta)) {
     return(.plot_unavailable(
       "effects",
-      "fixed-effect credible intervals are not available for this backend."))
+      "fixed-effect credible intervals are not available for this backend."
+    ))
+  }
 
   n <- length(beta)
   y_pos <- seq_len(n)
@@ -173,10 +215,17 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
 
   xlim <- range(c(ci, 0)) * 1.1
 
-  plot(beta, y_pos, xlim = xlim, yaxt = "n",
-       xlab = "Estimate", ylab = "",
-       main = paste0("Fixed effects (", round(level * 100), "% CrI)"),
-       pch = 16, cex = 1.2)
+  plot(
+    beta,
+    y_pos,
+    xlim = xlim,
+    yaxt = "n",
+    xlab = "Estimate",
+    ylab = "",
+    main = paste0("Fixed effects (", round(level * 100), "% CrI)"),
+    pch = 16,
+    cex = 1.2
+  )
   segments(ci[, 1], y_pos, ci[, 2], y_pos, lwd = 2)
   abline(v = 0, lty = 2, col = "grey50")
   axis(2, at = y_pos, labels = names(beta), las = 1, cex.axis = 0.8)
@@ -200,10 +249,17 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
 
   xlim <- c(0, max(vc$q97.5, na.rm = TRUE) * 1.1)
 
-  plot(vc$estimate, y_pos, xlim = xlim, yaxt = "n",
-       xlab = "Estimate", ylab = "",
-       main = "Variance components (95% CrI)",
-       pch = 16, cex = 1.2)
+  plot(
+    vc$estimate,
+    y_pos,
+    xlim = xlim,
+    yaxt = "n",
+    xlab = "Estimate",
+    ylab = "",
+    main = "Variance components (95% CrI)",
+    pch = 16,
+    cex = 1.2
+  )
   segments(vc$q2.5, y_pos, vc$q97.5, y_pos, lwd = 2)
   axis(2, at = y_pos, labels = vc$component, las = 1, cex.axis = 0.7)
 
@@ -227,9 +283,16 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
     n <- length(vals)
     ord <- order(vals)
 
-    plot(vals[ord], seq_len(n), pch = 16, cex = 0.6,
-         xlab = "BLUP", ylab = "Rank",
-         main = nm, col = "#00000080")
+    plot(
+      vals[ord],
+      seq_len(n),
+      pch = 16,
+      cex = 0.6,
+      xlab = "BLUP",
+      ylab = "Rank",
+      main = nm,
+      col = "#00000080"
+    )
     abline(v = 0, lty = 2, col = "red")
   }
 
@@ -241,13 +304,17 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
   y <- x$glm$y
   fitted_vals <- tryCatch(stats::fitted(x), error = function(e) NULL)
 
-  if (is.null(y) || is.null(fitted_vals) || length(fitted_vals) == 0L)
+  if (is.null(y) || is.null(fitted_vals) || length(fitted_vals) == 0L) {
     return(.plot_unavailable(
       "pp_check",
-      "observed response and fitted values are not available for this backend."))
+      "observed response and fitted values are not available for this backend."
+    ))
+  }
 
   if (any(is.na(fitted_vals))) {
-    message("Cannot produce posterior predictive check: fitted values contain NA.")
+    message(
+      "Cannot produce posterior predictive check: fitted values contain NA."
+    )
     return(invisible(NULL))
   }
 
@@ -256,18 +323,36 @@ plot.flexybayes_glm <- function(x, ...) plot.flexybayes(x, ...)
 
   # 1. Observed vs predicted
   lims <- range(c(y, fitted_vals))
-  plot(fitted_vals, y, pch = 16, col = "#00000060",
-       xlab = "Predicted", ylab = "Observed",
-       main = "Observed vs Predicted",
-       xlim = lims, ylim = lims)
+  plot(
+    fitted_vals,
+    y,
+    pch = 16,
+    col = "#00000060",
+    xlab = "Predicted",
+    ylab = "Observed",
+    main = "Observed vs Predicted",
+    xlim = lims,
+    ylim = lims
+  )
   abline(0, 1, col = "red", lty = 2)
 
   # 2. Density overlay
-  plot(density(y), main = "Posterior Predictive",
-       xlab = "Value", col = "black", lwd = 2)
+  plot(
+    density(y),
+    main = "Posterior Predictive",
+    xlab = "Value",
+    col = "black",
+    lwd = 2
+  )
   lines(density(fitted_vals), col = "blue", lwd = 2, lty = 2)
-  legend("topright", c("Observed", "Predicted"),
-         col = c("black", "blue"), lty = c(1, 2), lwd = 2, bty = "n")
+  legend(
+    "topright",
+    c("Observed", "Predicted"),
+    col = c("black", "blue"),
+    lty = c(1, 2),
+    lwd = 2,
+    bty = "n"
+  )
 
   invisible(NULL)
 }

@@ -7,25 +7,30 @@
 
 # Hand-build minimal <fb_terms> IR (avoids the brms walker's pre-
 # ingest refusals for some scope tests).
-.test_make_plan_ir <- function(family = "gaussian",
-                                link = "identity",
-                                fixed_terms = list(),
-                                random_terms = list(),
-                                n = 1000L) {
-  structure(list(
-    response       = "y",
-    family         = family,
-    link           = link,
-    intercept      = TRUE,
-    fixed_terms    = fixed_terms,
-    random_terms   = random_terms,
-    rcov_terms     = list(),
-    addition_terms = list(),
-    priors         = list(),
-    data_summary   = list(n = n),
-    capabilities   = character(),
-    source         = "test"
-  ), class = c("fb_terms", "list"))
+.test_make_plan_ir <- function(
+  family = "gaussian",
+  link = "identity",
+  fixed_terms = list(),
+  random_terms = list(),
+  n = 1000L
+) {
+  structure(
+    list(
+      response = "y",
+      family = family,
+      link = link,
+      intercept = TRUE,
+      fixed_terms = fixed_terms,
+      random_terms = random_terms,
+      rcov_terms = list(),
+      addition_terms = list(),
+      priors = list(),
+      data_summary = list(n = n),
+      capabilities = character(),
+      source = "test"
+    ),
+    class = c("fb_terms", "list")
+  )
 }
 
 
@@ -41,8 +46,8 @@ test_that("eligible: y ~ f + (1 | g) with K/N below threshold", {
     f = factor(sample(letters[1:5], N, replace = TRUE)),
     g = factor(sample.int(20L, N, replace = TRUE))
   )
-  fb   <- fb_from_brms(y ~ f + (1 | g), data = df)
-  ds   <- .fb_dataset(df)
+  fb <- fb_from_brms(y ~ f + (1 | g), data = df)
+  ds <- .fb_dataset(df)
   plan <- .fb_aggregation_plan(fb, ds)
 
   expect_s3_class(plan, "fb_aggregation_plan")
@@ -61,13 +66,13 @@ test_that("eligible at the productivity boundary (exactly K/N = threshold)", {
   set.seed(2L)
   N <- 1000L
   df <- data.frame(
-    y  = rnorm(N),
-    f  = factor(sample(letters[1:5],   N, replace = TRUE)),
-    g  = factor(sample.int(100L,       N, replace = TRUE))
+    y = rnorm(N),
+    f = factor(sample(letters[1:5], N, replace = TRUE)),
+    g = factor(sample.int(100L, N, replace = TRUE))
   )
-  fb   <- fb_from_brms(y ~ f + (1 | g), data = df)
+  fb <- fb_from_brms(y ~ f + (1 | g), data = df)
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
-  expect_true(plan$eligible)             # boundary is inclusive (<=)
+  expect_true(plan$eligible) # boundary is inclusive (<=)
   expect_equal(plan$compression_est, 0.5)
 })
 
@@ -78,8 +83,10 @@ test_that("eligible at the productivity boundary (exactly K/N = threshold)", {
 
 test_that("out of scope: non-aggregatable family (gamma)", {
   set.seed(3L)
-  df <- data.frame(y = rgamma(50L, 2),
-                   g = factor(sample(1:5, 50L, replace = TRUE)))
+  df <- data.frame(
+    y = rgamma(50L, 2),
+    g = factor(sample(1:5, 50L, replace = TRUE))
+  )
   fb <- fb_from_asreml(y ~ g, data = df, family = "gamma")
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
 
@@ -90,10 +97,13 @@ test_that("out of scope: non-aggregatable family (gamma)", {
 test_that("in scope: binomial and poisson with factor cell keys", {
   set.seed(7L)
   for (fam in c("binomial", "poisson")) {
-    y  <- if (identical(fam, "binomial")) rbinom(200L, 1L, 0.4)
-          else rpois(200L, 2)
+    y <- if (identical(fam, "binomial")) {
+      rbinom(200L, 1L, 0.4)
+    } else {
+      rpois(200L, 2)
+    }
     df <- data.frame(y = y, g = factor(sample(1:5, 200L, replace = TRUE)))
-    fb <- fb_from_asreml(y ~ 1, random = ~ g, data = df, family = fam)
+    fb <- fb_from_asreml(y ~ 1, random = ~g, data = df, family = fam)
     plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
     expect_true(plan$eligible, info = fam)
   }
@@ -114,7 +124,8 @@ test_that("out of scope: smooth (s(x)) fixed term", {
     fixed_terms = list(list(type = "smooth_mgcv", var = "x", k = 10L))
   )
   ds <- .fb_dataset(
-    data = NULL, n_rows = 1000L,
+    data = NULL,
+    n_rows = 1000L,
     col_types = list(y = "double", x = "double"),
     dictionaries = list()
   )
@@ -138,18 +149,21 @@ test_that("out of scope: uncorrelated random slope (x || g)", {
 
 test_that("out of scope: structured-covariance random term (audit P2.8)", {
   fb <- .test_make_plan_ir(
-    n            = 100L,
+    n = 100L,
     random_terms = list(list(type = "vm", var = "g", var_n = 10L))
   )
   ds <- .fb_dataset(
-    data = NULL, n_rows = 100L,
+    data = NULL,
+    n_rows = 100L,
     col_types = list(y = "double", g = "factor"),
     dictionaries = list(g = letters[1:10])
   )
   plan <- .fb_aggregation_plan(fb, ds)
   expect_false(plan$eligible)
-  expect_true("structured_random_not_aggregatable" %in%
-                plan$reason_codes)
+  expect_true(
+    "structured_random_not_aggregatable" %in%
+      plan$reason_codes
+  )
 })
 
 
@@ -164,12 +178,11 @@ test_that("data-dependent: numeric fixed term forces requires_materialisation", 
     x = rnorm(100L),
     g = factor(rep(letters[1:5], 20L))
   )
-  fb   <- fb_from_brms(y ~ x + (1 | g), data = df)
+  fb <- fb_from_brms(y ~ x + (1 | g), data = df)
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
 
   expect_false(plan$eligible)
-  expect_identical(plan$reason_codes,
-                   "continuous_cell_key_data_dependent")
+  expect_identical(plan$reason_codes, "continuous_cell_key_data_dependent")
   expect_true(plan$requires_materialisation)
   expect_true(is.na(plan$K_est))
 })
@@ -179,11 +192,12 @@ test_that("unproductive: K/N above threshold (factor levels close to N)", {
   # group columns via factor() which drops unused levels, so a real-
   # data path cannot guarantee 80 levels on 100 rows.
   fb <- .test_make_plan_ir(
-    n            = 100L,
+    n = 100L,
     random_terms = list(list(type = "simple", var = "g", var_n = 80L))
   )
   ds <- .fb_dataset(
-    data = NULL, n_rows = 100L,
+    data = NULL,
+    n_rows = 100L,
     col_types = list(y = "double", g = "factor"),
     dictionaries = list(g = as.character(seq_len(80L)))
   )
@@ -201,15 +215,15 @@ test_that("level count unresolvable: metadata-only dataset without dictionaries"
     fixed_terms = list(list(type = "factor", var = "f"))
   )
   ds <- .fb_dataset(
-    data = NULL, n_rows = 1000L,
+    data = NULL,
+    n_rows = 1000L,
     col_types = list(y = "double", f = "factor"),
-    dictionaries = list()   # no dictionary for `f`
+    dictionaries = list() # no dictionary for `f`
   )
   plan <- .fb_aggregation_plan(fb, ds)
 
   expect_false(plan$eligible)
-  expect_identical(plan$reason_codes,
-                   "compression_level_count_unresolvable")
+  expect_identical(plan$reason_codes, "compression_level_count_unresolvable")
   expect_true(plan$requires_materialisation)
   expect_true(is.na(plan$K_est))
 })
@@ -247,16 +261,15 @@ test_that("print.fb_aggregation_plan: eligible + reason_codes rendering", {
     f = factor(sample(letters[1:5], N, replace = TRUE)),
     g = factor(sample.int(20L, N, replace = TRUE))
   )
-  fb   <- fb_from_brms(y ~ f + (1 | g), data = df)
+  fb <- fb_from_brms(y ~ f + (1 | g), data = df)
   plan <- .fb_aggregation_plan(fb, .fb_dataset(df))
 
   out <- capture.output(print(plan))
   expect_true(any(grepl("<fb_aggregation_plan>", out, fixed = TRUE)))
-  expect_true(any(grepl("eligible = TRUE",      out, fixed = TRUE)))
-  expect_true(any(grepl("cell_key_terms:",      out, fixed = TRUE)))
-  expect_true(any(grepl("K_est = 100",          out, fixed = TRUE)))
-  expect_true(any(grepl("compression_est = 0.100",
-                        out, fixed = TRUE)))
+  expect_true(any(grepl("eligible = TRUE", out, fixed = TRUE)))
+  expect_true(any(grepl("cell_key_terms:", out, fixed = TRUE)))
+  expect_true(any(grepl("K_est = 100", out, fixed = TRUE)))
+  expect_true(any(grepl("compression_est = 0.100", out, fixed = TRUE)))
 })
 
 test_that("print.fb_aggregation_plan: NA fields render cleanly", {
@@ -264,21 +277,18 @@ test_that("print.fb_aggregation_plan: NA fields render cleanly", {
     fixed_terms = list(list(type = "smooth_mgcv", var = "x", k = 10L))
   )
   ds <- .fb_dataset(
-    data = NULL, n_rows = 1000L,
+    data = NULL,
+    n_rows = 1000L,
     col_types = list(y = "double", x = "double"),
     dictionaries = list()
   )
   plan <- .fb_aggregation_plan(fb, ds)
 
   out <- capture.output(print(plan))
-  expect_true(any(grepl("eligible = FALSE",                out,
-                        fixed = TRUE)))
-  expect_true(any(grepl("smooth_term_not_aggregatable",    out,
-                        fixed = TRUE)))
-  expect_true(any(grepl("K_est = NA",                      out,
-                        fixed = TRUE)))
-  expect_true(any(grepl("compression_est = NA",
-                        out, fixed = TRUE)))
+  expect_true(any(grepl("eligible = FALSE", out, fixed = TRUE)))
+  expect_true(any(grepl("smooth_term_not_aggregatable", out, fixed = TRUE)))
+  expect_true(any(grepl("K_est = NA", out, fixed = TRUE)))
+  expect_true(any(grepl("compression_est = NA", out, fixed = TRUE)))
 })
 
 
@@ -287,10 +297,9 @@ test_that("print.fb_aggregation_plan: NA fields render cleanly", {
 # ---------------------------------------------------------------- #
 
 test_that(".fb_aggregation_plan is internal -- no exported binding", {
-  ns  <- asNamespace("flexyBayes")
+  ns <- asNamespace("flexyBayes")
   exp <- getNamespaceExports(ns)
   expect_false(".fb_aggregation_plan" %in% exp)
-  expect_false("fb_aggregation_plan"  %in% exp)
-  expect_true(exists(".fb_aggregation_plan", envir = ns,
-                     inherits = FALSE))
+  expect_false("fb_aggregation_plan" %in% exp)
+  expect_true(exists(".fb_aggregation_plan", envir = ns, inherits = FALSE))
 })

@@ -31,9 +31,13 @@
 # positional-V backward-compat path.
 .dep_named <- function(expr, name) {
   nms <- names(expr)
-  if (is.null(nms)) return(NA_character_)
+  if (is.null(nms)) {
+    return(NA_character_)
+  }
   idx <- which(nms == name)
-  if (length(idx) == 0L) return(NA_character_)
+  if (length(idx) == 0L) {
+    return(NA_character_)
+  }
   deparse(expr[[idx[[1L]]]])
 }
 
@@ -45,41 +49,47 @@
 # @return List with family and link
 .resolve_family <- function(family, link) {
   defaults <- list(
-    gaussian          = "identity",
-    binomial          = "logit",
-    binary            = "logit",
-    poisson           = "log",
+    gaussian = "identity",
+    binomial = "logit",
+    binary = "logit",
+    poisson = "log",
     negative_binomial = "log",
-    negbinom          = "log",
-    gamma             = "log",
-    beta              = "logit"
+    negbinom = "log",
+    gamma = "log",
+    beta = "logit"
   )
   fam <- tolower(family)
-  if (!fam %in% names(defaults))
+  if (!fam %in% names(defaults)) {
     stop(.fb_refusal_condition(
-      reason_code  = "unsupported_family",
-      message      = paste0(
-        "Unsupported family \"", family, "\". flexyBayes supports: ",
+      reason_code = "unsupported_family",
+      message = paste0(
+        "Unsupported family \"",
+        family,
+        "\". flexyBayes supports: ",
         paste(names(defaults), collapse = ", "),
         ". Other families (including survival / time-to-event and ",
         "multivariate responses) are planned future work; see ",
-        "fb_refusals()."),
-      family_class = "flexybayes_unsupported_family"))
+        "fb_refusals()."
+      ),
+      family_class = "flexybayes_unsupported_family"
+    ))
+  }
   lnk <- if (!is.null(link)) tolower(link) else defaults[[fam]]
   list(family = fam, link = lnk)
 }
 
 # Map flexyBayes family string to stats::family object
 .get_stats_family <- function(fam_link) {
-  switch(fam_link$family,
-    "gaussian"          = gaussian(link = fam_link$link),
-    "binomial"          = ,
-    "binary"            = binomial(link = fam_link$link),
-    "poisson"           = poisson(link = fam_link$link),
+  switch(
+    fam_link$family,
+    "gaussian" = gaussian(link = fam_link$link),
+    "binomial" = ,
+    "binary" = binomial(link = fam_link$link),
+    "poisson" = poisson(link = fam_link$link),
     "negative_binomial" = ,
-    "negbinom"          = poisson(link = "log"),
-    "gamma"             = Gamma(link = fam_link$link),
-    "beta"              = gaussian(link = "identity"),
+    "negbinom" = poisson(link = "log"),
+    "gamma" = Gamma(link = fam_link$link),
+    "beta" = gaussian(link = "identity"),
     gaussian()
   )
 }

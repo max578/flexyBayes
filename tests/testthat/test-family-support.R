@@ -11,8 +11,16 @@
 # ---------------------------------------------------------------- #
 
 test_that(".resolve_family() accepts the eight supported families", {
-  for (fam in c("gaussian", "binomial", "binary", "poisson",
-                "negative_binomial", "negbinom", "gamma", "beta")) {
+  for (fam in c(
+    "gaussian",
+    "binomial",
+    "binary",
+    "poisson",
+    "negative_binomial",
+    "negbinom",
+    "gamma",
+    "beta"
+  )) {
     fl <- flexyBayes:::.resolve_family(fam, NULL)
     expect_type(fl, "list")
     expect_equal(fl$family, tolower(fam))
@@ -22,20 +30,27 @@ test_that(".resolve_family() accepts the eight supported families", {
 test_that(".resolve_family() refuses an unsupported family with a structured refusal", {
   err <- expect_error(
     flexyBayes:::.resolve_family("weibullsurv", NULL),
-    class = "flexybayes_refusal_unsupported_family")
-  expect_match(conditionMessage(err), "Unsupported family")   # legacy phrase retained
-  expect_match(conditionMessage(err), "survival")             # roadmap note
-  expect_match(conditionMessage(err), "fb_refusals")          # discovery pointer
+    class = "flexybayes_refusal_unsupported_family"
+  )
+  expect_match(conditionMessage(err), "Unsupported family") # legacy phrase retained
+  expect_match(conditionMessage(err), "survival") # roadmap note
+  expect_match(conditionMessage(err), "fb_refusals") # discovery pointer
   # retained family class so any legacy class-based handler keeps working
   expect_s3_class(err, "flexybayes_unsupported_family")
 })
 
 test_that("all five survival families are refused at the family gate", {
-  for (fam in c("exponentialsurv", "weibullsurv", "loggaussiansurv",
-                "lognormalsurv", "coxph")) {
+  for (fam in c(
+    "exponentialsurv",
+    "weibullsurv",
+    "loggaussiansurv",
+    "lognormalsurv",
+    "coxph"
+  )) {
     expect_error(
       flexyBayes:::.resolve_family(fam, NULL),
-      class = "flexybayes_refusal_unsupported_family")
+      class = "flexybayes_refusal_unsupported_family"
+    )
   }
 })
 
@@ -47,9 +62,15 @@ test_that("all five survival families are refused at the family gate", {
 test_that("flexybayes() refuses a survival family end-to-end", {
   dat <- data.frame(y = abs(rnorm(20)) + 0.1, x = rnorm(20))
   err <- expect_error(
-    flexybayes(y ~ x, data = dat, family = "weibullsurv",
-               backend = "inla", verbose = FALSE),
-    class = "flexybayes_refusal_unsupported_family")
+    flexybayes(
+      y ~ x,
+      data = dat,
+      family = "weibullsurv",
+      backend = "inla",
+      verbose = FALSE
+    ),
+    class = "flexybayes_refusal_unsupported_family"
+  )
   expect_match(conditionMessage(err), "Unsupported family")
 })
 
@@ -59,6 +80,8 @@ test_that("fb_refusals() lists the unsupported-family refusal cleanly", {
   refs <- fb_refusals()
   expect_true("unsupported_family" %in% refs$reason_code)
   row <- refs[refs$reason_code == "unsupported_family", ]
-  expect_false(any(grepl("ADR|Stage|Wave|Phase",
-                         unlist(row, use.names = FALSE))))
+  expect_false(any(grepl(
+    "ADR|Stage|Wave|Phase",
+    unlist(row, use.names = FALSE)
+  )))
 })

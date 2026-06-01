@@ -29,19 +29,27 @@
   if ("backend" %in% names(call)) {
     supplied <- tryCatch(
       as.character(eval(call$backend, env)),
-      error = function(e) as.character(call$backend))
-    if (!identical(supplied, engine))
+      error = function(e) as.character(call$backend)
+    )
+    if (!identical(supplied, engine)) {
       stop(.fb_refusal_condition(
         reason_code = "engine_pin_backend_conflict",
-        message     = paste0(
-          "fb_", engine, "() is an engine pin: it fits via the ", engine,
+        message = paste0(
+          "fb_",
+          engine,
+          "() is an engine pin: it fits via the ",
+          engine,
           " engine only, so it cannot take backend = \"",
-          paste(supplied, collapse = "\", \""), "\". Drop `backend`, or ",
-          "use fb() / flexybayes() to choose a backend."),
-        backend     = supplied))
+          paste(supplied, collapse = "\", \""),
+          "\". Drop `backend`, or ",
+          "use fb() / flexybayes() to choose a backend."
+        ),
+        backend = supplied
+      ))
+    }
   }
-  call[[1L]]    <- quote(flexyBayes::flexybayes)
-  call$backend  <- engine
+  call[[1L]] <- quote(flexyBayes::flexybayes)
+  call$backend <- engine
   eval(call, env)
 }
 

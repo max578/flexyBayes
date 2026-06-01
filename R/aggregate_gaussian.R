@@ -28,7 +28,6 @@
 # Internal-only at v0.3.2 -- consumed by emit_gaussian_aggregated()
 # (Stage 3A backend wiring; not in this commit). No @export.
 
-
 # Top-level aggregator. Returns an <fb_aggregated> S3 list:
 #   $cell_design     K x p cell-level fixed-effects design matrix.
 #                    One row per cell carrying the unique fixed-effect
@@ -60,30 +59,46 @@
 #   - any smooth fixed-effect term
 #   - any random slope (correlated or uncorrelated)
 .fb_aggregate_gaussian <- function(fb_ir, fb_dataset) {
-
-  if (!inherits(fb_ir, "fb_terms"))
-    stop(".fb_aggregate_gaussian() requires an `<fb_terms>` IR; got: ",
-         paste(class(fb_ir), collapse = "/"), call. = FALSE)
-  if (!inherits(fb_dataset, "fb_dataset"))
-    stop(".fb_aggregate_gaussian() requires an `<fb_dataset>` ",
-         "wrapper; got: ",
-         paste(class(fb_dataset), collapse = "/"), call. = FALSE)
-  if (.fb_dataset_is_metadata(fb_dataset))
-    stop(".fb_aggregate_gaussian() requires a data-backed dataset; ",
-         "metadata-only descriptors cannot be aggregated (no `y` to ",
-         "sum).", call. = FALSE)
+  if (!inherits(fb_ir, "fb_terms")) {
+    stop(
+      ".fb_aggregate_gaussian() requires an `<fb_terms>` IR; got: ",
+      paste(class(fb_ir), collapse = "/"),
+      call. = FALSE
+    )
+  }
+  if (!inherits(fb_dataset, "fb_dataset")) {
+    stop(
+      ".fb_aggregate_gaussian() requires an `<fb_dataset>` ",
+      "wrapper; got: ",
+      paste(class(fb_dataset), collapse = "/"),
+      call. = FALSE
+    )
+  }
+  if (.fb_dataset_is_metadata(fb_dataset)) {
+    stop(
+      ".fb_aggregate_gaussian() requires a data-backed dataset; ",
+      "metadata-only descriptors cannot be aggregated (no `y` to ",
+      "sum).",
+      call. = FALSE
+    )
+  }
 
   # Scope gate -- the cell-constant mu_k property only holds for the
   # Stage 3A envelope: gaussian-identity + fixed (numeric / factor) +
   # random intercept.
   .assert_aggregate_in_scope(fb_ir)
 
-  data <- fb_dataset$data   # data.table; always a wrapper-owned copy
-                            # (see .fb_dataset() header).
+  data <- fb_dataset$data # data.table; always a wrapper-owned copy
+  # (see .fb_dataset() header).
   response <- fb_ir$response
-  if (!response %in% names(data))
-    stop("Response variable '", response, "' not found in dataset.",
-         call. = FALSE)
+  if (!response %in% names(data)) {
+    stop(
+      "Response variable '",
+      response,
+      "' not found in dataset.",
+      call. = FALSE
+    )
+  }
 
   y <- as.numeric(data[[response]])
   N <- length(y)
@@ -96,8 +111,7 @@
   fixed_form <- .fb_aggregate_fixed_formula(fb_ir)
   if (is.null(fixed_form)) {
     # Intercept-only -- model.matrix(~ 1, data) is N x 1 of ones.
-    X <- matrix(1, nrow = N, ncol = 1L,
-                dimnames = list(NULL, "(Intercept)"))
+    X <- matrix(1, nrow = N, ncol = 1L, dimnames = list(NULL, "(Intercept)"))
   } else {
     X <- stats::model.matrix(fixed_form, data = data)
   }
@@ -107,8 +121,13 @@
   # ----------------------- Random-intercept keys -------------------- #
   random_intercept_groups <- vapply(
     fb_ir$random_terms,
-    function(t) if (identical(t$type, "simple"))
-                   as.character(t$var) else NA_character_,
+    function(t) {
+      if (identical(t$type, "simple")) {
+        as.character(t$var)
+      } else {
+        NA_character_
+      }
+    },
     character(1L)
   )
   random_cols <- random_intercept_groups[
@@ -123,8 +142,9 @@
   # the level set is stable across re-aggregation.
   key_dt <- data.table::as.data.table(X)
   data.table::setnames(key_dt, fixed_cols)
-  for (g in random_cols)
+  for (g in random_cols) {
     data.table::set(key_dt, j = g, value = data[[g]])
+  }
   data.table::set(key_dt, j = ".y", value = y)
 
   key_cols <- c(fixed_cols, random_cols)
@@ -135,17 +155,15 @@
   # (compatible with `cedta()` check in non-data.table-imported
   # namespaces by routing through evalq() on a data.table-aware env).
   agg_expr <- substitute(
-    key_dt[, list(n_k  = .N,
-                  S1_k = sum(.y),
-                  S2_k = sum(.y * .y)),
-           by = key_cols]
+    key_dt[, list(n_k = .N, S1_k = sum(.y), S2_k = sum(.y * .y)), by = key_cols]
   )
   agg <- eval(agg_expr, envir = asNamespace("data.table"))
 
   K <- nrow(agg)
   data.table::set(agg, j = "cell_id", value = seq_len(K))
   data.table::setcolorder(
-    agg, c("cell_id", key_cols, "n_k", "S1_k", "S2_k")
+    agg,
+    c("cell_id", key_cols, "n_k", "S1_k", "S2_k")
   )
 
   # Extract the cell-level design matrix (K x p) from the aggregated
@@ -156,15 +174,15 @@
 
   structure(
     list(
-      cell_design      = cell_design,
+      cell_design = cell_design,
       sufficient_stats = agg,
-      cell_key_cols    = key_cols,
-      fixed_cols       = fixed_cols,
-      random_cols      = random_cols,
-      K                = K,
-      N                = as.integer(N),
-      compression      = as.numeric(K) / as.numeric(N),
-      response         = response
+      cell_key_cols = key_cols,
+      fixed_cols = fixed_cols,
+      random_cols = random_cols,
+      K = K,
+      N = as.integer(N),
+      compression = as.numeric(K) / as.numeric(N),
+      response = response
     ),
     class = c("fb_aggregated", "list")
   )
@@ -180,31 +198,41 @@
 # (the eventual emit_gaussian_aggregated() dispatch branch) can
 # pattern-match without parsing free text.
 .assert_aggregate_in_scope <- function(fb_ir) {
-
-  if (!identical(fb_ir$family, "gaussian"))
+  if (!identical(fb_ir$family, "gaussian")) {
     .stop_aggregate_out_of_scope(
       reason_code = "non_gaussian_family",
-      detail      = paste0("family = '", fb_ir$family,
-                            "'; aggregated emit requires the gaussian family.")
+      detail = paste0(
+        "family = '",
+        fb_ir$family,
+        "'; aggregated emit requires the gaussian family."
+      )
     )
-  if (!(is.null(fb_ir$link) || identical(fb_ir$link, "identity")))
+  }
+  if (!(is.null(fb_ir$link) || identical(fb_ir$link, "identity"))) {
     .stop_aggregate_out_of_scope(
       reason_code = "non_identity_link",
-      detail      = paste0("link = '", fb_ir$link,
-                            "'; aggregated emit requires the identity link.")
+      detail = paste0(
+        "link = '",
+        fb_ir$link,
+        "'; aggregated emit requires the identity link."
+      )
     )
+  }
 
   # Fixed-effect term scope: numeric + factor + interactions thereof.
   # Smooths break cell-constant mu (basis is observation-row-specific).
   for (t in fb_ir$fixed_terms) {
     ttype <- if (!is.null(t$type)) t$type else "expression"
-    if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv", "spline"))
+    if (ttype %in% c("smooth", "s", "t2", "smooth_mgcv", "spline")) {
       .stop_aggregate_out_of_scope(
         reason_code = "smooth_term_not_aggregatable",
-        detail      = paste0("smooth fixed-effect term '",
-                              if (!is.null(t$var)) t$var else "?",
-                              "' breaks the cell-constant mu property.")
+        detail = paste0(
+          "smooth fixed-effect term '",
+          if (!is.null(t$var)) t$var else "?",
+          "' breaks the cell-constant mu property."
+        )
       )
+    }
   }
 
   # Random-effect term scope: random intercept only. Audit P2.8
@@ -216,13 +244,13 @@
   #   - structured_random_not_aggregatable (vm, ped, at, us, fa, ar1, ...)
   for (t in fb_ir$random_terms) {
     rtype <- if (!is.null(t$type)) t$type else "simple"
-    if (identical(rtype, "simple")) next
+    if (identical(rtype, "simple")) {
+      next
+    }
 
-    reason <- if (rtype %in% c("smooth", "s", "t2", "smooth_mgcv",
-                                "spline")) {
+    reason <- if (rtype %in% c("smooth", "s", "t2", "smooth_mgcv", "spline")) {
       "smooth_term_not_aggregatable"
-    } else if (rtype %in% c("simple_slope_uncor", "slope",
-                              "random_slope")) {
+    } else if (rtype %in% c("simple_slope_uncor", "slope", "random_slope")) {
       "random_slope_not_aggregatable"
     } else {
       "structured_random_not_aggregatable"
@@ -230,8 +258,11 @@
 
     .stop_aggregate_out_of_scope(
       reason_code = reason,
-      detail      = paste0("random-effect term type = '", rtype,
-                            "' breaks the cell-constant mu property.")
+      detail = paste0(
+        "random-effect term type = '",
+        rtype,
+        "' breaks the cell-constant mu property."
+      )
     )
   }
 
@@ -241,8 +272,11 @@
 .stop_aggregate_out_of_scope <- function(reason_code, detail) {
   msg <- paste0(
     "Aggregated Gaussian emit refused -- the model is out of scope.\n",
-    "Reason: ", reason_code, "\n",
-    detail, "\n\n",
+    "Reason: ",
+    reason_code,
+    "\n",
+    detail,
+    "\n\n",
     "Out-of-scope IRs route to the standard per-observation emit ",
     "(no compression); this condition is informational, not an error ",
     "in the per-row path."
@@ -250,10 +284,10 @@
   cond <- structure(
     class = c("flexybayes_aggregate_out_of_scope", "error", "condition"),
     list(
-      message     = msg,
-      call        = NULL,
+      message = msg,
+      call = NULL,
       reason_code = reason_code,
-      detail      = detail
+      detail = detail
     )
   )
   stop(cond)
@@ -268,18 +302,18 @@
 # positive scalar.
 .gaussian_loglik_raw <- function(y, mu, sigma) {
   N <- length(y)
-  -0.5 * N * log(2 * pi * sigma^2) -
-    0.5 / sigma^2 * sum((y - mu)^2)
+  -0.5 * N * log(2 * pi * sigma^2) - 0.5 / sigma^2 * sum((y - mu)^2)
 }
 
 # Aggregated per-cell gaussian log-likelihood using the three
 # sufficient statistics (n_k, S1_k, S2_k). mu_cell is the
 # linear-predictor value at each cell (length K); sigma positive
 # scalar. Algebraically identical to the raw form.
-.gaussian_loglik_aggregated <- function(n_k, S1_k, S2_k,
-                                         mu_cell, sigma) {
+.gaussian_loglik_aggregated <- function(n_k, S1_k, S2_k, mu_cell, sigma) {
   N <- sum(n_k)
-  -0.5 * N * log(2 * pi * sigma^2) -
+  -0.5 *
+    N *
+    log(2 * pi * sigma^2) -
     0.5 / sigma^2 * sum(S2_k - 2 * mu_cell * S1_k + n_k * mu_cell^2)
 }
 
@@ -290,7 +324,8 @@
 # aggregated form.
 .gaussian_loglik_cellmean <- function(n_k, S1_k, mu_cell, sigma) {
   ybar_k <- S1_k / n_k
-  -0.5 * sum(n_k * log(2 * pi * sigma^2 / n_k)) -
+  -0.5 *
+    sum(n_k * log(2 * pi * sigma^2 / n_k)) -
     0.5 / sigma^2 * sum(n_k * (ybar_k - mu_cell)^2)
 }
 
@@ -303,16 +338,30 @@
 # NULL if the only fixed term is an implicit intercept (caller
 # handles the matrix-of-ones case).
 .fb_aggregate_fixed_formula <- function(fb_ir) {
-  labels <- vapply(fb_ir$fixed_terms, function(t) {
-    if (!is.null(t$label) && nzchar(t$label)) return(t$label)
-    if (!is.null(t$var)   && nzchar(t$var))   return(as.character(t$var))
-    if (!is.null(t$deparse) && nzchar(t$deparse)) return(t$deparse)
-    NA_character_
-  }, character(1L))
+  labels <- vapply(
+    fb_ir$fixed_terms,
+    function(t) {
+      if (!is.null(t$label) && nzchar(t$label)) {
+        return(t$label)
+      }
+      if (!is.null(t$var) && nzchar(t$var)) {
+        return(as.character(t$var))
+      }
+      if (!is.null(t$deparse) && nzchar(t$deparse)) {
+        return(t$deparse)
+      }
+      NA_character_
+    },
+    character(1L)
+  )
   labels <- labels[!is.na(labels)]
-  if (!length(labels)) return(NULL)
+  if (!length(labels)) {
+    return(NULL)
+  }
   rhs <- paste(labels, collapse = " + ")
-  if (!isTRUE(fb_ir$intercept)) rhs <- paste0(rhs, " - 1")
+  if (!isTRUE(fb_ir$intercept)) {
+    rhs <- paste0(rhs, " - 1")
+  }
   stats::as.formula(paste0("~ ", rhs))
 }
 
@@ -333,20 +382,28 @@
 #' @keywords internal
 #' @export
 print.fb_aggregated <- function(x, ...) {
-  ratio <- if (x$compression > 0)
-             sprintf("%.1f:1", 1 / x$compression) else "n/a"
+  ratio <- if (x$compression > 0) {
+    sprintf("%.1f:1", 1 / x$compression)
+  } else {
+    "n/a"
+  }
   cat(sprintf(
     "<fb_aggregated>: N = %s rows -> K = %s cells (compression %s)\n",
     format(x$N, big.mark = " ", scientific = FALSE),
     format(x$K, big.mark = " ", scientific = FALSE),
     ratio
   ))
-  if (length(x$fixed_cols))
-    cat("  fixed cols:  ",
-        paste(x$fixed_cols,  collapse = ", "), "\n", sep = "")
-  if (length(x$random_cols))
-    cat("  random grps: ",
-        paste(x$random_cols, collapse = ", "), "\n", sep = "")
+  if (length(x$fixed_cols)) {
+    cat("  fixed cols:  ", paste(x$fixed_cols, collapse = ", "), "\n", sep = "")
+  }
+  if (length(x$random_cols)) {
+    cat(
+      "  random grps: ",
+      paste(x$random_cols, collapse = ", "),
+      "\n",
+      sep = ""
+    )
+  }
   cat("  response:    ", x$response, "\n", sep = "")
   invisible(x)
 }

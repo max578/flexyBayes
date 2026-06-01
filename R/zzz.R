@@ -14,21 +14,39 @@
   # classes without clobbering a user's existing setting.
   if (requireNamespace("marginaleffects", quietly = TRUE)) {
     cur <- getOption("marginaleffects_model_classes", default = NULL)
-    options(marginaleffects_model_classes =
-              union(as.character(cur),
-                    c("flexybayes", "flexybayes_inla")))
+    options(
+      marginaleffects_model_classes = union(
+        as.character(cur),
+        c("flexybayes", "flexybayes_inla")
+      )
+    )
   }
 
   # Register broom S3 methods if generics is available
   if (requireNamespace("generics", quietly = TRUE)) {
-    tryCatch({
-      registerS3method("tidy", "flexybayes", tidy.flexybayes,
-                        envir = asNamespace("generics"))
-      registerS3method("glance", "flexybayes", glance.flexybayes,
-                        envir = asNamespace("generics"))
-      registerS3method("augment", "flexybayes", augment.flexybayes,
-                        envir = asNamespace("generics"))
-    }, error = function(e) NULL)
+    tryCatch(
+      {
+        registerS3method(
+          "tidy",
+          "flexybayes",
+          tidy.flexybayes,
+          envir = asNamespace("generics")
+        )
+        registerS3method(
+          "glance",
+          "flexybayes",
+          glance.flexybayes,
+          envir = asNamespace("generics")
+        )
+        registerS3method(
+          "augment",
+          "flexybayes",
+          augment.flexybayes,
+          envir = asNamespace("generics")
+        )
+      },
+      error = function(e) NULL
+    )
   }
 
   # Register greta S3 methods inside flexyBayes's namespace so the
@@ -39,20 +57,32 @@
   # of `as.greta_array.greta_array`, producing a spurious
   # missing/infinite-values error on otherwise-valid greta_arrays.
   if (requireNamespace("greta", quietly = TRUE)) {
-    tryCatch({
-      greta_ns <- asNamespace("greta")
-      flx_ns   <- asNamespace(pkgname)
-      for (cls in c("greta_array", "matrix", "numeric", "logical",
-                     "integer", "data.frame", "array")) {
-        m_name <- paste0("as.greta_array.", cls)
-        if (exists(m_name, envir = greta_ns, inherits = FALSE)) {
-          registerS3method("as.greta_array", cls,
-                            get(m_name, envir = greta_ns,
-                                inherits = FALSE),
-                            envir = flx_ns)
+    tryCatch(
+      {
+        greta_ns <- asNamespace("greta")
+        flx_ns <- asNamespace(pkgname)
+        for (cls in c(
+          "greta_array",
+          "matrix",
+          "numeric",
+          "logical",
+          "integer",
+          "data.frame",
+          "array"
+        )) {
+          m_name <- paste0("as.greta_array.", cls)
+          if (exists(m_name, envir = greta_ns, inherits = FALSE)) {
+            registerS3method(
+              "as.greta_array",
+              cls,
+              get(m_name, envir = greta_ns, inherits = FALSE),
+              envir = flx_ns
+            )
+          }
         }
-      }
-    }, error = function(e) NULL)
+      },
+      error = function(e) NULL
+    )
   }
 
   # Initialise the emit-once message latches into their fresh state.
@@ -160,7 +190,8 @@
 
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage(
-    "flexyBayes ", utils::packageVersion(pkgname),
+    "flexyBayes ",
+    utils::packageVersion(pkgname),
     " -- Bayesian mixed models with ASReml syntax"
   )
 

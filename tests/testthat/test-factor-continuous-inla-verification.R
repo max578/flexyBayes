@@ -36,26 +36,40 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
     x = rnorm(n),
     f = factor(rep(c("a", "b", "c"), length.out = n))
   )
-  beta_true <- c(`(Intercept)` = 0.0, fb = 0.3, fc = -0.2,
-                 x = 0.8, `fb:x` = 0.5, `fc:x` = -0.4)
-  X <- model.matrix(~ f * x, data = d,
-                    contrasts.arg = list(f = "contr.treatment"))
+  beta_true <- c(
+    `(Intercept)` = 0.0,
+    fb = 0.3,
+    fc = -0.2,
+    x = 0.8,
+    `fb:x` = 0.5,
+    `fc:x` = -0.4
+  )
+  X <- model.matrix(
+    ~ f * x,
+    data = d,
+    contrasts.arg = list(f = "contr.treatment")
+  )
   d$y <- as.numeric(X %*% beta_true + rnorm(n, 0, 0.3))
 
   # Arbitrator A -- lme4::lm (gaussian-identity reduces to lm on a
   # fixed-effects-only model). REML SEs serve as the tolerance unit.
   fit_lm <- stats::lm(y ~ f * x, data = d)
   coef_lm <- stats::coef(fit_lm)
-  se_lm   <- sqrt(diag(stats::vcov(fit_lm)))
+  se_lm <- sqrt(diag(stats::vcov(fit_lm)))
 
   # Arbitrator B -- flexybayes greta backend (the v0.2.6 indexed
   # emit). Re-uses set.seed for reproducibility; the chain budget
   # mirrors test-validation-lmer.R's 2000 + 2000 + 2 setup.
   set.seed(20260523L)
   fit_greta <- flexybayes(
-    y ~ f * x, data = d, backend = "greta",
-    n_samples = 2000, warmup = 2000, chains = 2,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ f * x,
+    data = d,
+    backend = "greta",
+    n_samples = 2000,
+    warmup = 2000,
+    chains = 2,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   )
   draws <- as.matrix(fit_greta$greta$draws)
   # Canonical-slot conversion. flexyBayes greta emit uses the
@@ -79,11 +93,11 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
   # individually identified.
   pm_greta <- c(
     `(Intercept)` = mean(draws[, "mu_atg"] + draws[, "tau_f[1,1]"]),
-    fb            = mean(draws[, "tau_f[2,1]"] - draws[, "tau_f[1,1]"]),
-    fc            = mean(draws[, "tau_f[3,1]"] - draws[, "tau_f[1,1]"]),
-    x             = mean(draws[, "beta_x"]),
-    `fb:x`        = mean(draws[, "slope_dev_f_x_raw[1,1]"]),
-    `fc:x`        = mean(draws[, "slope_dev_f_x_raw[2,1]"])
+    fb = mean(draws[, "tau_f[2,1]"] - draws[, "tau_f[1,1]"]),
+    fc = mean(draws[, "tau_f[3,1]"] - draws[, "tau_f[1,1]"]),
+    x = mean(draws[, "beta_x"]),
+    `fb:x` = mean(draws[, "slope_dev_f_x_raw[1,1]"]),
+    `fc:x` = mean(draws[, "slope_dev_f_x_raw[2,1]"])
   )
 
   # Arbitrator C -- INLA via the native `f:x` formula syntax. The
@@ -91,7 +105,9 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
   # residual precision); we report only the posterior mean of the
   # fixed effects.
   fit_inla <- INLA::inla(
-    y ~ f * x, family = "gaussian", data = d,
+    y ~ f * x,
+    family = "gaussian",
+    data = d,
     control.compute = list(config = TRUE)
   )
   fixed_summary <- fit_inla$summary.fixed
@@ -108,25 +124,25 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
   #   tolerance for fixed effects: 0.10 * |beta_true| per merged-v2
   #   §3.4 (a small absolute floor catches near-zero coefficients).
   agreement_table <- list()
-  agreement_pass  <- TRUE
+  agreement_pass <- TRUE
   for (nm in names(beta_true)) {
     abs_truth <- max(0.05, abs(beta_true[[nm]]))
-    tol       <- 0.10 * abs_truth + 0.05
-    inla_v    <- pm_inla[[nm]]
-    greta_v   <- pm_greta[[nm]]
-    lm_v      <- coef_lm[[nm]]
+    tol <- 0.10 * abs_truth + 0.05
+    inla_v <- pm_inla[[nm]]
+    greta_v <- pm_greta[[nm]]
+    lm_v <- coef_lm[[nm]]
     diff_inla_greta <- abs(inla_v - greta_v)
-    diff_inla_lm    <- abs(inla_v - lm_v)
+    diff_inla_lm <- abs(inla_v - lm_v)
     pass <- (diff_inla_greta <= tol) && (diff_inla_lm <= tol)
     agreement_table[[nm]] <- list(
       truth = beta_true[[nm]],
-      inla  = inla_v,
+      inla = inla_v,
       greta = greta_v,
-      lm    = lm_v,
-      tol   = tol,
+      lm = lm_v,
+      tol = tol,
       diff_inla_greta = diff_inla_greta,
-      diff_inla_lm    = diff_inla_lm,
-      pass  = pass
+      diff_inla_lm = diff_inla_lm,
+      pass = pass
     )
     if (!pass) agreement_pass <- FALSE
   }
@@ -136,37 +152,40 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
   # reads. On verification failure we still write the artefact with
   # pass = FALSE so the failure mode is auditable; the gate refuses
   # either way.
-  art_dir <- system.file("extdata", "inla-verification",
-                         package = "flexyBayes",
-                         mustWork = FALSE)
+  art_dir <- system.file(
+    "extdata",
+    "inla-verification",
+    package = "flexyBayes",
+    mustWork = FALSE
+  )
   if (!nzchar(art_dir)) {
     # Package not installed; the test harness is running via
     # devtools::test() -- write into the source-tree inst/.
-    art_dir <- file.path("..", "..", "inst", "extdata",
-                         "inla-verification")
+    art_dir <- file.path("..", "..", "inst", "extdata", "inla-verification")
   }
   dir.create(art_dir, recursive = TRUE, showWarnings = FALSE)
   artefact <- list(
-    timestamp     = Sys.time(),
-    R_version     = R.version.string,
-    INLA_version  = as.character(utils::packageVersion("INLA")),
-    flexyBayes_v  = as.character(utils::packageVersion("flexyBayes")),
-    fixture       = list(n = n, seed = 20260523L, beta_true = beta_true),
-    agreement     = agreement_table,
-    pass          = agreement_pass
+    timestamp = Sys.time(),
+    R_version = R.version.string,
+    INLA_version = as.character(utils::packageVersion("INLA")),
+    flexyBayes_v = as.character(utils::packageVersion("flexyBayes")),
+    fixture = list(n = n, seed = 20260523L, beta_true = beta_true),
+    agreement = agreement_table,
+    pass = agreement_pass
   )
-  saveRDS(artefact,
-          file = file.path(art_dir, "factor_numeric_interaction.rds"))
+  saveRDS(artefact, file = file.path(art_dir, "factor_numeric_interaction.rds"))
 
   # The test itself asserts that verification passed. A FAIL surfaces
   # the INLA-mapping disagreement immediately rather than silently
   # registering a wrong mapper.
-  expect_true(agreement_pass,
-              info = paste(
-                "Three-arbitrator INLA verification disagreed.",
-                "Inspect agreement table on the saved artefact at",
-                file.path(art_dir, "factor_numeric_interaction.rds")
-              ))
+  expect_true(
+    agreement_pass,
+    info = paste(
+      "Three-arbitrator INLA verification disagreed.",
+      "Inspect agreement table on the saved artefact at",
+      file.path(art_dir, "factor_numeric_interaction.rds")
+    )
+  )
 })
 
 # Companion check: the gate consults the artefact and accepts when
@@ -175,37 +194,53 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
 # pickup logic is exercised on every Tier-2 run.
 
 test_that("lgm_gate accepts INLA when verification artefact reports pass", {
-  art_dir <- system.file("extdata", "inla-verification",
-                         package = "flexyBayes",
-                         mustWork = FALSE)
+  art_dir <- system.file(
+    "extdata",
+    "inla-verification",
+    package = "flexyBayes",
+    mustWork = FALSE
+  )
   if (!nzchar(art_dir)) {
-    art_dir <- file.path("..", "..", "inst", "extdata",
-                         "inla-verification")
+    art_dir <- file.path("..", "..", "inst", "extdata", "inla-verification")
   }
   art_path <- file.path(art_dir, "factor_numeric_interaction.rds")
-  if (!file.exists(art_path))
+  if (!file.exists(art_path)) {
     testthat::skip("verification artefact not yet produced on this host")
+  }
 
   rec <- readRDS(art_path)
-  if (!isTRUE(rec$pass))
-    testthat::skip("verification artefact records pass = FALSE; gate refuses INLA")
+  if (!isTRUE(rec$pass)) {
+    testthat::skip(
+      "verification artefact records pass = FALSE; gate refuses INLA"
+    )
+  }
 
   fb <- flexyBayes:::new_fb_terms(
-    response       = "y",
-    family         = "gaussian",
-    fixed_terms    = list(
-      list(type = "factor", var = "f", levels = c("a","b","c"),
-           n_levels = 3L, label = "f"),
+    response = "y",
+    family = "gaussian",
+    fixed_terms = list(
+      list(
+        type = "factor",
+        var = "f",
+        levels = c("a", "b", "c"),
+        n_levels = 3L,
+        label = "f"
+      ),
       list(type = "continuous", var = "x", label = "x"),
-      list(type = "factor_numeric_interaction",
-           factor = "f", continuous = "x",
-           vars = c("f","x"), levels = c("a","b","c"),
-           n_levels = 3L, label = "f:x")
+      list(
+        type = "factor_numeric_interaction",
+        factor = "f",
+        continuous = "x",
+        vars = c("f", "x"),
+        levels = c("a", "b", "c"),
+        n_levels = 3L,
+        label = "f:x"
+      )
     ),
-    random_terms   = list(),
-    rcov_terms     = list(list(type = "units")),
-    priors         = list(legacy = TRUE),
-    source         = "brms"
+    random_terms = list(),
+    rcov_terms = list(list(type = "units")),
+    priors = list(legacy = TRUE),
+    source = "brms"
   )
   r10 <- flexyBayes:::.lgm_check_factor_numeric_interaction_inla_verified(fb)
   expect_true(r10$pass)
@@ -217,14 +252,13 @@ test_that("lgm_gate accepts INLA when verification artefact reports pass", {
 
 test_that("verification gate is no-op without factor_numeric_interaction term", {
   fb <- flexyBayes:::new_fb_terms(
-    response     = "y",
-    family       = "gaussian",
-    fixed_terms  = list(list(type = "continuous", var = "x",
-                              label = "x")),
+    response = "y",
+    family = "gaussian",
+    fixed_terms = list(list(type = "continuous", var = "x", label = "x")),
     random_terms = list(),
-    rcov_terms   = list(list(type = "units")),
-    priors       = list(legacy = TRUE),
-    source       = "brms"
+    rcov_terms = list(list(type = "units")),
+    priors = list(legacy = TRUE),
+    source = "brms"
   )
   r <- flexyBayes:::.lgm_check_factor_numeric_interaction_inla_verified(fb)
   expect_true(r$pass)

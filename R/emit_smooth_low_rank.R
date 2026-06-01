@@ -61,29 +61,55 @@
 .validate_low_rank_rank <- function(rank, k, n, var = NULL) {
   where <- if (is.null(var)) "" else paste0(" for smooth s(", var, ")")
 
-  if (length(rank) != 1L || is.na(rank) ||
-      !is.numeric(rank) || rank != as.integer(rank) || rank < 1L)
+  if (
+    length(rank) != 1L ||
+      is.na(rank) ||
+      !is.numeric(rank) ||
+      rank != as.integer(rank) ||
+      rank < 1L
+  ) {
     stop(.fb_refusal_condition(
-      reason_code  = "low_rank_rank_invalid",
-      message      = paste0(
-        "low_rank_smooth rank", where, " must be a single positive ",
-        "integer; got ", .format_rank_for_message(rank), "."),
-      family_class = "flexybayes_low_rank_rank_refusal"))
+      reason_code = "low_rank_rank_invalid",
+      message = paste0(
+        "low_rank_smooth rank",
+        where,
+        " must be a single positive ",
+        "integer; got ",
+        .format_rank_for_message(rank),
+        "."
+      ),
+      family_class = "flexybayes_low_rank_rank_refusal"
+    ))
+  }
 
   rank <- as.integer(rank)
   max_rank <- min(as.integer(k), as.integer(n))
 
-  if (rank > max_rank)
+  if (rank > max_rank) {
     stop(.fb_refusal_condition(
-      reason_code  = "low_rank_rank_exceeds_basis",
-      message      = paste0(
-        "low_rank_smooth rank", where, " (", rank, ") exceeds the ",
-        "truncation ceiling min(basis dimension k = ", k,
-        ", n = ", n, ") = ", max_rank, ". A rank at or above the ",
+      reason_code = "low_rank_rank_exceeds_basis",
+      message = paste0(
+        "low_rank_smooth rank",
+        where,
+        " (",
+        rank,
+        ") exceeds the ",
+        "truncation ceiling min(basis dimension k = ",
+        k,
+        ", n = ",
+        n,
+        ") = ",
+        max_rank,
+        ". A rank at or above the ",
         "basis dimension reproduces the exact basis; request the ",
         "exact smooth (drop the approximation) instead, or choose ",
-        "rank <= ", max_rank, "."),
-      family_class = "flexybayes_low_rank_rank_refusal"))
+        "rank <= ",
+        max_rank,
+        "."
+      ),
+      family_class = "flexybayes_low_rank_rank_refusal"
+    ))
+  }
 
   rank
 }
@@ -92,10 +118,15 @@
 # rejected rank for the refusal message (avoids deparse noise on
 # vectors / lists).
 .format_rank_for_message <- function(rank) {
-  if (length(rank) != 1L) return(paste0("a length-", length(rank),
-                                          " value"))
-  if (is.na(rank)) return("NA")
-  if (is.numeric(rank)) return(format(rank))
+  if (length(rank) != 1L) {
+    return(paste0("a length-", length(rank), " value"))
+  }
+  if (is.na(rank)) {
+    return("NA")
+  }
+  if (is.numeric(rank)) {
+    return(format(rank))
+  }
   paste0("'", as.character(rank), "'")
 }
 
@@ -128,9 +159,12 @@
 #   rank               K (integer).
 #   k                  the full basis dimension (integer).
 .truncate_smooth_basis <- function(X, rank, var = NULL) {
-  if (!is.matrix(X) || !is.numeric(X))
-    stop(".truncate_smooth_basis(): `X` must be a numeric matrix.",
-         call. = FALSE)
+  if (!is.matrix(X) || !is.numeric(X)) {
+    stop(
+      ".truncate_smooth_basis(): `X` must be a numeric matrix.",
+      call. = FALSE
+    )
+  }
 
   n <- nrow(X)
   k <- ncol(X)
@@ -146,12 +180,12 @@
   capture <- min(max(capture, 0), 1)
 
   list(
-    B_K               = b_k,
-    V_K               = v_k,
-    singular_values   = d,
+    B_K = b_k,
+    V_K = v_k,
+    singular_values = d,
     frobenius_capture = capture,
-    rank              = rank,
-    k                 = k
+    rank = rank,
+    k = k
   )
 }
 
@@ -180,18 +214,24 @@
 #   ...        ignored; present for the generic's signature.
 .validate_low_rank_smooth <- function(fit, threshold = 0.99, ...) {
   approx <- fit$extras$parse_info$approx
-  schemes <- vapply(approx, function(a) a$scheme %||% NA_character_,
-                    character(1))
+  schemes <- vapply(
+    approx,
+    function(a) a$scheme %||% NA_character_,
+    character(1)
+  )
   low_rank <- approx[schemes == "low_rank_smooth"]
 
-  if (length(low_rank) == 0L)
+  if (length(low_rank) == 0L) {
     stop(.fb_refusal_condition(
-      reason_code  = "approximation_absent",
-      message      = paste0(
+      reason_code = "approximation_absent",
+      message = paste0(
         "validate_approximation(): the fit carries no low_rank_smooth ",
         "smooth to validate. The scheme registered but no smooth term ",
-        "was routed through the truncation path."),
-      family_class = "flexybayes_approximation_absent"))
+        "was routed through the truncation path."
+      ),
+      family_class = "flexybayes_approximation_absent"
+    ))
+  }
 
   entry <- .lookup_approximation("low_rank_smooth")
 
@@ -199,23 +239,23 @@
     a <- low_rank[[v]]
     capture <- a$frobenius_capture
     list(
-      smooth            = v,
-      scheme            = "low_rank_smooth",
-      rank              = a$rank,
-      k                 = a$k,
+      smooth = v,
+      scheme = "low_rank_smooth",
+      rank = a$rank,
+      k = a$k,
       frobenius_capture = capture,
-      bias_bound        = 1 - capture,
-      threshold         = threshold,
-      pass              = isTRUE(capture >= threshold)
+      bias_bound = 1 - capture,
+      threshold = threshold,
+      pass = isTRUE(capture >= threshold)
     )
   })
   names(per_smooth) <- names(low_rank)
 
   .new_approximation_validation(
-    scheme        = "low_rank_smooth",
-    per_smooth    = per_smooth,
-    pass          = all(vapply(per_smooth, `[[`, logical(1), "pass")),
-    threshold     = threshold,
+    scheme = "low_rank_smooth",
+    per_smooth = per_smooth,
+    pass = all(vapply(per_smooth, `[[`, logical(1), "pass")),
+    threshold = threshold,
     fallback_hint = entry$fallback_hint
   )
 }

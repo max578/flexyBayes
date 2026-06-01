@@ -11,15 +11,23 @@
 # low_rank_smooth approximations with the given captures.
 .mk_lr_fit <- function(captures = c(x = 0.9891)) {
   approx <- lapply(seq_along(captures), function(i) {
-    list(scheme = "low_rank_smooth", rank = 4L, k = 9L,
-         frobenius_capture = unname(captures[[i]]),
-         V_K = matrix(0, 9L, 4L), singular_values = rep(1, 9L))
+    list(
+      scheme = "low_rank_smooth",
+      rank = 4L,
+      k = 9L,
+      frobenius_capture = unname(captures[[i]]),
+      V_K = matrix(0, 9L, 4L),
+      singular_values = rep(1, 9L)
+    )
   })
   names(approx) <- names(captures)
   structure(
-    list(exactness = "approximate_low_rank_smooth",
-         extras = list(parse_info = list(approx = approx))),
-    class = c("flexybayes", "list"))
+    list(
+      exactness = "approximate_low_rank_smooth",
+      extras = list(parse_info = list(approx = approx))
+    ),
+    class = c("flexybayes", "list")
+  )
 }
 
 # ---------------------------------------------------------------- #
@@ -37,8 +45,17 @@ test_that("validate_approximation() returns a structured result", {
   r <- v$per_smooth$x
   expect_setequal(
     names(r),
-    c("smooth", "scheme", "rank", "k", "frobenius_capture",
-      "bias_bound", "threshold", "pass"))
+    c(
+      "smooth",
+      "scheme",
+      "rank",
+      "k",
+      "frobenius_capture",
+      "bias_bound",
+      "threshold",
+      "pass"
+    )
+  )
   expect_equal(r$bias_bound, 1 - r$frobenius_capture)
 })
 
@@ -48,7 +65,7 @@ test_that("validate_approximation() returns a structured result", {
 
 test_that("the pass verdict tracks the threshold", {
   fit <- .mk_lr_fit(c(x = 0.9891))
-  expect_false(validate_approximation(fit)$pass)            # < 0.99
+  expect_false(validate_approximation(fit)$pass) # < 0.99
   expect_false(validate_approximation(fit, threshold = 0.999)$pass)
   expect_true(validate_approximation(fit, threshold = 0.90)$pass)
 })
@@ -56,7 +73,7 @@ test_that("the pass verdict tracks the threshold", {
 test_that("a fit passes only when every smooth clears the threshold", {
   fit <- .mk_lr_fit(c(x = 0.999, z = 0.95))
   v <- validate_approximation(fit, threshold = 0.99)
-  expect_false(v$pass)                       # z fails
+  expect_false(v$pass) # z fails
   expect_true(v$per_smooth$x$pass)
   expect_false(v$per_smooth$z$pass)
   expect_true(validate_approximation(fit, threshold = 0.90)$pass)
@@ -69,9 +86,12 @@ test_that("a fit passes only when every smooth clears the threshold", {
 test_that("validate_approximation() refuses an exact fit", {
   exact <- structure(
     list(exactness = "exact", extras = list(parse_info = list())),
-    class = c("flexybayes", "list"))
-  err <- tryCatch(validate_approximation(exact),
-                  flexybayes_approximation_scheme_unknown = function(e) e)
+    class = c("flexybayes", "list")
+  )
+  err <- tryCatch(
+    validate_approximation(exact),
+    flexybayes_approximation_scheme_unknown = function(e) e
+  )
   expect_s3_class(err, "flexybayes_approximation_scheme_unknown")
   expect_identical(err$reason_code, "approximation_scheme_unknown")
   expect_match(conditionMessage(err), "no recognised approximation")
@@ -84,9 +104,12 @@ test_that("validate_approximation() refuses an exact fit", {
 test_that(".fit_approximation_scheme() resolves the scheme", {
   expect_identical(
     flexyBayes:::.fit_approximation_scheme(.mk_lr_fit()),
-    "low_rank_smooth")
-  exact <- structure(list(extras = list(parse_info = list())),
-                     class = c("flexybayes", "list"))
+    "low_rank_smooth"
+  )
+  exact <- structure(
+    list(extras = list(parse_info = list())),
+    class = c("flexybayes", "list")
+  )
   expect_null(flexyBayes:::.fit_approximation_scheme(exact))
 })
 

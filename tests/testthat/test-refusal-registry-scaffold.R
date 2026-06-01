@@ -33,19 +33,36 @@ test_that(".refusal_registry exists and is locked post-load", {
 
 test_that(".register_refusal() validates args before assigning", {
   # Direct validation calls (no environment mutation needed).
-  expect_error(flexyBayes:::.register_refusal(
-    reason_code = NULL, description = "x", message_template = "x",
-    registered_in_adr = "ADR 0030", since_version = "0.3.8"),
-    regexp = "reason_code")
-  expect_error(flexyBayes:::.register_refusal(
-    reason_code = "x", description = c("a", "b"),
-    message_template = "x", registered_in_adr = "ADR 0030",
-    since_version = "0.3.8"),
-    regexp = "description")
-  expect_error(flexyBayes:::.register_refusal(
-    reason_code = "x", description = "x", message_template = "x",
-    registered_in_adr = "ADR 0030", since_version = ""),
-    regexp = "since_version")
+  expect_error(
+    flexyBayes:::.register_refusal(
+      reason_code = NULL,
+      description = "x",
+      message_template = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.3.8"
+    ),
+    regexp = "reason_code"
+  )
+  expect_error(
+    flexyBayes:::.register_refusal(
+      reason_code = "x",
+      description = c("a", "b"),
+      message_template = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.3.8"
+    ),
+    regexp = "description"
+  )
+  expect_error(
+    flexyBayes:::.register_refusal(
+      reason_code = "x",
+      description = "x",
+      message_template = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = ""
+    ),
+    regexp = "since_version"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -58,8 +75,10 @@ test_that(".register_refusal() validates args before assigning", {
 # error string mentions "already registered".
 
 test_that(".register_refusal() body carries the duplicate-detection branch", {
-  body_src <- paste(deparse(body(flexyBayes:::.register_refusal)),
-                    collapse = "\n")
+  body_src <- paste(
+    deparse(body(flexyBayes:::.register_refusal)),
+    collapse = "\n"
+  )
   expect_true(grepl("already registered", body_src, fixed = TRUE))
   expect_true(grepl("environmentIsLocked", body_src, fixed = TRUE))
 })
@@ -70,8 +89,10 @@ test_that(".register_refusal() body carries the duplicate-detection branch", {
 
 test_that("user-side assign() into .refusal_registry raises", {
   reg <- flexyBayes:::.refusal_registry
-  expect_error(assign("synthetic_test_code", list(), envir = reg),
-               regexp = "locked|cannot")
+  expect_error(
+    assign("synthetic_test_code", list(), envir = reg),
+    regexp = "locked|cannot"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -87,10 +108,10 @@ test_that("user-side assign() into .refusal_registry raises", {
 # .register_refusal() shape.
 
 test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
-  reg     <- flexyBayes:::.refusal_registry
+  reg <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
-  expect_true("block_partition_incomplete"           %in% entries)
-  expect_true("block_not_positive_definite"          %in% entries)
+  expect_true("block_partition_incomplete" %in% entries)
+  expect_true("block_not_positive_definite" %in% entries)
   expect_true("approximate_route_not_yet_registered" %in% entries)
 })
 
@@ -104,7 +125,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # signals are deliberately excluded (see fb_refusals() docs).
 
 test_that(".refusal_registry holds the complete 47-code vocabulary", {
-  reg     <- flexyBayes:::.refusal_registry
+  reg <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
   # 31 from the Phase 1C bulk migration + the family-support refusal,
   # the four parse-time spec refusals, the tensor-smooth refusal, and
@@ -130,17 +151,17 @@ test_that(".refusal_registry holds the complete 47-code vocabulary", {
   expect_false("grammar_greta_via_fb_deferred" %in% entries)
 
   # spot-check a representative new code from each family
-  expect_true("precision_not_symmetric"        %in% entries)  # structured cov
-  expect_true("low_rank_requires_greta"         %in% entries)  # approximation
-  expect_true("rcov_type_unsupported_for_aggregation" %in% entries)  # aggregate emit
-  expect_true("predict_kernel_invalid_include"  %in% entries)  # prediction
-  expect_true("design_memory_exceeds_ceiling"   %in% entries)  # preflight
-  expect_true("unsupported_family"              %in% entries)  # family gate
-  expect_true("fb_cov_type_unknown"             %in% entries)  # fb_cov carrier
+  expect_true("precision_not_symmetric" %in% entries) # structured cov
+  expect_true("low_rank_requires_greta" %in% entries) # approximation
+  expect_true("rcov_type_unsupported_for_aggregation" %in% entries) # aggregate emit
+  expect_true("predict_kernel_invalid_include" %in% entries) # prediction
+  expect_true("design_memory_exceeds_ceiling" %in% entries) # preflight
+  expect_true("unsupported_family" %in% entries) # family gate
+  expect_true("fb_cov_type_unknown" %in% entries) # fb_cov carrier
 
   # control-flow / routing reasons must NOT be registered
-  expect_false("non_gaussian_family"               %in% entries)
-  expect_false("smooth_term_not_aggregatable"      %in% entries)
+  expect_false("non_gaussian_family" %in% entries)
+  expect_false("smooth_term_not_aggregatable" %in% entries)
   expect_false("policy_table_no_match_fallback_greta" %in% entries)
 })
 
@@ -159,14 +180,14 @@ test_that(".lookup_refusal() returns NULL for unregistered codes", {
 test_that(".lookup_refusal() returns the registered entry for the v0.3.10 codes", {
   entry <- flexyBayes:::.lookup_refusal("block_partition_incomplete")
   expect_type(entry, "list")
-  expect_equal(entry$reason_code,       "block_partition_incomplete")
+  expect_equal(entry$reason_code, "block_partition_incomplete")
   expect_equal(entry$registered_in_adr, "ADR 0025")
-  expect_equal(entry$since_version,     "0.3.10")
-  expect_equal(entry$plan_field,        "representation_plan")
+  expect_equal(entry$since_version, "0.3.10")
+  expect_equal(entry$plan_field, "representation_plan")
 
   entry_low <- flexyBayes:::.lookup_refusal(
     "approximate_route_not_yet_registered"
   )
   expect_equal(entry_low$registered_in_adr, "ADR 0025+0027")
-  expect_equal(entry_low$since_version,     "0.3.10")
+  expect_equal(entry_low$since_version, "0.3.10")
 })

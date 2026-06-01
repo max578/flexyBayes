@@ -9,22 +9,24 @@
 # Test fixtures                                                    #
 # ---------------------------------------------------------------- #
 
-mk_fb <- function(family       = "gaussian",
-                  fixed_terms  = list(),
-                  random_terms = list(),
-                  rcov_terms   = list(list(type = "units")),
-                  addition_terms = list(),
-                  priors       = list(legacy = TRUE),
-                  source       = "asreml") {
+mk_fb <- function(
+  family = "gaussian",
+  fixed_terms = list(),
+  random_terms = list(),
+  rcov_terms = list(list(type = "units")),
+  addition_terms = list(),
+  priors = list(legacy = TRUE),
+  source = "asreml"
+) {
   flexyBayes:::new_fb_terms(
-    response       = "y",
-    family         = family,
-    fixed_terms    = fixed_terms,
-    random_terms   = random_terms,
-    rcov_terms     = rcov_terms,
+    response = "y",
+    family = family,
+    fixed_terms = fixed_terms,
+    random_terms = random_terms,
+    rcov_terms = rcov_terms,
     addition_terms = addition_terms,
-    priors         = priors,
-    source         = source
+    priors = priors,
+    source = source
   )
 }
 
@@ -34,7 +36,7 @@ mk_fb <- function(family       = "gaussian",
 
 test_that(".lgm_check_family() passes a gaussian model", {
   fb <- mk_fb(family = "gaussian")
-  r  <- flexyBayes:::.lgm_check_family(fb)
+  r <- flexyBayes:::.lgm_check_family(fb)
   expect_true(r$pass)
   expect_identical(r$rule_id, "family_allowlist")
 })
@@ -42,14 +44,16 @@ test_that(".lgm_check_family() passes a gaussian model", {
 test_that(".lgm_check_family() passes binomial / poisson / gamma", {
   for (fam in c("binomial", "poisson", "gamma", "beta", "lognormal")) {
     fb <- mk_fb(family = fam)
-    expect_true(flexyBayes:::.lgm_check_family(fb)$pass,
-                info = paste("family =", fam))
+    expect_true(
+      flexyBayes:::.lgm_check_family(fb)$pass,
+      info = paste("family =", fam)
+    )
   }
 })
 
 test_that(".lgm_check_family() refuses an unsupported family", {
   fb <- mk_fb(family = "weibull5p_hypothetical")
-  r  <- flexyBayes:::.lgm_check_family(fb)
+  r <- flexyBayes:::.lgm_check_family(fb)
   expect_false(r$pass)
   expect_match(r$reason, "INLA likelihood allowlist")
   expect_match(r$diagnostic, "weibull5p_hypothetical")
@@ -90,18 +94,22 @@ test_that(".lgm_check_distributional() passes when no dpar terms", {
 })
 
 test_that(".lgm_check_distributional() refuses non-trivial sigma RHS", {
-  fb <- mk_fb(addition_terms = list(
-    list(type = "dpar_sigma", is_intercept_only = FALSE, rhs = "~ x")
-  ))
+  fb <- mk_fb(
+    addition_terms = list(
+      list(type = "dpar_sigma", is_intercept_only = FALSE, rhs = "~ x")
+    )
+  )
   r <- flexyBayes:::.lgm_check_distributional(fb)
   expect_false(r$pass)
   expect_match(r$reason, "auxiliary parameter")
 })
 
 test_that(".lgm_check_distributional() passes intercept-only sigma RHS", {
-  fb <- mk_fb(addition_terms = list(
-    list(type = "dpar_sigma", is_intercept_only = TRUE, rhs = "~ 1")
-  ))
+  fb <- mk_fb(
+    addition_terms = list(
+      list(type = "dpar_sigma", is_intercept_only = TRUE, rhs = "~ 1")
+    )
+  )
   expect_true(flexyBayes:::.lgm_check_distributional(fb)$pass)
 })
 
@@ -136,7 +144,7 @@ test_that(".lgm_check_re_prior() refuses non-Gaussian RE prior in fb_prior", {
 
 test_that(".lgm_check_latent_class() passes a clean LMM", {
   fb <- mk_fb(
-    fixed_terms  = list(list(type = "factor", var = "env")),
+    fixed_terms = list(list(type = "factor", var = "env")),
     random_terms = list(list(type = "simple", var = "geno"))
   )
   expect_true(flexyBayes:::.lgm_check_latent_class(fb)$pass)
@@ -162,7 +170,7 @@ test_that(".lgm_check_latent_class() refuses a mixture family", {
 
 test_that(".lgm_check_hyperparam_budget() passes a small model", {
   fb <- mk_fb(
-    fixed_terms  = list(list(type = "factor", var = "env")),
+    fixed_terms = list(list(type = "factor", var = "env")),
     random_terms = list(
       list(type = "simple", var = "geno"),
       list(type = "simple", var = "site")
@@ -212,11 +220,11 @@ test_that(".lgm_count_hyperparams() handles us_gxe via n*(n+1)/2", {
 test_that(".lgm_check_fixed_term_inla_support() passes the allowlist", {
   fb <- mk_fb(
     fixed_terms = list(
-      list(type = "factor",             var  = "env"),
-      list(type = "continuous",         var  = "x"),
-      list(type = "interaction",        vars = c("a", "b")),
+      list(type = "factor", var = "env"),
+      list(type = "continuous", var = "x"),
+      list(type = "interaction", vars = c("a", "b")),
       list(type = "factor_interaction", vars = c("g", "e")),
-      list(type = "expression",         label = "I(x^2)")
+      list(type = "expression", label = "I(x^2)")
     )
   )
   r <- flexyBayes:::.lgm_check_fixed_term_inla_support(fb)
@@ -229,8 +237,8 @@ test_that(".lgm_check_random_term_inla_support() passes the allowlist", {
   fb <- mk_fb(
     random_terms = list(
       list(type = "simple", var = "geno"),
-      list(type = "ide",    var = "site"),
-      list(type = "id",     var = "block"),
+      list(type = "ide", var = "site"),
+      list(type = "id", var = "block"),
       list(type = "spline", var = "x")
     )
   )
@@ -242,7 +250,7 @@ test_that(".lgm_check_random_term_inla_support() passes the allowlist", {
 
 test_that(".lgm_check_rcov_term_inla_support() passes the allowlist", {
   fb <- mk_fb(rcov_terms = list(list(type = "units")))
-  r  <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
   expect_true(r$pass)
   expect_identical(r$rule_id, "rcov_term_type_inla")
   expect_null(r$reason)
@@ -255,7 +263,7 @@ test_that(".lgm_check_rcov_term_inla_support() passes the allowlist", {
 
 test_that(".lgm_check_random_term_inla_support() refuses vm (GBLUP / kinship)", {
   fb <- mk_fb(random_terms = list(list(type = "vm", var = "geno")))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"vm\"")
@@ -265,7 +273,7 @@ test_that(".lgm_check_random_term_inla_support() refuses vm (GBLUP / kinship)", 
 
 test_that(".lgm_check_random_term_inla_support() refuses ped (pedigree)", {
   fb <- mk_fb(random_terms = list(list(type = "ped", var = "anim")))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"ped\"")
@@ -274,7 +282,7 @@ test_that(".lgm_check_random_term_inla_support() refuses ped (pedigree)", {
 
 test_that(".lgm_check_random_term_inla_support() refuses at (heterogeneous)", {
   fb <- mk_fb(random_terms = list(list(type = "at", var = "env")))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"at\"")
@@ -283,7 +291,7 @@ test_that(".lgm_check_random_term_inla_support() refuses at (heterogeneous)", {
 
 test_that(".lgm_check_random_term_inla_support() refuses us (unstructured)", {
   fb <- mk_fb(random_terms = list(list(type = "us", var = "env")))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"us\"")
@@ -292,7 +300,7 @@ test_that(".lgm_check_random_term_inla_support() refuses us (unstructured)", {
 
 test_that(".lgm_check_random_term_inla_support() refuses fa (factor-analytic)", {
   fb <- mk_fb(random_terms = list(list(type = "fa", var = "geno", k = 2L)))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"fa\"")
@@ -301,7 +309,7 @@ test_that(".lgm_check_random_term_inla_support() refuses fa (factor-analytic)", 
 
 test_that(".lgm_check_random_term_inla_support() refuses ar1 (autoregressive)", {
   fb <- mk_fb(random_terms = list(list(type = "ar1", var = "time")))
-  r  <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_random_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "random_term_type_inla")
   expect_match(r$reason, "\"ar1\"")
@@ -312,7 +320,7 @@ test_that(".lgm_check_random_term_inla_support() refuses ar1 (autoregressive)", 
 
 test_that(".lgm_check_rcov_term_inla_support() refuses at_units (heterogeneous residual)", {
   fb <- mk_fb(rcov_terms = list(list(type = "at_units", var = "env")))
-  r  <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
+  r <- flexyBayes:::.lgm_check_rcov_term_inla_support(fb)
   expect_false(r$pass)
   expect_identical(r$rule_id, "rcov_term_type_inla")
   expect_match(r$reason, "\"at_units\"")
@@ -323,17 +331,17 @@ test_that(".lgm_check_rcov_term_inla_support() refuses at_units (heterogeneous r
 # the new rule and the print method surfaces the new rule_id.
 
 test_that("lgm_gate() refuses a vm random term via random_term_type_inla", {
-  fb  <- mk_fb(random_terms = list(list(type = "vm", var = "geno")))
+  fb <- mk_fb(random_terms = list(list(type = "vm", var = "geno")))
   out <- flexyBayes:::lgm_gate(fb)
   expect_s3_class(out, "lgm_refusal")
   expect_identical(out$primary_rule, "random_term_type_inla")
   text <- capture.output(print(out))
   expect_true(any(grepl("\\[random_term_type_inla\\]", text)))
-  expect_true(any(grepl("variance-matrix",               text)))
+  expect_true(any(grepl("variance-matrix", text)))
 })
 
 test_that("lgm_gate() refuses an at_units rcov term via rcov_term_type_inla", {
-  fb  <- mk_fb(rcov_terms = list(list(type = "at_units", var = "env")))
+  fb <- mk_fb(rcov_terms = list(list(type = "at_units", var = "env")))
   out <- flexyBayes:::lgm_gate(fb)
   expect_s3_class(out, "lgm_refusal")
   expect_identical(out$primary_rule, "rcov_term_type_inla")
@@ -345,7 +353,7 @@ test_that("lgm_gate() refuses an at_units rcov term via rcov_term_type_inla", {
 
 test_that("lgm_gate() passes a typical asreml mixed model", {
   fb <- mk_fb(
-    fixed_terms  = list(list(type = "factor", var = "env")),
+    fixed_terms = list(list(type = "factor", var = "env")),
     random_terms = list(list(type = "simple", var = "geno", var_n = 5L))
   )
   out <- flexyBayes:::lgm_gate(fb)
@@ -355,7 +363,7 @@ test_that("lgm_gate() passes a typical asreml mixed model", {
 })
 
 test_that("lgm_gate() returns lgm_refusal on family failure", {
-  fb  <- mk_fb(family = "weibull5p_hypothetical")
+  fb <- mk_fb(family = "weibull5p_hypothetical")
   out <- flexyBayes:::lgm_gate(fb)
   expect_s3_class(out, "lgm_refusal")
   expect_true(flexyBayes:::is_lgm_refusal(out))
@@ -365,14 +373,14 @@ test_that("lgm_gate() returns lgm_refusal on family failure", {
 
 test_that("lgm_gate() returns lgm_refusal on multiple failures", {
   fb <- mk_fb(
-    family       = "weibull5p_hypothetical",
+    family = "weibull5p_hypothetical",
     random_terms = list(list(type = "mixture", k = 2))
   )
   out <- flexyBayes:::lgm_gate(fb)
   expect_s3_class(out, "lgm_refusal")
   rules <- vapply(out$failures, function(f) f$rule_id, character(1))
   expect_true("family_allowlist" %in% rules)
-  expect_true("latent_class"     %in% rules)
+  expect_true("latent_class" %in% rules)
 })
 
 test_that("lgm_gate() passes warnings into capabilities (soft-limit budget)", {
@@ -381,8 +389,7 @@ test_that("lgm_gate() passes warnings into capabilities (soft-limit budget)", {
   out <- flexyBayes:::lgm_gate(fb)
   expect_s3_class(out, "fb_terms")
   expect_true("lgm_compatible" %in% out$capabilities)
-  expect_true(any(grepl("^lgm_warning:hyperparam_budget",
-                        out$capabilities)))
+  expect_true(any(grepl("^lgm_warning:hyperparam_budget", out$capabilities)))
 })
 
 # ---------------------------------------------------------------- #
@@ -393,36 +400,44 @@ test_that("lgm_gate() overrides structural refusal when fully armed", {
   fb <- mk_fb(family = "weibull5p_hypothetical")
   out <- flexyBayes:::lgm_gate(
     fb,
-    force                        = "inla",
+    force = "inla",
     acknowledge_silent_bias_risk = TRUE,
-    reason                       = "research validation against parametric AFT"
+    reason = "research validation against parametric AFT"
   )
   expect_s3_class(out, "fb_terms")
   expect_true("lgm_force_overridden" %in% out$capabilities)
   expect_true(any(grepl("^lgm_force_reason:", out$capabilities)))
-  expect_true(any(grepl("^lgm_force_bypassed:family_allowlist",
-                        out$capabilities)))
+  expect_true(any(grepl(
+    "^lgm_force_bypassed:family_allowlist",
+    out$capabilities
+  )))
 })
 
 test_that("lgm_gate() rejects override without reason", {
   fb <- mk_fb(family = "weibull5p_hypothetical")
   expect_error(
-    flexyBayes:::lgm_gate(fb, force = "inla",
-                          acknowledge_silent_bias_risk = TRUE),
+    flexyBayes:::lgm_gate(
+      fb,
+      force = "inla",
+      acknowledge_silent_bias_risk = TRUE
+    ),
     "`reason`.*is required"
   )
 })
 
 test_that("lgm_gate() ignores override flag without acknowledgement", {
-  fb  <- mk_fb(family = "weibull5p_hypothetical")
+  fb <- mk_fb(family = "weibull5p_hypothetical")
   out <- flexyBayes:::lgm_gate(fb, force = "inla", reason = "x")
   expect_s3_class(out, "lgm_refusal")
 })
 
 test_that("lgm_gate() ignores acknowledgement without force", {
-  fb  <- mk_fb(family = "weibull5p_hypothetical")
-  out <- flexyBayes:::lgm_gate(fb, acknowledge_silent_bias_risk = TRUE,
-                               reason = "x")
+  fb <- mk_fb(family = "weibull5p_hypothetical")
+  out <- flexyBayes:::lgm_gate(
+    fb,
+    acknowledge_silent_bias_risk = TRUE,
+    reason = "x"
+  )
   expect_s3_class(out, "lgm_refusal")
 })
 
@@ -438,8 +453,8 @@ test_that("lgm_gate() rejects non-fb_terms input", {
 # ---------------------------------------------------------------- #
 
 test_that("print.lgm_refusal() emits the structured refusal template", {
-  fb  <- mk_fb(
-    family       = "weibull5p_hypothetical",
+  fb <- mk_fb(
+    family = "weibull5p_hypothetical",
     random_terms = list(list(type = "mixture", k = 2))
   )
   out <- flexyBayes:::lgm_gate(fb)

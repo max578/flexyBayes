@@ -13,13 +13,13 @@ mk_brms_data <- function() {
   set.seed(2026L)
   n <- 40L
   data.frame(
-    y    = rnorm(n),
-    y01  = as.integer(rbinom(n, 1, 0.5)),
-    x    = rnorm(n),
-    g    = factor(rep(1:5, length.out = n)),
+    y = rnorm(n),
+    y01 = as.integer(rbinom(n, 1, 0.5)),
+    x = rnorm(n),
+    g = factor(rep(1:5, length.out = n)),
     site = factor(rep(1:4, length.out = n)),
-    lon  = rnorm(n),
-    lat  = rnorm(n)
+    lon = rnorm(n),
+    lat = rnorm(n)
   )
 }
 
@@ -28,31 +28,31 @@ mk_brms_data <- function() {
 # ---------------------------------------------------------------- #
 
 test_that("fb_from_brms() handles minimal gaussian fixed-only model", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ x, data = d)
   expect_s3_class(fb, "fb_terms")
   expect_identical(fb$response, "y")
-  expect_identical(fb$family,   "gaussian")
-  expect_identical(fb$link,     "identity")
-  expect_identical(fb$source,   "brms")
+  expect_identical(fb$family, "gaussian")
+  expect_identical(fb$link, "identity")
+  expect_identical(fb$source, "brms")
   expect_true(fb$intercept)
-  expect_length(fb$fixed_terms,    1L)
+  expect_length(fb$fixed_terms, 1L)
   expect_identical(fb$fixed_terms[[1]]$type, "continuous")
-  expect_identical(fb$fixed_terms[[1]]$var,  "x")
-  expect_length(fb$random_terms,   0L)
-  expect_length(fb$rcov_terms,     0L)
+  expect_identical(fb$fixed_terms[[1]]$var, "x")
+  expect_length(fb$random_terms, 0L)
+  expect_length(fb$rcov_terms, 0L)
   expect_length(fb$addition_terms, 0L)
 })
 
 test_that("fb_from_brms() handles intercept-only model", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ 1, data = d)
   expect_true(fb$intercept)
   expect_length(fb$fixed_terms, 0L)
 })
 
 test_that("fb_from_brms() handles factor fixed effect", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ g, data = d)
   expect_length(fb$fixed_terms, 1L)
   expect_identical(fb$fixed_terms[[1]]$type, "factor")
@@ -64,24 +64,24 @@ test_that("fb_from_brms() handles factor fixed effect", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_from_brms() handles `(1 | g)` random intercept", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g), data = d)
   expect_length(fb$random_terms, 1L)
-  expect_identical(fb$random_terms[[1]]$type,  "simple")
-  expect_identical(fb$random_terms[[1]]$var,   "g")
+  expect_identical(fb$random_terms[[1]]$type, "simple")
+  expect_identical(fb$random_terms[[1]]$var, "g")
   expect_identical(fb$random_terms[[1]]$var_n, 5L)
 })
 
 test_that("fb_from_brms() handles `(1 || g)` (uncorrelated) random intercept", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ x + (1 || g), data = d)
   expect_length(fb$random_terms, 1L)
   expect_identical(fb$random_terms[[1]]$type, "simple")
-  expect_identical(fb$random_terms[[1]]$var,  "g")
+  expect_identical(fb$random_terms[[1]]$var, "g")
 })
 
 test_that("fb_from_brms() handles two random intercepts", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g) + (1 | site), data = d)
   expect_length(fb$random_terms, 2L)
   vars <- vapply(fb$random_terms, function(r) r$var, character(1))
@@ -93,18 +93,21 @@ test_that("fb_from_brms() handles two random intercepts", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_from_brms() handles binomial family with default logit", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y01 ~ x, data = d, family = "binomial")
   expect_identical(fb$family, "binomial")
-  expect_identical(fb$link,   "logit")
+  expect_identical(fb$link, "logit")
 })
 
 test_that("fb_from_brms() accepts a `family()` object", {
-  d  <- mk_brms_data()
-  fb <- flexyBayes:::fb_from_brms(y01 ~ x, data = d,
-                                  family = stats::binomial(link = "probit"))
+  d <- mk_brms_data()
+  fb <- flexyBayes:::fb_from_brms(
+    y01 ~ x,
+    data = d,
+    family = stats::binomial(link = "probit")
+  )
   expect_identical(fb$family, "binomial")
-  expect_identical(fb$link,   "probit")
+  expect_identical(fb$link, "probit")
 })
 
 test_that("fb_from_brms() rejects an unsupported character family", {
@@ -124,7 +127,7 @@ test_that("fb_from_brms() captures `weights` as an addition_term", {
   w <- runif(nrow(d))
   fb <- flexyBayes:::fb_from_brms(y ~ x, data = d, weights = w)
   expect_length(fb$addition_terms, 1L)
-  expect_identical(fb$addition_terms[[1]]$type,   "weights")
+  expect_identical(fb$addition_terms[[1]]$type, "weights")
   expect_identical(fb$addition_terms[[1]]$values, w)
 })
 
@@ -152,7 +155,7 @@ test_that("fb_from_brms() refuses correlated random slopes (x | g) per ADR 0020"
   )
   expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
   expect_identical(err$deferral_target, "v0.3")
-  expect_identical(err$workaround,      "(x || g)")
+  expect_identical(err$workaround, "(x || g)")
   expect_true(grepl("Correlated random slopes", conditionMessage(err)))
 })
 
@@ -193,7 +196,7 @@ test_that("fb_from_brms() refuses cens() for v0.1", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_from_brms() result passes validate_fb_terms()", {
-  d  <- mk_brms_data()
+  d <- mk_brms_data()
   fb <- flexyBayes:::fb_from_brms(y ~ x + (1 | g), data = d)
   expect_silent(flexyBayes:::validate_fb_terms(fb))
 })
@@ -201,7 +204,7 @@ test_that("fb_from_brms() result passes validate_fb_terms()", {
 test_that("fb_from_brms() rejects malformed input", {
   d <- mk_brms_data()
   expect_error(
-    flexyBayes:::fb_from_brms(~ x, data = d),
+    flexyBayes:::fb_from_brms(~x, data = d),
     "must be two-sided"
   )
   expect_error(

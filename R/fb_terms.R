@@ -53,35 +53,37 @@
 #                  `triangulate()` for clear ingest-path labelling
 #                  in cross-engine reports (deliverable 4).
 # @return an fb_terms object (S3, inherits from list).
-new_fb_terms <- function(response,
-                         family,
-                         link = NULL,
-                         intercept = TRUE,
-                         fixed_terms = list(),
-                         random_terms = list(),
-                         rcov_terms = list(),
-                         addition_terms = list(),
-                         priors = NULL,
-                         data_summary = list(),
-                         capabilities = character(),
-                         source = c("asreml", "brms", "greta"),
-                         greta_meta = NULL) {
+new_fb_terms <- function(
+  response,
+  family,
+  link = NULL,
+  intercept = TRUE,
+  fixed_terms = list(),
+  random_terms = list(),
+  rcov_terms = list(),
+  addition_terms = list(),
+  priors = NULL,
+  data_summary = list(),
+  capabilities = character(),
+  source = c("asreml", "brms", "greta"),
+  greta_meta = NULL
+) {
   source <- match.arg(source)
 
   obj <- list(
-    response       = response,
-    family         = family,
-    link           = link,
-    intercept      = intercept,
-    fixed_terms    = fixed_terms,
-    random_terms   = random_terms,
-    rcov_terms     = rcov_terms,
+    response = response,
+    family = family,
+    link = link,
+    intercept = intercept,
+    fixed_terms = fixed_terms,
+    random_terms = random_terms,
+    rcov_terms = rcov_terms,
     addition_terms = addition_terms,
-    priors         = priors,
-    data_summary   = data_summary,
-    capabilities   = capabilities,
-    source         = source,
-    greta_meta     = greta_meta
+    priors = priors,
+    data_summary = data_summary,
+    capabilities = capabilities,
+    source = source,
+    greta_meta = greta_meta
   )
   class(obj) <- c("fb_terms", "list")
   validate_fb_terms(obj)
@@ -98,69 +100,121 @@ new_fb_terms <- function(response,
 validate_fb_terms <- function(x) {
   stopifnot(inherits(x, "fb_terms"))
 
-  if (!is.character(x$response) || length(x$response) != 1L ||
-      is.na(x$response) || !nzchar(x$response))
-    stop("`response` must be a non-empty length-1 character vector.",
-         call. = FALSE)
+  if (
+    !is.character(x$response) ||
+      length(x$response) != 1L ||
+      is.na(x$response) ||
+      !nzchar(x$response)
+  ) {
+    stop(
+      "`response` must be a non-empty length-1 character vector.",
+      call. = FALSE
+    )
+  }
 
-  if (!inherits(x$family, "family") &&
-      !(is.character(x$family) && length(x$family) == 1L))
-    stop("`family` must be a `family` object or a length-1 ",
-         "character family name.", call. = FALSE)
+  if (
+    !inherits(x$family, "family") &&
+      !(is.character(x$family) && length(x$family) == 1L)
+  ) {
+    stop(
+      "`family` must be a `family` object or a length-1 ",
+      "character family name.",
+      call. = FALSE
+    )
+  }
 
-  if (!is.null(x$link) &&
-      !(is.character(x$link) && length(x$link) == 1L))
-    stop("`link` must be NULL or a length-1 character vector.",
-         call. = FALSE)
+  if (
+    !is.null(x$link) &&
+      !(is.character(x$link) && length(x$link) == 1L)
+  ) {
+    stop("`link` must be NULL or a length-1 character vector.", call. = FALSE)
+  }
 
-  if (!is.logical(x$intercept) || length(x$intercept) != 1L)
+  if (!is.logical(x$intercept) || length(x$intercept) != 1L) {
     stop("`intercept` must be TRUE or FALSE.", call. = FALSE)
+  }
   # NA permitted only when source = "greta" (ADR 0012 §2): greta-direct
   # models do not declare an intercept syntactically. Otherwise the
   # original "TRUE or FALSE" contract holds.
-  if (is.na(x$intercept) && !identical(x$source, "greta"))
-    stop("`intercept` must be TRUE or FALSE (NA only permitted on ",
-         "the greta-direct entry, where the IR carries ",
-         "`source = \"greta\"`).", call. = FALSE)
+  if (is.na(x$intercept) && !identical(x$source, "greta")) {
+    stop(
+      "`intercept` must be TRUE or FALSE (NA only permitted on ",
+      "the greta-direct entry, where the IR carries ",
+      "`source = \"greta\"`).",
+      call. = FALSE
+    )
+  }
 
-  for (slot in c("fixed_terms", "random_terms",
-                 "rcov_terms", "addition_terms")) {
-    if (!is.list(x[[slot]]))
+  for (slot in c(
+    "fixed_terms",
+    "random_terms",
+    "rcov_terms",
+    "addition_terms"
+  )) {
+    if (!is.list(x[[slot]])) {
       stop("`", slot, "` must be a list.", call. = FALSE)
+    }
     for (i in seq_along(x[[slot]])) {
       el <- x[[slot]][[i]]
-      if (!is.list(el) || is.null(el$type) ||
-          !is.character(el$type) || length(el$type) != 1L ||
-          !nzchar(el$type))
-        stop("`", slot, "[[", i, "]]` must be a list with a ",
-             "non-empty character `type` field.", call. = FALSE)
+      if (
+        !is.list(el) ||
+          is.null(el$type) ||
+          !is.character(el$type) ||
+          length(el$type) != 1L ||
+          !nzchar(el$type)
+      ) {
+        stop(
+          "`",
+          slot,
+          "[[",
+          i,
+          "]]` must be a list with a ",
+          "non-empty character `type` field.",
+          call. = FALSE
+        )
+      }
     }
   }
 
-  if (!is.list(x$data_summary))
+  if (!is.list(x$data_summary)) {
     stop("`data_summary` must be a list.", call. = FALSE)
+  }
 
-  if (!is.character(x$capabilities))
+  if (!is.character(x$capabilities)) {
     stop("`capabilities` must be a character vector.", call. = FALSE)
+  }
 
-  if (!x$source %in% c("asreml", "brms", "greta"))
+  if (!x$source %in% c("asreml", "brms", "greta")) {
     stop('`source` must be "asreml", "brms", or "greta".', call. = FALSE)
+  }
 
   # greta_meta is required when source = "greta" and forbidden otherwise.
   # ADR 0012 §2 specifies the slot for the post-hoc IR built from a
   # user-supplied greta_model object.
   if (identical(x$source, "greta")) {
-    if (!is.list(x$greta_meta))
-      stop("`greta_meta` must be a list when `source = \"greta\"`.",
-           call. = FALSE)
-    for (req in c("arrays", "canonical_map", "model_dim", "n_data"))
-      if (is.null(x$greta_meta[[req]]))
-        stop("`greta_meta$", req, "` is required when source = \"greta\".",
-             call. = FALSE)
+    if (!is.list(x$greta_meta)) {
+      stop(
+        "`greta_meta` must be a list when `source = \"greta\"`.",
+        call. = FALSE
+      )
+    }
+    for (req in c("arrays", "canonical_map", "model_dim", "n_data")) {
+      if (is.null(x$greta_meta[[req]])) {
+        stop(
+          "`greta_meta$",
+          req,
+          "` is required when source = \"greta\".",
+          call. = FALSE
+        )
+      }
+    }
   } else {
-    if (!is.null(x$greta_meta))
-      stop("`greta_meta` is only valid when `source = \"greta\"`.",
-           call. = FALSE)
+    if (!is.null(x$greta_meta)) {
+      stop(
+        "`greta_meta` is only valid when `source = \"greta\"`.",
+        call. = FALSE
+      )
+    }
   }
 
   invisible(x)
@@ -180,18 +234,18 @@ is_fb_terms <- function(x) inherits(x, "fb_terms")
 # helpers so they don't reach into list slots directly. A shared
 # accessor surface insulates the rest of the package from any
 # future representation change (e.g., S7 migration in v0.2+).
-fb_response       <- function(x) x$response
-fb_family         <- function(x) x$family
-fb_link           <- function(x) x$link
-fb_intercept      <- function(x) x$intercept
-fb_fixed_terms    <- function(x) x$fixed_terms
-fb_random_terms   <- function(x) x$random_terms
-fb_rcov_terms     <- function(x) x$rcov_terms
+fb_response <- function(x) x$response
+fb_family <- function(x) x$family
+fb_link <- function(x) x$link
+fb_intercept <- function(x) x$intercept
+fb_fixed_terms <- function(x) x$fixed_terms
+fb_random_terms <- function(x) x$random_terms
+fb_rcov_terms <- function(x) x$rcov_terms
 fb_addition_terms <- function(x) x$addition_terms
-fb_priors         <- function(x) x$priors
-fb_data_summary   <- function(x) x$data_summary
-fb_capabilities   <- function(x) x$capabilities
-fb_source         <- function(x) x$source
+fb_priors <- function(x) x$priors
+fb_data_summary <- function(x) x$data_summary
+fb_capabilities <- function(x) x$capabilities
+fb_source <- function(x) x$source
 
 # ---------------------------------------------------------------- #
 # S3 methods (exported for dispatch only)                          #
@@ -213,8 +267,11 @@ print.fb_terms <- function(x, ...) {
   cat("  source:    ", x$source, "\n", sep = "")
   cat("  response:  ", x$response, "\n", sep = "")
 
-  fam_str <- if (inherits(x$family, "family"))
-    x$family$family else as.character(x$family)
+  fam_str <- if (inherits(x$family, "family")) {
+    x$family$family
+  } else {
+    as.character(x$family)
+  }
   link_str <- if (inherits(x$family, "family")) {
     x$family$link
   } else if (!is.null(x$link)) {
@@ -231,15 +288,22 @@ print.fb_terms <- function(x, ...) {
   cat("    rcov:     ", length(x$rcov_terms), "\n", sep = "")
   cat("    addition: ", length(x$addition_terms), "\n", sep = "")
 
-  cat("  priors:    ",
-      if (is.null(x$priors)) "<defaults>" else "<user-supplied>",
-      "\n", sep = "")
-  cat("  capabilities: ",
-      if (length(x$capabilities))
-        paste(x$capabilities, collapse = ", ")
-      else
-        "<not yet evaluated by lgm_gate>",
-      "\n", sep = "")
+  cat(
+    "  priors:    ",
+    if (is.null(x$priors)) "<defaults>" else "<user-supplied>",
+    "\n",
+    sep = ""
+  )
+  cat(
+    "  capabilities: ",
+    if (length(x$capabilities)) {
+      paste(x$capabilities, collapse = ", ")
+    } else {
+      "<not yet evaluated by lgm_gate>"
+    },
+    "\n",
+    sep = ""
+  )
 
   invisible(x)
 }
@@ -256,7 +320,15 @@ print.fb_terms <- function(x, ...) {
 #' @keywords internal
 #' @export
 format.fb_terms <- function(x, ...) {
-  paste0("<fb_terms: ", x$source, " ingest, ",
-         x$response, " ~ ", length(x$fixed_terms), " fixed + ",
-         length(x$random_terms), " random>")
+  paste0(
+    "<fb_terms: ",
+    x$source,
+    " ingest, ",
+    x$response,
+    " ~ ",
+    length(x$fixed_terms),
+    " fixed + ",
+    length(x$random_terms),
+    " random>"
+  )
 }

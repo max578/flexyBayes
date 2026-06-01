@@ -74,22 +74,27 @@ test_that(".fb_dataset(data = NULL): refuses without col_types", {
 test_that(".fb_dataset(data = NULL): rejects malformed col_types / dictionaries", {
   # Unnamed col_types
   expect_error(
-    .fb_dataset(data = NULL, n_rows = 10,
-                col_types = c("double", "factor")),
+    .fb_dataset(data = NULL, n_rows = 10, col_types = c("double", "factor")),
     regexp = "named"
   )
   # Unnamed dictionaries (when non-empty)
   expect_error(
-    .fb_dataset(data = NULL, n_rows = 10,
-                col_types = list(g = "factor"),
-                dictionaries = list(as.character(1:5))),
+    .fb_dataset(
+      data = NULL,
+      n_rows = 10,
+      col_types = list(g = "factor"),
+      dictionaries = list(as.character(1:5))
+    ),
     regexp = "named"
   )
   # Non-list dictionaries
   expect_error(
-    .fb_dataset(data = NULL, n_rows = 10,
-                col_types = list(g = "factor"),
-                dictionaries = "not_a_list"),
+    .fb_dataset(
+      data = NULL,
+      n_rows = 10,
+      col_types = list(g = "factor"),
+      dictionaries = "not_a_list"
+    ),
     regexp = "named list"
   )
 })
@@ -119,10 +124,10 @@ test_that(".fb_dataset(): character columns also get frozen dictionaries", {
 
 test_that(".fb_dataset_levels() + .fb_dataset_type() reads via dictionary", {
   ds <- .fb_dataset(
-    data = NULL, n_rows = 1e6,
+    data = NULL,
+    n_rows = 1e6,
     col_types = list(y = "double", g = "factor", site = "character"),
-    dictionaries = list(g = as.character(seq_len(50L)),
-                        site = c("a", "b", "c"))
+    dictionaries = list(g = as.character(seq_len(50L)), site = c("a", "b", "c"))
   )
 
   expect_identical(.fb_dataset_levels(ds, "g"), 50L)
@@ -149,9 +154,9 @@ test_that("format.fb_dataset() / print.fb_dataset() produce diagnostic output", 
 
   printed <- capture.output(print(ds))
   expect_true(any(grepl("col_types", printed, fixed = TRUE)))
-  expect_true(any(grepl("g:factor",  printed, fixed = TRUE)))
-  expect_true(any(grepl("dicts",     printed, fixed = TRUE)))
-  expect_true(any(grepl("g(3)",      printed, fixed = TRUE)))
+  expect_true(any(grepl("g:factor", printed, fixed = TRUE)))
+  expect_true(any(grepl("dicts", printed, fixed = TRUE)))
+  expect_true(any(grepl("g(3)", printed, fixed = TRUE)))
 })
 
 test_that(".fb_dataset is internal -- no exported binding", {
@@ -159,10 +164,10 @@ test_that(".fb_dataset is internal -- no exported binding", {
   # via `flexyBayes:::.fb_dataset` (triple-colon, internal access)
   # but NOT via `flexyBayes::.fb_dataset` (double-colon, exported
   # access). Asserts the export gate has not been opened.
-  ns  <- asNamespace("flexyBayes")
+  ns <- asNamespace("flexyBayes")
   exp <- getNamespaceExports(ns)
   expect_false(".fb_dataset" %in% exp)
-  expect_false("fb_dataset"  %in% exp)
+  expect_false("fb_dataset" %in% exp)
   # Internal reachability holds
   expect_true(exists(".fb_dataset", envir = ns, inherits = FALSE))
 })

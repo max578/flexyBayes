@@ -15,9 +15,9 @@
 
 silence_notes <- function() {
   withr::local_options(
-    flexyBayes.silence_default_prior_note     = TRUE,
-    flexyBayes.silence_uniform_inla_approx    = TRUE,
-    flexyBayes.silence_auto_fallback_note     = TRUE,
+    flexyBayes.silence_default_prior_note = TRUE,
+    flexyBayes.silence_uniform_inla_approx = TRUE,
+    flexyBayes.silence_auto_fallback_note = TRUE,
     flexyBayes.silence_auto_inla_missing_note = TRUE,
     .local_envir = parent.frame()
   )
@@ -48,12 +48,22 @@ test_that("triangulate() puts INLA variance components on the SD scale, not prec
   d <- data.frame(y, x, g)
 
   fg <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, backend = "greta",
-    n_samples = 400L, warmup = 400L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x + (1 | g),
+    data = d,
+    backend = "greta",
+    n_samples = 400L,
+    warmup = 400L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
   fi <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x + (1 | g),
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   tri <- triangulate(fg, fi, n_samples = 1000L)
 
@@ -88,10 +98,15 @@ test_that("plot() dispatches on an INLA fit: effects renders, MCMC-only types de
   d <- data.frame(
     y = stats::rnorm(60L),
     x = stats::rnorm(60L),
-    g = factor(rep(seq_len(6L), length.out = 60L)))
+    g = factor(rep(seq_len(6L), length.out = 60L))
+  )
   fi <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, backend = "inla",
-    verbose = FALSE, mcmc_verbose = FALSE))
+    y ~ x + (1 | g),
+    data = d,
+    backend = "inla",
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
 
   expect_s3_class(fi, "flexybayes_inla")
   expect_false(inherits(fi, "flexybayes"))
@@ -143,16 +158,23 @@ test_that("predict() works on an INLA mixed model (brms-grammar bar term strippe
   d <- data.frame(
     y = stats::rnorm(80L),
     x = stats::rnorm(80L),
-    g = factor(rep(seq_len(8L), each = 10L)))
+    g = factor(rep(seq_len(8L), each = 10L))
+  )
 
   # brms-grammar mixed model: the random-effect bar `(1 | g)` is stored
   # whole in call_info$fixed; formula() must strip it so the fixed-effect
   # design-matrix reconstruction matches the coefficient basis.
   fit <- suppressMessages(fb(
-    y ~ x + (1 | g), data = d, backend = "inla", verbose = FALSE))
+    y ~ x + (1 | g),
+    data = d,
+    backend = "inla",
+    verbose = FALSE
+  ))
 
   expect_identical(
-    deparse(stats::formula(fit)), "y ~ x")  # bar stripped
+    deparse(stats::formula(fit)),
+    "y ~ x"
+  ) # bar stripped
 
   p <- predict(fit)
   expect_length(p, nrow(d))
@@ -162,9 +184,12 @@ test_that("predict() works on an INLA mixed model (brms-grammar bar term strippe
   expect_length(ps$fit, nrow(d))
   expect_length(ps$se.fit, nrow(d))
 
-  if (requireNamespace("marginaleffects", quietly = TRUE))
+  if (requireNamespace("marginaleffects", quietly = TRUE)) {
     expect_identical(
-      nrow(marginaleffects::predictions(fit)), nrow(d))
+      nrow(marginaleffects::predictions(fit)),
+      nrow(d)
+    )
+  }
 })
 
 
@@ -179,14 +204,22 @@ test_that("a non-binary binomial response is refused on greta, not silently Bern
 
   set.seed(303L)
   d <- data.frame(
-    y = sample(0:5, 50L, replace = TRUE),  # counts, not 0/1
-    x = stats::rnorm(50L))
+    y = sample(0:5, 50L, replace = TRUE), # counts, not 0/1
+    x = stats::rnorm(50L)
+  )
 
   expect_error(
     suppressMessages(fb(
-      y ~ x, data = d, family = "binomial", backend = "greta",
-      n_samples = 10L, warmup = 10L, chains = 1L,
-      verbose = FALSE, mcmc_verbose = FALSE)),
+      y ~ x,
+      data = d,
+      family = "binomial",
+      backend = "greta",
+      n_samples = 10L,
+      warmup = 10L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )),
     "binary"
   )
 })

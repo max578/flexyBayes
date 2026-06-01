@@ -22,21 +22,21 @@
 
 mk_brms_stan_gaussian_data <- function() {
   set.seed(20260523L)
-  n  <- 40L
-  g  <- factor(rep(letters[1:5], each = 8L))
-  x  <- rnorm(n)
+  n <- 40L
+  g <- factor(rep(letters[1:5], each = 8L))
+  x <- rnorm(n)
   b_g <- rnorm(5L, sd = 1.0)[as.integer(g)]
-  y  <- 1 + 0.3 * x + b_g + rnorm(n, sd = 0.5)
+  y <- 1 + 0.3 * x + b_g + rnorm(n, sd = 0.5)
   data.frame(y = y, x = x, g = g)
 }
 
 mk_brms_stan_bernoulli_data <- function() {
   set.seed(20260523L)
-  n  <- 60L
-  g  <- factor(rep(letters[1:6], each = 10L))
-  x  <- rnorm(n)
+  n <- 60L
+  g <- factor(rep(letters[1:6], each = 10L))
+  x <- rnorm(n)
   eta <- 0.2 + 0.4 * x + rnorm(6L, sd = 0.5)[as.integer(g)]
-  y  <- rbinom(n, size = 1L, prob = plogis(eta))
+  y <- rbinom(n, size = 1L, prob = plogis(eta))
   data.frame(y = y, x = x, g = g)
 }
 
@@ -50,7 +50,10 @@ test_that("priors_to_brms_specs: legacy bridge for fixed-RI model", {
   fb <- fb_from_brms(y ~ x + (1 | g), data = d)
 
   sp <- flexyBayes:::.priors_to_brms_specs(
-    NULL, fb, prior_fixed_sd = 100, prior_vc_sd = 1
+    NULL,
+    fb,
+    prior_fixed_sd = 100,
+    prior_vc_sd = 1
   )
 
   # Expect: Intercept(normal,100), b(normal,100), sigma(lognormal,1),
@@ -60,18 +63,18 @@ test_that("priors_to_brms_specs: legacy bridge for fixed-RI model", {
 
   classes <- vapply(sp, function(s) s$class, character(1))
   expect_true("Intercept" %in% classes)
-  expect_true("b"         %in% classes)
-  expect_true("sigma"     %in% classes)
-  expect_true("sd"        %in% classes)
+  expect_true("b" %in% classes)
+  expect_true("sigma" %in% classes)
+  expect_true("sd" %in% classes)
 
   # Intercept + b: normal(0, 100)
-  expect_match(sp[[which(classes == "Intercept")]]$string,
-               "^normal\\(0, 100\\)$")
-  expect_match(sp[[which(classes == "b")]]$string,
-               "^normal\\(0, 100\\)$")
+  expect_match(
+    sp[[which(classes == "Intercept")]]$string,
+    "^normal\\(0, 100\\)$"
+  )
+  expect_match(sp[[which(classes == "b")]]$string, "^normal\\(0, 100\\)$")
   # sigma: lognormal(0, 1)
-  expect_match(sp[[which(classes == "sigma")]]$string,
-               "^lognormal\\(0, 1\\)$")
+  expect_match(sp[[which(classes == "sigma")]]$string, "^lognormal\\(0, 1\\)$")
   # sd: lognormal(0, 1), group = g
   sd_idx <- which(classes == "sd")
   expect_match(sp[[sd_idx]]$string, "^lognormal\\(0, 1\\)$")
@@ -94,8 +97,7 @@ test_that("priors_to_brms_specs: PC sigma rate = -log(prob)/upper", {
   expect_match(sp[[1L]]$string, "^exponential\\(")
 
   # Rate verification: -log(0.05) / 2 = 1.497866...
-  num_str <- sub("^exponential\\(", "",
-                  sub("\\)$", "", sp[[1L]]$string))
+  num_str <- sub("^exponential\\(", "", sub("\\)$", "", sp[[1L]]$string))
   rate <- as.numeric(num_str)
   expect_equal(rate, -log(0.05) / 2, tolerance = 1e-10)
 })
@@ -197,9 +199,14 @@ test_that("fb(backend='brms', review_code=TRUE) returns Stan code", {
 
   d <- mk_brms_stan_gaussian_data()
   rev <- suppressMessages(
-    fb(y ~ x + (1 | g), data = d,
-            backend = "brms", review_code = TRUE,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "brms",
+      review_code = TRUE,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   )
 
   expect_s3_class(rev, "flexybayes_review")
@@ -224,21 +231,27 @@ test_that("fb(backend='brms'): Gaussian RI fits cleanly", {
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d,
-            backend = "brms",
-            n_samples = 200L, warmup = 200L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "brms",
+      n_samples = 200L,
+      warmup = 200L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
 
   expect_s3_class(fit, "flexybayes_brms")
   expect_s3_class(fit, "flexybayes")
   expect_false(is.null(fit$brms))
   expect_true("(Intercept)" %in% names(coef(fit)))
-  expect_true("x"           %in% names(coef(fit)))
+  expect_true("x" %in% names(coef(fit)))
 
   bd <- backend_decision(fit)
   expect_identical(bd$backend, "brms")
-  expect_identical(bd$path,    "explicit_brms")
+  expect_identical(bd$path, "explicit_brms")
 
   expect_identical(fit$extras$fb_terms$source, "brms")
 })
@@ -255,10 +268,17 @@ test_that("fb(backend='brms'): Bernoulli RI fits cleanly", {
 
   d <- mk_brms_stan_bernoulli_data()
   fit <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d,
-            family = "binomial", backend = "brms",
-            n_samples = 200L, warmup = 200L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      family = "binomial",
+      backend = "brms",
+      n_samples = 200L,
+      warmup = 200L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
 
   expect_s3_class(fit, "flexybayes_brms")
@@ -279,14 +299,28 @@ test_that("triangulate(): brms + greta align via the identity registry", {
 
   d <- mk_brms_stan_gaussian_data()
   fit_b <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d, backend = "brms",
-            n_samples = 200L, warmup = 200L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "brms",
+      n_samples = 200L,
+      warmup = 200L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
   fit_g <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d, backend = "greta",
-            n_samples = 100L, warmup = 100L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "greta",
+      n_samples = 100L,
+      warmup = 100L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
 
   tri <- triangulate(fit_b, fit_g)
@@ -311,9 +345,16 @@ test_that("fb(backend='auto') does NOT route to Stan", {
 
   d <- mk_brms_stan_gaussian_data()
   fit_a <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d, backend = "auto",
-            n_samples = 80L, warmup = 80L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "auto",
+      n_samples = 80L,
+      warmup = 80L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
   bd <- backend_decision(fit_a)
   expect_true(bd$backend %in% c("greta", "inla"))
@@ -347,9 +388,16 @@ test_that("predict.flexybayes_brms: in-sample posterior_epred matches summary", 
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d, backend = "brms",
-            n_samples = 200L, warmup = 200L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "brms",
+      n_samples = 200L,
+      warmup = 200L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
 
   # In-sample call: shape matches nrow(data).
@@ -360,7 +408,7 @@ test_that("predict.flexybayes_brms: in-sample posterior_epred matches summary", 
   # se.fit branch returns fit + se.fit of equal length.
   ps <- predict(fit, se.fit = TRUE)
   expect_named(ps, c("fit", "se.fit"))
-  expect_length(ps$fit,    nrow(d))
+  expect_length(ps$fit, nrow(d))
   expect_length(ps$se.fit, nrow(d))
 })
 
@@ -376,9 +424,16 @@ test_that("predict.flexybayes_brms: newdata + type = 'link' return correct shape
 
   d <- mk_brms_stan_gaussian_data()
   fit <- suppressMessages(suppressWarnings(
-    fb(y ~ x + (1 | g), data = d, backend = "brms",
-            n_samples = 200L, warmup = 200L, chains = 1L,
-            verbose = FALSE, mcmc_verbose = FALSE)
+    fb(
+      y ~ x + (1 | g),
+      data = d,
+      backend = "brms",
+      n_samples = 200L,
+      warmup = 200L,
+      chains = 1L,
+      verbose = FALSE,
+      mcmc_verbose = FALSE
+    )
   ))
 
   newd <- d[1:5, ]

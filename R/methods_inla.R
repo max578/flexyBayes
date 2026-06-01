@@ -15,7 +15,6 @@
 # is the convention emmeans / marginaleffects assume for marginal means
 # and average predictions.
 
-
 # ---------------------------------------------------------------- #
 # Internal: fixed-effect posterior on the treatment-contrast basis  #
 # ---------------------------------------------------------------- #
@@ -24,12 +23,16 @@
 # as a matrix (n_samples x p) with `summary.fixed` rownames as columns.
 # INLA names the fixed effects in the latent field as "<name>:1".
 .inla_fixef_draws <- function(object, n_samples = 2000L) {
-  if (!requireNamespace("INLA", quietly = TRUE))
-    stop("Package 'INLA' is required to sample from a ",
-         "<flexybayes_inla> fit.", call. = FALSE)
-  if (is.null(object$inla))
-    stop("Cannot sample: the INLA fit object is missing.",
-         call. = FALSE)
+  if (!requireNamespace("INLA", quietly = TRUE)) {
+    stop(
+      "Package 'INLA' is required to sample from a ",
+      "<flexybayes_inla> fit.",
+      call. = FALSE
+    )
+  }
+  if (is.null(object$inla)) {
+    stop("Cannot sample: the INLA fit object is missing.", call. = FALSE)
+  }
 
   fixed_names <- rownames(object$inla$summary.fixed)
   # Force single-threaded sampling. inla.posterior.sample() otherwise
@@ -39,26 +42,45 @@
   # is built with control.compute = list(config = TRUE) (see
   # R/emit_inla.R), so config is not the failure mode here.
   samples <- tryCatch(
-    INLA::inla.posterior.sample(as.integer(n_samples), object$inla,
-                                num.threads = "1:1"),
-    error = function(e)
-      stop("INLA::inla.posterior.sample() failed: ",
-           conditionMessage(e),
-           ". Ensure the fit was built with ",
-           "control.compute = list(config = TRUE).", call. = FALSE)
+    INLA::inla.posterior.sample(
+      as.integer(n_samples),
+      object$inla,
+      num.threads = "1:1"
+    ),
+    error = function(e) {
+      stop(
+        "INLA::inla.posterior.sample() failed: ",
+        conditionMessage(e),
+        ". Ensure the fit was built with ",
+        "control.compute = list(config = TRUE).",
+        call. = FALSE
+      )
+    }
   )
 
   latent_rows <- rownames(samples[[1L]]$latent)
-  row_for <- vapply(fixed_names, function(nm) {
-    hit <- which(latent_rows == paste0(nm, ":1"))
-    if (length(hit) != 1L)
-      stop("Could not locate the latent row for fixed effect '", nm,
-           "' in the INLA posterior sample.", call. = FALSE)
-    latent_rows[hit]
-  }, character(1L))
+  row_for <- vapply(
+    fixed_names,
+    function(nm) {
+      hit <- which(latent_rows == paste0(nm, ":1"))
+      if (length(hit) != 1L) {
+        stop(
+          "Could not locate the latent row for fixed effect '",
+          nm,
+          "' in the INLA posterior sample.",
+          call. = FALSE
+        )
+      }
+      latent_rows[hit]
+    },
+    character(1L)
+  )
 
-  mat <- vapply(samples, function(s) s$latent[row_for, 1L],
-                numeric(length(fixed_names)))
+  mat <- vapply(
+    samples,
+    function(s) s$latent[row_for, 1L],
+    numeric(length(fixed_names))
+  )
   mat <- t(mat)
   colnames(mat) <- fixed_names
   mat
@@ -116,9 +138,9 @@ vcov.flexybayes_inla <- function(object, n_samples = 2000L, ...) {
 #' @export
 formula.flexybayes_inla <- function(x, ...) {
   f <- x$extras$call_info$fixed
-  if (is.null(f))
-    stop("The INLA fit does not carry a fixed-effect formula.",
-         call. = FALSE)
+  if (is.null(f)) {
+    stop("The INLA fit does not carry a fixed-effect formula.", call. = FALSE)
+  }
   f <- stats::as.formula(f)
   # Enforce the documented contract: this is the *fixed-effect* formula.
   # A brms-grammar fit (`y ~ x + (1 | g)`) is stored whole in
@@ -128,7 +150,9 @@ formula.flexybayes_inla <- function(x, ...) {
   # `(1 | g)` evaluates as `1 | g` (a logical op on the factor) and
   # injects a spurious column that fails coefficient reconciliation.
   # Idempotent on an already-fixed-only formula.
-  if (length(f) == 3L) f <- .brms_fixed_only_formula(f)
+  if (length(f) == 3L) {
+    f <- .brms_fixed_only_formula(f)
+  }
   f
 }
 
@@ -140,8 +164,7 @@ formula.flexybayes_inla <- function(x, ...) {
 #' @export
 family.flexybayes_inla <- function(object, ...) {
   mi <- object$extras$model_info
-  list(family = mi$family %||% "gaussian",
-       link   = mi$link %||% "identity")
+  list(family = mi$family %||% "gaussian", link = mi$link %||% "identity")
 }
 
 #' Population-level predictions from a per-row INLA fit
@@ -161,25 +184,39 @@ family.flexybayes_inla <- function(object, ...) {
 #' @return A numeric vector of predictions, or a list `fit` / `se.fit`
 #'   when `se.fit = TRUE`.
 #' @export
-predict.flexybayes_inla <- function(object, newdata = NULL,
-                                    type = c("response", "link"),
-                                    se.fit = FALSE, ...) {
+predict.flexybayes_inla <- function(
+  object,
+  newdata = NULL,
+  type = c("response", "link"),
+  se.fit = FALSE,
+  ...
+) {
   type <- match.arg(type)
-  fam  <- family(object)
-  if (!identical(fam$link, "identity"))
-    stop("predict.flexybayes_inla() currently supports the identity ",
-         "link only; this fit uses link '", fam$link, "'. Work with ",
-         "the posterior draws via fb_as_draws_simple() for non-identity ",
-         "links.", call. = FALSE)
+  fam <- family(object)
+  if (!identical(fam$link, "identity")) {
+    stop(
+      "predict.flexybayes_inla() currently supports the identity ",
+      "link only; this fit uses link '",
+      fam$link,
+      "'. Work with ",
+      "the posterior draws via fb_as_draws_simple() for non-identity ",
+      "links.",
+      call. = FALSE
+    )
+  }
 
-  if (is.null(newdata)) newdata <- object$data
-  trms  <- stats::delete.response(stats::terms(formula(object)))
-  bhat  <- coef(object)
-  X     <- .fb_fixef_model_matrix(trms, newdata, names(bhat), object$data)
-  eta   <- as.numeric(X %*% bhat)
+  if (is.null(newdata)) {
+    newdata <- object$data
+  }
+  trms <- stats::delete.response(stats::terms(formula(object)))
+  bhat <- coef(object)
+  X <- .fb_fixef_model_matrix(trms, newdata, names(bhat), object$data)
+  eta <- as.numeric(X %*% bhat)
 
-  if (!se.fit) return(eta)
-  V  <- vcov(object)
+  if (!se.fit) {
+    return(eta)
+  }
+  V <- vcov(object)
   se <- sqrt(rowSums((X %*% V) * X))
   list(fit = eta, se.fit = se)
 }

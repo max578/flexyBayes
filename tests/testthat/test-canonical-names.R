@@ -29,8 +29,8 @@ mk_canon_data <- function() {
   n <- 30L
   data.frame(
     yield = rnorm(n, 100, 10),
-    env   = factor(rep(1:3, length.out = n)),
-    geno  = factor(rep(1:5, length.out = n))
+    env = factor(rep(1:3, length.out = n)),
+    geno = factor(rep(1:5, length.out = n))
   )
 }
 
@@ -43,10 +43,15 @@ test_that("canonical_names() on a greta fit translates asreml-emit names", {
   skip_if_no_greta()
   d <- mk_canon_data()
   fit <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   cn <- canonical_names(fit)
 
@@ -85,8 +90,12 @@ test_that("canonical_names() on an INLA fit translates Precision-for and attache
   # of the per-row form). Aggregated-path canonical-name coverage
   # ships with Phase C tests.
   fit <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    backend = "inla", aggregate = FALSE, verbose = FALSE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    backend = "inla",
+    aggregate = FALSE,
+    verbose = FALSE
   ))
   cn <- canonical_names(fit)
 
@@ -94,11 +103,13 @@ test_that("canonical_names() on an INLA fit translates Precision-for and attache
 
   # Fixed-effect rownames are identity.
   expect_identical(cn$map[["(Intercept)"]], "(Intercept)")
-  expect_identical(cn$map[["env2"]],        "env2")
+  expect_identical(cn$map[["env2"]], "env2")
 
   # Hyperparameter rename + transform.
   expect_identical(
-    cn$map[["Precision for the Gaussian observations"]], "sigma")
+    cn$map[["Precision for the Gaussian observations"]],
+    "sigma"
+  )
   expect_identical(cn$map[["Precision for geno"]], "sd_geno")
 
   # The transform is keyed by the *native* hyperpar name, not the
@@ -109,11 +120,11 @@ test_that("canonical_names() on an INLA fit translates Precision-for and attache
   prec_g <- "Precision for the Gaussian observations"
   expect_true(is.function(cn$transform[[prec_g]]))
   expect_true(is.function(cn$transform[["Precision for geno"]]))
-  expect_null(cn$transform[["sigma"]])     # NOT keyed by canonical name
+  expect_null(cn$transform[["sigma"]]) # NOT keyed by canonical name
   expect_null(cn$transform[["sd_geno"]])
 
   # sqrt(1/4) = 0.5 -- the transform is the precision-to-SD form.
-  expect_equal(cn$transform[[prec_g]](4),               0.5)
+  expect_equal(cn$transform[[prec_g]](4), 0.5)
   expect_equal(cn$transform[["Precision for geno"]](100), 0.1)
 })
 
@@ -130,16 +141,26 @@ test_that("triangulate() auto-resolves common parameters via the registry", {
   skip_if_no_greta()
   d <- mk_canon_data()
   fit_a <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_b <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   tri <- triangulate(fit_a, fit_b)
 
@@ -147,8 +168,8 @@ test_that("triangulate() auto-resolves common parameters via the registry", {
   # should include the four canonical parameters present on a
   # Gaussian random-intercept model.
   expect_true("(Intercept)" %in% tri$common)
-  expect_true("sd_geno"     %in% tri$common)
-  expect_true("sigma"       %in% tri$common)
+  expect_true("sd_geno" %in% tri$common)
+  expect_true("sigma" %in% tri$common)
   # At least one env-level coefficient survives the rename.
   expect_true(any(grepl("^env", tri$common)))
 })
@@ -163,21 +184,29 @@ test_that("triangulate() resolves greta vs INLA on a Gaussian random-intercept m
   testthat::skip_if_not_installed("INLA")
   d <- mk_canon_data()
   fit_g <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 100L, warmup = 100L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 100L,
+    warmup = 100L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_i <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
-    backend = "inla", verbose = FALSE
+    yield ~ env,
+    random = ~geno,
+    data = d,
+    backend = "inla",
+    verbose = FALSE
   ))
 
   tri <- triangulate(fit_g, fit_i)
   # Canonical names that survive in both fits' renames.
   expect_true("(Intercept)" %in% tri$common)
-  expect_true("sd_geno"     %in% tri$common)
-  expect_true("sigma"       %in% tri$common)
+  expect_true("sd_geno" %in% tri$common)
+  expect_true("sigma" %in% tri$common)
 })
 
 
@@ -188,28 +217,38 @@ test_that("triangulate() resolves greta vs INLA on a Gaussian random-intercept m
 test_that("register_canonical_mapper() round-trips a custom mapper", {
   # Save / restore the registry slot to avoid contaminating the
   # package-level state for other tests.
-  prev <- if (exists("test_backend",
-                     envir = flexyBayes:::.canonical_mappers,
-                     inherits = FALSE))
-    get("test_backend",
-        envir = flexyBayes:::.canonical_mappers,
-        inherits = FALSE)
-  else NULL
+  prev <- if (
+    exists(
+      "test_backend",
+      envir = flexyBayes:::.canonical_mappers,
+      inherits = FALSE
+    )
+  ) {
+    get(
+      "test_backend",
+      envir = flexyBayes:::.canonical_mappers,
+      inherits = FALSE
+    )
+  } else {
+    NULL
+  }
   on.exit({
-    if (is.null(prev))
+    if (is.null(prev)) {
       rm("test_backend", envir = flexyBayes:::.canonical_mappers)
-    else
-      assign("test_backend", prev,
-             envir = flexyBayes:::.canonical_mappers)
+    } else {
+      assign("test_backend", prev, envir = flexyBayes:::.canonical_mappers)
+    }
   })
 
   mapper <- function(fit, fb_terms) {
     list(map = c(x = "X_canon"), transform = list())
   }
   flexyBayes:::register_canonical_mapper("test_backend", mapper)
-  out <- get("test_backend",
-             envir = flexyBayes:::.canonical_mappers,
-             inherits = FALSE)
+  out <- get(
+    "test_backend",
+    envir = flexyBayes:::.canonical_mappers,
+    inherits = FALSE
+  )
   expect_identical(out, mapper)
 
   # Invalid inputs raise clean errors.
@@ -231,8 +270,8 @@ test_that("register_canonical_mapper() round-trips a custom mapper", {
 test_that("fb_greta(canonical_names = ...) takes precedence over the verbatim fallback", {
   skip_if_no_greta()
   d <- mk_canon_data()
-  y    <- greta::as_data(d$yield)
-  b0   <- greta::normal(0, 100)
+  y <- greta::as_data(d$yield)
+  b0 <- greta::normal(0, 100)
   sigma <- greta::uniform(0, 50)
   greta::distribution(y) <- greta::normal(b0, sigma)
   m <- greta::model(b0, sigma)
@@ -240,23 +279,32 @@ test_that("fb_greta(canonical_names = ...) takes precedence over the verbatim fa
   # v0.5.0: a canonical-name map is attached at IR-build time via
   # fb_from_greta(); the greta pin then fits the IR.
   ir <- suppressMessages(fb_from_greta(
-    m, data = d,
-    canonical_names = c(b0 = "(Intercept)", sigma = "sigma")))
+    m,
+    data = d,
+    canonical_names = c(b0 = "(Intercept)", sigma = "sigma")
+  ))
   fit <- suppressMessages(fb_greta(
     ir,
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   cn <- canonical_names(fit)
   expect_identical(cn$source, "user")
-  expect_identical(cn$map[["b0"]],    "(Intercept)")
+  expect_identical(cn$map[["b0"]], "(Intercept)")
   expect_identical(cn$map[["sigma"]], "sigma")
 
   # Without the user-supplied map, fb_greta() falls back to verbatim.
   fit2 <- suppressMessages(fb_greta(
-    m, data = d,
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    m,
+    data = d,
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   cn2 <- canonical_names(fit2)
   expect_identical(cn2$source, "registry_fallback_verbatim")
@@ -272,27 +320,40 @@ test_that("triangulate() name_map overrides the registry for keyed parameters", 
   skip_if_no_greta()
   d <- mk_canon_data()
   fit_a <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_b <- suppressMessages(flexybayes(
-    yield ~ env, random = ~ geno, data = d,
+    yield ~ env,
+    random = ~geno,
+    data = d,
     backend = "greta",
-    n_samples = 50L, warmup = 50L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    n_samples = 50L,
+    warmup = 50L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   # Override the registry's "sigma_e_atg -> sigma" rename for fit_b
   # only; the canonical "sigma" stays present on fit_a but appears
   # as "renamed_sigma" on fit_b -- so they should NOT intersect on
   # sigma.
-  tri <- triangulate(fit_a, fit_b,
-                     name_map = c(sigma_e_atg = "renamed_sigma"))
-  expect_false("sigma" %in% intersect(
-    setdiff(tri$common, "renamed_sigma"),
-    "sigma"
-  ))
-  expect_true("renamed_sigma" %in% tri$only_b ||
-              "renamed_sigma" %in% tri$common)
+  tri <- triangulate(fit_a, fit_b, name_map = c(sigma_e_atg = "renamed_sigma"))
+  expect_false(
+    "sigma" %in%
+      intersect(
+        setdiff(tri$common, "renamed_sigma"),
+        "sigma"
+      )
+  )
+  expect_true(
+    "renamed_sigma" %in% tri$only_b || "renamed_sigma" %in% tri$common
+  )
 })

@@ -40,19 +40,22 @@ skip_if_no_greta <- function() {
   testthat::skip_on_ci()
 }
 
-mk_slope_data <- function(seed = 20260523L,
-                          J = 18L,
-                          n_per = 10L,
-                          beta = 0.5,
-                          sd_int = 30,
-                          sd_slope = 5,
-                          sigma_e = 25) {
+mk_slope_data <- function(
+  seed = 20260523L,
+  J = 18L,
+  n_per = 10L,
+  beta = 0.5,
+  sd_int = 30,
+  sd_slope = 5,
+  sigma_e = 25
+) {
   set.seed(seed)
   Subject <- factor(rep(seq_len(J), each = n_per))
-  Days    <- rep(seq_len(n_per) - 1L, times = J)
-  u_int   <- rnorm(J, sd = sd_int)
+  Days <- rep(seq_len(n_per) - 1L, times = J)
+  u_int <- rnorm(J, sd = sd_int)
   u_slope <- rnorm(J, sd = sd_slope)
-  Reaction <- 250 + beta * Days +
+  Reaction <- 250 +
+    beta * Days +
     u_int[as.integer(Subject)] +
     u_slope[as.integer(Subject)] * Days +
     rnorm(length(Days), sd = sigma_e)
@@ -140,9 +143,9 @@ test_that("(x | g) refusal carries workaround + grouping_factor + slope_variable
     fb_from_brms(Reaction ~ Days + (Days | Subject), data = d),
     error = function(e) e
   )
-  expect_identical(err$workaround,      "(x || g)")
+  expect_identical(err$workaround, "(x || g)")
   expect_identical(err$grouping_factor, "Subject")
-  expect_identical(err$slope_variable,  "Days")
+  expect_identical(err$slope_variable, "Days")
 })
 
 
@@ -162,21 +165,27 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   # tau_true tolerance even on the J = 18 sleepstudy-style fixture.
   fit <- suppressMessages(fb(
     Reaction ~ Days + (1 + Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 2000L, warmup = 2000L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 2000L,
+    warmup = 2000L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
-  ref <- lme4::lmer(Reaction ~ Days + (1 + Days || Subject),
-                    data = d, REML = FALSE)
-  vc  <- as.data.frame(lme4::VarCorr(ref))
+  ref <- lme4::lmer(
+    Reaction ~ Days + (1 + Days || Subject),
+    data = d,
+    REML = FALSE
+  )
+  vc <- as.data.frame(lme4::VarCorr(ref))
   # lme4 reports the two independent groups (Subject and Subject.1
   # in the (1 + Days || Subject) parameterisation). The third row
   # (Residual) has var1 = NA which breaks an `==` filter without an
   # explicit !is.na() guard, so first filter to the random-effect
   # rows (grp != "Residual"), then key on var1.
-  re_rows         <- vc[!is.na(vc$var1) & vc$grp != "Residual", ,
-                        drop = FALSE]
-  sd_Days_lme4    <- re_rows$sdcor[re_rows$var1 == "Days"]
+  re_rows <- vc[!is.na(vc$var1) & vc$grp != "Residual", , drop = FALSE]
+  sd_Days_lme4 <- re_rows$sdcor[re_rows$var1 == "Days"]
   sd_Subject_lme4 <- re_rows$sdcor[re_rows$var1 == "(Intercept)"]
 
   draws <- as.matrix(fit$greta$draws)
@@ -194,12 +203,18 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   # agreement, robust to MC error and skew by construction. A 99%
   # interval is used for a comfortable robustness margin on the
   # poorly-identified slope SD.
-  ci_Days    <- stats::quantile(draws[, "sigma_Days_Subject"],
-                                c(0.005, 0.995), names = FALSE)
-  ci_Subject <- stats::quantile(draws[, "sigma_Subject"],
-                                c(0.005, 0.995), names = FALSE)
-  expect_gte(sd_Days_lme4,    ci_Days[1])
-  expect_lte(sd_Days_lme4,    ci_Days[2])
+  ci_Days <- stats::quantile(
+    draws[, "sigma_Days_Subject"],
+    c(0.005, 0.995),
+    names = FALSE
+  )
+  ci_Subject <- stats::quantile(
+    draws[, "sigma_Subject"],
+    c(0.005, 0.995),
+    names = FALSE
+  )
+  expect_gte(sd_Days_lme4, ci_Days[1])
+  expect_lte(sd_Days_lme4, ci_Days[2])
   expect_gte(sd_Subject_lme4, ci_Subject[1])
   expect_lte(sd_Subject_lme4, ci_Subject[2])
 
@@ -207,9 +222,9 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   # the posterior median diverges grossly from lme4 (a real bug), without
   # the tight-tolerance flakiness. Median is the stable centre for a
   # skewed variance posterior.
-  med_Days    <- stats::median(draws[, "sigma_Days_Subject"])
+  med_Days <- stats::median(draws[, "sigma_Days_Subject"])
   med_Subject <- stats::median(draws[, "sigma_Subject"])
-  expect_lt(abs(med_Days    - sd_Days_lme4),    0.60 * sd_Days_lme4)
+  expect_lt(abs(med_Days - sd_Days_lme4), 0.60 * sd_Days_lme4)
   expect_lt(abs(med_Subject - sd_Subject_lme4), 0.60 * sd_Subject_lme4)
 })
 
@@ -227,21 +242,29 @@ test_that("canonical_names() on a greta (x || g) fit resolves sd_<x>_<g> AND sd_
   # brms semantics. canonical_names() must surface both.
   fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 80L, warmup = 80L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 80L,
+    warmup = 80L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   cn <- canonical_names(fit)
   expect_true(all(c("sd_Subject", "sd_Days_Subject") %in% cn$map))
   expect_identical(cn$map[["sigma_Days_Subject"]], "sd_Days_Subject")
-  expect_identical(cn$map[["sigma_Subject"]],      "sd_Subject")
+  expect_identical(cn$map[["sigma_Subject"]], "sd_Subject")
 
   # The (0 + Days || Subject) form drops the intercept-variance.
   fit2 <- suppressMessages(fb(
     Reaction ~ Days + (0 + Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 80L, warmup = 80L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 80L,
+    warmup = 80L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   cn2 <- canonical_names(fit2)
   expect_true("sd_Days_Subject" %in% cn2$map)
@@ -265,16 +288,16 @@ test_that("brms-side mapper translates sd_<g>__<x> to sd_<x>_<g>", {
       bare2 <- sub("__Intercept$", "", bare)
       return(paste0("sd_", bare2))
     }
-    m <- regmatches(bare,
-                    regexec("^([^_]+(?:_[^_]+)*?)__(.+)$", bare))[[1]]
-    if (length(m) == 3L && nzchar(m[2L]) && nzchar(m[3L]))
+    m <- regmatches(bare, regexec("^([^_]+(?:_[^_]+)*?)__(.+)$", bare))[[1]]
+    if (length(m) == 3L && nzchar(m[2L]) && nzchar(m[3L])) {
       return(paste0("sd_", m[3L], "_", m[2L]))
+    }
     paste0("sd_", bare)
   }
   expect_identical(split_brms("sd_Subject__Intercept"), "sd_Subject")
-  expect_identical(split_brms("sd_Subject__Days"),      "sd_Days_Subject")
-  expect_identical(split_brms("sd_g__x"),               "sd_x_g")
-  expect_identical(split_brms("sd_my_group__Days"),     "sd_Days_my_group")
+  expect_identical(split_brms("sd_Subject__Days"), "sd_Days_Subject")
+  expect_identical(split_brms("sd_g__x"), "sd_x_g")
+  expect_identical(split_brms("sd_my_group__Days"), "sd_Days_my_group")
 })
 
 
@@ -291,25 +314,31 @@ test_that("triangulate() agrees on sd_<x>_<g> within loosened tolerance (brms vs
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit_g <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 2000L, warmup = 2000L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 2000L,
+    warmup = 2000L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   fit_b <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
-    data = d, backend = "brms",
-    n_samples = 2000L, warmup = 2000L, chains = 2L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "brms",
+    n_samples = 2000L,
+    warmup = 2000L,
+    chains = 2L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   tri <- triangulate(fit_g, fit_b)
   # Per ADR 0020 §Decision 4 / merged-v2 §5.6 risk 3: tolerance
   # 0.20 * tau_true on slope variance (loosened from the standard
   # 0.15). Use the lme4 ML estimate as tau_true.
-  ref <- lme4::lmer(Reaction ~ Days + (Days || Subject),
-                    data = d, REML = FALSE)
+  ref <- lme4::lmer(Reaction ~ Days + (Days || Subject), data = d, REML = FALSE)
   vc <- as.data.frame(lme4::VarCorr(ref))
-  re_rows  <- vc[!is.na(vc$var1) & vc$grp != "Residual", ,
-                  drop = FALSE]
+  re_rows <- vc[!is.na(vc$var1) & vc$grp != "Residual", , drop = FALSE]
   tau_true <- re_rows$sdcor[re_rows$var1 == "Days"]
   expect_true("sd_Days_Subject" %in% tri$common)
   row <- tri$metrics[tri$metrics$param == "sd_Days_Subject", , drop = FALSE]
@@ -347,9 +376,13 @@ test_that("prior_summary() lists the slope-variance prior row for (x || g)", {
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   ps <- prior_summary(fit)
   # The slope-variance row carries the canonical sd_<x>_<g> name in
@@ -357,8 +390,10 @@ test_that("prior_summary() lists the slope-variance prior row for (x || g)", {
   # or an fb_prior_summary object depending on the backend, so the
   # robust check is via capture.output() text search.
   txt <- paste(utils::capture.output(print(ps)), collapse = "\n")
-  expect_true(grepl("sd_Days_Subject|Days_Subject", txt) ||
-              grepl("Days.*Subject",                  txt))
+  expect_true(
+    grepl("sd_Days_Subject|Days_Subject", txt) ||
+      grepl("Days.*Subject", txt)
+  )
 })
 
 
@@ -372,9 +407,13 @@ test_that("fit object exposes the slope-variance hyperparameter via draws + vari
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit <- suppressMessages(fb(
     Reaction ~ Days + (Days || Subject),
-    data = d, backend = "greta",
-    n_samples = 60L, warmup = 60L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    data = d,
+    backend = "greta",
+    n_samples = 60L,
+    warmup = 60L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   # The slope-variance hyperparameter must appear in the greta draws
   # matrix (greta-native name) so downstream tooling -- coef(),
@@ -400,20 +439,17 @@ test_that("emit_brms() reconstructs (x || g) and (0 + x || g) round-trip", {
   # same model under lme4 / brms semantics (intercept + slope,
   # uncorrelated). The canonical round-trip is the shorter
   # (Days || Subject) shape.
-  fb_a <- fb_from_brms(Reaction ~ Days + (Days || Subject),     data = d)
+  fb_a <- fb_from_brms(Reaction ~ Days + (Days || Subject), data = d)
   fb_b <- fb_from_brms(Reaction ~ Days + (1 + Days || Subject), data = d)
   ff_a <- flexyBayes:::.fb_to_brms_formula(fb_a)
   ff_b <- flexyBayes:::.fb_to_brms_formula(fb_b)
-  expect_identical(deparse(ff_a),
-                   "Reaction ~ Days + (Days || Subject)")
-  expect_identical(deparse(ff_b),
-                   "Reaction ~ Days + (Days || Subject)")
+  expect_identical(deparse(ff_a), "Reaction ~ Days + (Days || Subject)")
+  expect_identical(deparse(ff_b), "Reaction ~ Days + (Days || Subject)")
   # The slope-only (0 + x || g) form round-trips with the explicit
   # intercept-suppression token preserved.
   fb_zero <- fb_from_brms(Reaction ~ Days + (0 + Days || Subject), data = d)
   ff_zero <- flexyBayes:::.fb_to_brms_formula(fb_zero)
-  expect_identical(deparse(ff_zero),
-                   "Reaction ~ Days + (0 + Days || Subject)")
+  expect_identical(deparse(ff_zero), "Reaction ~ Days + (0 + Days || Subject)")
 })
 
 
@@ -429,32 +465,46 @@ test_that("priors_to_brms legacy specs add the slope-variance row(s) per ADR 002
   # (coef = Days, group = Subject).
   fb_a <- fb_from_brms(Reaction ~ Days + (Days || Subject), data = d)
   specs_a <- flexyBayes:::.priors_to_brms_specs(
-    NULL, fb_a, prior_fixed_sd = 100, prior_vc_sd = 1
+    NULL,
+    fb_a,
+    prior_fixed_sd = 100,
+    prior_vc_sd = 1
   )
   classes <- vapply(specs_a, `[[`, character(1), "class")
-  coefs   <- vapply(specs_a,
-                    function(s) s$coef  %||% NA_character_, character(1))
-  groups  <- vapply(specs_a,
-                    function(s) s$group %||% NA_character_, character(1))
+  coefs <- vapply(specs_a, function(s) s$coef %||% NA_character_, character(1))
+  groups <- vapply(
+    specs_a,
+    function(s) s$group %||% NA_character_,
+    character(1)
+  )
   sd_rows <- which(classes == "sd")
   expect_length(sd_rows, 2L)
-  expect_setequal(coefs[sd_rows],  c(NA_character_, "Days"))
+  expect_setequal(coefs[sd_rows], c(NA_character_, "Days"))
   expect_true(all(groups[sd_rows] == "Subject"))
 
   # (0 + x || g) suppresses the intercept -- slope-only form. Just
   # one sd row keyed by (group = "Subject", coef = "Days").
   fb_b <- fb_from_brms(Reaction ~ Days + (0 + Days || Subject), data = d)
   specs_b <- flexyBayes:::.priors_to_brms_specs(
-    NULL, fb_b, prior_fixed_sd = 100, prior_vc_sd = 1
+    NULL,
+    fb_b,
+    prior_fixed_sd = 100,
+    prior_vc_sd = 1
   )
   classes_b <- vapply(specs_b, `[[`, character(1), "class")
-  coefs_b   <- vapply(specs_b,
-                      function(s) s$coef  %||% NA_character_, character(1))
-  groups_b  <- vapply(specs_b,
-                      function(s) s$group %||% NA_character_, character(1))
+  coefs_b <- vapply(
+    specs_b,
+    function(s) s$coef %||% NA_character_,
+    character(1)
+  )
+  groups_b <- vapply(
+    specs_b,
+    function(s) s$group %||% NA_character_,
+    character(1)
+  )
   sd_rows_b <- which(classes_b == "sd")
   expect_length(sd_rows_b, 1L)
-  expect_identical(coefs_b[sd_rows_b],  "Days")
+  expect_identical(coefs_b[sd_rows_b], "Days")
   expect_identical(groups_b[sd_rows_b], "Subject")
 })
 
@@ -469,14 +519,15 @@ test_that("INLA path refuses (x || g) with v0.3 deferral when verification artef
   err <- tryCatch(
     suppressMessages(fb(
       Reaction ~ Days + (Days || Subject),
-      data = d, backend = "inla", verbose = FALSE
+      data = d,
+      backend = "inla",
+      verbose = FALSE
     )),
     error = function(e) e
   )
-  expect_s3_class(err,
-    "flexybayes_inla_simple_slope_uncor_deferred")
+  expect_s3_class(err, "flexybayes_inla_simple_slope_uncor_deferred")
   expect_identical(err$deferral_target, "v0.3")
-  expect_identical(err$workaround,      "backend = \"greta\"")
+  expect_identical(err$workaround, "backend = \"greta\"")
   msg <- conditionMessage(err)
   expect_true(grepl("v0\\.3", msg))
   expect_true(grepl("three-arbitrator verification test", msg, fixed = TRUE))

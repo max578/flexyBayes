@@ -52,10 +52,18 @@
 # sort enforces the symmetry contract (order of triangulate() arguments
 # does not change the lookup).
 .pair_key <- function(pair) {
-  if (!is.character(pair) || length(pair) != 2L || anyNA(pair) ||
-      any(!nzchar(pair)))
-    stop(".pair_key(): `pair` must be two non-empty backend-name ",
-         "strings.", call. = FALSE)
+  if (
+    !is.character(pair) ||
+      length(pair) != 2L ||
+      anyNA(pair) ||
+      any(!nzchar(pair))
+  ) {
+    stop(
+      ".pair_key(): `pair` must be two non-empty backend-name ",
+      "strings.",
+      call. = FALSE
+    )
+  }
   paste(sort(pair), collapse = "||")
 }
 
@@ -67,53 +75,77 @@
 # refuses a duplicate; refuses once the registry is locked. Backend
 # additions register their independence axes against every existing
 # backend at the same call site that introduces the new backend label.
-.register_pair_independence <- function(pair, axes, paradigms,
-                                        justification,
-                                        registered_in_adr) {
+.register_pair_independence <- function(
+  pair,
+  axes,
+  paradigms,
+  justification,
+  registered_in_adr
+) {
   # Validate inputs (vocabulary, shape) before checking the registry's
   # mutability state, so a caller passing an unknown axis sees the
   # vocabulary error -- the actionable problem -- rather than a lock
   # error, even on a loaded (locked) package.
-  if (!is.character(axes) || length(axes) == 0L || anyNA(axes))
-    stop(".register_pair_independence(): `axes` must be a non-empty ",
-         "character vector.", call. = FALSE)
+  if (!is.character(axes) || length(axes) == 0L || anyNA(axes)) {
+    stop(
+      ".register_pair_independence(): `axes` must be a non-empty ",
+      "character vector.",
+      call. = FALSE
+    )
+  }
   unknown <- setdiff(axes, .AXIS_VOCABULARY)
-  if (length(unknown) > 0L)
-    stop(".register_pair_independence(): unknown axis ",
-         paste0("'", unknown, "'", collapse = ", "),
-         ". The closed vocabulary is ",
-         paste(.AXIS_VOCABULARY, collapse = ", "),
-         "; expanding it requires an ADR 0029 amendment.",
-         call. = FALSE)
+  if (length(unknown) > 0L) {
+    stop(
+      ".register_pair_independence(): unknown axis ",
+      paste0("'", unknown, "'", collapse = ", "),
+      ". The closed vocabulary is ",
+      paste(.AXIS_VOCABULARY, collapse = ", "),
+      "; expanding it requires an ADR 0029 amendment.",
+      call. = FALSE
+    )
+  }
 
-  if (!is.list(paradigms) || is.null(names(paradigms)))
-    stop(".register_pair_independence(): `paradigms` must be a named ",
-         "list (one inference-paradigm string per backend in the pair).",
-         call. = FALSE)
+  if (!is.list(paradigms) || is.null(names(paradigms))) {
+    stop(
+      ".register_pair_independence(): `paradigms` must be a named ",
+      "list (one inference-paradigm string per backend in the pair).",
+      call. = FALSE
+    )
+  }
 
   key <- .pair_key(pair)
 
-  if (environmentIsLocked(.backend_independence_registry))
-    stop(".register_pair_independence(): the backend-independence ",
-         "registry is locked; pairs must be registered before ",
-         ".lock_backend_independence_registry() fires at end of ",
-         ".onLoad().", call. = FALSE)
+  if (environmentIsLocked(.backend_independence_registry)) {
+    stop(
+      ".register_pair_independence(): the backend-independence ",
+      "registry is locked; pairs must be registered before ",
+      ".lock_backend_independence_registry() fires at end of ",
+      ".onLoad().",
+      call. = FALSE
+    )
+  }
 
-  if (exists(key, envir = .backend_independence_registry,
-             inherits = FALSE))
-    stop(".register_pair_independence(): pair '", key, "' is already ",
-         "registered. Independence vocabulary is append-only.",
-         call. = FALSE)
+  if (exists(key, envir = .backend_independence_registry, inherits = FALSE)) {
+    stop(
+      ".register_pair_independence(): pair '",
+      key,
+      "' is already ",
+      "registered. Independence vocabulary is append-only.",
+      call. = FALSE
+    )
+  }
 
-  assign(key,
-         list(
-           pair              = sort(pair),
-           axes              = axes,
-           paradigms         = paradigms,
-           justification     = justification,
-           registered_in_adr = registered_in_adr
-         ),
-         envir = .backend_independence_registry)
+  assign(
+    key,
+    list(
+      pair = sort(pair),
+      axes = axes,
+      paradigms = paradigms,
+      justification = justification,
+      registered_in_adr = registered_in_adr
+    ),
+    envir = .backend_independence_registry
+  )
 
   invisible(NULL)
 }
@@ -128,17 +160,18 @@
 # renders (without the axis label).
 .lookup_pair_independence <- function(pair) {
   key <- .pair_key(pair)
-  if (!exists(key, envir = .backend_independence_registry,
-              inherits = FALSE))
+  if (!exists(key, envir = .backend_independence_registry, inherits = FALSE)) {
     return(NULL)
+  }
   get(key, envir = .backend_independence_registry, inherits = FALSE)
 }
 
 # --- lock --------------------------------------------------------- #
 
 .lock_backend_independence_registry <- function() {
-  if (!environmentIsLocked(.backend_independence_registry))
+  if (!environmentIsLocked(.backend_independence_registry)) {
     lockEnvironment(.backend_independence_registry, bindings = TRUE)
+  }
   invisible(NULL)
 }
 
@@ -154,34 +187,34 @@
 # registers its own pairs when it lands at v0.4.1.
 .populate_backend_independence_registry_v0400 <- function() {
   .register_pair_independence(
-    pair          = c("greta", "inla"),
-    axes          = c("algorithmic", "implementation"),
-    paradigms     = list(greta = "hmc_nuts",
-                         inla  = "laplace_approximation"),
+    pair = c("greta", "inla"),
+    axes = c("algorithmic", "implementation"),
+    paradigms = list(greta = "hmc_nuts", inla = "laplace_approximation"),
     justification = paste0(
       "HMC (greta on TensorFlow) versus Laplace approximation (INLA on ",
-      "C): different inference paradigms and different code bases."),
+      "C): different inference paradigms and different code bases."
+    ),
     registered_in_adr = "0029"
   )
   .register_pair_independence(
-    pair          = c("greta", "brms"),
-    axes          = "implementation",
-    paradigms     = list(greta = "hmc_nuts",
-                         brms  = "hmc_nuts"),
+    pair = c("greta", "brms"),
+    axes = "implementation",
+    paradigms = list(greta = "hmc_nuts", brms = "hmc_nuts"),
     justification = paste0(
       "HMC (greta on TensorFlow) versus HMC (brms on Stan): the same ",
       "inference paradigm through different code bases (different AD ",
-      "framework, codegen, and numerical regime)."),
+      "framework, codegen, and numerical regime)."
+    ),
     registered_in_adr = "0029"
   )
   .register_pair_independence(
-    pair          = c("brms", "inla"),
-    axes          = c("algorithmic", "implementation"),
-    paradigms     = list(brms = "hmc_nuts",
-                         inla = "laplace_approximation"),
+    pair = c("brms", "inla"),
+    axes = c("algorithmic", "implementation"),
+    paradigms = list(brms = "hmc_nuts", inla = "laplace_approximation"),
     justification = paste0(
       "HMC (brms on Stan) versus Laplace approximation (INLA on C): ",
-      "different inference paradigms and different code bases."),
+      "different inference paradigms and different code bases."
+    ),
     registered_in_adr = "0029"
   )
   invisible(NULL)

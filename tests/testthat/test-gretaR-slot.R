@@ -40,21 +40,32 @@ test_that("gretaR_status() returns the v0.2 dormant-slot shape", {
   on.exit(options(old), add = TRUE)
   gs <- gretaR_status()
   expect_type(gs, "list")
-  expect_setequal(names(gs),
-    c("activated", "gretaR_installed", "audit_clean",
-      "dormancy_reason", "activation_procedure"))
+  expect_setequal(
+    names(gs),
+    c(
+      "activated",
+      "gretaR_installed",
+      "audit_clean",
+      "dormancy_reason",
+      "activation_procedure"
+    )
+  )
   expect_false(gs$activated)
-  expect_true(is.logical(gs$gretaR_installed) &&
-              length(gs$gretaR_installed) == 1L)
+  expect_true(
+    is.logical(gs$gretaR_installed) &&
+      length(gs$gretaR_installed) == 1L
+  )
   expect_true(is.na(gs$audit_clean))
-  expect_true(gs$dormancy_reason %in%
-              c("slot_provisioned_not_activated",
-                "gretaR_not_installed"))
+  expect_true(
+    gs$dormancy_reason %in%
+      c("slot_provisioned_not_activated", "gretaR_not_installed")
+  )
   expect_true(length(gs$activation_procedure) >= 3L)
-  expect_true(any(grepl("gretaR",
-                        gs$activation_procedure, fixed = TRUE)))
-  expect_true(any(grepl("flexyBayes\\.gretaR_activated",
-                        gs$activation_procedure)))
+  expect_true(any(grepl("gretaR", gs$activation_procedure, fixed = TRUE)))
+  expect_true(any(grepl(
+    "flexyBayes\\.gretaR_activated",
+    gs$activation_procedure
+  )))
 })
 
 
@@ -68,8 +79,10 @@ test_that("canonical-name registry exposes the gretaR scaffold stub", {
   mapper <- get("gretaR", envir = reg, inherits = FALSE)
   expect_true(is.function(mapper))
   res <- mapper(NULL, NULL)
-  expect_setequal(names(res),
-    c("map", "transform", "source", "dormancy_reason"))
+  expect_setequal(
+    names(res),
+    c("map", "transform", "source", "dormancy_reason")
+  )
   expect_identical(res$source, "scaffold_dormant")
   expect_identical(length(res$map), 0L)
   expect_identical(length(res$transform), 0L)
@@ -85,8 +98,12 @@ test_that("lgm_gate() appends the gretaR slot dormancy flag to LGM-compatible IR
   old <- options(flexyBayes.gretaR_activated = FALSE)
   on.exit(options(old), add = TRUE)
   d <- mk_lgm_data()
-  fb <- fb_from_asreml(fixed = y ~ x, random = ~ g,
-                      data = d, family = "gaussian")
+  fb <- fb_from_asreml(
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    family = "gaussian"
+  )
   out <- lgm_gate(fb)
   expect_s3_class(out, "fb_terms")
   expect_true("lgm_compatible" %in% out$capabilities)
@@ -102,11 +119,10 @@ test_that("lgm_gate() appends the gretaR slot dormancy flag to LGM-compatible IR
 test_that("flexybayes() rejects backend = 'gretaR' via match.arg (slot not advertised in v0.2)", {
   d <- mk_lgm_data()
   err <- tryCatch(
-    flexybayes(y ~ x, random = ~ g, data = d, backend = "gretaR"),
+    flexybayes(y ~ x, random = ~g, data = d, backend = "gretaR"),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("'arg'.*should be one of|match.arg",
-                    err, perl = TRUE))
+  expect_true(grepl("'arg'.*should be one of|match.arg", err, perl = TRUE))
   # Confirm the error names the supported set and excludes "gretaR".
   expect_true(grepl("greta", err))
   expect_true(grepl("inla", err))
@@ -124,8 +140,7 @@ test_that("fb_brms() rejects backend = 'gretaR' via match.arg (slot not advertis
     fb(y ~ x + (1 | g), data = d, backend = "gretaR"),
     error = function(e) conditionMessage(e)
   )
-  expect_true(grepl("'arg'.*should be one of|match.arg",
-                    err, perl = TRUE))
+  expect_true(grepl("'arg'.*should be one of|match.arg", err, perl = TRUE))
 })
 
 
@@ -137,18 +152,34 @@ test_that(".dispatch_backend(backend = 'gretaR') raises gretaR_dormant_refusal",
   old <- options(flexyBayes.gretaR_activated = FALSE)
   on.exit(options(old), add = TRUE)
   d <- mk_lgm_data()
-  fb <- fb_from_asreml(fixed = y ~ x, random = ~ g,
-                      data = d, family = "gaussian")
+  fb <- fb_from_asreml(
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    family = "gaussian"
+  )
   caught <- tryCatch(
     flexyBayes:::.dispatch_backend(
-      fb = fb, data = d, backend = "gretaR",
-      known_matrices = list(), weights = NULL,
-      n_samples = 1L, warmup = 1L, chains = 1L,
-      prior_fixed_sd = 100, prior_vc_sd = 1,
-      verbose = FALSE, mcmc_verbose = FALSE,
-      return_code = FALSE, the_call = quote(test()),
-      fixed = y ~ x, random = ~ g, rcov = ~ units,
-      family = "gaussian", link = NULL, data_name = "d"
+      fb = fb,
+      data = d,
+      backend = "gretaR",
+      known_matrices = list(),
+      weights = NULL,
+      n_samples = 1L,
+      warmup = 1L,
+      chains = 1L,
+      prior_fixed_sd = 100,
+      prior_vc_sd = 1,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      return_code = FALSE,
+      the_call = quote(test()),
+      fixed = y ~ x,
+      random = ~g,
+      rcov = ~units,
+      family = "gaussian",
+      link = NULL,
+      data_name = "d"
     ),
     gretaR_dormant_refusal = function(e) e,
     error = function(e) e
@@ -173,14 +204,14 @@ test_that("activation boolean transitions dormancy reason from not-activated to 
   # reason resolves to "gretaR_not_installed" regardless of the
   # boolean. nzchar(system.file()) is the runtime check used
   # internally by .gretaR_dormancy_reason().
-  if (!nzchar(system.file(package = "gretaR")))
+  if (!nzchar(system.file(package = "gretaR"))) {
     testthat::skip("gretaR not installed")
+  }
 
   old <- options(flexyBayes.gretaR_activated = FALSE)
   on.exit(options(old), add = TRUE)
   gs_off <- gretaR_status()
-  expect_identical(gs_off$dormancy_reason,
-                   "slot_provisioned_not_activated")
+  expect_identical(gs_off$dormancy_reason, "slot_provisioned_not_activated")
   expect_false(gs_off$activated)
 
   withr::local_options(flexyBayes.gretaR_activated = TRUE)

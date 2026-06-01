@@ -12,7 +12,6 @@
 # consistent. Random effects are held at their population mean; the
 # identity link is assumed (the Gaussian fixed-effect surface).
 
-
 # Coefficient override stash used by set_coef() -> get_predict() so the
 # marginaleffects delta-method Jacobian sees perturbed coefficients.
 .fb_coef_override_attr <- "fb_coef_override"
@@ -26,29 +25,39 @@
 
 .fb_get_vcov <- function(model, ...) {
   v <- vcov(model)
-  if (is.null(v))
-    stop("marginaleffects support: the fit has no fixed-effect ",
-         "covariance.", call. = FALSE)
+  if (is.null(v)) {
+    stop(
+      "marginaleffects support: the fit has no fixed-effect ",
+      "covariance.",
+      call. = FALSE
+    )
+  }
   v
 }
 
 .fb_get_data <- function(model, ...) .fb_fit_data(model)
 
-.fb_get_predict <- function(model, newdata = NULL,
-                            type = "response", ...) {
+.fb_get_predict <- function(model, newdata = NULL, type = "response", ...) {
   fam <- tryCatch(family(model), error = function(e) list(link = "identity"))
-  if (!identical(fam$link %||% "identity", "identity"))
-    stop("marginaleffects support currently covers the identity link ",
-         "only; this fit uses link '", fam$link, "'. Work with the ",
-         "posterior draws via fb_as_draws_simple() instead.",
-         call. = FALSE)
+  if (!identical(fam$link %||% "identity", "identity")) {
+    stop(
+      "marginaleffects support currently covers the identity link ",
+      "only; this fit uses link '",
+      fam$link,
+      "'. Work with the ",
+      "posterior draws via fb_as_draws_simple() instead.",
+      call. = FALSE
+    )
+  }
 
-  if (is.null(newdata)) newdata <- .fb_fit_data(model)
+  if (is.null(newdata)) {
+    newdata <- .fb_fit_data(model)
+  }
   bhat <- attr(model, .fb_coef_override_attr) %||% coef(model)
   trms <- .fb_fixef_terms(model)
   data <- .fb_fit_data(model)
-  X    <- .fb_fixef_model_matrix(trms, newdata, names(bhat), data)
-  eta  <- as.numeric(X %*% bhat[colnames(X)])
+  X <- .fb_fixef_model_matrix(trms, newdata, names(bhat), data)
+  eta <- as.numeric(X %*% bhat[colnames(X)])
   data.frame(rowid = seq_len(nrow(newdata)), estimate = eta)
 }
 
@@ -71,14 +80,16 @@ get_coef.flexybayes_inla <- function(model, ...) .fb_get_coef(model, ...)
 #' @param ... Ignored.
 #' @return The fit with a coefficient override attached.
 #' @exportS3Method marginaleffects::set_coef
-set_coef.flexybayes <- function(model, coefs, ...)
+set_coef.flexybayes <- function(model, coefs, ...) {
   .fb_set_coef(model, coefs, ...)
+}
 
 #' @rdname set_coef.flexybayes
 #' @param model A `flexybayes_inla` fit.
 #' @exportS3Method marginaleffects::set_coef
-set_coef.flexybayes_inla <- function(model, coefs, ...)
+set_coef.flexybayes_inla <- function(model, coefs, ...) {
   .fb_set_coef(model, coefs, ...)
+}
 
 #' marginaleffects support: covariance (greta backend)
 #' @param model A `flexybayes` fit.
@@ -116,16 +127,26 @@ get_data.flexybayes_inla <- function(x, ...) .fb_get_data(x, ...)
 #' @param ... Ignored.
 #' @return A data frame with `rowid` and `estimate`.
 #' @exportS3Method marginaleffects::get_predict
-get_predict.flexybayes <- function(model, newdata = NULL,
-                                   type = "response", ...)
+get_predict.flexybayes <- function(
+  model,
+  newdata = NULL,
+  type = "response",
+  ...
+) {
   .fb_get_predict(model, newdata = newdata, type = type, ...)
+}
 
 #' @rdname get_predict.flexybayes
 #' @param model A `flexybayes_inla` fit.
 #' @exportS3Method marginaleffects::get_predict
-get_predict.flexybayes_inla <- function(model, newdata = NULL,
-                                        type = "response", ...)
+get_predict.flexybayes_inla <- function(
+  model,
+  newdata = NULL,
+  type = "response",
+  ...
+) {
   .fb_get_predict(model, newdata = newdata, type = type, ...)
+}
 
 
 # Called from .onLoad -- marginaleffects >= 0.18 auto-discovers via the

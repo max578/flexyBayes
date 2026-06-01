@@ -43,22 +43,22 @@
 
 # Carrier type -> locked representation-registry class.
 .FB_COV_TYPE_TO_REPRESENTATION <- c(
-  dense     = "dense_cov",
-  chol      = "chol_cov",
+  dense = "dense_cov",
+  chol = "chol_cov",
   precision = "sparse_precision",
-  blocks    = "block_diagonal",
-  low_rank  = "low_rank"
+  blocks = "block_diagonal",
+  low_rank = "low_rank"
 )
 
 # Carrier type -> the cov_representation$format token the IR / emit
 # path reads. The format vocabulary predates fb_cov() (ADR 0025); the
 # constructor is a typed front door onto the same tokens.
 .FB_COV_TYPE_TO_FORMAT <- c(
-  dense     = "dense",
-  chol      = "chol",
+  dense = "dense",
+  chol = "chol",
   precision = "precision",
-  blocks    = "blocks",
-  low_rank  = "low_rank"
+  blocks = "blocks",
+  low_rank = "low_rank"
 )
 
 #' Construct a structured-covariance carrier
@@ -115,74 +115,109 @@
 #' fb_cov(L, type = "chol")
 #' @export
 fb_cov <- function(M, type = "dense", levels = NULL, scheme = NULL, ...) {
-  if (!is.character(type) || length(type) != 1L || !nzchar(type))
-    stop("fb_cov(): `type` must be a non-empty single string.",
-         call. = FALSE)
+  if (!is.character(type) || length(type) != 1L || !nzchar(type)) {
+    stop("fb_cov(): `type` must be a non-empty single string.", call. = FALSE)
+  }
 
   if (!type %in% names(.FB_COV_TYPE_TO_REPRESENTATION)) {
     stop(.fb_refusal_condition(
-      reason_code  = "fb_cov_type_unknown",
-      message      = paste0(
-        "fb_cov(): '", type, "' is not a known carrier type. Supported ",
+      reason_code = "fb_cov_type_unknown",
+      message = paste0(
+        "fb_cov(): '",
+        type,
+        "' is not a known carrier type. Supported ",
         "types: ",
-        paste(names(.FB_COV_TYPE_TO_REPRESENTATION), collapse = ", "), "."),
+        paste(names(.FB_COV_TYPE_TO_REPRESENTATION), collapse = ", "),
+        "."
+      ),
       family_class = "flexybayes_structured_cov_refusal",
-      supplied     = type))
+      supplied = type
+    ))
   }
 
-  if (missing(M) || is.null(M))
+  if (missing(M) || is.null(M)) {
     stop(.fb_refusal_condition(
-      reason_code  = "fb_cov_missing_matrix",
-      message      = paste0(
-        "fb_cov(type = \"", type, "\"): the carrier matrix `M` is ",
-        "required."),
-      family_class = "flexybayes_structured_cov_refusal"))
+      reason_code = "fb_cov_missing_matrix",
+      message = paste0(
+        "fb_cov(type = \"",
+        type,
+        "\"): the carrier matrix `M` is ",
+        "required."
+      ),
+      family_class = "flexybayes_structured_cov_refusal"
+    ))
+  }
 
-  if (type == "blocks" && (!is.list(M) || is.data.frame(M)))
+  if (type == "blocks" && (!is.list(M) || is.data.frame(M))) {
     stop(.fb_refusal_condition(
-      reason_code  = "blocks_not_a_list",
-      message      = paste0(
+      reason_code = "blocks_not_a_list",
+      message = paste0(
         "fb_cov(type = \"blocks\"): `M` must be a base-R list of K ",
         "covariance matrices; got class '",
-        paste(class(M), collapse = "/"), "'."),
-      family_class = "flexybayes_structured_cov_refusal"))
+        paste(class(M), collapse = "/"),
+        "'."
+      ),
+      family_class = "flexybayes_structured_cov_refusal"
+    ))
+  }
 
   if (type == "low_rank") {
-    if (is.null(scheme) || !is.character(scheme) || length(scheme) != 1L ||
-        !nzchar(scheme))
+    if (
+      is.null(scheme) ||
+        !is.character(scheme) ||
+        length(scheme) != 1L ||
+        !nzchar(scheme)
+    ) {
       stop(.fb_refusal_condition(
-        reason_code  = "low_rank_scheme_required",
-        message      = paste0(
+        reason_code = "low_rank_scheme_required",
+        message = paste0(
           "fb_cov(type = \"low_rank\"): a `scheme` naming a registered ",
           "approximation is required. See ?validate_approximation for ",
-          "the available schemes."),
-        family_class = "flexybayes_structured_cov_refusal"))
-    entry <- tryCatch(.lookup_approximation(scheme),
-                      error = function(e) NULL)
+          "the available schemes."
+        ),
+        family_class = "flexybayes_structured_cov_refusal"
+      ))
+    }
+    entry <- tryCatch(.lookup_approximation(scheme), error = function(e) NULL)
     if (is.null(entry)) {
       known <- sort(ls(envir = .approximation_registry, all.names = FALSE))
       stop(.fb_refusal_condition(
-        reason_code  = "approximation_scheme_unknown",
-        message      = paste0(
-          "fb_cov(type = \"low_rank\", scheme = \"", scheme, "\"): '",
-          scheme, "' is not a registered approximation scheme. ",
-          "Supported scheme", if (length(known) != 1L) "s" else "", ": ",
-          if (length(known)) paste(known, collapse = ", ") else
-            "(none registered yet)", "."),
-        family_class = "flexybayes_approximation_scheme_unknown"))
+        reason_code = "approximation_scheme_unknown",
+        message = paste0(
+          "fb_cov(type = \"low_rank\", scheme = \"",
+          scheme,
+          "\"): '",
+          scheme,
+          "' is not a registered approximation scheme. ",
+          "Supported scheme",
+          if (length(known) != 1L) "s" else "",
+          ": ",
+          if (length(known)) {
+            paste(known, collapse = ", ")
+          } else {
+            "(none registered yet)"
+          },
+          "."
+        ),
+        family_class = "flexybayes_approximation_scheme_unknown"
+      ))
     }
   }
 
-  out <- c(list(M = M, type = type, scheme = scheme, levels = levels),
-           list(...))
+  out <- c(
+    list(M = M, type = type, scheme = scheme, levels = levels),
+    list(...)
+  )
   structure(
     out,
-    class                = c("fb_cov", "list"),
-    type                 = type,
-    levels               = levels,
+    class = c("fb_cov", "list"),
+    type = type,
+    levels = levels,
     representation_class = .representation_class(
-      .FB_COV_TYPE_TO_REPRESENTATION[[type]]),
-    validation_summary   = .fb_cov_validation_summary(M, type))
+      .FB_COV_TYPE_TO_REPRESENTATION[[type]]
+    ),
+    validation_summary = .fb_cov_validation_summary(M, type)
+  )
 }
 
 #' Test whether an object is an `fb_cov` carrier
@@ -199,33 +234,56 @@ is_fb_cov <- function(x) inherits(x, "fb_cov")
 # a single human-readable string.
 .fb_cov_validation_summary <- function(M, type) {
   if (type == "blocks") {
-    if (!is.list(M)) return("blocks: malformed carrier")
-    K     <- length(M)
-    sizes <- vapply(M, function(V) {
-      d <- dim(V)
-      if (is.null(d) || length(d) != 2L) NA_integer_ else as.integer(d[[1L]])
-    }, integer(1L))
+    if (!is.list(M)) {
+      return("blocks: malformed carrier")
+    }
+    K <- length(M)
+    sizes <- vapply(
+      M,
+      function(V) {
+        d <- dim(V)
+        if (is.null(d) || length(d) != 2L) NA_integer_ else as.integer(d[[1L]])
+      },
+      integer(1L)
+    )
     return(paste0(
-      K, " block", if (K != 1L) "s" else "",
-      "; sizes ", paste(ifelse(is.na(sizes), "?", sizes), collapse = "+")))
+      K,
+      " block",
+      if (K != 1L) "s" else "",
+      "; sizes ",
+      paste(ifelse(is.na(sizes), "?", sizes), collapse = "+")
+    ))
   }
 
   d <- dim(M)
-  if (is.null(d) || length(d) != 2L)
+  if (is.null(d) || length(d) != 2L) {
     return(paste0(type, ": non-matrix carrier (no fit-time shape check yet)"))
+  }
   shape <- paste0(d[[1L]], "x", d[[2L]])
-  if (d[[1L]] != d[[2L]])
+  if (d[[1L]] != d[[2L]]) {
     return(paste0(type, ": ", shape, " (non-square -- refused at fit time)"))
+  }
 
-  detail <- switch(type,
-    "chol"      = if (.is_lower_triangular(M)) "lower-triangular"
-                  else "NOT lower-triangular (refused at fit time)",
-    "precision" = if (isSymmetric(unname(as.matrix(M)))) "symmetric"
-                  else "NOT symmetric (refused at fit time)",
-    "low_rank"  = "factor",
-    "")
-  if (nzchar(detail)) paste0(type, ": ", shape, " ", detail)
-  else paste0(type, ": ", shape)
+  detail <- switch(
+    type,
+    "chol" = if (.is_lower_triangular(M)) {
+      "lower-triangular"
+    } else {
+      "NOT lower-triangular (refused at fit time)"
+    },
+    "precision" = if (isSymmetric(unname(as.matrix(M)))) {
+      "symmetric"
+    } else {
+      "NOT symmetric (refused at fit time)"
+    },
+    "low_rank" = "factor",
+    ""
+  )
+  if (nzchar(detail)) {
+    paste0(type, ": ", shape, " ", detail)
+  } else {
+    paste0(type, ": ", shape)
+  }
 }
 
 #' Print an `fb_cov` carrier
@@ -236,16 +294,25 @@ is_fb_cov <- function(x) inherits(x, "fb_cov")
 #' @export
 print.fb_cov <- function(x, ...) {
   cat("<fb_cov> type = \"", x$type, "\"", sep = "")
-  if (!is.null(x$scheme))
+  if (!is.null(x$scheme)) {
     cat(" | scheme = \"", x$scheme, "\"", sep = "")
+  }
   cat("\n")
   cat("  representation: ", attr(x, "representation_class"), "\n", sep = "")
   vs <- attr(x, "validation_summary")
-  if (!is.null(vs) && !is.na(vs))
+  if (!is.null(vs) && !is.na(vs)) {
     cat("  carrier: ", vs, "\n", sep = "")
+  }
   lv <- attr(x, "levels")
-  if (!is.null(lv))
-    cat("  levels: ", length(lv), " label", if (length(lv) != 1L) "s" else "",
-        "\n", sep = "")
+  if (!is.null(lv)) {
+    cat(
+      "  levels: ",
+      length(lv),
+      " label",
+      if (length(lv) != 1L) "s" else "",
+      "\n",
+      sep = ""
+    )
+  }
   invisible(x)
 }

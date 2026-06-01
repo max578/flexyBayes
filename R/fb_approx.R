@@ -12,7 +12,6 @@
 # `spec$scheme` / `spec$rank` directly; the bias-bound description is an
 # attribute surfaced by the print method.
 
-
 #' Construct an approximation-scheme specification
 #'
 #' Names an approximation scheme and its tuning, validated against the
@@ -43,32 +42,45 @@
 #' a$rank
 #' @export
 fb_approx <- function(scheme, ...) {
-  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme))
-    stop("fb_approx(): `scheme` must be a non-empty single string.",
-         call. = FALSE)
+  if (!is.character(scheme) || length(scheme) != 1L || !nzchar(scheme)) {
+    stop(
+      "fb_approx(): `scheme` must be a non-empty single string.",
+      call. = FALSE
+    )
+  }
 
   # Validate against the locked registry; an unknown scheme is a
   # catchable structured refusal naming the supported vocabulary.
-  entry <- tryCatch(.lookup_approximation(scheme),
-                    error = function(e) NULL)
+  entry <- tryCatch(.lookup_approximation(scheme), error = function(e) NULL)
   if (is.null(entry)) {
     known <- sort(ls(envir = .approximation_registry, all.names = FALSE))
     stop(.fb_refusal_condition(
-      reason_code  = "approximation_scheme_unknown",
-      message      = paste0(
-        "fb_approx(): '", scheme, "' is not a registered approximation ",
+      reason_code = "approximation_scheme_unknown",
+      message = paste0(
+        "fb_approx(): '",
+        scheme,
+        "' is not a registered approximation ",
         "scheme. Supported scheme",
-        if (length(known) != 1L) "s" else "", ": ",
-        if (length(known)) paste(known, collapse = ", ") else
-          "(none registered yet)", "."),
-      family_class = "flexybayes_approximation_scheme_unknown"))
+        if (length(known) != 1L) "s" else "",
+        ": ",
+        if (length(known)) {
+          paste(known, collapse = ", ")
+        } else {
+          "(none registered yet)"
+        },
+        "."
+      ),
+      family_class = "flexybayes_approximation_scheme_unknown"
+    ))
   }
 
   kwargs <- list(...)
   out <- c(list(scheme = scheme), kwargs)
-  structure(out,
-            class               = c("fb_approx", "list"),
-            bias_bound_promise  = .fb_bias_bound_promise(entry))
+  structure(
+    out,
+    class = c("fb_approx", "list"),
+    bias_bound_promise = .fb_bias_bound_promise(entry)
+  )
 }
 
 #' Test whether an object is an `fb_approx` specification
@@ -83,12 +95,19 @@ is_fb_approx <- function(x) inherits(x, "fb_approx")
 # record a scheme traces to) is deliberately not surfaced here.
 .fb_bias_bound_promise <- function(entry) {
   bb <- entry$bias_bound
-  if (!is.list(bb) || is.null(bb$interpretation)) return(NA_character_)
-  ref <- switch(bb$reference %||% "",
-                wood_2017_chapter_5 = "Wood (2017), chapter 5",
-                bb$reference %||% "")
-  if (nzchar(ref)) paste0(bb$interpretation, " (", ref, ")")
-  else bb$interpretation
+  if (!is.list(bb) || is.null(bb$interpretation)) {
+    return(NA_character_)
+  }
+  ref <- switch(
+    bb$reference %||% "",
+    wood_2017_chapter_5 = "Wood (2017), chapter 5",
+    bb$reference %||% ""
+  )
+  if (nzchar(ref)) {
+    paste0(bb$interpretation, " (", ref, ")")
+  } else {
+    bb$interpretation
+  }
 }
 
 #' Print an `fb_approx` specification
@@ -101,13 +120,19 @@ print.fb_approx <- function(x, ...) {
   kw <- x[setdiff(names(x), "scheme")]
   cat("<fb_approx> scheme = \"", x$scheme, "\"", sep = "")
   if (length(kw)) {
-    parts <- vapply(seq_along(kw), function(i)
-      paste0(names(kw)[i], " = ", format(kw[[i]])), character(1L))
+    parts <- vapply(
+      seq_along(kw),
+      function(i) {
+        paste0(names(kw)[i], " = ", format(kw[[i]]))
+      },
+      character(1L)
+    )
     cat(" | ", paste(parts, collapse = ", "), sep = "")
   }
   cat("\n")
   bb <- attr(x, "bias_bound_promise")
-  if (!is.null(bb) && !is.na(bb))
+  if (!is.null(bb) && !is.na(bb)) {
     cat("  bias bound: ", bb, "\n", sep = "")
+  }
   invisible(x)
 }

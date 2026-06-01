@@ -21,48 +21,61 @@
 # `make_stancode()`-style display, and `proceed(rev)` runs the
 # deferred fit with the captured RNG state.
 
-
 # ---------------------------------------------------------------- #
 # Constructor (not exported)                                       #
 # ---------------------------------------------------------------- #
 
-.new_flexybayes_review <- function(code,
-                                   backend,
-                                   ir,
-                                   prior,
-                                   data_name,
-                                   call,
-                                   seed,
-                                   proceed_args,
-                                   preflight = NULL) {
-  if (!is.character(code) || length(code) != 1L)
+.new_flexybayes_review <- function(
+  code,
+  backend,
+  ir,
+  prior,
+  data_name,
+  call,
+  seed,
+  proceed_args,
+  preflight = NULL
+) {
+  if (!is.character(code) || length(code) != 1L) {
     stop("`code` must be a length-1 character string.", call. = FALSE)
-  if (!is.character(backend) || length(backend) != 1L ||
-      !backend %in% c("greta", "stan_via_brms", "inla"))
-    stop("`backend` must be one of \"greta\", \"stan_via_brms\", ",
-         "\"inla\".", call. = FALSE)
-  if (!inherits(ir, "fb_terms"))
+  }
+  if (
+    !is.character(backend) ||
+      length(backend) != 1L ||
+      !backend %in% c("greta", "stan_via_brms", "inla")
+  ) {
+    stop(
+      "`backend` must be one of \"greta\", \"stan_via_brms\", ",
+      "\"inla\".",
+      call. = FALSE
+    )
+  }
+  if (!inherits(ir, "fb_terms")) {
     stop("`ir` must be an `fb_terms` object.", call. = FALSE)
-  if (!is.list(proceed_args))
-    stop("`proceed_args` must be a list of backend arguments.",
-         call. = FALSE)
-  if (!is.null(preflight) && !inherits(preflight, "fb_preflight"))
-    stop("`preflight` must be NULL or an `<fb_preflight>` object.",
-         call. = FALSE)
+  }
+  if (!is.list(proceed_args)) {
+    stop("`proceed_args` must be a list of backend arguments.", call. = FALSE)
+  }
+  if (!is.null(preflight) && !inherits(preflight, "fb_preflight")) {
+    stop(
+      "`preflight` must be NULL or an `<fb_preflight>` object.",
+      call. = FALSE
+    )
+  }
 
   env <- new.env(parent = emptyenv())
-  env$code         <- code
-  env$backend      <- backend
-  env$ir           <- ir
-  env$prior        <- prior
-  env$data_name    <- data_name
-  env$call         <- call
-  env$seed         <- seed
+  env$code <- code
+  env$backend <- backend
+  env$ir <- ir
+  env$prior <- prior
+  env$data_name <- data_name
+  env$call <- call
+  env$seed <- seed
   env$proceed_args <- proceed_args
-  env$proceeded    <- FALSE
-  env$fit          <- NULL
-  env$preflight    <- preflight   # Stage 2 MVP -- NULL below 1e5 rows
-  class(env)       <- c("flexybayes_review", "environment")
+  env$proceeded <- FALSE
+  env$fit <- NULL
+  env$preflight <- preflight # Stage 2 MVP -- NULL below 1e5 rows
+  class(env) <- c("flexybayes_review", "environment")
   env
 }
 
@@ -85,12 +98,15 @@
 #' @keywords internal
 #' @export
 print.flexybayes_review <- function(x, ...) {
-  n_obs  <- x$ir$data_summary$n
-  n_fix  <- length(x$ir$fixed_terms) + as.integer(isTRUE(x$ir$intercept))
+  n_obs <- x$ir$data_summary$n
+  n_fix <- length(x$ir$fixed_terms) + as.integer(isTRUE(x$ir$intercept))
   n_rand <- length(x$ir$random_terms)
   cat(sprintf(
     "<flexybayes_review> backend=%s  n=%d  fixed=%d  random=%d\n",
-    x$backend, n_obs, n_fix, n_rand
+    x$backend,
+    n_obs,
+    n_fix,
+    n_rand
   ))
 
   # Stage 2 MVP -- show the preflight summary above the cat_code()
@@ -98,13 +114,15 @@ print.flexybayes_review <- function(x, ...) {
   # dispatch / review-entry preflight call gates on).
   if (inherits(x$preflight, "fb_preflight")) {
     cat("\nPreflight summary:\n")
-    fmt_bytes <- function(b) format(round(b), big.mark = " ",
-                                     scientific = FALSE)
+    fmt_bytes <- function(b) {
+      format(round(b), big.mark = " ", scientific = FALSE)
+    }
     for (nm in names(x$preflight$per_term_estimate)) {
       e <- x$preflight$per_term_estimate[[nm]]
       cat(sprintf(
         "  %-28s  %14s B  %-26s\n",
-        nm, fmt_bytes(e$design_memory_bytes),
+        nm,
+        fmt_bytes(e$design_memory_bytes),
         e$representation_class
       ))
     }
@@ -119,8 +137,11 @@ print.flexybayes_review <- function(x, ...) {
   if (isTRUE(x$proceeded)) {
     cat("--- already proceeded; see x$fit\n")
   } else {
-    cat("Run cat_code(x) to view the generated code; ",
-        "proceed(x) to fit.\n", sep = "")
+    cat(
+      "Run cat_code(x) to view the generated code; ",
+      "proceed(x) to fit.\n",
+      sep = ""
+    )
   }
   invisible(x)
 }
@@ -180,12 +201,13 @@ proceed <- function(x, ...) {
 #' @export
 proceed.flexybayes_review <- function(x, ...) {
   if (isTRUE(x$proceeded)) {
-    if (!isTRUE(getOption("flexyBayes.silence_review_cached_note",
-                          FALSE))) {
-      message("flexyBayes: returning cached fit from prior ",
-              "proceed(). Silence this note via ",
-              "options(flexyBayes.silence_review_cached_note ",
-              "= TRUE).")
+    if (!isTRUE(getOption("flexyBayes.silence_review_cached_note", FALSE))) {
+      message(
+        "flexyBayes: returning cached fit from prior ",
+        "proceed(). Silence this note via ",
+        "options(flexyBayes.silence_review_cached_note ",
+        "= TRUE)."
+      )
     }
     return(x$fit)
   }
@@ -201,15 +223,20 @@ proceed.flexybayes_review <- function(x, ...) {
   }
 
   args <- x$proceed_args
-  emit_fn <- switch(x$backend,
-    "greta"         = emit_greta,
+  emit_fn <- switch(
+    x$backend,
+    "greta" = emit_greta,
     "stan_via_brms" = emit_brms,
-    stop("proceed(): unrecognised backend \"", x$backend,
-         "\" on review object.", call. = FALSE)
+    stop(
+      "proceed(): unrecognised backend \"",
+      x$backend,
+      "\" on review object.",
+      call. = FALSE
+    )
   )
   fit <- do.call(emit_fn, args)
 
-  x$fit       <- fit
+  x$fit <- fit
   x$proceeded <- TRUE
   fit
 }

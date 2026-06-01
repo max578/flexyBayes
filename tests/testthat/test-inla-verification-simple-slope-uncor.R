@@ -39,27 +39,30 @@ skip_if_three_arbitrators_unavailable <- function() {
   testthat::skip_on_ci()
 }
 
-mk_inla_verification_fixture <- function(seed = 20260523L,
-                                          J = 20L,
-                                          n_per = 12L,
-                                          beta = 0.5,
-                                          sd_int = 25,
-                                          sd_slope = 4,
-                                          sigma_e = 20) {
+mk_inla_verification_fixture <- function(
+  seed = 20260523L,
+  J = 20L,
+  n_per = 12L,
+  beta = 0.5,
+  sd_int = 25,
+  sd_slope = 4,
+  sigma_e = 20
+) {
   set.seed(seed)
-  g  <- factor(rep(seq_len(J), each = n_per))
-  x  <- rep(seq_len(n_per) - 1L, times = J)
-  u_int   <- rnorm(J, sd = sd_int)
+  g <- factor(rep(seq_len(J), each = n_per))
+  x <- rep(seq_len(n_per) - 1L, times = J)
+  u_int <- rnorm(J, sd = sd_int)
   u_slope <- rnorm(J, sd = sd_slope)
-  y <- 250 + beta * x +
+  y <- 250 +
+    beta * x +
     u_int[as.integer(g)] +
     u_slope[as.integer(g)] * x +
     rnorm(length(x), sd = sigma_e)
   list(
     data = data.frame(y = y, x = x, g = g),
-    tau_int   = sd_int,
+    tau_int = sd_int,
     tau_slope = sd_slope,
-    sigma_e   = sigma_e
+    sigma_e = sigma_e
   )
 }
 
@@ -75,7 +78,9 @@ test_that("emit_inla() consults the verification artefact for (x || g) admission
   # artefact path. If the artefact is absent (the v0.2.6 ship
   # state), the gate refuses with the structured condition.
   artefact_path <- system.file(
-    "extdata", "inla-verification", "simple_slope_uncor.rds",
+    "extdata",
+    "inla-verification",
+    "simple_slope_uncor.rds",
     package = "flexyBayes"
   )
   if (!nzchar(artefact_path) || !file.exists(artefact_path)) {
@@ -83,10 +88,9 @@ test_that("emit_inla() consults the verification artefact for (x || g) admission
       flexyBayes:::.check_inla_verification_simple_slope_uncor(),
       error = function(e) e
     )
-    expect_s3_class(err,
-      "flexybayes_inla_simple_slope_uncor_deferred")
+    expect_s3_class(err, "flexybayes_inla_simple_slope_uncor_deferred")
     expect_identical(err$deferral_target, "v0.3")
-    expect_identical(err$workaround,      "backend = \"greta\"")
+    expect_identical(err$workaround, "backend = \"greta\"")
   } else {
     art <- readRDS(artefact_path)
     if (isTRUE(art$pass)) {
@@ -98,8 +102,7 @@ test_that("emit_inla() consults the verification artefact for (x || g) admission
         flexyBayes:::.check_inla_verification_simple_slope_uncor(),
         error = function(e) e
       )
-      expect_s3_class(err,
-        "flexybayes_inla_simple_slope_uncor_deferred")
+      expect_s3_class(err, "flexybayes_inla_simple_slope_uncor_deferred")
     }
   }
 })
@@ -113,22 +116,21 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   skip_if_three_arbitrators_unavailable()
 
   fx <- mk_inla_verification_fixture()
-  d  <- fx$data
+  d <- fx$data
 
   # Reference: lme4 ML estimate. The third VarCorr row (Residual)
   # carries var1 = NA which breaks an `==` filter without an
   # explicit !is.na() guard; filter to the random-effect rows
   # (grp != "Residual") first.
   ref <- lme4::lmer(y ~ x + (1 + x || g), data = d, REML = FALSE)
-  vc  <- as.data.frame(lme4::VarCorr(ref))
-  re_rows   <- vc[!is.na(vc$var1) & vc$grp != "Residual", ,
-                   drop = FALSE]
+  vc <- as.data.frame(lme4::VarCorr(ref))
+  re_rows <- vc[!is.na(vc$var1) & vc$grp != "Residual", , drop = FALSE]
   sd_x_lme4 <- re_rows$sdcor[re_rows$var1 == "x"]
   sd_g_lme4 <- re_rows$sdcor[re_rows$var1 == "(Intercept)"]
   # Sanity-check the fixture: lme4's ML estimate within 1 sigma of
   # the simulator-truth on both variance components (loose).
   expect_lt(abs(sd_x_lme4 - fx$tau_slope), 0.5 * fx$tau_slope)
-  expect_lt(abs(sd_g_lme4 - fx$tau_int),   0.5 * fx$tau_int)
+  expect_lt(abs(sd_g_lme4 - fx$tau_int), 0.5 * fx$tau_int)
 
   # greta arm. 2000 samples + 2000 warmup per ADR 0020 §Verification;
   # the slope-variance posterior needs enough sweep to settle.
@@ -138,13 +140,18 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   # suite-order flake the v0.3.9 emit-state migration was tracking).
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   fit_g <- suppressMessages(fb(
-    y ~ x + (1 + x || g), data = d, backend = "greta",
-    n_samples = 2000L, warmup = 2000L, chains = 1L,
-    verbose = FALSE, mcmc_verbose = FALSE
+    y ~ x + (1 + x || g),
+    data = d,
+    backend = "greta",
+    n_samples = 2000L,
+    warmup = 2000L,
+    chains = 1L,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
   ))
   draws_g <- as.matrix(fit_g$greta$draws)
   sd_x_g_post <- mean(draws_g[, "sigma_x_g"])
-  sd_g_post   <- mean(draws_g[, "sigma_g"])
+  sd_g_post <- mean(draws_g[, "sigma_g"])
 
   # greta vs lme4: within loosened tolerance (per merged-v2 §5.6).
   # The verification fixture has J = 20 x n_per = 12 = 240 obs, and
@@ -158,19 +165,20 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   # for v0.2.6 ship is at 0.20 on the J = 18 sleepstudy-shape fixture
   # (test-random-slopes-uncor.R subtest (f)), not here.
   expect_lt(abs(sd_x_g_post - sd_x_lme4), 0.40 * sd_x_lme4)
-  expect_lt(abs(sd_g_post   - sd_g_lme4), 0.40 * sd_g_lme4)
+  expect_lt(abs(sd_g_post - sd_g_lme4), 0.40 * sd_g_lme4)
 
   # INLA arm. At v0.2.6 the gate refuses (x || g) by policy --
   # exercise the refusal to record it in the test log.
   err <- tryCatch(
     suppressMessages(fb(
-      y ~ x + (1 + x || g), data = d, backend = "inla",
+      y ~ x + (1 + x || g),
+      data = d,
+      backend = "inla",
       verbose = FALSE
     )),
     error = function(e) e
   )
-  expect_s3_class(err,
-    "flexybayes_inla_simple_slope_uncor_deferred")
+  expect_s3_class(err, "flexybayes_inla_simple_slope_uncor_deferred")
 })
 
 
@@ -186,10 +194,13 @@ test_that("INLA verification refusal points users to greta as the workaround", {
   # Skip cleanly if the artefact happens to be present + passing
   # (e.g., a future local rehearsal generated it). The ship-state
   # behaviour is the failing branch.
-  if (!inherits(err, "flexybayes_inla_simple_slope_uncor_deferred"))
-    testthat::skip("INLA verification artefact present + pass -- nothing to refuse")
+  if (!inherits(err, "flexybayes_inla_simple_slope_uncor_deferred")) {
+    testthat::skip(
+      "INLA verification artefact present + pass -- nothing to refuse"
+    )
+  }
   msg <- conditionMessage(err)
   expect_true(grepl("backend = \"greta\"", msg, fixed = TRUE))
   expect_true(grepl("three-arbitrator verification test", msg, fixed = TRUE))
-  expect_true(grepl("v0\\.3",              msg))
+  expect_true(grepl("v0\\.3", msg))
 })

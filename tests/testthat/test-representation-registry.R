@@ -39,12 +39,20 @@ test_that(".representation_registry exists and is locked post-load", {
 test_that("all sixteen v0.4.0 representation classes are registered", {
   reg <- flexyBayes:::.representation_registry
   expected <- c(
-    "dense_cov", "chol_cov", "sparse_precision",
-    "pedigree_sparse_precision", "block_diagonal",
-    "dense_smooth", "sparse_smooth", "banded_smooth",
-    "indexed_structured_known", "indexed_structured_estimate",
-    "indexed_random_intercept", "dense_baseline",
-    "indexed_fixed_numeric", "indexed_fixed_factor",
+    "dense_cov",
+    "chol_cov",
+    "sparse_precision",
+    "pedigree_sparse_precision",
+    "block_diagonal",
+    "dense_smooth",
+    "sparse_smooth",
+    "banded_smooth",
+    "indexed_structured_known",
+    "indexed_structured_estimate",
+    "indexed_random_intercept",
+    "dense_baseline",
+    "indexed_fixed_numeric",
+    "indexed_fixed_factor",
     "indexed_fixed_factor_numeric",
     # v0.4.0 Wave 1 Phase 1B (ADR 0027): low-rank truncated smooth basis
     "low_rank"
@@ -60,22 +68,40 @@ test_that("all sixteen v0.4.0 representation classes are registered", {
 
 test_that("every registered entry carries the documented schema", {
   reg <- flexyBayes:::.representation_registry
-  required_fields <- c("name", "description", "category",
-                        "registered_in_adr", "since_version")
+  required_fields <- c(
+    "name",
+    "description",
+    "category",
+    "registered_in_adr",
+    "since_version"
+  )
   for (nm in ls(envir = reg, all.names = FALSE)) {
     entry <- get(nm, envir = reg, inherits = FALSE)
-    expect_true(is.list(entry),
-                info = paste0("entry '", nm, "' must be a list"))
-    expect_named(entry, required_fields, ignore.order = TRUE,
-                 info = paste0("entry '", nm, "' schema"))
-    expect_identical(entry$name, nm,
-                     info = paste0("entry '", nm, "' name field"))
-    expect_true(is.character(entry$description) &&
-                  length(entry$description) == 1L,
-                info = paste0("entry '", nm, "' description"))
-    expect_true(is.character(entry$category) &&
-                  length(entry$category) == 1L,
-                info = paste0("entry '", nm, "' category"))
+    expect_true(
+      is.list(entry),
+      info = paste0("entry '", nm, "' must be a list")
+    )
+    expect_named(
+      entry,
+      required_fields,
+      ignore.order = TRUE,
+      info = paste0("entry '", nm, "' schema")
+    )
+    expect_identical(
+      entry$name,
+      nm,
+      info = paste0("entry '", nm, "' name field")
+    )
+    expect_true(
+      is.character(entry$description) &&
+        length(entry$description) == 1L,
+      info = paste0("entry '", nm, "' description")
+    )
+    expect_true(
+      is.character(entry$category) &&
+        length(entry$category) == 1L,
+      info = paste0("entry '", nm, "' category")
+    )
   }
 })
 
@@ -108,14 +134,22 @@ test_that(".lookup_representation() refuses unknown name", {
 # ---------------------------------------------------------------- #
 
 test_that(".lookup_representation() refuses non-string input", {
-  expect_error(flexyBayes:::.lookup_representation(NULL),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_representation(""),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_representation(c("a", "b")),
-               regexp = "non-empty single string")
-  expect_error(flexyBayes:::.lookup_representation(1L),
-               regexp = "non-empty single string")
+  expect_error(
+    flexyBayes:::.lookup_representation(NULL),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_representation(""),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_representation(c("a", "b")),
+    regexp = "non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.lookup_representation(1L),
+    regexp = "non-empty single string"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -162,26 +196,56 @@ test_that(".representation_class() returns the validated name", {
 # check, so these errors surface even with a locked registry.
 
 test_that(".register_representation() validates inputs", {
-  expect_error(flexyBayes:::.register_representation(
-    name = NULL, description = "x", category = "x",
-    registered_in_adr = "ADR 0030", since_version = "0.4.0"),
-    regexp = "`name` must be a non-empty single string")
-  expect_error(flexyBayes:::.register_representation(
-    name = "x", description = c("a", "b"), category = "x",
-    registered_in_adr = "ADR 0030", since_version = "0.4.0"),
-    regexp = "`description` must be a single string")
-  expect_error(flexyBayes:::.register_representation(
-    name = "x", description = "x", category = "",
-    registered_in_adr = "ADR 0030", since_version = "0.4.0"),
-    regexp = "`category` must be a non-empty single string")
-  expect_error(flexyBayes:::.register_representation(
-    name = "x", description = "x", category = "x",
-    registered_in_adr = 42L, since_version = "0.4.0"),
-    regexp = "`registered_in_adr` must be a single string")
-  expect_error(flexyBayes:::.register_representation(
-    name = "x", description = "x", category = "x",
-    registered_in_adr = "ADR 0030", since_version = ""),
-    regexp = "`since_version` must be a non-empty single string")
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = NULL,
+      description = "x",
+      category = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.4.0"
+    ),
+    regexp = "`name` must be a non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = "x",
+      description = c("a", "b"),
+      category = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.4.0"
+    ),
+    regexp = "`description` must be a single string"
+  )
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = "x",
+      description = "x",
+      category = "",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.4.0"
+    ),
+    regexp = "`category` must be a non-empty single string"
+  )
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = "x",
+      description = "x",
+      category = "x",
+      registered_in_adr = 42L,
+      since_version = "0.4.0"
+    ),
+    regexp = "`registered_in_adr` must be a single string"
+  )
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = "x",
+      description = "x",
+      category = "x",
+      registered_in_adr = "ADR 0030",
+      since_version = ""
+    ),
+    regexp = "`since_version` must be a non-empty single string"
+  )
 })
 
 # ---------------------------------------------------------------- #
@@ -196,13 +260,16 @@ test_that(".register_representation() validates inputs", {
 # vocabulary is append-only.
 
 test_that(".register_representation() refuses duplicate name", {
-  err <- tryCatch(flexyBayes:::.register_representation(
-    name = "block_diagonal",
-    description = "duplicate attempt",
-    category = "dense_covariance",
-    registered_in_adr = "ADR 0030",
-    since_version = "0.4.0"),
-    error = function(e) e)
+  err <- tryCatch(
+    flexyBayes:::.register_representation(
+      name = "block_diagonal",
+      description = "duplicate attempt",
+      category = "dense_covariance",
+      registered_in_adr = "ADR 0030",
+      since_version = "0.4.0"
+    ),
+    error = function(e) e
+  )
   expect_s3_class(err, "error")
   # Either the lock check or the duplicate check refuses; both
   # protect vocabulary-lock semantics.
@@ -217,12 +284,14 @@ test_that(".register_representation() refuses duplicate name", {
 # ---------------------------------------------------------------- #
 
 test_that(".register_representation() refuses on locked registry", {
-  expect_error(flexyBayes:::.register_representation(
-    name = "brand_new_unregistered_class",
-    description = "would never land",
-    category = "dense_covariance",
-    registered_in_adr = "ADR 9999",
-    since_version = "0.4.0"),
+  expect_error(
+    flexyBayes:::.register_representation(
+      name = "brand_new_unregistered_class",
+      description = "would never land",
+      category = "dense_covariance",
+      registered_in_adr = "ADR 9999",
+      since_version = "0.4.0"
+    ),
     regexp = "registry is locked"
   )
 })

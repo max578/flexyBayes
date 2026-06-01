@@ -59,8 +59,9 @@
 # evenly-spaced integer subset of length cap (when n_total > cap).
 # Single source of truth for the byte-identity stride contract.
 .predict_kernel_stride_idx <- function(n_total, n_draws_cap) {
-  if (n_total <= n_draws_cap)
+  if (n_total <= n_draws_cap) {
     return(seq_len(n_total))
+  }
   as.integer(seq.int(1L, n_total, length.out = n_draws_cap))
 }
 
@@ -68,7 +69,9 @@
 # Used by both the kernel and the legacy-fit refusal upstream.
 .predict_kernel_has_smooth <- function(object) {
   random_terms <- object$extras$parse_info$random
-  if (is.null(random_terms)) return(FALSE)
+  if (is.null(random_terms)) {
+    return(FALSE)
+  }
   any(vapply(
     random_terms,
     function(t) !is.null(t$type) && t$type == "smooth_mgcv",
@@ -81,13 +84,16 @@
 # message the in-memory branch used pre-v0.3.8 -- mechanical
 # correctness over silently-wrong predictions on newdata.
 .predict_kernel_refuse_legacy_smooth <- function() {
-  stop(".predict_linear_draws(): the fit was produced before smooth-",
-       "basis retention shipped (or via fb_greta() where smooth ",
-       "basis is user-managed). Refusing to use stats::model.matrix() ",
-       "on smooth terms -- it would produce silently wrong ",
-       "predictions on newdata. Re-fit via flexybayes() / fb_brms() ",
-       "on the current package version to enable predict() with ",
-       "newdata.", call. = FALSE)
+  stop(
+    ".predict_linear_draws(): the fit was produced before smooth-",
+    "basis retention shipped (or via fb_greta() where smooth ",
+    "basis is user-managed). Refusing to use stats::model.matrix() ",
+    "on smooth terms -- it would produce silently wrong ",
+    "predictions on newdata. Re-fit via flexybayes() / fb_brms() ",
+    "on the current package version to enable predict() with ",
+    "newdata.",
+    call. = FALSE
+  )
 }
 
 # Validate the include argument against the v0.3.8 vocabulary.
@@ -97,28 +103,35 @@
   allowed <- c("fixed", "smooth", "random_sampled")
   if (!is.character(include) || length(include) == 0L) {
     stop(.fb_refusal_condition(
-      reason_code  = "predict_kernel_invalid_include",
-      message      = paste0(
+      reason_code = "predict_kernel_invalid_include",
+      message = paste0(
         ".predict_linear_draws(): `include` must be a non-empty ",
-        "character vector; got: ", deparse(include), "."),
+        "character vector; got: ",
+        deparse(include),
+        "."
+      ),
       family_class = "flexybayes_predict_kernel_refusal",
-      supplied     = include,
-      allowed      = allowed))
+      supplied = include,
+      allowed = allowed
+    ))
   }
   bad <- setdiff(include, allowed)
   if (length(bad) > 0L) {
     stop(.fb_refusal_condition(
-      reason_code  = "predict_kernel_invalid_include",
-      message      = paste0(
+      reason_code = "predict_kernel_invalid_include",
+      message = paste0(
         ".predict_linear_draws(): `include` value(s) not in the ",
         "v0.3.8 kernel vocabulary: ",
         paste(shQuote(bad), collapse = ", "),
-        ". Allowed: ", paste(shQuote(allowed), collapse = ", "),
-        ". (random_known is reserved for v0.4.0.)"),
+        ". Allowed: ",
+        paste(shQuote(allowed), collapse = ", "),
+        ". (random_known is reserved for v0.4.0.)"
+      ),
       family_class = "flexybayes_predict_kernel_refusal",
-      supplied     = include,
-      bad          = bad,
-      allowed      = allowed))
+      supplied = include,
+      bad = bad,
+      allowed = allowed
+    ))
   }
   invisible(NULL)
 }
@@ -130,33 +143,41 @@
 # (rowMeans / quantiles), and se.fit computation stay at call
 # sites so the contract is the same regardless of the downstream
 # semantic (point + se vs interval + se).
-.predict_linear_draws <- function(object,
-                                  newdata,
-                                  n_draws_cap = 4000L,
-                                  sampled_re  = NULL,
-                                  include     = c("fixed", "smooth",
-                                                  "random_sampled")) {
+.predict_linear_draws <- function(
+  object,
+  newdata,
+  n_draws_cap = 4000L,
+  sampled_re = NULL,
+  include = c("fixed", "smooth", "random_sampled")
+) {
   .predict_kernel_validate_include(include)
 
-  if (is.null(object$greta) || is.null(object$greta$draws))
-    stop(".predict_linear_draws(): fit object does not carry posterior ",
-         "draws on $greta$draws. Per-draw prediction requires the ",
-         "greta-backend draws array. INLA fits do not currently ",
-         "expose per-draw access; an INLA draws adapter is queued ",
-         "for a future release.", call. = FALSE)
+  if (is.null(object$greta) || is.null(object$greta$draws)) {
+    stop(
+      ".predict_linear_draws(): fit object does not carry posterior ",
+      "draws on $greta$draws. Per-draw prediction requires the ",
+      "greta-backend draws array. INLA fits do not currently ",
+      "expose per-draw access; an INLA draws adapter is queued ",
+      "for a future release.",
+      call. = FALSE
+    )
+  }
 
-  has_smooth   <- .predict_kernel_has_smooth(object)
+  has_smooth <- .predict_kernel_has_smooth(object)
   smooths_slot <- object$extras$parse_info$smooths
-  if (has_smooth && (is.null(smooths_slot) || length(smooths_slot) == 0L))
+  if (has_smooth && (is.null(smooths_slot) || length(smooths_slot) == 0L)) {
     .predict_kernel_refuse_legacy_smooth()
+  }
 
   fixed_formula <- object$glm$formula
-  use_smooth_design <- has_smooth && length(smooths_slot) > 0L &&
-                       "smooth" %in% include
-  mm_formula <- if (use_smooth_design)
-                  .linear_formula(fixed_formula)
-                else
-                  fixed_formula
+  use_smooth_design <- has_smooth &&
+    length(smooths_slot) > 0L &&
+    "smooth" %in% include
+  mm_formula <- if (use_smooth_design) {
+    .linear_formula(fixed_formula)
+  } else {
+    fixed_formula
+  }
   mm <- stats::model.matrix(
     stats::delete.response(stats::terms(mm_formula)),
     data = newdata
@@ -164,8 +185,8 @@
   n_rows <- nrow(newdata)
 
   draws_mat <- do.call(rbind, lapply(object$greta$draws, as.matrix))
-  n_total   <- nrow(draws_mat)
-  idx       <- .predict_kernel_stride_idx(n_total, n_draws_cap)
+  n_total <- nrow(draws_mat)
+  idx <- .predict_kernel_stride_idx(n_total, n_draws_cap)
   draws_sub <- draws_mat[idx, , drop = FALSE]
   n_draws_eff <- nrow(draws_sub)
 
@@ -173,22 +194,27 @@
 
   if ("fixed" %in% include) {
     fixed_info <- object$extras$parse_info$fixed
-    beta_cols  <- .get_fixed_draw_columns(fixed_info, colnames(draws_sub))
-    if (length(beta_cols) == 0L && ncol(mm) > 0L)
-      stop(".predict_linear_draws(): no fixed-effect draw columns ",
-           "found on the fit. The fit may have no fixed effects or ",
-           "have been built under a pre-v0.2 codegen.", call. = FALSE)
+    beta_cols <- .get_fixed_draw_columns(fixed_info, colnames(draws_sub))
+    if (length(beta_cols) == 0L && ncol(mm) > 0L) {
+      stop(
+        ".predict_linear_draws(): no fixed-effect draw columns ",
+        "found on the fit. The fit may have no fixed effects or ",
+        "have been built under a pre-v0.2 codegen.",
+        call. = FALSE
+      )
+    }
     avail <- beta_cols[beta_cols %in% colnames(draws_sub)]
     if (length(avail) > 0L) {
       beta_per_draw <- draws_sub[, avail, drop = FALSE]
-      beta_names    <- names(stats::coef(object))
-      if (length(beta_names) >= length(avail))
+      beta_names <- names(stats::coef(object))
+      if (length(beta_names) >= length(avail)) {
         colnames(beta_per_draw) <- beta_names[seq_along(avail)]
-      common    <- intersect(colnames(mm), colnames(beta_per_draw))
+      }
+      common <- intersect(colnames(mm), colnames(beta_per_draw))
       if (length(common) > 0L) {
-        mm_sub        <- mm[, common, drop = FALSE]
+        mm_sub <- mm[, common, drop = FALSE]
         beta_per_draw <- beta_per_draw[, common, drop = FALSE]
-        lin_pred      <- lin_pred + (mm_sub %*% t(beta_per_draw))
+        lin_pred <- lin_pred + (mm_sub %*% t(beta_per_draw))
       }
     }
   }
@@ -205,33 +231,47 @@
       # draws and the dimension guard below would silently drop the
       # smooth contribution.
       approx_v <- object$extras$parse_info$approx[[v]]
-      if (!is.null(approx_v) &&
-          identical(approx_v$scheme, "low_rank_smooth"))
+      if (
+        !is.null(approx_v) &&
+          identical(approx_v$scheme, "low_rank_smooth")
+      ) {
         Bnew <- Bnew %*% approx_v$V_K
-      raw_pat   <- paste0("^s_", v, "_raw(\\[|$)")
-      raw_cols  <- grep(raw_pat, colnames(draws_sub), value = TRUE)
+      }
+      raw_pat <- paste0("^s_", v, "_raw(\\[|$)")
+      raw_cols <- grep(raw_pat, colnames(draws_sub), value = TRUE)
       sigma_col <- paste0("sigma_s_", v)
-      if (length(raw_cols) == 0L ||
-          !sigma_col %in% colnames(draws_sub))
+      if (
+        length(raw_cols) == 0L ||
+          !sigma_col %in% colnames(draws_sub)
+      ) {
         next
-      raw_draws   <- draws_sub[, raw_cols, drop = FALSE]
+      }
+      raw_draws <- draws_sub[, raw_cols, drop = FALSE]
       sigma_draws <- draws_sub[, sigma_col]
-      coef_draws  <- sweep(raw_draws, 1L, sigma_draws, `*`)
-      if (ncol(Bnew) != ncol(coef_draws)) next
+      coef_draws <- sweep(raw_draws, 1L, sigma_draws, `*`)
+      if (ncol(Bnew) != ncol(coef_draws)) {
+        next
+      }
       lin_pred <- lin_pred + (Bnew %*% t(coef_draws))
     }
   }
 
-  if ("random_sampled" %in% include &&
-      !is.null(sampled_re) && length(sampled_re) > 0L) {
+  if (
+    "random_sampled" %in%
+      include &&
+      !is.null(sampled_re) &&
+      length(sampled_re) > 0L
+  ) {
     for (row_idx in names(sampled_re)) {
       i <- as.integer(row_idx)
-      if (i < 1L || i > n_rows) next
+      if (i < 1L || i > n_rows) {
+        next
+      }
       re_vec <- sampled_re[[row_idx]]
       if (length(re_vec) != n_draws_eff) {
         len <- min(length(re_vec), n_draws_eff)
         lin_pred[i, seq_len(len)] <- lin_pred[i, seq_len(len)] +
-                                       re_vec[seq_len(len)]
+          re_vec[seq_len(len)]
       } else {
         lin_pred[i, ] <- lin_pred[i, ] + re_vec
       }
@@ -253,25 +293,36 @@
 # Within a single chunk_size run the result IS deterministic (same
 # computation, same BLAS path) -- the file-output test asserts that
 # separately. Not user-facing.
-.predict_kernel_invariants <- function(object,
-                                       newdata,
-                                       chunk_sizes = c(100L, 500L, 2000L),
-                                       n_draws_cap = 4000L,
-                                       tolerance   = 1e-10) {
-  monolithic <- .predict_linear_draws(object, newdata,
-                                       n_draws_cap = n_draws_cap)
+.predict_kernel_invariants <- function(
+  object,
+  newdata,
+  chunk_sizes = c(100L, 500L, 2000L),
+  n_draws_cap = 4000L,
+  tolerance = 1e-10
+) {
+  monolithic <- .predict_linear_draws(
+    object,
+    newdata,
+    n_draws_cap = n_draws_cap
+  )
   for (cs in chunk_sizes) {
     n <- nrow(newdata)
-    if (cs >= n) next  # would be identical by construction
+    if (cs >= n) {
+      next
+    } # would be identical by construction
     chunks <- split(seq_len(n), ceiling(seq_len(n) / as.integer(cs)))
-    accum  <- matrix(0, nrow = n, ncol = ncol(monolithic))
+    accum <- matrix(0, nrow = n, ncol = ncol(monolithic))
     for (rng in chunks) {
       chunk <- newdata[rng, , drop = FALSE]
-      accum[rng, ] <- .predict_linear_draws(object, chunk,
-                                             n_draws_cap = n_draws_cap)
+      accum[rng, ] <- .predict_linear_draws(
+        object,
+        chunk,
+        n_draws_cap = n_draws_cap
+      )
     }
-    if (!isTRUE(all.equal(monolithic, accum, tolerance = tolerance)))
+    if (!isTRUE(all.equal(monolithic, accum, tolerance = tolerance))) {
       return(FALSE)
+    }
   }
   TRUE
 }

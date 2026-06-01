@@ -74,9 +74,13 @@ fb_brms <- function(...) {
   # same model-spec slot as the universal entry's `fixed`.
   nm <- names(cl)
   if (!is.null(nm) && "formula" %in% nm) {
-    if ("fixed" %in% nm)
-      stop("fb_brms(): pass the model once -- `formula` and `fixed` name ",
-           "the same model-spec slot.", call. = FALSE)
+    if ("fixed" %in% nm) {
+      stop(
+        "fb_brms(): pass the model once -- `formula` and `fixed` name ",
+        "the same model-spec slot.",
+        call. = FALSE
+      )
+    }
     nm[nm == "formula"] <- "fixed"
     names(cl) <- nm
   }
