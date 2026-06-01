@@ -1,0 +1,401 @@
+---
+title: "flexyBayes -- exact aggregation for out-of-core mixed models"
+subtitle: "A numerical study, with technical appendices on the mathematics, prior art, and limits"
+author: "Max Moldovan, on behalf of the AAGI-AUS collective"
+date: "2026-06-01"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+    number_sections: true
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    number_sections: true
+  md_document:
+    variant: gfm
+    toc: true
+header-includes:
+  - \usepackage{lmodern}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+res_dir <- "benchmark_results"
+study   <- read.csv(file.path(res_dir, "bigdata_study_estimates_2026-06-01.csv"),
+                    check.names = FALSE)
+extreme <- read.csv(file.path(res_dir, "bigdata_extreme_2026-05-31.csv"))
+fmtN <- function(x) formatC(x, format = "f", digits = 0, big.mark = ",")
+```
+
+> **Summary.** flexyBayes fits its core mixed-model family -- gaussian,
+> binomial, and poisson generalized linear mixed models with factor fixed
+> effects and random intercepts -- to datasets that do not fit in memory,
+> by reading the data in chunks and accumulating exact per-cell sufficient
+> statistics. The fitted posterior is the full-data posterior, not an
+> approximation. The numerical study below fits the same models per row and
+> by aggregation and finds the fixed-effect estimates agree to about
+> $10^{-10}$ and the variance components to between $10^{-7}$ (count
+> families) and $10^{-4}$ (the gaussian residual scale, where a custom
+> prior is composed). Memory is bounded by one chunk plus the cell
+> accumulator, not by the row count: a five-billion-row fit used about
+> 846 MB. **The method is not new** -- it is the exponential-family
+> sufficient-statistic reduction combined with covariate-pattern
+> aggregation, with direct streaming precedent in Lumley's `biglm` --
+> applied here as an automatic, refusal-gated, multi-backend Bayesian
+> fitting path (Appendix B). **Maximum realistic $N$:** the algorithm is
+> memory-unbounded; exactness holds to roughly $10^{15}$ rows for
+> well-conditioned data; the practical ceiling on a 32 GB / 1.3 TB
+> workstation is about $10^{11}$ rows (disk- and time-bound), and the true
+> binding constraint is the cell count $K$, not $N$ (Section 3, Appendix A).
+
+# What was built
+
+Two entry points share one estimation path. `flexybayes_stream()` reads an
+`.fst` file, a set of partitioned `.fst` shards, a delimited file, an
+in-memory frame, or a chunk generator, accumulates per-cell sufficient
+statistics across chunks, and fits the cell-level model through INLA or
+greta. `flexybayes(aggregate = "auto")` reaches the same aggregation when
+the data fits in memory. Supported families are gaussian (identity),
+binomial (logit), and poisson (log); supported structure is factor fixed
+effects and random-intercept grouping. Everything else is refused before
+any data is read (Section 4, Appendix C).
+
+# The numerical study -- per-row versus aggregated
+
+The same model, `y ~ env + (1 | geno)` on a four-environment by
+thirty-genotype design (120 cells), was fitted two ways on identical data
+with matched priors: the ordinary per-row path (`aggregate = FALSE`) and
+the exact-aggregated path (`aggregate = TRUE`), both through INLA's
+deterministic Laplace engine, so any difference is numerical rather than
+Monte-Carlo. Sample sizes run from moderate ($10^4$) to the border of
+per-row feasibility ($10^6$; beyond about $2\times10^6$ the per-row INLA
+fit exhausts a 32 GB machine, Section 3).
+
+The per-cell estimates at $N = 10^6$ are reproduced side by side; the two
+paths return the same numbers.
+
+```{r table-side-by-side}
+g <- study[study$family == "gaussian" & study$N == 1e6,
+           c("param", "per_row", "aggregated", "abs_diff")]
+knitr::kable(g, row.names = FALSE, align = "lrrr",
+  col.names = c("parameter", "per row", "aggregated", "|difference|"),
+  caption = "Gaussian fit, N = 1,000,000 (120 cells): every parameter, both paths.")
+```
+
+Across all three families and all sample sizes, the largest disagreement in
+any fixed-effect coefficient and in any variance component is summarised
+below.
+
+```{r table-summary}
+agg_by <- function(d) {
+  beta <- d[d$scale == "coef", ]
+  vc   <- d[d$scale == "sd", ]
+  data.frame(
+    family = d$family[1], N = fmtN(d$N[1]), K = d$K[1],
+    `max|beta diff|` = formatC(max(beta$abs_diff), format = "e", digits = 1),
+    `max|var-comp diff|` = if (nrow(vc)) formatC(max(vc$abs_diff),
+                              format = "e", digits = 1) else "--",
+    check.names = FALSE)
+}
+sp <- split(study, list(study$family, study$N), drop = TRUE)
+tab <- do.call(rbind, lapply(sp, agg_by))
+tab <- tab[order(tab$family, as.numeric(gsub(",", "", tab$N))), ]
+knitr::kable(tab, row.names = FALSE, align = "llrrr",
+  caption = "Largest per-path difference, by family and sample size.")
+```
+
+**What the comparison shows.** The fixed-effect coefficients agree to about
+$10^{-10}$ in every family and at every size: the aggregated likelihood is
+the same likelihood (Appendix A.2), so the linear-predictor estimates are
+identical to numerical precision. The variance components for the count
+families agree to about $10^{-7}$ -- INLA is given the cell totals
+directly, with no auxiliary construction. The one place a larger
+difference appears is the gaussian residual and group standard deviations,
+which differ by up to about $10^{-4}$. That residual is explained, not by
+the aggregation, but by how the within-cell sum of squares is supplied to
+INLA on the gaussian path: it enters through a custom log-precision prior
+composed with INLA's own precision prior, and the composition is not
+bit-identical to the per-row prior treatment (Appendix A.4). The difference
+is small, it does not touch the fixed effects, and the count families --
+which need no such construction -- do not show it.
+
+# Scaling and the maximum realistic N
+
+Because only one chunk and the $K$-cell accumulator are ever resident, peak
+memory does not grow with $N$. Partitioned `.fst` shards were streamed on a
+single 32 GB machine on a 1200-cell design:
+
+```{r table-scaling}
+e <- extreme[order(extreme$N), ]
+out <- data.frame(
+  N = fmtN(e$N), K = e$K,
+  `wall (s)` = round(e$fit_s, 1),
+  `peak (MB)` = round(e$peak_mb),
+  `on disk (GB)` = round(e$disk_gb, 2),
+  intercept = e$intercept, check.names = FALSE)
+knitr::kable(out, row.names = FALSE, align = "rrrrrr",
+  caption = "Streaming a partitioned .fst dataset; gaussian, INLA. Peak memory is the OS resident size of a fresh process.")
+```
+
+Peak memory moved from 708 MB at ten million rows to 846 MB at five
+billion -- a five-hundred-fold increase in data through a roughly flat
+envelope -- and the recovered intercept was stable throughout. For
+contrast, the per-row path reached about 12 GB at one million rows and was
+infeasible at five million on the same machine.
+
+**The maximum realistic $N$.** Three different ceilings apply, and they are
+far apart:
+
+- *Algorithm (memory).* Unbounded. Peak memory is set by `chunk_rows` and
+  $K$, not $N$.
+- *Exactness (floating point).* Counts and sums are IEEE-754 doubles, exact
+  for integers to $2^{53} \approx 9.0\times10^{15}$. For order-one response
+  values the sums stay exact to roughly $N \approx 10^{15}$ rows; the
+  within-cell sum-of-squares loses precision only when the within-cell
+  signal-to-noise ratio is extreme, independent of $N$ (Appendix A.3).
+- *Practical (disk and time).* On this 32 GB / 1.3 TB workstation a
+  three-column dataset is about 9.4 GB per billion rows, so disk caps a
+  single machine near $1.3\times10^{11}$ rows, read in roughly an hour.
+  A cluster with more disk reaches the exactness ceiling.
+
+The binding constraint in practice is the cell count $K$, not the row count
+$N$. A replicated factorial design fixes $K$ by its factor combinations, so
+$N$ may grow to the precision ceiling; a design whose cell count grows with
+$N$ does not compress at all and is refused (Section 4).
+
+**Recommendation for the package.** Do not impose a hard cap on $N$: the
+method scales, and an arbitrary cap would be misleading. Keep `chunk_rows`
+at its $5\times10^6$ default (a few hundred megabytes per chunk, a good
+throughput-versus-memory balance). Document the path as validated to
+$5\times10^9$ rows (measured here) and exact to roughly $10^{13}$ rows for
+well-conditioned data, and emit an informational note above about
+$10^{12}$ rows recommending the numerically stable centred-sum accumulation
+(or a rescaled response) when the within-cell signal-to-noise ratio is
+large. The number worth surfacing to the user is the compression ratio
+$K/N$, which the preflight already reports, not a row-count limit.
+
+# When the approach breaks -- the complexity envelope
+
+Exact aggregation applies only while every row in a cell shares one linear
+predictor and the likelihood reduces to a finite per-cell statistic. As
+model complexity rises the method degrades predictably; each step beyond
+the envelope is refused with a named reason code rather than silently
+approximated. The ladder is tabulated in Appendix C; in brief: factor fixed
+effects and random intercepts aggregate exactly; a continuous fixed
+covariate gives one cell per distinct value and so does not compress;
+random slopes, structured covariance, and smooth terms make the linear
+predictor vary within a cell and break the reduction; non-canonical links
+and non-exponential-family likelihoods have no additive sufficient
+statistic. For any of these the per-row `flexybayes()` path fits the model
+unchanged.
+
+---
+
+# Appendix A -- Mathematics
+
+## A.1 Cells and sufficient statistics
+
+For observation $i$ let the linear predictor be
+$\eta_i = x_i^{\top}\beta + \sum_j z_{ij} u_j$, with $\beta$ the fixed
+effects and $u_j$ the random-intercept effects. Define a *cell* $k$ as a
+maximal set of observations sharing the same fixed-effect design row and
+the same random-effect grouping levels; by construction every row in cell
+$k$ has the same linear predictor $\eta_k$. The likelihood factorises over
+cells, and within a cell of $n_k$ conditionally independent observations
+the exponential-family log-likelihood is
+$$
+\ell_k = \sum_{i \in k}\!\Big[\tfrac{y_i\theta_k - b(\theta_k)}{\phi}
+   + c(y_i,\phi)\Big]
+ = \tfrac{\theta_k \sum_{i\in k} y_i - n_k\, b(\theta_k)}{\phi}
+   + \sum_{i \in k} c(y_i,\phi),
+$$
+where $\theta_k$ is the natural parameter (a function of $\eta_k$). The
+parameter-dependent part depends on the data only through $n_k$ and
+$\sum_{i\in k} y_i$. The term $\sum_{i\in k} c(y_i,\phi)$ is free of the
+mean parameters; it is dropped for the count families (dispersion
+$\phi = 1$) and retained for the gaussian, where $\phi = \sigma^2$ is itself
+a parameter (A.2).
+
+## A.2 The per-family aggregated log-likelihood
+
+Write $S^{(1)}_k = \sum_{i\in k} y_i$ and $S^{(2)}_k = \sum_{i\in k} y_i^2$.
+
+**Gaussian, identity link.** With $\mu_k = \eta_k$,
+$$
+\ell = -\tfrac{N}{2}\log(2\pi\sigma^2)
+  - \tfrac{1}{2\sigma^2}\sum_k\big[\,S^{(2)}_k - 2\mu_k S^{(1)}_k
+     + n_k\mu_k^2\,\big],
+$$
+which is algebraically identical to
+$\sum_i\big[-\tfrac12\log(2\pi\sigma^2) - (y_i-\mu_i)^2/(2\sigma^2)\big]$.
+The cell needs $(n_k, S^{(1)}_k, S^{(2)}_k)$; the $\sigma^2$-coupled
+$S^{(2)}_k$ must be retained, so the residual-variance posterior is exact
+in the likelihood.
+
+**Poisson, log link.** With exposure $E_i$ and $\lambda_i = E_i\exp(\eta_k)$,
+the cell contribution is, up to the parameter-free
+$\sum(y_i\log E_i - \log y_i!)$,
+$$
+S^{(1)}_k\,\eta_k - \exp(\eta_k)\textstyle\sum_{i\in k} E_i .
+$$
+Equivalently, independent Poissons with a shared rate add, so the cell total
+$S^{(1)}_k \sim \mathrm{Poisson}\!\big(\exp(\eta_k)\sum_{i\in k}E_i\big)$;
+INLA is given the response $S^{(1)}_k$ with offset $\sum_{i\in k}E_i$.
+
+**Binomial, logit link.** With trials $m_i$ and probability $p_k$, the cell
+contribution is, up to the parameter-free $\sum\log\binom{m_i}{y_i}$,
+$$
+S^{(1)}_k\,\log p_k + \Big(\textstyle\sum_{i\in k} m_i - S^{(1)}_k\Big)
+  \log(1-p_k),
+$$
+and independent binomials with shared $p_k$ add, so
+$S^{(1)}_k \sim \mathrm{Binomial}\!\big(\sum_{i\in k} m_i,\, p_k\big)$;
+INLA is given the response $S^{(1)}_k$ with $\sum_{i\in k} m_i$ trials. A
+0/1 response is the Bernoulli case $m_i = 1$.
+
+**Exactness.** By the Fisher--Neyman factorisation theorem the cell
+statistics are sufficient for the cell parameters, so the aggregated and
+per-row log-likelihoods differ by an additive, parameter-free constant. The
+posterior is therefore identical for any prior -- this is exact
+compression, not approximation. Each statistic is a sum, so the dataset
+total is the sum of the per-chunk totals, which is what makes the
+accumulation single-pass and bounded-memory.
+
+## A.3 Floating-point precision and the exactness ceiling
+
+Counts and sums are accumulated as IEEE-754 doubles, exact for integers up
+to $2^{53}\approx 9.0\times10^{15}$. While $n_k$, $S^{(1)}_k$, and
+$S^{(2)}_k$ stay below that magnitude they are exact; for order-one response
+values this holds to roughly $N\approx10^{15}$ rows. (The partitioned-source
+row total is also carried as a double, not a 32-bit integer, so it does not
+cap at $2^{31}$.)
+
+The within-cell sum of squares
+$\mathrm{WSS}_k = S^{(2)}_k - (S^{(1)}_k)^2/n_k$ is a difference of like-sized
+quantities and so is subject to cancellation. For a cell with mean $\mu_k$
+and within-cell standard deviation $\sigma_k$, the subtracted terms are of
+order $n_k\mu_k^2$ while the result is of order $n_k\sigma_k^2$, so the
+relative error is of order $\varepsilon\,(\mu_k/\sigma_k)^2$, with
+$\varepsilon\approx2.2\times10^{-16}$. This depends on the within-cell
+signal-to-noise ratio, **not** on $n_k$ or $N$, and is negligible unless
+$\mu_k/\sigma_k$ is extreme; a numerically stable centred-sum (Welford /
+Chan) accumulation removes it entirely if a dataset ever requires it.
+
+Finally, the gaussian path injects $\mathrm{WSS}$ into INLA through a custom
+log-precision prior whose constants scale with $N$ (its log-density reaches
+about $-N/2$ at its mode). At extreme $N$ this destabilises INLA's
+hyperparameter integration; recentring the log-density to approximately
+zero at its mode (an additive constant, absorbed in the prior's
+normalisation, so small-$N$ fits are unchanged) restores stability. The
+residual of order $10^{-4}$ in the gaussian variance components (Section 2)
+is the imprint of this prior composition, not of the aggregation.
+
+# Appendix B -- Prior art and references
+
+**This method is not newly invented.** It combines two long-established
+ideas. First, the exponential-family sufficient-statistic reduction
+(Fisher 1922; McCullagh and Nelder 1989): the likelihood depends on the
+data only through a finite statistic, so observations sharing a linear
+predictor can be summarised without loss -- the *covariate-pattern* or
+*grouped-data* representation that is standard for binomial and poisson
+regression (McCullagh and Nelder 1989). Second, single-pass bounded-memory
+fitting of regression models from data larger than memory has direct
+precedent in Lumley's `biglm` / `bigglm`, which accumulates regression
+sufficient statistics chunk by chunk (its gaussian path uses the
+incremental least-squares update of Miller 1992).
+
+What flexyBayes adds is engineering rather than statistics: an automatic,
+refusal-gated, exact-aggregation path inside a multi-backend *Bayesian*
+package (greta and INLA), which streams from partitioned files, handles the
+gaussian within-cell sum of squares through a custom precision prior, and
+treats exactness and explicit refusal as a first-class contract. The
+compression is **exact** when a cell shares one linear predictor, which
+distinguishes it from approximate large-data compression such as *data
+squashing* (DuMouchel et al. 1999), a lossy moment-matching construction,
+and from data-partitioning Bayesian schemes such as the consensus Monte
+Carlo algorithm (Scott et al. 2016), which split the data and recombine
+sub-posteriors rather than compress losslessly. The deterministic engine
+used for the exact comparisons here is INLA (Rue, Martino and Chopin 2009).
+
+# References
+
+- Fisher, R. A. (1922). On the mathematical foundations of theoretical
+  statistics. *Philosophical Transactions of the Royal Society A*, 222,
+  309--368.
+- McCullagh, P. and Nelder, J. A. (1989). *Generalized Linear Models*, 2nd
+  ed. Chapman & Hall/CRC. (Grouped / covariate-pattern data for binomial
+  and poisson regression.)
+- Lumley, T. *biglm: Bounded Memory Linear and Generalized Linear Models*.
+  R package; CRAN. (Chunked, bounded-memory regression via accumulated
+  sufficient statistics.)
+- Miller, A. J. (1992). Algorithm AS 274: Least squares routines to
+  supplement those of Gentleman. *Applied Statistics*, 41(2), 458--478.
+- DuMouchel, W., Volinsky, C., Johnson, T., Cortes, C. and Pregibon, D.
+  (1999). Squashing flat files flatter. *Proceedings of the 5th ACM SIGKDD
+  International Conference on Knowledge Discovery and Data Mining*, 6--15.
+- Scott, S. L., Blocker, A. W., Bonassi, F. V., Chipman, H. A., George,
+  E. I. and McCulloch, R. E. (2016). Bayes and big data: the consensus
+  Monte Carlo algorithm. *International Journal of Management Science and
+  Engineering Management*, 11(2), 78--88. <doi:10.1080/17509653.2016.1142191>
+- Rue, H., Martino, S. and Chopin, N. (2009). Approximate Bayesian inference
+  for latent Gaussian models by using integrated nested Laplace
+  approximations. *Journal of the Royal Statistical Society B*, 71(2),
+  319--392.
+
+# Appendix C -- The complexity envelope
+
+The table grades model features by whether exact aggregation applies.
+"Refused" means the model is rejected before any data is read, with the
+stated reason code; the per-row `flexybayes()` path fits it unchanged.
+
+```{r table-envelope}
+env <- data.frame(
+  `Model feature` = c(
+    "Factor fixed effects + random intercept",
+    "Gaussian / binomial / poisson, canonical link",
+    "Continuous fixed covariate",
+    "Factor-by-continuous interaction (indexed slope)",
+    "Random slopes  (x | g) / (x || g)",
+    "Structured covariance (us, ar1, spatial, GBLUP, pedigree)",
+    "Smooth terms  s(x), te(x, z)",
+    "Non-canonical link; gamma / beta / other family",
+    "High-cardinality factor with little replication"),
+  `Aggregates?` = c(
+    "Yes -- exact", "Yes -- exact",
+    "No", "No", "No", "No", "No", "No", "Compresses little"),
+  `Why` = c(
+    "Linear predictor is constant within a cell",
+    "Finite additive sufficient statistic per cell",
+    "One cell per distinct value; K approaches N",
+    "Numeric part varies within the cell",
+    "Contribution varies within the cell",
+    "Latent block is not cell-constant",
+    "Basis is observation-row-specific",
+    "No additive sufficient statistic (or not wired)",
+    "K approaches N; aggregation gives no gain"),
+  `Disposition` = c(
+    "Aggregated path", "Aggregated path",
+    "Refused: continuous_cell_key_data_dependent",
+    "Refused: continuous_cell_key_data_dependent",
+    "Refused: random_slope_not_aggregatable",
+    "Refused: structured_random_not_aggregatable",
+    "Refused: smooth_term_not_aggregatable",
+    "Refused: non_aggregatable_family / non_canonical_link",
+    "Per-row path (not productive to aggregate)"),
+  check.names = FALSE)
+knitr::kable(env, row.names = FALSE,
+  caption = "Exact aggregation across increasing model complexity.")
+```
+
+Two boundaries are worth stating plainly. The aggregation is exact only for
+the likelihood; the posterior is still produced by an approximate inference
+engine (INLA's Laplace approximation or greta's Markov chain Monte Carlo),
+which is why `triangulate()` exists to cross-check the engines. And the
+method compresses only when $K \ll N$; the moment a design's cell count
+grows with the row count, exact aggregation offers nothing and the per-row
+path -- or a labelled approximation -- is the right tool.
