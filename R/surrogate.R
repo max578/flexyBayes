@@ -102,13 +102,28 @@
 }
 
 # Evidence-ARD: learn per-dimension lengthscales by maximising the total RFF
-# Bayesian-linear log marginal likelihood summed over outputs, with the
-# prior/noise precisions held at their isotropic-fit values (one alternating
-# evidence step). Irrelevant inputs -- along which the response is flat --
-# raise the evidence at a long lengthscale, so the optimiser stretches them and
-# they drop out of the kernel. Deterministic given the seeded features; falls
-# back to the isotropic start on any failure. ARD is vacuous in one dimension.
-.ard_learn_lengthscales <- function(xs, w0, b, ys, l0, at_fixed) {
+# Bayesian-linear log marginal likelihood summed over outputs. Irrelevant inputs
+# -- along which the response is flat -- raise the evidence at a long
+# lengthscale, so the optimiser stretches them and they drop out of the kernel.
+# Deterministic given the seeded features; falls back to the isotropic start on
+# any failure. ARD is vacuous in one dimension.
+#
+# Two regimes for the prior/noise precisions (a, t) inside the objective. With
+# `refit = FALSE` (the default, the cont.36 behaviour) they are held at their
+# isotropic-fit values `at_fixed` -- one alternating evidence step, cheap. With
+# `refit = TRUE` (the "fuller evidence-ARD") they are re-estimated by a short
+# MacKay loop at each candidate lengthscale, so the objective is the evidence
+# *profiled* over (a, t): a fuller -- and, at equal lengthscales, never lower --
+# marginal likelihood, costing an evidence loop per output per evaluation.
+.ard_learn_lengthscales <- function(
+  xs,
+  w0,
+  b,
+  ys,
+  l0,
+  at_fixed,
+  refit = FALSE
+) {
   if (ncol(xs) < 2L) {
     return(l0)
   }
@@ -117,7 +132,12 @@
     phi <- .rff_features(xs, sweep(w0, 2L, invl, "*"), b)
     tot <- 0
     for (j in seq_len(ncol(ys))) {
-      tot <- tot + .rff_log_eml(phi, ys[, j], at_fixed[[j]]$a, at_fixed[[j]]$t)
+      if (refit) {
+        at <- .rff_evidence_at(phi, ys[, j])
+      } else {
+        at <- at_fixed[[j]]
+      }
+      tot <- tot + .rff_log_eml(phi, ys[, j], at$a, at$t)
     }
     if (is.finite(tot)) -tot else 1e6
   }
@@ -208,7 +228,16 @@
 # contract is unchanged); the off-diagonals are the cross-output covariance the
 # joint-distribution-preserving thesis and the ES-MDA consumer need. `a` is set
 # by a pooled MacKay evidence step; Sigma_hat is the posterior noise covariance.
-.rff_fit_joint <- function(phi, y) {
+#
+# With `cov_rank = q` (q < k) the k x k noise covariance is also stored in
+# a factor-analysis Sigma ~= U U' + diag(dd): a rank-q factor U (k x q) from
+# the top-q eigenpairs plus a residual diagonal `dd` chosen so the DIAGONAL is
+# reproduced exactly (dd = diag(Sigma) - rowSums(U^2), floored). The marginal
+# `<o>_sd` (clause 2) and the cov-diagonal identity (clause 4) stay exact; only
+# the off-diagonal cross-output covariance is approximated, at O(k q) storage --
+# the path for large output counts. `sigma` is the rank-q reconstruction, so
+# every downstream path (dense predict, the IES consumer) is unchanged.
+.rff_fit_joint <- function(phi, y, cov_rank = NULL) {
   n <- nrow(phi)
   d <- ncol(phi)
   k <- ncol(y)
@@ -245,11 +274,27 @@
   gamma <- sum(ev / (ev + a))
   dof <- max(n - gamma, 1)
   sigma <- crossprod(resid) / dof # k x k noise covariance (standardised scale)
+
+  # Optional rank-q factor-analysis storage of the noise covariance (large k).
+  sigma_lr <- NULL
+  if (!is.null(cov_rank)) {
+    q <- as.integer(cov_rank)
+    if (q >= 1L && q < k) {
+      eig <- eigen(sigma, symmetric = TRUE)
+      lam <- pmax(eig$values[seq_len(q)], 0)
+      umat <- eig$vectors[, seq_len(q), drop = FALSE] %*% diag(sqrt(lam), q)
+      dd <- pmax(diag(sigma) - rowSums(umat^2), 0) # residual: exact diagonal
+      sigma <- tcrossprod(umat) + diag(dd, k) # rank-q reconstruction
+      sigma_lr <- list(u = umat, d = dd, rank = q)
+    }
+  }
+
   list(
     joint = TRUE,
     bmat = bmat,
     amat = amat,
     sigma = sigma,
+    sigma_lr = sigma_lr,
     y_mean = y_mean,
     y_sd = y_sd
   )
@@ -323,11 +368,24 @@ register_surrogate <- function(method, fit_fn) {
 #'   relevance determination) lengthscales by maximising the model evidence
 #'   (default `TRUE`). `FALSE` uses a single isotropic median-heuristic
 #'   lengthscale. Vacuous with one parameter.
+#' @param ard_refit Logical; when `ard = TRUE`, re-estimate the prior/noise
+#'   precisions `(a, t)` by evidence at each candidate lengthscale (the
+#'   evidence *profiled* over `(a, t)`) rather than holding them at their
+#'   isotropic-fit values (default `FALSE`). `TRUE` is a fuller -- and at equal
+#'   lengthscales never lower -- evidence, at the cost of an evidence loop per
+#'   output per optimiser evaluation.
 #' @param joint Logical; for `method = "rff"` with two or more outputs, fit a
 #'   joint multi-output model preserving the cross-output predictive covariance
 #'   (default `TRUE`). `FALSE` fits one independent model per output (marginals
 #'   only). The per-output `<o>_sd` contract is unchanged either way; only the
 #'   off-diagonal covariance (exposed by `predict(..., cov = TRUE)`) differs.
+#' @param cov_rank Optional integer; for a joint `rff` fit with `k` outputs,
+#'   store the cross-output covariance in a rank-`cov_rank` factor-analysis
+#'   form (`U U' + diag`) instead of the dense `k x k`, for large output counts.
+#'   The per-output marginal sd and the covariance diagonal are reproduced
+#'   exactly; only the off-diagonal covariance is approximated. `NULL` (default)
+#'   or `cov_rank >= k` keeps the full covariance. See `predict(...,
+#'   cov = "lowrank")` for the compact predictive return.
 #' @param seed Integer RNG seed for the random features (reproducibility).
 #' @param ... Passed to a registered method's fit function.
 #'
@@ -351,7 +409,9 @@ fit_surrogate <- function(
   outputs = NULL,
   n_features = 256L,
   ard = TRUE,
+  ard_refit = FALSE,
   joint = TRUE,
+  cov_rank = NULL,
   seed = 1L,
   ...
 ) {
@@ -437,7 +497,8 @@ fit_surrogate <- function(
         bs,
         ysub,
         lengthscales,
-        at_fixed
+        at_fixed,
+        refit = ard_refit
       )
     }
 
@@ -447,7 +508,7 @@ fit_surrogate <- function(
     phi <- .rff_features(xs, w, b)
 
     if (joint && ncol(y) >= 2L) {
-      fitobj <- .rff_fit_joint(phi, y)
+      fitobj <- .rff_fit_joint(phi, y, cov_rank = cov_rank)
     } else {
       models <- lapply(seq_len(ncol(y)), function(j) .rff_fit_one(phi, y[, j]))
       names(models) <- colnames(y)
@@ -530,15 +591,28 @@ fit_surrogate <- function(
 #' or a conformer reporting only `<o>_sd`) returns a diagonal covariance built
 #' from the marginal sds, so the call is always honest.
 #'
+#' With `cov = "lowrank"` a joint `rff` surrogate returns the same joint
+#' predictive in a **compact factored** form for large output counts: an
+#' `fb_surrogate_prediction` carrying `cov_lowrank = list(u, d, infl)` such that
+#' per-row covariance is `infl[i] * (u u' + diag(d))` -- `O(k q + n)` storage
+#' instead of the dense `O(k^2 n)` array. The factor `u` has the surrogate's
+#' `cov_rank` columns (the full `k` if it was fit without `cov_rank`).
+#' Reconstruct a slice with [fb_cov_slice()]. The diagonal still equals
+#' `<o>_sd^2` exactly.
+#'
 #' @param object An `fb_surrogate` from [fit_surrogate()].
 #' @param newdata A `data.frame` of new parameter sets; must contain the
 #'   surrogate's `param_names` columns.
-#' @param cov Logical; if `TRUE` return an `fb_surrogate_prediction` with the
-#'   per-row cross-output predictive covariance (default `FALSE`).
+#' @param cov `FALSE` (default) for the marginal `data.frame`; `TRUE` for an
+#'   `fb_surrogate_prediction` with the dense per-row cross-output covariance
+#'   array; `"lowrank"` for the compact factored covariance (a joint `rff` fit
+#'   only).
 #' @param ... Unused.
 #' @return With `cov = FALSE` (default) a `data.frame` with `<output>_mean` and
 #'   `<output>_sd` columns, one row per row of `newdata`. With `cov = TRUE` an
-#'   `fb_surrogate_prediction` (`mean`, `cov`, `output_names`).
+#'   `fb_surrogate_prediction` (`mean`, `cov`, `output_names`). With
+#'   `cov = "lowrank"` an `fb_surrogate_prediction` (`mean`, `cov_lowrank`,
+#'   `output_names`).
 #' @export
 predict.fb_surrogate <- function(object, newdata, cov = FALSE, ...) {
   if (missing(newdata) || !is.data.frame(newdata)) {
@@ -556,9 +630,22 @@ predict.fb_surrogate <- function(object, newdata, cov = FALSE, ...) {
       call. = FALSE
     )
   }
+  want_lr <- identical(cov, "lowrank")
+  want_cov <- isTRUE(cov) || want_lr
   xnew <- as.matrix(newdata[, object$param_names, drop = FALSE])
   xs <- scale(xnew, center = object$x_center, scale = object$x_scale)
   onames <- object$output_names
+
+  if (
+    want_lr && !(identical(object$method, "rff") && isTRUE(object$fit$joint))
+  ) {
+    stop(
+      "predict.fb_surrogate(): cov = \"lowrank\" is defined for a joint rff ",
+      "surrogate only (fit_surrogate(joint = TRUE); set cov_rank for ",
+      "compression). Use cov = TRUE for a dense covariance.",
+      call. = FALSE
+    )
+  }
 
   if (!identical(object$method, "rff")) {
     # A registered conformer is trained on the *standardised* design --
@@ -570,7 +657,7 @@ predict.fb_surrogate <- function(object, newdata, cov = FALSE, ...) {
     xs_df <- as.data.frame(xs)
     colnames(xs_df) <- object$param_names
     df <- stats::predict(object$fit, xs_df, ...)
-    if (!isTRUE(cov)) {
+    if (!want_cov) {
       return(df)
     }
     return(.prediction_from_marginals(df, onames))
@@ -600,8 +687,38 @@ predict.fb_surrogate <- function(object, newdata, cov = FALSE, ...) {
     }
   }
 
-  if (!isTRUE(cov)) {
+  if (!want_cov) {
     return(.surrogate_meansd(mean_mat, sd_mat, onames))
+  }
+
+  if (want_lr) {
+    # Compact factored joint covariance: per-row cov is infl[i] * sig0, and
+    # sig0 = diag(y_sd)(u u' + diag(dd)) diag(y_sd) = u0 u0' + diag(d0). The
+    # per-row scalar infl folds into the returned slice via fb_cov_slice().
+    jt <- object$fit
+    y_sd <- jt$y_sd
+    infl <- 1 + rowSums((phi %*% jt$amat) * phi)
+    if (!is.null(jt$sigma_lr)) {
+      u0 <- diag(y_sd, k) %*% jt$sigma_lr$u # k x q
+      d0 <- y_sd^2 * jt$sigma_lr$d # length k
+    } else {
+      # no cov_rank: a full-rank eigen factor (q = k), still exact
+      sig0 <- diag(y_sd, k) %*% jt$sigma %*% diag(y_sd, k)
+      eig <- eigen(sig0, symmetric = TRUE)
+      lam <- pmax(eig$values, 0)
+      u0 <- eig$vectors %*% diag(sqrt(lam), k)
+      d0 <- rep(0, k)
+    }
+    rownames(u0) <- onames
+    names(d0) <- onames
+    return(structure(
+      list(
+        mean = mean_mat,
+        cov_lowrank = list(u = u0, d = d0, infl = infl),
+        output_names = onames
+      ),
+      class = "fb_surrogate_prediction"
+    ))
   }
 
   if (isTRUE(object$fit$joint)) {
@@ -627,6 +744,54 @@ predict.fb_surrogate <- function(object, newdata, cov = FALSE, ...) {
     list(mean = mean_mat, cov = carr, output_names = onames),
     class = "fb_surrogate_prediction"
   )
+}
+
+# ---- reconstruct a covariance slice -----------------------------------------
+
+#' Reconstruct a per-row covariance slice from a surrogate prediction
+#'
+#' Returns the `k x k` cross-output predictive covariance at one row of the
+#' `newdata` passed to [predict.fb_surrogate()], from either the dense
+#' (`cov = TRUE`) or the compact factored (`cov = "lowrank"`) form -- so a
+#' consumer can work slice-by-slice without materialising the full dense array
+#' for a large output count.
+#'
+#' @param prediction An `fb_surrogate_prediction` from
+#'   `predict(<fb_surrogate>, newdata, cov = TRUE)` or `cov = "lowrank"`.
+#' @param i Integer row index (a row of `newdata`; default `1`).
+#' @return The `k x k` cross-output predictive covariance at row `i`, with
+#'   output names on both dimensions.
+#' @seealso [predict.fb_surrogate()].
+#' @export
+fb_cov_slice <- function(prediction, i = 1L) {
+  if (!inherits(prediction, "fb_surrogate_prediction")) {
+    stop(
+      "fb_cov_slice(): `prediction` must be an fb_surrogate_prediction ",
+      "(from predict(<fb_surrogate>, newdata, cov = TRUE | \"lowrank\")).",
+      call. = FALSE
+    )
+  }
+  onames <- prediction$output_names
+  k <- length(onames)
+  n <- nrow(prediction$mean)
+  i <- as.integer(i)
+  if (length(i) != 1L || is.na(i) || i < 1L || i > n) {
+    stop(
+      "fb_cov_slice(): `i` must be a single row index in 1:",
+      n,
+      ".",
+      call. = FALSE
+    )
+  }
+  # exact-match extraction: `$` would partial-match `cov` to `cov_lowrank`
+  if (!is.null(prediction[["cov"]])) {
+    sl <- matrix(prediction[["cov"]][seq_len(k), seq_len(k), i], k, k)
+  } else {
+    lr <- prediction[["cov_lowrank"]]
+    sl <- lr$infl[i] * (tcrossprod(lr$u) + diag(lr$d, k))
+  }
+  dimnames(sl) <- list(onames, onames)
+  sl
 }
 
 # ---- display ----------------------------------------------------------------
@@ -676,20 +841,35 @@ print.fb_surrogate_prediction <- function(x, ...) {
     sep = ""
   )
   cat("  rows: ", n, " | outputs: ", k, "\n", sep = "")
-  cat(
-    "  $mean (",
-    n,
-    " x ",
-    k,
-    "), $cov (",
-    k,
-    " x ",
-    k,
-    " x ",
-    n,
-    ")\n",
-    sep = ""
-  )
+  if (!is.null(x$cov_lowrank)) {
+    q <- ncol(x$cov_lowrank$u)
+    cat(
+      "  $mean (",
+      n,
+      " x ",
+      k,
+      "), $cov_lowrank: rank-",
+      q,
+      " factor (u u' + diag(d)) x infl[i]\n",
+      sep = ""
+    )
+    cat("  reconstruct a slice with fb_cov_slice(prediction, i)\n")
+  } else {
+    cat(
+      "  $mean (",
+      n,
+      " x ",
+      k,
+      "), $cov (",
+      k,
+      " x ",
+      k,
+      " x ",
+      n,
+      ")\n",
+      sep = ""
+    )
+  }
   cat("------------------------------------------------------------\n")
   invisible(x)
 }

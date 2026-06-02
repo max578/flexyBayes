@@ -4,7 +4,15 @@
 \alias{fb_surrogate_ppc}
 \title{Posterior-predictive check of a surrogate against held-out outputs}
 \usage{
-fb_surrogate_ppc(surrogate, newdata, observed, n_draws = 1L, seed = NULL, ...)
+fb_surrogate_ppc(
+  surrogate,
+  newdata,
+  observed,
+  n_draws = 1L,
+  joint = TRUE,
+  seed = NULL,
+  ...
+)
 }
 \arguments{
 \item{surrogate}{An \code{fb_surrogate} from \code{\link[=fit_surrogate]{fit_surrogate()}}.}
@@ -18,6 +26,11 @@ held-out parameter sets, with columns named for the emulated outputs.}
 \item{n_draws}{Predictive draws per row of \code{newdata} (default \code{1}); the
 predictive ensemble has \code{n_draws * nrow(newdata)} rows.}
 
+\item{joint}{Logical; sample from the joint cross-output covariance
+(default \code{TRUE}) rather than independently per output. Has no effect for a
+single output, or for a surrogate that reports only marginals (its
+covariance is diagonal).}
+
 \item{seed}{Optional integer RNG seed (the caller's stream is restored).}
 
 \item{...}{Passed to \code{\link[kernR:mmd_ppc]{kernR::mmd_ppc()}} (e.g. \code{n_permutations}, \code{kernel}).}
@@ -29,17 +42,25 @@ The \code{kernR::mmd_ppc} test object (carries \verb{$statistic}, \verb{$p_value
 \description{
 Tests whether a surrogate's predictive \emph{distribution} matches the simulator's
 at held-out parameter sets, using kernR's maximum-mean-discrepancy
-posterior-predictive check (\code{\link[kernR:mmd_ppc]{kernR::mmd_ppc()}}). The surrogate's per-output
-predictive mean and sd at \code{newdata} are sampled into a predictive ensemble,
-which is compared against \code{observed} -- the true simulator outputs at those
-parameter sets. A rejection means the emulator distorted the output
-distribution (typically by being over- or under-dispersed), not merely that
-its mean is off.
+posterior-predictive check (\code{\link[kernR:mmd_ppc]{kernR::mmd_ppc()}}). The surrogate's predictive
+distribution at \code{newdata} is sampled into a predictive ensemble, which is
+compared against \code{observed} -- the true simulator outputs at those parameter
+sets. A rejection means the emulator distorted the output distribution
+(typically by being over- or under-dispersed, or by getting the cross-output
+correlation wrong), not merely that its mean is off.
 }
 \details{
 This is the distribution-preserving counterpart to a mean-only accuracy
-check: it exercises the \verb{<o>_sd} the surrogate reports, not just \verb{<o>_mean}.
+check: it exercises the predictive uncertainty it reports, not just
+the mean. With \code{joint = TRUE} (default) the draws are sampled from the \strong{full
+cross-output predictive covariance} (\code{\link[=predict.fb_surrogate]{predict.fb_surrogate()}} with
+\code{cov = TRUE}), so the emulator's cross-output correlation is tested; this is
+the second consumer of the joint covariance after \code{\link[=fb_surrogate_ies]{fb_surrogate_ies()}}. With
+\code{joint = FALSE} each output is sampled independently from its \verb{<o>_sd}. On a
+simulator whose outputs are correlated, marginal draws discard that
+correlation, so the joint path is the faithful check (a marginals-only
+surrogate yields a diagonal covariance, and the two paths then coincide).
 }
 \seealso{
-\code{\link[=fit_surrogate]{fit_surrogate()}}, \code{\link[=fb_surrogate_ies]{fb_surrogate_ies()}}.
+\code{\link[=fit_surrogate]{fit_surrogate()}}, \code{\link[=predict.fb_surrogate]{predict.fb_surrogate()}}, \code{\link[=fb_surrogate_ies]{fb_surrogate_ies()}}.
 }

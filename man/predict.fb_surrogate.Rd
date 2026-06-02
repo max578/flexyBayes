@@ -12,15 +12,19 @@
 \item{newdata}{A \code{data.frame} of new parameter sets; must contain the
 surrogate's \code{param_names} columns.}
 
-\item{cov}{Logical; if \code{TRUE} return an \code{fb_surrogate_prediction} with the
-per-row cross-output predictive covariance (default \code{FALSE}).}
+\item{cov}{\code{FALSE} (default) for the marginal \code{data.frame}; \code{TRUE} for an
+\code{fb_surrogate_prediction} with the dense per-row cross-output covariance
+array; \code{"lowrank"} for the compact factored covariance (a joint \code{rff} fit
+only).}
 
 \item{...}{Unused.}
 }
 \value{
 With \code{cov = FALSE} (default) a \code{data.frame} with \verb{<output>_mean} and
 \verb{<output>_sd} columns, one row per row of \code{newdata}. With \code{cov = TRUE} an
-\code{fb_surrogate_prediction} (\code{mean}, \code{cov}, \code{output_names}).
+\code{fb_surrogate_prediction} (\code{mean}, \code{cov}, \code{output_names}). With
+\code{cov = "lowrank"} an \code{fb_surrogate_prediction} (\code{mean}, \code{cov_lowrank},
+\code{output_names}).
 }
 \description{
 Returns the surrogate's predictive distribution at new parameter sets. By
@@ -35,4 +39,13 @@ cross-output covariance array (contract C7 clause 4). A joint \code{rff} surroga
 supplies the full covariance; a marginals-only surrogate (independent \code{rff},
 or a conformer reporting only \verb{<o>_sd}) returns a diagonal covariance built
 from the marginal sds, so the call is always honest.
+
+With \code{cov = "lowrank"} a joint \code{rff} surrogate returns the same joint
+predictive in a \strong{compact factored} form for large output counts: an
+\code{fb_surrogate_prediction} carrying \code{cov_lowrank = list(u, d, infl)} such that
+per-row covariance is \verb{infl[i] * (u u' + diag(d))} -- \verb{O(k q + n)} storage
+instead of the dense \verb{O(k^2 n)} array. The factor \code{u} has the surrogate's
+\code{cov_rank} columns (the full \code{k} if it was fit without \code{cov_rank}).
+Reconstruct a slice with \code{\link[=fb_cov_slice]{fb_cov_slice()}}. The diagonal still equals
+\verb{<o>_sd^2} exactly.
 }

@@ -2,6 +2,30 @@
 
 ## New features
 
+- **`fb_surrogate_ppc()` gains a joint draw path (contract C7 v1.2).** With
+  `joint = TRUE` (default) the predictive-check draws are sampled from the full
+  cross-output predictive covariance (`predict(cov = TRUE)` + a per-row
+  Cholesky), so the emulator's cross-output correlation is exercised -- the
+  second consumer of the joint covariance after `fb_surrogate_ies()`. On a
+  correlated-output simulator, marginal draws (`joint = FALSE`) discard that
+  structure and false-reject a faithful surrogate, so the joint path is the
+  correct distribution-preserving check. A single output, or a marginals-only
+  surrogate, behaves exactly as before.
+- **`fit_surrogate(method = "rff")` gains `cov_rank` for large output counts.**
+  Stores the cross-output noise covariance in a rank-`q` factor-analysis form
+  (`U U' + diag`), `O(k q)` instead of `O(k^2)`. The per-output marginal sd and
+  the covariance diagonal are reproduced exactly; only the off-diagonal
+  covariance is approximated. `predict(<fb_surrogate>, newdata,
+  cov = "lowrank")` returns the compact factored predictive
+  (`cov_lowrank = list(u, d, infl)`), and the new `fb_cov_slice()` reconstructs
+  a `k x k` covariance slice from either the dense or the factored form.
+- **`fit_surrogate(method = "rff")` gains `ard_refit` (fuller evidence-ARD).**
+  When `TRUE`, the prior/noise precisions `(a, t)` are re-estimated by evidence
+  at each candidate lengthscale (the evidence profiled over `(a, t)`), a fuller
+  -- and at equal lengthscales never lower -- marginal likelihood. It sharpens
+  relevance ranking but can over-shorten lengthscales (a higher evidence does
+  not guarantee better held-out recovery for finite-feature models), so it is
+  opt-in (`ard_refit = FALSE` default).
 - **The reference `rff` surrogate gains ARD lengthscales and a joint
   multi-output fit, both on by default.** `fit_surrogate(method = "rff")`
   now learns per-input (automatic relevance determination) lengthscales by

@@ -10,7 +10,9 @@ fit_surrogate(
   outputs = NULL,
   n_features = 256L,
   ard = TRUE,
+  ard_refit = FALSE,
   joint = TRUE,
+  cov_rank = NULL,
   seed = 1L,
   ...
 )
@@ -32,11 +34,25 @@ relevance determination) lengthscales by maximising the model evidence
 (default \code{TRUE}). \code{FALSE} uses a single isotropic median-heuristic
 lengthscale. Vacuous with one parameter.}
 
+\item{ard_refit}{Logical; when \code{ard = TRUE}, re-estimate the prior/noise
+precisions \verb{(a, t)} by evidence at each candidate lengthscale (the
+evidence \emph{profiled} over \verb{(a, t)}) rather than holding them at their
+isotropic-fit values (default \code{FALSE}). \code{TRUE} is a fuller -- and at equal
+lengthscales never lower -- evidence, at the cost of an evidence loop per
+output per optimiser evaluation.}
+
 \item{joint}{Logical; for \code{method = "rff"} with two or more outputs, fit a
 joint multi-output model preserving the cross-output predictive covariance
 (default \code{TRUE}). \code{FALSE} fits one independent model per output (marginals
 only). The per-output \verb{<o>_sd} contract is unchanged either way; only the
 off-diagonal covariance (exposed by \code{predict(..., cov = TRUE)}) differs.}
+
+\item{cov_rank}{Optional integer; for a joint \code{rff} fit with \code{k} outputs,
+store the cross-output covariance in a rank-\code{cov_rank} factor-analysis
+form (\verb{U U' + diag}) instead of the dense \verb{k x k}, for large output counts.
+The per-output marginal sd and the covariance diagonal are reproduced
+exactly; only the off-diagonal covariance is approximated. \code{NULL} (default)
+or \code{cov_rank >= k} keeps the full covariance. See \code{predict(..., cov = "lowrank")} for the compact predictive return.}
 
 \item{seed}{Integer RNG seed for the random features (reproducibility).}
 
