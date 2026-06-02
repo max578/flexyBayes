@@ -4,7 +4,7 @@
 \alias{predict.fb_surrogate}
 \title{Predict from a flexyBayes surrogate (mean + sd per output)}
 \usage{
-\method{predict}{fb_surrogate}(object, newdata, ...)
+\method{predict}{fb_surrogate}(object, newdata, cov = FALSE, ...)
 }
 \arguments{
 \item{object}{An \code{fb_surrogate} from \code{\link[=fit_surrogate]{fit_surrogate()}}.}
@@ -12,15 +12,27 @@
 \item{newdata}{A \code{data.frame} of new parameter sets; must contain the
 surrogate's \code{param_names} columns.}
 
+\item{cov}{Logical; if \code{TRUE} return an \code{fb_surrogate_prediction} with the
+per-row cross-output predictive covariance (default \code{FALSE}).}
+
 \item{...}{Unused.}
 }
 \value{
-A \code{data.frame} with \verb{<output>_mean} and \verb{<output>_sd} columns, one
-row per row of \code{newdata}.
+With \code{cov = FALSE} (default) a \code{data.frame} with \verb{<output>_mean} and
+\verb{<output>_sd} columns, one row per row of \code{newdata}. With \code{cov = TRUE} an
+\code{fb_surrogate_prediction} (\code{mean}, \code{cov}, \code{output_names}).
 }
 \description{
-Returns the surrogate's predictive distribution at new parameter sets: a
-\code{data.frame} carrying, for each emulated output \verb{<o>}, a \verb{<o>_mean} and a
-\verb{<o>_sd} column. Reporting the predictive sd -- not only the mean -- is the
-contract-C7 distribution-preserving requirement.
+Returns the surrogate's predictive distribution at new parameter sets. By
+default a \code{data.frame} carrying, for each emulated output \verb{<o>}, a \verb{<o>_mean}
+and a \verb{<o>_sd} column. Reporting the predictive sd -- not only the mean -- is
+the contract-C7 distribution-preserving requirement.
+}
+\details{
+With \code{cov = TRUE} it returns the \strong{joint} predictive distribution: an
+\code{fb_surrogate_prediction} carrying the predictive mean matrix and a per-row
+cross-output covariance array (contract C7 clause 4). A joint \code{rff} surrogate
+supplies the full covariance; a marginals-only surrogate (independent \code{rff},
+or a conformer reporting only \verb{<o>_sd}) returns a diagonal covariance built
+from the marginal sds, so the call is always honest.
 }

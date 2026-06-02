@@ -2,6 +2,27 @@
 
 ## New features
 
+- **The reference `rff` surrogate gains ARD lengthscales and a joint
+  multi-output fit, both on by default.** `fit_surrogate(method = "rff")`
+  now learns per-input (automatic relevance determination) lengthscales by
+  maximising the model evidence (`ard = TRUE`), so irrelevant parameters are
+  stretched out of the kernel; and it fits a joint matrix-normal --
+  inverse-Wishart model across outputs (`joint = TRUE`), preserving the
+  cross-output predictive covariance rather than only the marginals. Both
+  default behaviours can be turned off (`ard = FALSE`, `joint = FALSE`) to
+  recover the isotropic, per-output fit. The per-output `<o>_sd` contract is
+  unchanged.
+- **`predict(<fb_surrogate>, newdata, cov = TRUE)` returns the joint
+  predictive distribution** (contract C7 clause 4): an
+  `fb_surrogate_prediction` with the predictive mean matrix and a per-row
+  cross-output covariance array. A marginals-only surrogate (independent
+  `rff`, or a conformer reporting only `<o>_sd`) returns a diagonal
+  covariance, so the call is always honest.
+- **`fb_surrogate_ies()` consumes the joint predictive covariance.** When the
+  surrogate is joint, the full cross-output predictive covariance enters the
+  ES-MDA data covariance (`use_surrogate_cov = TRUE`, default), so correlated
+  emulator errors are assimilated coherently; a marginals-only surrogate
+  falls back to the diagonal path, identical to before.
 - **Sibling surrogate backends register as C7 conformers.** PESTO's GP
   surrogate (`method = "gp"`) and kernR's conditional mean embedding
   (`method = "cme"`) are available to `fit_surrogate()` when the member

@@ -11,6 +11,7 @@ fb_surrogate_ies(
   prior,
   n_iter = 4L,
   use_surrogate_sd = TRUE,
+  use_surrogate_cov = TRUE,
   seed = NULL
 )
 }
@@ -28,8 +29,14 @@ one row per realisation; must contain the surrogate's parameter columns.}
 
 \item{n_iter}{Number of ES-MDA iterations (equal inflation \code{alpha = n_iter}).}
 
-\item{use_surrogate_sd}{Add the surrogate's mean predictive variance to the
-data covariance (default \code{TRUE}).}
+\item{use_surrogate_sd}{Add the surrogate's mean predictive uncertainty to
+the data covariance (default \code{TRUE}).}
+
+\item{use_surrogate_cov}{When the surrogate is joint, fold its full
+cross-output predictive covariance (not just the per-output variance) into
+the data covariance (default \code{TRUE}). Ignored when \code{use_surrogate_sd} is
+\code{FALSE} or the surrogate reports only marginals (the covariance is then
+diagonal and the two paths coincide).}
 
 \item{seed}{Optional integer RNG seed for the observation perturbations
 (reproducibility); the caller's RNG stream is restored on exit.}
@@ -51,11 +58,16 @@ equals a single tempered assimilation. No simulator is run -- every forward
 evaluation is a surrogate \code{predict()}.
 }
 \details{
-When \code{use_surrogate_sd = TRUE} (default) the surrogate's per-output
-predictive variance is added to the observation-error covariance, so emulator
+When \code{use_surrogate_sd = TRUE} (default) the surrogate's predictive
+uncertainty is added to the observation-error covariance, so emulator
 uncertainty inflates the assimilation noise -- the inversion trusts the
 surrogate less where it is less certain. This is the consumer that the
-distribution-preserving \verb{<o>_sd} exists to serve.
+distribution-preserving surrogate exists to serve. When the surrogate is
+joint (its \code{predict(cov = TRUE)} yields a cross-output covariance) and
+\code{use_surrogate_cov = TRUE} (default), the \strong{full} mean predictive covariance
+enters the data covariance, so correlated emulator errors are assimilated
+coherently rather than as independent per-output noise; otherwise only the
+per-output predictive variance (the diagonal) is used.
 }
 \examples{
 set.seed(1)

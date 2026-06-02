@@ -79,7 +79,8 @@ Suggests:
     vdiffr,
     withr,
     kernR,
-    PESTO
+    PESTO,
+    S7
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
 Encoding: UTF-8

@@ -47,11 +47,16 @@
 #' equals a single tempered assimilation. No simulator is run -- every forward
 #' evaluation is a surrogate `predict()`.
 #'
-#' When `use_surrogate_sd = TRUE` (default) the surrogate's per-output
-#' predictive variance is added to the observation-error covariance, so emulator
+#' When `use_surrogate_sd = TRUE` (default) the surrogate's predictive
+#' uncertainty is added to the observation-error covariance, so emulator
 #' uncertainty inflates the assimilation noise -- the inversion trusts the
 #' surrogate less where it is less certain. This is the consumer that the
-#' distribution-preserving `<o>_sd` exists to serve.
+#' distribution-preserving surrogate exists to serve. When the surrogate is
+#' joint (its `predict(cov = TRUE)` yields a cross-output covariance) and
+#' `use_surrogate_cov = TRUE` (default), the **full** mean predictive covariance
+#' enters the data covariance, so correlated emulator errors are assimilated
+#' coherently rather than as independent per-output noise; otherwise only the
+#' per-output predictive variance (the diagonal) is used.
 #'
 #' @param surrogate An `fb_surrogate` from [fit_surrogate()].
 #' @param observed A named numeric vector of target observations; names must
@@ -61,8 +66,13 @@
 #' @param prior A `data.frame` (or matrix) of the prior parameter ensemble --
 #'   one row per realisation; must contain the surrogate's parameter columns.
 #' @param n_iter Number of ES-MDA iterations (equal inflation `alpha = n_iter`).
-#' @param use_surrogate_sd Add the surrogate's mean predictive variance to the
-#'   data covariance (default `TRUE`).
+#' @param use_surrogate_sd Add the surrogate's mean predictive uncertainty to
+#'   the data covariance (default `TRUE`).
+#' @param use_surrogate_cov When the surrogate is joint, fold its full
+#'   cross-output predictive covariance (not just the per-output variance) into
+#'   the data covariance (default `TRUE`). Ignored when `use_surrogate_sd` is
+#'   `FALSE` or the surrogate reports only marginals (the covariance is then
+#'   diagonal and the two paths coincide).
 #' @param seed Optional integer RNG seed for the observation perturbations
 #'   (reproducibility); the caller's RNG stream is restored on exit.
 #'
@@ -95,6 +105,7 @@ fb_surrogate_ies <- function(
   prior,
   n_iter = 4L,
   use_surrogate_sd = TRUE,
+  use_surrogate_cov = TRUE,
   seed = NULL
 ) {
   if (!inherits(surrogate, "fb_surrogate")) {
@@ -178,8 +189,6 @@ fb_surrogate_ies <- function(
   }
 
   alpha <- n_iter
-  mean_cols <- paste0(out_names, "_mean")
-  sd_cols <- paste0(out_names, "_sd")
   misfit <- numeric(n_iter + 1L)
 
   .misfit <- function(g_mat) {
@@ -188,17 +197,35 @@ fb_surrogate_ies <- function(
     mean(rowSums(sweep(res^2, 2L, obs_var, "/")))
   }
 
+  # The surrogate's predictive distribution at the current ensemble, restricted
+  # to the observed outputs: the mean matrix and the mean emulator covariance.
+  .predict_obs <- function(ens) {
+    pc <- stats::predict(surrogate, as.data.frame(ens), cov = TRUE)
+    idx <- match(out_names, pc$output_names)
+    g_mat <- pc$mean[, idx, drop = FALSE]
+    if (!use_surrogate_sd) {
+      emu_cov <- matrix(0, d, d)
+    } else if (use_surrogate_cov) {
+      # mean over realisations of the full d x d emulator covariance
+      emu_cov <- apply(pc$cov[idx, idx, , drop = FALSE], c(1L, 2L), mean)
+    } else {
+      # diagonal only: mean over realisations of the per-output variance
+      vars <- apply(
+        pc$cov[idx, idx, , drop = FALSE],
+        3L,
+        function(m) diag(as.matrix(m))
+      )
+      emu_cov <- diag(rowMeans(matrix(vars, nrow = d)), d)
+    }
+    list(g_mat = g_mat, emu_cov = emu_cov)
+  }
+
   for (it in seq_len(n_iter)) {
-    pred <- stats::predict(surrogate, as.data.frame(ens))
-    g_mat <- as.matrix(pred[, mean_cols, drop = FALSE])
+    pr <- .predict_obs(ens)
+    g_mat <- pr$g_mat
     misfit[it] <- .misfit(g_mat)
 
-    emu_var <- if (use_surrogate_sd) {
-      colMeans(as.matrix(pred[, sd_cols, drop = FALSE])^2)
-    } else {
-      rep(0, d)
-    }
-    cd <- obs_var + emu_var
+    cd <- diag(obs_var, d) + pr$emu_cov # d x d data covariance
 
     gbar <- colMeans(g_mat)
     tbar <- colMeans(ens)
@@ -206,17 +233,19 @@ fb_surrogate_ies <- function(
     dt <- sweep(ens, 2L, tbar)
     cgg <- crossprod(dg) / (n_real - 1L) # d x d
     ctg <- crossprod(dt, dg) / (n_real - 1L) # p x d
-    kgain <- ctg %*% .safe_solve(cgg + alpha * diag(cd, d)) # p x d
+    kgain <- ctg %*% .safe_solve(cgg + alpha * cd) # p x d
 
-    pert <- matrix(stats::rnorm(n_real * d), n_real, d) %*%
-      diag(sqrt(alpha * cd), d)
+    # perturb the observations with covariance alpha * cd (diagonal cd
+    # reproduces the per-output sampling of the marginal path exactly; cd is
+    # strictly positive-definite via the obs_var floor)
+    rmat <- chol(alpha * cd)
+    pert <- matrix(stats::rnorm(n_real * d), n_real, d) %*% rmat
     d_pert <- matrix(obs, n_real, d, byrow = TRUE) + pert
     ens <- ens + (d_pert - g_mat) %*% t(kgain)
     colnames(ens) <- surrogate$param_names
   }
 
-  pred <- stats::predict(surrogate, as.data.frame(ens))
-  misfit[n_iter + 1L] <- .misfit(as.matrix(pred[, mean_cols, drop = FALSE]))
+  misfit[n_iter + 1L] <- .misfit(.predict_obs(ens)$g_mat)
 
   structure(
     list(
@@ -227,6 +256,7 @@ fb_surrogate_ies <- function(
       misfit = misfit,
       n_iter = n_iter,
       use_surrogate_sd = use_surrogate_sd,
+      use_surrogate_cov = use_surrogate_cov,
       surrogate_method = surrogate$method,
       param_names = surrogate$param_names,
       output_names = out_names

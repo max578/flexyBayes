@@ -9,6 +9,8 @@ fit_surrogate(
   method = NULL,
   outputs = NULL,
   n_features = 256L,
+  ard = TRUE,
+  joint = TRUE,
   seed = 1L,
   ...
 )
@@ -24,6 +26,17 @@ available. See \code{\link[=register_surrogate]{register_surrogate()}}.}
 \code{NULL} (default) emulates all of them.}
 
 \item{n_features}{Number of random Fourier features for \code{method = "rff"}.}
+
+\item{ard}{Logical; for \code{method = "rff"}, learn per-dimension (automatic
+relevance determination) lengthscales by maximising the model evidence
+(default \code{TRUE}). \code{FALSE} uses a single isotropic median-heuristic
+lengthscale. Vacuous with one parameter.}
+
+\item{joint}{Logical; for \code{method = "rff"} with two or more outputs, fit a
+joint multi-output model preserving the cross-output predictive covariance
+(default \code{TRUE}). \code{FALSE} fits one independent model per output (marginals
+only). The per-output \verb{<o>_sd} contract is unchanged either way; only the
+off-diagonal covariance (exposed by \code{predict(..., cov = TRUE)}) differs.}
 
 \item{seed}{Integer RNG seed for the random features (reproducibility).}
 
@@ -45,8 +58,11 @@ C5 (\code{\link[=as_fb_ensemble]{as_fb_ensemble()}}), so any conforming producer
 \details{
 The built-in \code{method = "rff"} (default) is a self-contained random-Fourier-
 features Bayesian linear surrogate with evidence-optimised predictive
-variance -- one model per output. Richer methods (kernR's CME, PESTO's GP)
-register via \code{\link[=register_surrogate]{register_surrogate()}}.
+variance. By default it uses \strong{ARD} lengthscales (per-input relevance
+learned from the evidence) and a \strong{joint} multi-output fit that preserves
+the predictive covariance across outputs (not only the marginals) -- the
+distribution-preserving property the calibration / inverse consumers rely on.
+Richer methods (kernR's CME, PESTO's GP) register via \code{\link[=register_surrogate]{register_surrogate()}}.
 }
 \examples{
 set.seed(1)
