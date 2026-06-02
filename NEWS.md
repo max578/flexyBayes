@@ -2,6 +2,12 @@
 
 ## New features
 
+- **`fb_surrogate_ppc()` samples a low-rank covariance factored.** When the
+  surrogate stores a low-rank covariance (`cov_rank`), the joint predictive-check
+  draws are sampled from the factored form directly -- a `q`-dimensional factor
+  noise plus a `k`-dimensional idiosyncratic noise -- so the `k x k` covariance
+  slice is never formed (the native low-rank consumer for the PPC, `O(k q)` per
+  draw). Draws from the same per-row covariance as the dense path.
 - **`fb_surrogate_ies()` consumes a low-rank covariance natively (Woodbury).**
   When the surrogate stores a low-rank covariance (`cov_rank`), the ES-MDA Kalman
   update folds the factored form straight in via the Woodbury identity (a

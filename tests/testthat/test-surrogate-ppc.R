@@ -186,3 +186,91 @@ test_that("the joint PPC passes a faithful joint surrogate the marginal rejects"
   expect_false(res_joint$reject)
   expect_true(res_marg$reject)
 })
+
+# ---- the low-rank factored sampler (contract clause 5, native PPC consumer) --
+
+# A 5-output simulator with low-rank residual noise -> a cov_rank surrogate whose
+# joint draws can be sampled factored (never forming the k x k slice).
+.mk_lowrank_ppc <- function() {
+  set.seed(20260603L)
+  n <- 400L
+  k <- 5L
+  q <- 2L
+  a <- stats::runif(n, -2, 2)
+  b <- stats::runif(n, -2, 2)
+  loadings <- matrix(stats::rnorm(k * q), k, q)
+  coefs <- matrix(stats::rnorm(k * 2L), k, 2L)
+  gen <- function(aa, bb) {
+    s <- cbind(sin(aa), 0.5 * bb) %*% t(coefs)
+    zz <- matrix(stats::rnorm(length(aa) * q), length(aa), q)
+    s +
+      zz %*% t(loadings) +
+      matrix(stats::rnorm(length(aa) * k, 0, 0.1), length(aa), k)
+  }
+  y <- gen(a, b)
+  colnames(y) <- paste0("o", seq_len(k))
+  e <- fb_ensemble(
+    params = data.frame(a = a, b = b),
+    outputs = as.data.frame(y),
+    provenance = list(source = "raw")
+  )
+  list(
+    surrogate = fit_surrogate(e, joint = TRUE, cov_rank = 2L, seed = 1L),
+    gen = gen
+  )
+}
+
+test_that("the low-rank factored sampler reproduces the per-row covariance", {
+  s <- .mk_lowrank_ppc()$surrogate
+  expect_false(is.null(s$fit$sigma_lr)) # the factored path applies
+  nd <- data.frame(a = 0.3, b = -0.4)
+  target <- fb_cov_slice(predict(s, nd, cov = "lowrank"), 1L)
+  draws <- .surrogate_ppc_draws(
+    s,
+    nd,
+    paste0("o", seq_len(5L)),
+    n_draws = 20000L,
+    joint = TRUE,
+    seed = 1L
+  )
+  emp <- stats::cov(draws)
+  # the factored sampler draws from infl (u u' + diag(d)) -- the same covariance
+  # the dense slice would, to Monte-Carlo tolerance, without forming k x k
+  expect_lt(max(abs(emp - target)) / max(abs(target)), 0.1)
+})
+
+test_that("the low-rank PPC passes a faithful surrogate and rejects a distortion", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  kk <- 80L
+  nd <- data.frame(
+    a = stats::runif(kk, -1.8, 1.8),
+    b = stats::runif(kk, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  res_ok <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 10L,
+    joint = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  observed_bad <- observed
+  observed_bad$o1 <- observed_bad$o1 + 3 # a distortion the surrogate never saw
+  res_bad <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed_bad,
+    n_draws = 10L,
+    joint = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_false(res_ok$reject) # the factored draws match the simulator
+  expect_true(res_bad$reject) # and catch the distortion
+})

@@ -57,7 +57,8 @@ a surrogate.
    diagonal is heteroscedastic). [fb_cov_slice()] reconstructs a `k x k` slice
    from either form, so a consumer can work slice-by-slice without materialising
    the dense array; a consumer may also use `cov_lowrank` directly (the IES does,
-   via Woodbury) so the data covariance is never formed at `k x k`.
+   via Woodbury; the PPC samples it factored) so the `k x k` covariance is never
+   formed.
 
 ## The registry (how richer surrogates plug in)
 
@@ -129,7 +130,11 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   joint covariance after the IES. On a correlated-output simulator, marginal
   draws discard that structure and false-reject a faithful surrogate, so the
   joint path is the correct distribution-preserving check (the cont.20
-  marginal-vs-joint lesson, applied to the PPC). kernR owns the MMD test;
-  flexyBayes only generates the predictive sample.
+  marginal-vs-joint lesson, applied to the PPC). When the surrogate stores a
+  **low-rank** covariance (`cov_rank`, clause 5) the joint draws are sampled from
+  the factored form directly (a `q`-dim factor noise + a `k`-dim idiosyncratic
+  noise), so the `k x k` slice is never formed -- the native low-rank consumer
+  for the PPC. kernR owns the MMD test; flexyBayes only generates the predictive
+  sample.
 - **Mechanistic-statistical fits** -- `fb_apsim()` (ADR 0009, partner-gated),
   provisioned in its own pass.

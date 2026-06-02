@@ -47,9 +47,16 @@
 # Generate the predictive draw cloud the PPC compares against the simulator.
 # Returns an (nrow(newdata) * n_draws) x length(out_names) matrix, columns named
 # by out_names. Split from fb_surrogate_ppc() so the draw mechanism is unit-
-# testable without kernR. The RNG stream is consumed identically across
-# the two paths for a single output (the joint Cholesky of a 1x1 covariance is
-# its sd), so the marginal-era seeds reproduce byte-for-byte on scalar outputs.
+# testable without kernR.
+#
+# Three paths. JOINT + a surrogate storing a low-rank covariance (`cov_rank`):
+# the **factored sampler** -- draw from infl[i] (u u' + diag(d)) as
+# sqrt(infl[i]) (u e + sqrt(d) (.) g), e ~ N(0, I_q), g ~ N(0, I_k), so the
+# k x k slice is never formed (the native low-rank consumer for the PPC, O(k q)
+# per draw). JOINT + a dense covariance: a per-row Cholesky of the k x k slice.
+# MARGINAL (joint = FALSE): independent per-output sampling from <o>_sd. The
+# factored and dense joint samplers draw from the same per-row covariance (the
+# factored one consumes different RNG, being a cheaper sampler).
 .surrogate_ppc_draws <- function(
   surrogate,
   newdata,
@@ -59,8 +66,19 @@
   seed
 ) {
   n_out <- length(out_names)
+  lr_native <- isTRUE(joint) &&
+    identical(surrogate$method, "rff") &&
+    isTRUE(surrogate$fit$joint) &&
+    !is.null(surrogate$fit[["sigma_lr"]])
 
-  if (isTRUE(joint)) {
+  if (lr_native) {
+    pred <- stats::predict(surrogate, newdata, cov = "lowrank")
+    idx <- match(out_names, pred$output_names)
+    mean_mat <- pred$mean[, idx, drop = FALSE]
+    u <- pred$cov_lowrank$u[idx, , drop = FALSE] # k x q factor
+    dsd <- sqrt(pred$cov_lowrank$d[idx]) # k idiosyncratic sd
+    sqrt_infl <- sqrt(pred$cov_lowrank$infl) # per row
+  } else if (isTRUE(joint)) {
     pred <- stats::predict(surrogate, newdata, cov = TRUE)
     idx <- match(out_names, pred$output_names)
     mean_mat <- pred$mean[, idx, drop = FALSE]
@@ -81,7 +99,18 @@
   }
 
   draws <- matrix(NA_real_, n_rows * n_draws, n_out)
-  if (isTRUE(joint)) {
+  if (lr_native) {
+    q <- ncol(u)
+    for (r in seq_len(n_draws)) {
+      e <- matrix(stats::rnorm(n_rows * q), n_rows, q) # factor noise
+      g <- matrix(stats::rnorm(n_rows * n_out), n_rows, n_out) # idiosyncratic
+      # row i covariance is sqrt_infl[i]^2 (u u' + diag(d)); the row-length
+      # sqrt_infl scales each row (recycled down the columns)
+      factor_part <- e %*% t(u) + sweep(g, 2L, dsd, "*")
+      blk <- mean_mat + factor_part * sqrt_infl
+      draws[((r - 1L) * n_rows + 1L):(r * n_rows), ] <- blk
+    }
+  } else if (isTRUE(joint)) {
     # one Cholesky factor per held-out row; slice i is the k x k cross-output
     # predictive covariance there.
     chols <- lapply(
@@ -139,7 +168,9 @@
 #' @param joint Logical; sample from the joint cross-output covariance
 #'   (default `TRUE`) rather than independently per output. Has no effect for a
 #'   single output, or for a surrogate that reports only marginals (its
-#'   covariance is diagonal).
+#'   covariance is diagonal). When the surrogate stores a low-rank covariance
+#'   (`cov_rank`), the joint draws are sampled from the factored form directly,
+#'   so the `k x k` slice is never formed (the native low-rank PPC consumer).
 #' @param seed Optional integer RNG seed (the caller's stream is restored).
 #' @param ... Passed to [kernR::mmd_ppc()] (e.g. `n_permutations`, `kernel`).
 #'

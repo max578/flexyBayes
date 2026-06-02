@@ -29,7 +29,9 @@ predictive ensemble has \code{n_draws * nrow(newdata)} rows.}
 \item{joint}{Logical; sample from the joint cross-output covariance
 (default \code{TRUE}) rather than independently per output. Has no effect for a
 single output, or for a surrogate that reports only marginals (its
-covariance is diagonal).}
+covariance is diagonal). When the surrogate stores a low-rank covariance
+(\code{cov_rank}), the joint draws are sampled from the factored form directly,
+so the \verb{k x k} slice is never formed (the native low-rank PPC consumer).}
 
 \item{seed}{Optional integer RNG seed (the caller's stream is restored).}
 
