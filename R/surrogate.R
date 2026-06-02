@@ -101,20 +101,46 @@
   list(a = a, t = t)
 }
 
-# Evidence-ARD: learn per-dimension lengthscales by maximising the total RFF
-# Bayesian-linear log marginal likelihood summed over outputs. Irrelevant inputs
-# -- along which the response is flat -- raise the evidence at a long
-# lengthscale, so the optimiser stretches them and they drop out of the kernel.
-# Deterministic given the seeded features; falls back to the isotropic start on
-# any failure. ARD is vacuous in one dimension.
+# Held-out predictive log-density of one standardised output: fit the RFF
+# Bayesian-linear model on a training split (evidence (a, t) from the training
+# rows), score the validation rows' predictive Normal density. Used by the
+# cross-validated ARD objective -- a too-short lengthscale overfits the training
+# rows and is penalised on the held-out rows, so the fuller evidence stops
+# over-shortening (the regularised cure for the in-sample profiling's recovery
+# loss).
+.rff_cv_loglik <- function(phi_tr, y_tr, phi_va, y_va) {
+  at <- .rff_evidence_at(phi_tr, y_tr)
+  d <- ncol(phi_tr)
+  amat <- at$t * crossprod(phi_tr) + diag(at$a, d)
+  ch <- tryCatch(chol(amat), error = function(e) NULL)
+  if (is.null(ch)) {
+    return(-Inf)
+  }
+  ainv <- chol2inv(ch)
+  m <- at$t * as.numeric(ainv %*% crossprod(phi_tr, y_tr))
+  mu <- as.numeric(phi_va %*% m)
+  vv <- 1 / at$t + rowSums((phi_va %*% ainv) * phi_va)
+  sum(stats::dnorm(y_va, mu, sqrt(pmax(vv, 1e-12)), log = TRUE))
+}
+
+# Evidence-ARD: learn per-dimension lengthscales by maximising a per-input
+# relevance objective. Irrelevant inputs -- along which the response is flat --
+# raise the objective at a long lengthscale, so the optimiser stretches them and
+# they drop out of the kernel. Deterministic given the seeded features; falls
+# back to the isotropic start on any failure. ARD is vacuous in one dimension.
 #
-# Two regimes for the prior/noise precisions (a, t) inside the objective. With
-# `refit = FALSE` (the default, the cont.36 behaviour) they are held at their
-# isotropic-fit values `at_fixed` -- one alternating evidence step, cheap. With
-# `refit = TRUE` (the "fuller evidence-ARD") they are re-estimated by a short
-# MacKay loop at each candidate lengthscale, so the objective is the evidence
-# *profiled* over (a, t): a fuller -- and, at equal lengthscales, never lower --
-# marginal likelihood, costing an evidence loop per output per evaluation.
+# Three regimes for the objective (the `refit` argument):
+# - FALSE (default, cont.36): the RFF log marginal likelihood summed over
+#   outputs, with the prior/noise precisions (a, t) held at their isotropic-fit
+#   values `at_fixed` -- one alternating evidence step, cheap.
+# - TRUE (cont.37 "fuller evidence-ARD"): (a, t) re-estimated by a short MacKay
+#   loop at each candidate lengthscale -- the evidence *profiled* over (a, t), a
+#   fuller (never-lower) marginal likelihood, but in-sample, so it can
+#   over-shorten lengthscales (evidence-overfitting).
+# - "cv": the *held-out* predictive log-density (a train/validation split of the
+#   subsample), so a too-short lengthscale is penalised on the held-out rows.
+#   Regularised fuller-ARD: it keeps the relevance sharpening of the profiled
+#   evidence without its in-sample over-shortening.
 .ard_learn_lengthscales <- function(
   xs,
   w0,
@@ -127,17 +153,36 @@
   if (ncol(xs) < 2L) {
     return(l0)
   }
+  cv <- identical(refit, "cv")
+  if (cv) {
+    n <- nrow(xs)
+    # deterministic 70/30 split by row order (the subsample is already a random
+    # draw, so an ordered split is an unbiased held-out set)
+    n_va <- max(1L, as.integer(round(0.3 * n)))
+    va <- seq_len(n_va)
+    tr <- setdiff(seq_len(n), va)
+  }
   obj <- function(log_invl) {
     invl <- exp(log_invl)
     phi <- .rff_features(xs, sweep(w0, 2L, invl, "*"), b)
     tot <- 0
     for (j in seq_len(ncol(ys))) {
-      if (refit) {
-        at <- .rff_evidence_at(phi, ys[, j])
+      if (cv) {
+        tot <- tot +
+          .rff_cv_loglik(
+            phi[tr, , drop = FALSE],
+            ys[tr, j],
+            phi[va, , drop = FALSE],
+            ys[va, j]
+          )
       } else {
-        at <- at_fixed[[j]]
+        at <- if (isTRUE(refit)) {
+          .rff_evidence_at(phi, ys[, j])
+        } else {
+          at_fixed[[j]]
+        }
+        tot <- tot + .rff_log_eml(phi, ys[, j], at$a, at$t)
       }
-      tot <- tot + .rff_log_eml(phi, ys[, j], at$a, at$t)
     }
     if (is.finite(tot)) -tot else 1e6
   }
@@ -216,6 +261,42 @@
   sqrt(2 / d) * cos(proj)
 }
 
+# Factor analysis Sigma ~= W W' + diag(Psi) by EM (Rubin & Thayer 1982), q
+# factors, from a k x k covariance `s`. Unlike a plain eigen-truncation, EM
+# separates the low-rank loadings W from a *heteroscedastic* residual diagonal
+# Psi -- when the noise covariance is low-rank-plus-uneven-diagonal, the top
+# eigenvectors of Sigma are contaminated by the diagonal and mis-estimate the
+# loadings, while FA does not. Returns the k x q loading matrix W; the caller
+# applies its own exact-diagonal correction so the marginals stay exact. Eigen
+# init + a Woodbury inverse of (W W' + Psi) per step (q x q, never k x k).
+.fa_em <- function(s, q, iters = 50L) {
+  eig <- eigen(s, symmetric = TRUE)
+  lam <- pmax(eig$values, 1e-8)
+  w <- eig$vectors[, seq_len(q), drop = FALSE] %*%
+    diag(sqrt(lam[seq_len(q)]), q)
+  psi <- pmax(diag(s) - rowSums(w^2), 1e-6 * mean(diag(s)))
+  iq <- diag(1, q)
+  for (it in seq_len(iters)) {
+    psinv <- 1 / psi
+    wpsi <- w * psinv # k x q (row-scaled = Psinv W)
+    wt_psinv <- t(wpsi) # q x k = W' Psinv
+    wt_psinv_w <- wt_psinv %*% w # q x q = W' Psinv W
+    innerinv <- chol2inv(chol(iq + wt_psinv_w))
+    beta <- (iq - wt_psinv_w %*% innerinv) %*% wt_psinv # = W' (WW'+Psi)^-1
+    bs <- beta %*% s # q x k
+    ezz <- iq - beta %*% w + bs %*% t(beta) # q x q
+    w_new <- (s %*% t(beta)) %*% chol2inv(chol(ezz)) # k x q
+    psi_new <- pmax(diag(s) - rowSums(w_new * t(bs)), 1e-6 * mean(diag(s)))
+    if (max(abs(w_new - w)) < 1e-7) {
+      w <- w_new
+      break
+    }
+    w <- w_new
+    psi <- psi_new
+  }
+  w
+}
+
 # ---- the joint (multi-output) fit: a distribution-preserving emulator -------
 # The independent path (one .rff_fit_one per column) preserves only the output
 # MARGINALS. The joint path preserves the output COVARIANCE: a matrix-normal --
@@ -237,7 +318,7 @@
 # the off-diagonal cross-output covariance is approximated, at O(k q) storage --
 # the path for large output counts. `sigma` is the rank-q reconstruction, so
 # every downstream path (dense predict, the IES consumer) is unchanged.
-.rff_fit_joint <- function(phi, y, cov_rank = NULL) {
+.rff_fit_joint <- function(phi, y, cov_rank = NULL, cov_method = "eigen") {
   n <- nrow(phi)
   d <- ncol(phi)
   k <- ncol(y)
@@ -276,16 +357,24 @@
   sigma <- crossprod(resid) / dof # k x k noise covariance (standardised scale)
 
   # Optional rank-q factor-analysis storage of the noise covariance (large k).
+  # `cov_method = "eigen"` (default) truncates Sigma's eigendecomposition;
+  # "fa" learns the loadings by EM (better when the residual diagonal is
+  # heteroscedastic). Either way the residual diagonal `dd` is set to reproduce
+  # the covariance diagonal -- hence `<o>_sd` -- exactly.
   sigma_lr <- NULL
   if (!is.null(cov_rank)) {
     q <- as.integer(cov_rank)
     if (q >= 1L && q < k) {
-      eig <- eigen(sigma, symmetric = TRUE)
-      lam <- pmax(eig$values[seq_len(q)], 0)
-      umat <- eig$vectors[, seq_len(q), drop = FALSE] %*% diag(sqrt(lam), q)
+      if (identical(cov_method, "fa")) {
+        umat <- .fa_em(sigma, q)
+      } else {
+        eig <- eigen(sigma, symmetric = TRUE)
+        lam <- pmax(eig$values[seq_len(q)], 0)
+        umat <- eig$vectors[, seq_len(q), drop = FALSE] %*% diag(sqrt(lam), q)
+      }
       dd <- pmax(diag(sigma) - rowSums(umat^2), 0) # residual: exact diagonal
       sigma <- tcrossprod(umat) + diag(dd, k) # rank-q reconstruction
-      sigma_lr <- list(u = umat, d = dd, rank = q)
+      sigma_lr <- list(u = umat, d = dd, rank = q, method = cov_method)
     }
   }
 
@@ -368,12 +457,14 @@ register_surrogate <- function(method, fit_fn) {
 #'   relevance determination) lengthscales by maximising the model evidence
 #'   (default `TRUE`). `FALSE` uses a single isotropic median-heuristic
 #'   lengthscale. Vacuous with one parameter.
-#' @param ard_refit Logical; when `ard = TRUE`, re-estimate the prior/noise
-#'   precisions `(a, t)` by evidence at each candidate lengthscale (the
-#'   evidence *profiled* over `(a, t)`) rather than holding them at their
-#'   isotropic-fit values (default `FALSE`). `TRUE` is a fuller -- and at equal
-#'   lengthscales never lower -- evidence, at the cost of an evidence loop per
-#'   output per optimiser evaluation.
+#' @param ard_refit When `ard = TRUE`, controls the relevance objective.
+#'   `FALSE` (default) holds the prior/noise precisions `(a, t)` at their
+#'   isotropic-fit values. `TRUE` re-estimates `(a, t)` by evidence at each
+#'   candidate lengthscale (the evidence *profiled* over `(a, t)`) -- a fuller,
+#'   never-lower marginal likelihood, but in-sample, so it can over-shorten
+#'   lengthscales. `"cv"` instead maximises the **held-out** predictive
+#'   log-density on a train/validation split, the regularised fuller-ARD: it
+#'   keeps the relevance sharpening without the in-sample over-shortening.
 #' @param joint Logical; for `method = "rff"` with two or more outputs, fit a
 #'   joint multi-output model preserving the cross-output predictive covariance
 #'   (default `TRUE`). `FALSE` fits one independent model per output (marginals
@@ -386,6 +477,12 @@ register_surrogate <- function(method, fit_fn) {
 #'   exactly; only the off-diagonal covariance is approximated. `NULL` (default)
 #'   or `cov_rank >= k` keeps the full covariance. See `predict(...,
 #'   cov = "lowrank")` for the compact predictive return.
+#' @param cov_method How the rank-`cov_rank` factor is fitted (only when
+#'   `cov_rank` is set): `"eigen"` (default) truncates the covariance's
+#'   eigendecomposition; `"fa"` learns the loadings by factor-analysis EM, which
+#'   recovers them more faithfully when the residual diagonal is heteroscedastic
+#'   (the eigenvectors of the full covariance are otherwise contaminated by the
+#'   uneven diagonal). The covariance diagonal is reproduced exactly either way.
 #' @param seed Integer RNG seed for the random features (reproducibility).
 #' @param ... Passed to a registered method's fit function.
 #'
@@ -412,6 +509,7 @@ fit_surrogate <- function(
   ard_refit = FALSE,
   joint = TRUE,
   cov_rank = NULL,
+  cov_method = "eigen",
   seed = 1L,
   ...
 ) {
@@ -508,7 +606,12 @@ fit_surrogate <- function(
     phi <- .rff_features(xs, w, b)
 
     if (joint && ncol(y) >= 2L) {
-      fitobj <- .rff_fit_joint(phi, y, cov_rank = cov_rank)
+      fitobj <- .rff_fit_joint(
+        phi,
+        y,
+        cov_rank = cov_rank,
+        cov_method = cov_method
+      )
     } else {
       models <- lapply(seq_len(ncol(y)), function(j) .rff_fit_one(phi, y[, j]))
       names(models) <- colnames(y)

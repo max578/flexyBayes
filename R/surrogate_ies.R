@@ -37,6 +37,23 @@
   solve(m + diag(jit, d))
 }
 
+# Compute `ctg %*% (diag(rdiag) + lmat lmat')^-1` by the Woodbury identity --
+# the inner solve is `r x r` (r = ncol(lmat)) instead of the dense `d x d`. When
+# the data covariance is diagonal-plus-low-rank (a low-rank emulator covariance
+# plus the forecast anomalies, both factored), this is the native low-rank
+# consumer of contract clause 5: the Kalman gain never forms the dense cd, so
+# the ES-MDA cost scales with the covariance rank, not the output count. Returns
+# the same `p x d` gain the dense path would (tested for equivalence).
+.apply_inv_lowrank <- function(ctg, rdiag, lmat) {
+  rinv <- 1 / rdiag
+  ctg_rinv <- sweep(ctg, 2L, rinv, "*") # p x d  (ctg Rinv)
+  l_rinv <- sweep(lmat, 1L, rinv, "*") # d x r  (Rinv L)
+  inner <- diag(1, ncol(lmat)) + crossprod(lmat, l_rinv) # r x r = I + L' Rinv L
+  innerinv <- .safe_solve(inner)
+  ctg_rinv_l <- ctg_rinv %*% lmat # p x r
+  ctg_rinv - (ctg_rinv_l %*% innerinv) %*% t(l_rinv) # p x d
+}
+
 #' Surrogate-accelerated ensemble inversion (ES-MDA)
 #'
 #' Calibrates a parameter ensemble against observed data using a
@@ -191,6 +208,15 @@ fb_surrogate_ies <- function(
   alpha <- n_iter
   misfit <- numeric(n_iter + 1L)
 
+  # Native low-rank consumer (contract clause 5): when the surrogate stores a
+  # low-rank covariance, fold its factored form straight into the Kalman update
+  # (Woodbury, rank-sized solve) and the observation perturbation -- the d x d
+  # data covariance is never materialised. Falls back to the dense path for a
+  # dense-joint / marginal surrogate or when the surrogate sd is not used.
+  lr_native <- isTRUE(use_surrogate_sd) &&
+    isTRUE(use_surrogate_cov) &&
+    !is.null(surrogate$fit[["sigma_lr"]])
+
   .misfit <- function(g_mat) {
     # mean over realisations of the data misfit (G - obs)' diag(1/obs_var) (.)
     res <- sweep(g_mat, 2L, obs)
@@ -198,8 +224,22 @@ fb_surrogate_ies <- function(
   }
 
   # The surrogate's predictive distribution at the current ensemble, restricted
-  # to the observed outputs: the mean matrix and the mean emulator covariance.
+  # to the observed outputs: the mean matrix, plus the mean emulator covariance
+  # either dense (`emu_cov`) or factored (`emu_u`, `emu_d` for the low-rank
+  # native path; mean cov = emu_u emu_u' + diag(emu_d)).
   .predict_obs <- function(ens) {
+    if (lr_native) {
+      pc <- stats::predict(surrogate, as.data.frame(ens), cov = "lowrank")
+      idx <- match(out_names, pc$output_names)
+      cbar <- mean(pc$cov_lowrank$infl) # mean epistemic inflation
+      u_obs <- pc$cov_lowrank$u[idx, , drop = FALSE]
+      dd_obs <- pc$cov_lowrank$d[idx]
+      return(list(
+        g_mat = pc$mean[, idx, drop = FALSE],
+        emu_u = sqrt(cbar) * u_obs, # d x q
+        emu_d = cbar * dd_obs # d
+      ))
+    }
     pc <- stats::predict(surrogate, as.data.frame(ens), cov = TRUE)
     idx <- match(out_names, pc$output_names)
     g_mat <- pc$mean[, idx, drop = FALSE]
@@ -225,21 +265,36 @@ fb_surrogate_ies <- function(
     g_mat <- pr$g_mat
     misfit[it] <- .misfit(g_mat)
 
-    cd <- diag(obs_var, d) + pr$emu_cov # d x d data covariance
-
     gbar <- colMeans(g_mat)
     tbar <- colMeans(ens)
     dg <- sweep(g_mat, 2L, gbar)
     dt <- sweep(ens, 2L, tbar)
-    cgg <- crossprod(dg) / (n_real - 1L) # d x d
     ctg <- crossprod(dt, dg) / (n_real - 1L) # p x d
-    kgain <- ctg %*% .safe_solve(cgg + alpha * cd) # p x d
 
-    # perturb the observations with covariance alpha * cd (diagonal cd
-    # reproduces the per-output sampling of the marginal path exactly; cd is
-    # strictly positive-definite via the obs_var floor)
-    rmat <- chol(alpha * cd)
-    pert <- matrix(stats::rnorm(n_real * d), n_real, d) %*% rmat
+    if (lr_native) {
+      # cgg + alpha cd = diag(rdiag) + Lfull Lfull', Lfull = [anomalies |
+      # sqrt(alpha) emulator factor]; Woodbury solves r x r, not d x d.
+      rdiag <- alpha * (obs_var + pr$emu_d)
+      lg <- t(dg) / sqrt(n_real - 1L) # d x n_real
+      lfull <- cbind(lg, sqrt(alpha) * pr$emu_u) # d x (n_real + q)
+      kgain <- .apply_inv_lowrank(ctg, rdiag, lfull) # p x d
+      # perturb with covariance alpha cd = diag(rdiag) + alpha emu_u emu_u',
+      # sampled factored (no d x d Cholesky)
+      q_e <- ncol(pr$emu_u)
+      z1 <- matrix(stats::rnorm(n_real * d), n_real, d)
+      z2 <- matrix(stats::rnorm(n_real * q_e), n_real, q_e)
+      pert <- sweep(z1, 2L, sqrt(rdiag), "*") +
+        z2 %*% (sqrt(alpha) * t(pr$emu_u))
+    } else {
+      cd <- diag(obs_var, d) + pr$emu_cov # d x d data covariance
+      cgg <- crossprod(dg) / (n_real - 1L) # d x d
+      kgain <- ctg %*% .safe_solve(cgg + alpha * cd) # p x d
+      # perturb the observations with covariance alpha * cd (diagonal cd
+      # reproduces the per-output sampling of the marginal path exactly; cd is
+      # strictly positive-definite via the obs_var floor)
+      rmat <- chol(alpha * cd)
+      pert <- matrix(stats::rnorm(n_real * d), n_real, d) %*% rmat
+    }
     d_pert <- matrix(obs, n_real, d, byrow = TRUE) + pert
     ens <- ens + (d_pert - g_mat) %*% t(kgain)
     colnames(ens) <- surrogate$param_names
@@ -257,6 +312,7 @@ fb_surrogate_ies <- function(
       n_iter = n_iter,
       use_surrogate_sd = use_surrogate_sd,
       use_surrogate_cov = use_surrogate_cov,
+      lowrank_solve = lr_native,
       surrogate_method = surrogate$method,
       param_names = surrogate$param_names,
       output_names = out_names

@@ -13,6 +13,7 @@ fit_surrogate(
   ard_refit = FALSE,
   joint = TRUE,
   cov_rank = NULL,
+  cov_method = "eigen",
   seed = 1L,
   ...
 )
@@ -34,12 +35,14 @@ relevance determination) lengthscales by maximising the model evidence
 (default \code{TRUE}). \code{FALSE} uses a single isotropic median-heuristic
 lengthscale. Vacuous with one parameter.}
 
-\item{ard_refit}{Logical; when \code{ard = TRUE}, re-estimate the prior/noise
-precisions \verb{(a, t)} by evidence at each candidate lengthscale (the
-evidence \emph{profiled} over \verb{(a, t)}) rather than holding them at their
-isotropic-fit values (default \code{FALSE}). \code{TRUE} is a fuller -- and at equal
-lengthscales never lower -- evidence, at the cost of an evidence loop per
-output per optimiser evaluation.}
+\item{ard_refit}{When \code{ard = TRUE}, controls the relevance objective.
+\code{FALSE} (default) holds the prior/noise precisions \verb{(a, t)} at their
+isotropic-fit values. \code{TRUE} re-estimates \verb{(a, t)} by evidence at each
+candidate lengthscale (the evidence \emph{profiled} over \verb{(a, t)}) -- a fuller,
+never-lower marginal likelihood, but in-sample, so it can over-shorten
+lengthscales. \code{"cv"} instead maximises the \strong{held-out} predictive
+log-density on a train/validation split, the regularised fuller-ARD: it
+keeps the relevance sharpening without the in-sample over-shortening.}
 
 \item{joint}{Logical; for \code{method = "rff"} with two or more outputs, fit a
 joint multi-output model preserving the cross-output predictive covariance
@@ -53,6 +56,13 @@ form (\verb{U U' + diag}) instead of the dense \verb{k x k}, for large output co
 The per-output marginal sd and the covariance diagonal are reproduced
 exactly; only the off-diagonal covariance is approximated. \code{NULL} (default)
 or \code{cov_rank >= k} keeps the full covariance. See \code{predict(..., cov = "lowrank")} for the compact predictive return.}
+
+\item{cov_method}{How the rank-\code{cov_rank} factor is fitted (only when
+\code{cov_rank} is set): \code{"eigen"} (default) truncates the covariance's
+eigendecomposition; \code{"fa"} learns the loadings by factor-analysis EM, which
+recovers them more faithfully when the residual diagonal is heteroscedastic
+(the eigenvectors of the full covariance are otherwise contaminated by the
+uneven diagonal). The covariance diagonal is reproduced exactly either way.}
 
 \item{seed}{Integer RNG seed for the random features (reproducibility).}
 

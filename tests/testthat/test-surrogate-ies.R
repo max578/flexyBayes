@@ -120,6 +120,91 @@ test_that("fb_surrogate_ies() validates its arguments", {
   )
 })
 
+# ---- native low-rank consumer (Woodbury, contract clause 5) -----------------
+
+test_that(".apply_inv_lowrank() equals the dense inverse-apply", {
+  set.seed(3L)
+  p <- 4L
+  d <- 9L
+  r <- 3L
+  ctg <- matrix(stats::rnorm(p * d), p, d)
+  rdiag <- stats::runif(d, 0.5, 2)
+  lmat <- matrix(stats::rnorm(d * r), d, r)
+  dense <- ctg %*% solve(diag(rdiag) + tcrossprod(lmat))
+  wood <- .apply_inv_lowrank(ctg, rdiag, lmat)
+  expect_equal(wood, dense) # Woodbury == dense to machine precision
+})
+
+test_that("a low-rank surrogate drives the IES native (Woodbury) solve", {
+  # 5 outputs, rank-2 stored covariance -> the IES uses the factored Kalman path
+  set.seed(20260603L)
+  g <- rbind(
+    c(1.5, -0.8),
+    c(0.4, 1.1),
+    c(-0.9, 0.6),
+    c(0.7, 0.3),
+    c(-0.4, 1.2)
+  )
+  n <- 250L
+  theta <- cbind(p1 = stats::runif(n, -3, 3), p2 = stats::runif(n, -3, 3))
+  y <- theta %*% t(g)
+  colnames(y) <- paste0("o", seq_len(5L))
+  e <- fb_ensemble(
+    params = as.data.frame(theta),
+    outputs = as.data.frame(y),
+    provenance = list(source = "raw")
+  )
+  s_lr <- fit_surrogate(e, joint = TRUE, cov_rank = 2L, seed = 1L)
+
+  theta_true <- c(p1 = 1.2, p2 = -0.7)
+  observed <- as.numeric(g %*% theta_true)
+  names(observed) <- paste0("o", seq_len(5L))
+  set.seed(11L)
+  prior <- data.frame(
+    p1 = stats::rnorm(300L, 0, 1.5),
+    p2 = stats::rnorm(300L, 0, 1.5)
+  )
+  fit <- fb_surrogate_ies(
+    s_lr,
+    observed,
+    obs_sd = 0.05,
+    prior = prior,
+    n_iter = 4L,
+    seed = 7L
+  )
+  expect_true(fit$lowrank_solve) # the native low-rank path ran
+  post_err <- sqrt(sum((colMeans(fit$posterior) - theta_true)^2))
+  expect_lt(post_err, 0.25) # and it recovers the truth
+  expect_lt(fit$misfit[length(fit$misfit)], fit$misfit[1L])
+})
+
+test_that("a dense-joint surrogate falls back to the dense IES solve", {
+  obj <- .mk_ies_surrogate() # joint, no cov_rank -> dense covariance
+  set.seed(12L)
+  prior <- data.frame(
+    p1 = stats::rnorm(200L, 0, 1.5),
+    p2 = stats::rnorm(200L, 0, 1.5)
+  )
+  fit <- fb_surrogate_ies(
+    obj$surrogate,
+    c(o1 = 1.0, o2 = 0.5, o3 = -0.3),
+    obs_sd = 0.1,
+    prior = prior,
+    seed = 3L
+  )
+  expect_false(fit$lowrank_solve)
+  # and use_surrogate_cov = FALSE also takes the dense (diagonal) path
+  fit_diag <- fb_surrogate_ies(
+    obj$surrogate,
+    c(o1 = 1.0, o2 = 0.5, o3 = -0.3),
+    obs_sd = 0.1,
+    prior = prior,
+    use_surrogate_cov = FALSE,
+    seed = 3L
+  )
+  expect_false(fit_diag$lowrank_solve)
+})
+
 test_that("print.fb_surrogate_ies() summarises the prior -> posterior shift", {
   obj <- .mk_ies_surrogate()
   prior <- data.frame(p1 = stats::rnorm(80), p2 = stats::rnorm(80))

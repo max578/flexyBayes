@@ -2,6 +2,24 @@
 
 ## New features
 
+- **`fb_surrogate_ies()` consumes a low-rank covariance natively (Woodbury).**
+  When the surrogate stores a low-rank covariance (`cov_rank`), the ES-MDA Kalman
+  update folds the factored form straight in via the Woodbury identity (a
+  rank-sized solve) and samples the observation perturbation factored, so the
+  `d x d` data covariance is never formed -- the inversion cost scales with the
+  covariance rank, not the output count. Produces the same Kalman gain as the
+  dense path (a dense-joint or marginal surrogate keeps the dense path).
+- **`fit_surrogate(cov_method = "fa")` learns the low-rank factor by EM.**
+  In addition to the default eigen-truncation (`"eigen"`), the rank-`cov_rank`
+  factor can be fitted by factor-analysis EM, which recovers the loadings more
+  faithfully when the residual diagonal is heteroscedastic (the eigenvectors of
+  the full covariance are otherwise contaminated by the uneven diagonal). The
+  covariance diagonal stays exact either way.
+- **`fit_surrogate(ard_refit = "cv")` regularises the fuller evidence-ARD.**
+  The `ard_refit = TRUE` profiling maximises the in-sample evidence and can
+  over-shorten lengthscales; `"cv"` instead maximises the held-out predictive
+  log-density on a train/validation split, keeping the relevance sharpening
+  without the in-sample over-shortening.
 - **`fb_surrogate_ppc()` gains a joint draw path (contract C7 v1.2).** With
   `joint = TRUE` (default) the predictive-check draws are sampled from the full
   cross-output predictive covariance (`predict(cov = TRUE)` + a per-row

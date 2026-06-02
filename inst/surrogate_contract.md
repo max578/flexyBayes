@@ -51,9 +51,13 @@ a surrogate.
    `cov_lowrank = list(u, d, infl)` (per-row covariance `infl[i] * (u u' +
    diag(d))`), `O(k q + n)` storage instead of the dense `O(k^2 n)`. The
    factorisation reproduces the covariance diagonal -- hence `<o>_sd^2` (clause
-   2) -- **exactly**, approximating only the off-diagonal covariance.
-   [fb_cov_slice()] reconstructs a `k x k` slice from either form, so a consumer
-   can work slice-by-slice without materialising the dense array.
+   2) -- **exactly**, approximating only the off-diagonal covariance. The factor
+   is fitted by an eigen-truncation (`cov_method = "eigen"`, default) or by
+   factor-analysis EM (`cov_method = "fa"`, more faithful when the residual
+   diagonal is heteroscedastic). [fb_cov_slice()] reconstructs a `k x k` slice
+   from either form, so a consumer can work slice-by-slice without materialising
+   the dense array; a consumer may also use `cov_lowrank` directly (the IES does,
+   via Woodbury) so the data covariance is never formed at `k x k`.
 
 ## The registry (how richer surrogates plug in)
 
@@ -70,7 +74,7 @@ on scale -- a conformer must not re-standardise.
 
 | Producer | method | How it conforms |
 |---|---|---|
-| **flexyBayes (reference)** | `rff` | Random Fourier features + Bayesian linear regression, predictive variance set by MacKay evidence maximisation (calibrated `<o>_sd`). Uses **ARD** lengthscales by default (per-input relevance learned from the evidence) and a **joint** multi-output fit (matrix-normal -- inverse-Wishart) preserving the cross-output covariance (clause 4); `ard = FALSE` / `joint = FALSE` recover the isotropic / per-output behaviour. `ard_refit = TRUE` profiles the prior/noise precisions `(a, t)` at each lengthscale (a fuller evidence, opt-in); `cov_rank = q` stores a rank-`q` low-rank covariance for large output counts (clause 5). Self-contained -- the always-available default. |
+| **flexyBayes (reference)** | `rff` | Random Fourier features + Bayesian linear regression, predictive variance set by MacKay evidence maximisation (calibrated `<o>_sd`). Uses **ARD** lengthscales by default (per-input relevance learned from the evidence) and a **joint** multi-output fit (matrix-normal -- inverse-Wishart) preserving the cross-output covariance (clause 4); `ard = FALSE` / `joint = FALSE` recover the isotropic / per-output behaviour. `ard_refit = TRUE` profiles the prior/noise precisions `(a, t)` at each lengthscale (a fuller evidence, opt-in; `"cv"` regularises it on a held-out split); `cov_rank = q` stores a rank-`q` low-rank covariance (clause 5; `cov_method = "eigen"` or `"fa"`) for large output counts. Self-contained -- the always-available default. |
 | **PESTO** | `gp` | `train_gp_surrogate()` / `predict_gp_surrogate()` already report a per-output predictive `$mean` **and** `$variance`, so the adapter maps them straight onto `<o>_mean` / `<o>_sd = sqrt(variance)`. Registered by `register_pesto_surrogates()`. (PESTO's `rff` surrogate returns only an aggregate `$uncertainty`, not per-output variance, so it is not registered.) |
 | **kernR** | `cme` | `fit_cme()` is a kernel linear smoother: it yields the conditional *mean* `y_hat(x*) = w(x*)' y` but **no** predictive variance. The adapter supplies the standard linear-smoother predictive variance `sigma^2 (1 + ||w(x*)||^2)` (with `sigma^2 = RSS / (n - tr(S))` from the in-sample smoother), so `<o>_sd` is honest. The conditional-mean map stays kernR's; only the UQ is added. Registered by `register_kernr_surrogates()`. (`dist_regression()` takes distributional *bag* inputs, not a parameter design, so it is not a C7 surrogate.) |
 
@@ -105,8 +109,13 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   surrogate is joint, the **full** cross-output predictive covariance (clause 4,
   `cov = TRUE`) enters the data covariance, so correlated emulator errors are
   assimilated coherently (`use_surrogate_cov = TRUE`, default); a marginals-only
-  surrogate falls back to the diagonal, identical to the per-output path. It
-  consumes any conforming `fb_surrogate` via `predict()`; it deliberately does
+  surrogate falls back to the diagonal, identical to the per-output path. When
+  the surrogate stores a **low-rank** covariance (`cov_rank`, clause 5) the IES
+  consumes the factored form natively -- the Kalman update uses the Woodbury
+  identity (a rank-sized solve) and the perturbation is sampled factored, so the
+  `d x d` data covariance is never formed (the native low-rank consumer for a
+  large output count). It consumes any conforming `fb_surrogate` via
+  `predict()`; it deliberately does
   **not** route through PESTO's `pesto_surrogate_ies()`, which is monolithic
   (its GP is trained internally in C++ and cannot accept an external surrogate),
   so flexyBayes is standalone-functional for surrogate-accelerated inversion.

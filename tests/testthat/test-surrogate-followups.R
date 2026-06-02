@@ -1,15 +1,20 @@
 # =============================================================================
-# test-surrogate-followups.R -- the cont.37 C7 v1.2 follow-ups:
-#   (a) fuller evidence-ARD (ard_refit): profile (a, t) at each lengthscale;
-#   (b) low-rank predictive covariance (cov_rank) for large output counts.
+# test-surrogate-followups.R -- the C7 v1.2 follow-ups on the reference rff
+# surrogate (cont.37-38):
+#   (a) fuller evidence-ARD (ard_refit = TRUE): profile (a, t) at each lengthscale;
+#   (b) low-rank predictive covariance (cov_rank) for large output counts;
+#   (c) cv-regularised ARD (ard_refit = "cv"): cure the in-sample over-shortening;
+#   (d) factor-analysis-EM low-rank factor (cov_method = "fa") for heteroscedastic
+#       residual noise.
 #
-# Both build on the reference rff surrogate. ard_refit is tested by its
-# mathematical guarantee (profiling can only raise the evidence) + determinism +
-# preserved relevance ordering, NOT a recovery-improvement claim (it can
-# over-shorten lengthscales -- an honest evidence-vs-generalisation tradeoff, so
-# it stays opt-in). cov_rank is tested by the two exact guarantees it makes (the
-# covariance diagonal is reproduced exactly; the compact and dense forms agree)
-# plus accurate reconstruction when the true covariance is genuinely low-rank.
+# ard_refit = TRUE is tested by its mathematical guarantee (profiling can only
+# raise the evidence) + determinism + relevance ordering, NOT a recovery claim
+# (it over-shortens -- an honest tradeoff, opt-in). cov_rank is tested by its two
+# exact guarantees (the covariance diagonal is reproduced exactly; the compact
+# and dense forms agree) + accurate reconstruction on a genuinely low-rank
+# covariance. cv regularises the profiling (less over-short, better recovery than
+# the raw profiling). fa beats eigen-truncation on heteroscedastic noise. The
+# native low-rank IES consumer (Woodbury) is tested in test-surrogate-ies.R.
 # =============================================================================
 
 # ---- (a) fuller evidence-ARD (ard_refit) ------------------------------------
@@ -193,4 +198,97 @@ test_that("cov = lowrank errors on a non-joint surrogate; fb_cov_slice bounds", 
   p_lr <- predict(s_joint, nd, cov = "lowrank")
   expect_error(fb_cov_slice(p_lr, 5L), "row index in 1:")
   expect_error(fb_cov_slice("nope"), "must be an fb_surrogate_prediction")
+})
+
+# ---- (c) cv-regularised ARD: cures the profiling over-shortening -------------
+
+test_that("ard_refit = 'cv' is deterministic and regularises the profiling", {
+  e <- .mk_ard_design() # 1 relevant (x1) + 2 irrelevant inputs
+  s_fix <- fit_surrogate(e, ard = TRUE, ard_refit = FALSE, seed = 1L)
+  s_pro <- fit_surrogate(e, ard = TRUE, ard_refit = TRUE, seed = 1L)
+  s_cv <- fit_surrogate(e, ard = TRUE, ard_refit = "cv", seed = 1L)
+  s_cv2 <- fit_surrogate(e, ard = TRUE, ard_refit = "cv", seed = 1L)
+  expect_equal(s_cv$fit$lengthscales, s_cv2$fit$lengthscales) # deterministic
+  ls_cv <- s_cv$fit$lengthscales
+  expect_length(ls_cv, 3L)
+  # relevance ordering preserved (the relevant input keeps the shortest scale)
+  expect_lt(ls_cv[1L], min(ls_cv[2L], ls_cv[3L]))
+  # the cv objective is less over-shortened than the in-sample profiling: its
+  # relevant lengthscale is longer (less overfit) ...
+  expect_gt(ls_cv[1L], s_pro$fit$lengthscales[1L])
+  # ... and held-out recovery beats the raw profiling
+  set.seed(9L)
+  nd <- data.frame(
+    x1 = stats::runif(300, -2, 2),
+    x2 = stats::runif(300, -2, 2),
+    x3 = stats::runif(300, -2, 2)
+  )
+  truth <- sin(1.5 * nd$x1)
+  rmse <- function(s) sqrt(mean((predict(s, nd)$y_mean - truth)^2))
+  expect_lt(rmse(s_cv), rmse(s_pro))
+})
+
+# ---- (b) factor-analysis low-rank: faithful on heteroscedastic noise --------
+
+# k outputs whose residual noise is a q-factor loading PLUS a strongly uneven
+# idiosyncratic diagonal -- the regime where the top eigenvectors of the full
+# covariance are contaminated by the diagonal and eigen-truncation mis-estimates
+# the loadings, while factor-analysis EM separates them.
+.mk_hetero_lowrank <- function(k = 7L, q_true = 2L, n = 500L) {
+  set.seed(7L)
+  a <- stats::runif(n, -2, 2)
+  b <- stats::runif(n, -2, 2)
+  loadings <- matrix(stats::rnorm(k * q_true), k, q_true)
+  z <- matrix(stats::rnorm(n * q_true), n, q_true)
+  idio <- rep(c(0.05, 0.65), length.out = k) # heteroscedastic idiosyncratic sd
+  signal <- cbind(sin(a), 0.5 * b) %*% t(matrix(stats::rnorm(k * 2L), k, 2L))
+  noise <- z %*%
+    t(loadings) +
+    sweep(matrix(stats::rnorm(n * k), n, k), 2L, idio, "*")
+  y <- signal + noise
+  colnames(y) <- paste0("o", seq_len(k))
+  fb_ensemble(
+    params = data.frame(a = a, b = b),
+    outputs = as.data.frame(y),
+    provenance = list(source = "raw")
+  )
+}
+
+test_that("cov_method = 'fa' beats eigen-truncation on heteroscedastic noise", {
+  e <- .mk_hetero_lowrank(k = 7L, q_true = 2L)
+  s_full <- fit_surrogate(e, joint = TRUE, seed = 1L)
+  s_eig <- fit_surrogate(
+    e,
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "eigen",
+    seed = 1L
+  )
+  s_fa <- fit_surrogate(
+    e,
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "fa",
+    seed = 1L
+  )
+  s_fa2 <- fit_surrogate(
+    e,
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "fa",
+    seed = 1L
+  )
+  expect_identical(s_fa$fit$sigma_lr$method, "fa")
+  expect_equal(s_fa$fit$sigma_lr$u, s_fa2$fit$sigma_lr$u) # deterministic
+
+  nd <- data.frame(a = 0.4, b = -0.3)
+  cf <- fb_cov_slice(predict(s_full, nd, cov = TRUE), 1L)
+  ce <- fb_cov_slice(predict(s_eig, nd, cov = "lowrank"), 1L)
+  cfa <- fb_cov_slice(predict(s_fa, nd, cov = "lowrank"), 1L)
+  off <- function(m) m[upper.tri(m)]
+  rel <- function(c) max(abs(off(c) - off(cf))) / max(abs(off(cf)))
+  # both keep the diagonal exact; FA recovers the off-diagonals more faithfully
+  expect_equal(diag(cfa), diag(cf))
+  expect_equal(diag(ce), diag(cf))
+  expect_lt(rel(cfa), rel(ce))
 })
