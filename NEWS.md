@@ -2,6 +2,11 @@
 
 ## New features
 
+- **New vignette: distribution-preserving surrogates (emulate, invert, check).**
+  A self-contained walkthrough of the C7 surrogate workflow -- ingest an
+  ensemble, fit a surrogate, read its predictive distribution, invert it with
+  `fb_surrogate_ies()`, and check it with `fb_surrogate_ppc()` -- runnable on the
+  built-in reference surrogate with no other package.
 - **`fb_surrogate_ppc(project = TRUE)` runs a factor-space MMD for large output
   counts.** For a surrogate that stores a low-rank covariance (`cov_rank`), the
   predictive-check draws and `observed` are projected onto the surrogate's `q`
