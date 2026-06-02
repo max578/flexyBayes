@@ -397,12 +397,16 @@
   )
   .register_backend(
     name = "gretaR",
-    status = "dormant",
-    engine = NA_character_,
-    grammars = "greta",
+    status = "active",
+    engine = "emit_gretaR",
+    grammars = c("asreml", "brms", "greta"),
     paradigm = "hmc_nuts",
-    available_pkg = NA_character_,
-    default_in_auto = TRUE,
+    available_pkg = "gretaR",
+    default_in_auto = TRUE,         # an auto CANDIDATE; actual auto-selection
+                                    # stays gated on options(flexyBayes.gretaR_
+                                    # activated) + the lgm flag (both dormant by
+                                    # default), so auto keeps choosing greta/INLA
+    capability_predicate = .capability_gretaR,
     registered_in_adr = "0013/0031"
   )
   invisible(NULL)

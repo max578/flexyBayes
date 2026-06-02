@@ -511,13 +511,38 @@
     error = function(e) NULL
   )
 
-  # gretaR slot: dormant in v0.2. The branch is unreachable from
-  # user-facing entries (their match.arg excludes "gretaR") but
-  # reachable from internal callers + the test suite. v0.3
-  # activation replaces the refusal with the real emit_gretaR()
-  # call; the branch structure stays.
+  # gretaR backend (activated): an explicit opt-in backend driven out of
+  # process (greta + gretaR share symbols, cannot co-load). The capability
+  # predicate refuses model classes gretaR cannot express (structured
+  # covariance) before the worker is launched. See R/emit_gretaR.R +
+  # inst/backend_contract.md.
   if (identical(backend, "gretaR")) {
-    .gretaR_dormant_refusal(call = the_call)
+    cap <- .capability_gretaR(fb)
+    if (!isTRUE(cap)) {
+      stop(.fb_refusal_condition(
+        reason_code = cap,
+        message = paste0("backend = \"gretaR\" cannot fit this model (",
+                         cap, "). Use backend = \"greta\" / \"inla\" / ",
+                         "\"brms\"."),
+        family_class = "flexybayes_gretaR_refusal"
+      ))
+    }
+    fit <- .backend_emit_fn("gretaR")(
+      fb = fb, data = data, known_matrices = known_matrices,
+      weights = weights, n_samples = n_samples, warmup = warmup,
+      chains = chains, prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd = prior_vc_sd, verbose = verbose,
+      mcmc_verbose = mcmc_verbose, return_code = return_code,
+      the_call = the_call, fixed = fixed, random = random, rcov = rcov,
+      family = family, link = link, data_name = data_name
+    )
+    if (!isTRUE(return_code) && !is.null(fit$extras)) {
+      fit$extras$fb_terms <- fb
+      if (!is.null(fb_dataset_meta_for_fit)) {
+        fit$extras$fb_dataset <- fb_dataset_meta_for_fit
+      }
+    }
+    return(fit)
   }
 
   # Stage 2 MVP design-memory preflight (ADR 0021). Runs only above

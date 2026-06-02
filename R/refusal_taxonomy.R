@@ -1093,6 +1093,36 @@
   invisible(NULL)
 }
 
+# gretaR backend activation (ADR 0013/0031): the refusal codes the gretaR
+# backend (R/emit_gretaR.R + the dispatch branch) can raise. Registered
+# alongside the others before the registry locks (see R/zzz.R).
+.populate_refusal_registry_gretaR <- function() {
+  reg <- function(code, desc, tmpl) {
+    .register_refusal(reason_code = code, description = desc,
+                      message_template = tmpl, registered_in_adr = "ADR 0013/0031",
+                      plan_field = NA_character_, since_version = "0.6.0.9000")
+  }
+  reg("gretaR_cannot_represent_structured_cov",
+      "gretaR backend: structured covariance (vm/ped/fa/us/ar1) is outside the gretaR worker's model class.",
+      "backend = \"gretaR\" cannot fit this model (%s).")
+  reg("gretaR_random_term_type_unsupported",
+      "gretaR backend: only random-intercept-class random terms are supported.",
+      "backend = \"gretaR\" cannot fit this model (%s).")
+  reg("gretaR_family_unsupported",
+      "gretaR backend: family outside gaussian/binomial/poisson.",
+      "%s")
+  reg("gretaR_random_group_not_in_data",
+      "gretaR backend: the random-intercept grouping factor is absent from the data.",
+      "%s")
+  reg("gretaR_below_version_floor",
+      "gretaR backend: the installed gretaR is older than the activation floor.",
+      "%s")
+  reg("gretaR_not_installed",
+      "gretaR backend: the gretaR package is not installed and no source home is set.",
+      "%s")
+  invisible(NULL)
+}
+
 
 # --- lock helper -------------------------------------------------- #
 

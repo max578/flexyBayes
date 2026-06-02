@@ -24,7 +24,7 @@ flexybayes(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("auto", "greta", "inla", "brms"),
+  backend = c("auto", "greta", "inla", "brms", "gretaR"),
   aggregate = "auto",
   plan = FALSE,
   syntax = c("auto", "asreml", "brms", "greta")
@@ -49,7 +49,7 @@ fb(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("auto", "greta", "inla", "brms"),
+  backend = c("auto", "greta", "inla", "brms", "gretaR"),
   aggregate = "auto",
   plan = FALSE,
   syntax = c("auto", "asreml", "brms", "greta")

@@ -186,4 +186,7 @@ gretaR_status <- function() {
 # defined by the time this line runs. v0.3 activation: replace
 # .mapper_gretaR_stub with .mapper_gretaR_real in one place here.
 
-register_canonical_mapper("gretaR", .mapper_gretaR_stub)
+# Activated: the real mapper (defined in R/emit_gretaR.R, sourced first,
+# alphabetic 'e' < 'g'). gretaR draws are already canonically named by the
+# worker's model_from_arrays(names=), so the mapper is a near-identity.
+register_canonical_mapper("gretaR", .mapper_gretaR_real)

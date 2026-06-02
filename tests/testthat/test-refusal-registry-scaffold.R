@@ -124,7 +124,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 47-code vocabulary", {
+test_that(".refusal_registry holds the complete 53-code vocabulary", {
   reg <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
   # 31 from the Phase 1C bulk migration + the family-support refusal,
@@ -142,8 +142,13 @@ test_that(".refusal_registry holds the complete 47-code vocabulary", {
   # (fb() now fits a native greta graph) and two genuine refusals are
   # added: native_greta_requires_greta_backend (a native graph on a
   # non-greta engine) and engine_pin_backend_conflict (a pin handed a
-  # conflicting backend) (= 47).
-  expect_equal(length(entries), 47L)
+  # conflicting backend) (= 47). At v0.6.0.9000 the gretaR backend is
+  # activated (cont. 30): six gretaR refusals are registered --
+  # gretaR_not_installed, gretaR_below_version_floor,
+  # gretaR_family_unsupported, gretaR_random_group_not_in_data,
+  # gretaR_random_term_type_unsupported,
+  # gretaR_cannot_represent_structured_cov (= 53).
+  expect_equal(length(entries), 53L)
   expect_true("stan_cannot_represent_structured_cov" %in% entries)
   expect_true("grammar_brms_with_asreml_terms" %in% entries)
   expect_true("native_greta_requires_greta_backend" %in% entries)
@@ -158,6 +163,8 @@ test_that(".refusal_registry holds the complete 47-code vocabulary", {
   expect_true("design_memory_exceeds_ceiling" %in% entries) # preflight
   expect_true("unsupported_family" %in% entries) # family gate
   expect_true("fb_cov_type_unknown" %in% entries) # fb_cov carrier
+  expect_true("gretaR_not_installed" %in% entries) # gretaR backend
+  expect_true("gretaR_cannot_represent_structured_cov" %in% entries) # gretaR gate
 
   # control-flow / routing reasons must NOT be registered
   expect_false("non_gaussian_family" %in% entries)

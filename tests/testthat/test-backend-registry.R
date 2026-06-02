@@ -71,7 +71,7 @@ test_that("the v0.5.0 population registers the expected backends", {
   expect_identical(flexyBayes:::.lookup_backend("greta")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("inla")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("brms")$status, "active")
-  expect_identical(flexyBayes:::.lookup_backend("gretaR")$status, "dormant")
+  expect_identical(flexyBayes:::.lookup_backend("gretaR")$status, "active")
   # brms is retained as the engine label (the brms -> stan rename was
   # reversed 2026-05-31); no backend carries a rename target.
   expect_true(is.na(flexyBayes:::.lookup_backend("brms")$rename_to))
@@ -135,8 +135,9 @@ test_that(".available_backend_names() are active and installed", {
       expect_true(requireNamespace(e$available_pkg, quietly = TRUE), info = nm)
     }
   }
-  # gretaR (dormant) is never available.
-  expect_false("gretaR" %in% avail)
+  # gretaR is activated; it is "available" iff the gretaR package is installed
+  # (the version-floor probe is enforced downstream, in emit_gretaR()).
+  expect_identical("gretaR" %in% avail, nzchar(system.file(package = "gretaR")))
 })
 
 test_that("capability predicates: greta universal, brms refuses structured-cov", {
