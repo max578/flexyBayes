@@ -2,6 +2,24 @@
 
 ## New features
 
+- **`fb_surrogate_ppc(project = TRUE)` runs a factor-space MMD for large output
+  counts.** For a surrogate that stores a low-rank covariance (`cov_rank`), the
+  predictive-check draws and `observed` are projected onto the surrogate's `q`
+  factor directions before the MMD, so the test runs in `q` dimensions, not `k`
+  -- cheaper and higher-powered on the correlated cross-output structure (the MMD
+  loses power as the dimension grows). It is, by design, blind to distortions
+  orthogonal to the factor space (idiosyncratic per-output errors, which the
+  marginal and `joint = FALSE` checks cover), so it complements the full-space
+  check.
+- **`fit_surrogate(cov_method = "auto")` picks the low-rank factor method.**
+  In addition to `"eigen"` (default) and `"fa"`, `"auto"` selects between them
+  from the heteroscedasticity of the eigen-residual diagonal -- `"fa"` when the
+  residual is uneven (where eigen-truncation is biased), `"eigen"` otherwise. The
+  resolved method is recorded in the fitted object.
+- **`fit_surrogate(ard_refit = "cv")` now uses k-fold cross-validation.** The
+  held-out predictive-density objective is summed over a k-fold partition of the
+  subsample rather than a single split -- a less noisy objective, so the
+  Nelder-Mead lands on sharper lengthscales.
 - **`fb_surrogate_ppc()` samples a low-rank covariance factored.** When the
   surrogate stores a low-rank covariance (`cov_rank`), the joint predictive-check
   draws are sampled from the factored form directly -- a `q`-dimensional factor

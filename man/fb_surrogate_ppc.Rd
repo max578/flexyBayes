@@ -10,6 +10,7 @@ fb_surrogate_ppc(
   observed,
   n_draws = 1L,
   joint = TRUE,
+  project = FALSE,
   seed = NULL,
   ...
 )
@@ -32,6 +33,16 @@ single output, or for a surrogate that reports only marginals (its
 covariance is diagonal). When the surrogate stores a low-rank covariance
 (\code{cov_rank}), the joint draws are sampled from the factored form directly,
 so the \verb{k x k} slice is never formed (the native low-rank PPC consumer).}
+
+\item{project}{Logical; for a surrogate that stores a low-rank covariance
+(\code{cov_rank}), project both the predictive draws and \code{observed} onto the
+surrogate's \code{q} factor directions before the MMD (default \code{FALSE}). It
+then runs in \code{q} dimensions, not \code{k} -- cheaper and higher-powered on the
+correlated cross-output structure for a large output count (the MMD loses
+power as the dimension grows). It is, deliberately, \strong{blind to distortions
+orthogonal to the factor space} (purely idiosyncratic per-output errors,
+which the marginal \verb{<o>_sd} and a \code{joint = FALSE} check cover), so it
+complements rather than replaces the full-space check.}
 
 \item{seed}{Optional integer RNG seed (the caller's stream is restored).}
 

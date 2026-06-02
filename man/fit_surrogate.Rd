@@ -41,8 +41,8 @@ isotropic-fit values. \code{TRUE} re-estimates \verb{(a, t)} by evidence at each
 candidate lengthscale (the evidence \emph{profiled} over \verb{(a, t)}) -- a fuller,
 never-lower marginal likelihood, but in-sample, so it can over-shorten
 lengthscales. \code{"cv"} instead maximises the \strong{held-out} predictive
-log-density on a train/validation split, the regularised fuller-ARD: it
-keeps the relevance sharpening without the in-sample over-shortening.}
+log-density over a k-fold split, the regularised fuller-ARD: it keeps the
+relevance sharpening without the in-sample over-shortening.}
 
 \item{joint}{Logical; for \code{method = "rff"} with two or more outputs, fit a
 joint multi-output model preserving the cross-output predictive covariance
@@ -62,7 +62,10 @@ or \code{cov_rank >= k} keeps the full covariance. See \code{predict(..., cov = 
 eigendecomposition; \code{"fa"} learns the loadings by factor-analysis EM, which
 recovers them more faithfully when the residual diagonal is heteroscedastic
 (the eigenvectors of the full covariance are otherwise contaminated by the
-uneven diagonal). The covariance diagonal is reproduced exactly either way.}
+uneven diagonal); \code{"auto"} picks \code{"fa"} or \code{"eigen"} from the
+heteroscedasticity of the eigen-residual diagonal. The covariance diagonal
+is reproduced exactly in every case. The resolved method is recorded in the
+fitted object.}
 
 \item{seed}{Integer RNG seed for the random features (reproducibility).}
 

@@ -52,13 +52,15 @@ a surrogate.
    diag(d))`), `O(k q + n)` storage instead of the dense `O(k^2 n)`. The
    factorisation reproduces the covariance diagonal -- hence `<o>_sd^2` (clause
    2) -- **exactly**, approximating only the off-diagonal covariance. The factor
-   is fitted by an eigen-truncation (`cov_method = "eigen"`, default) or by
+   is fitted by an eigen-truncation (`cov_method = "eigen"`, default), by
    factor-analysis EM (`cov_method = "fa"`, more faithful when the residual
-   diagonal is heteroscedastic). [fb_cov_slice()] reconstructs a `k x k` slice
+   diagonal is heteroscedastic), or `"auto"` (picks between them by the
+   eigen-residual heteroscedasticity). [fb_cov_slice()] reconstructs a `k x k` slice
    from either form, so a consumer can work slice-by-slice without materialising
    the dense array; a consumer may also use `cov_lowrank` directly (the IES does,
    via Woodbury; the PPC samples it factored) so the `k x k` covariance is never
-   formed.
+   formed. The factor is fitted by `cov_method`: `"eigen"`, `"fa"`, or `"auto"`
+   (picks between them by the heteroscedasticity of the eigen-residual diagonal).
 
 ## The registry (how richer surrogates plug in)
 
@@ -75,7 +77,7 @@ on scale -- a conformer must not re-standardise.
 
 | Producer | method | How it conforms |
 |---|---|---|
-| **flexyBayes (reference)** | `rff` | Random Fourier features + Bayesian linear regression, predictive variance set by MacKay evidence maximisation (calibrated `<o>_sd`). Uses **ARD** lengthscales by default (per-input relevance learned from the evidence) and a **joint** multi-output fit (matrix-normal -- inverse-Wishart) preserving the cross-output covariance (clause 4); `ard = FALSE` / `joint = FALSE` recover the isotropic / per-output behaviour. `ard_refit = TRUE` profiles the prior/noise precisions `(a, t)` at each lengthscale (a fuller evidence, opt-in; `"cv"` regularises it on a held-out split); `cov_rank = q` stores a rank-`q` low-rank covariance (clause 5; `cov_method = "eigen"` or `"fa"`) for large output counts. Self-contained -- the always-available default. |
+| **flexyBayes (reference)** | `rff` | Random Fourier features + Bayesian linear regression, predictive variance set by MacKay evidence maximisation (calibrated `<o>_sd`). Uses **ARD** lengthscales by default (per-input relevance learned from the evidence) and a **joint** multi-output fit (matrix-normal -- inverse-Wishart) preserving the cross-output covariance (clause 4); `ard = FALSE` / `joint = FALSE` recover the isotropic / per-output behaviour. `ard_refit = TRUE` profiles the prior/noise precisions `(a, t)` at each lengthscale (a fuller evidence, opt-in; `"cv"` regularises it on a k-fold held-out split); `cov_rank = q` stores a rank-`q` low-rank covariance (clause 5; `cov_method = "eigen"` / `"fa"` / `"auto"`) for large output counts. Self-contained -- the always-available default. |
 | **PESTO** | `gp` | `train_gp_surrogate()` / `predict_gp_surrogate()` already report a per-output predictive `$mean` **and** `$variance`, so the adapter maps them straight onto `<o>_mean` / `<o>_sd = sqrt(variance)`. Registered by `register_pesto_surrogates()`. (PESTO's `rff` surrogate returns only an aggregate `$uncertainty`, not per-output variance, so it is not registered.) |
 | **kernR** | `cme` | `fit_cme()` is a kernel linear smoother: it yields the conditional *mean* `y_hat(x*) = w(x*)' y` but **no** predictive variance. The adapter supplies the standard linear-smoother predictive variance `sigma^2 (1 + ||w(x*)||^2)` (with `sigma^2 = RSS / (n - tr(S))` from the in-sample smoother), so `<o>_sd` is honest. The conditional-mean map stays kernR's; only the UQ is added. Registered by `register_kernr_surrogates()`. (`dist_regression()` takes distributional *bag* inputs, not a parameter design, so it is not a C7 surrogate.) |
 
@@ -134,7 +136,10 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   **low-rank** covariance (`cov_rank`, clause 5) the joint draws are sampled from
   the factored form directly (a `q`-dim factor noise + a `k`-dim idiosyncratic
   noise), so the `k x k` slice is never formed -- the native low-rank consumer
-  for the PPC. kernR owns the MMD test; flexyBayes only generates the predictive
-  sample.
+  for the PPC. With `project = TRUE` the draws and `observed` are projected onto
+  the surrogate's `q` factor directions before the MMD, so the test runs in `q`
+  dimensions (cheaper + higher-powered on the correlated structure for a large
+  output count; blind to idiosyncratic-direction distortions by construction).
+  kernR owns the MMD test; flexyBayes only generates the predictive sample.
 - **Mechanistic-statistical fits** -- `fb_apsim()` (ADR 0009, partner-gated),
   provisioned in its own pass.

@@ -137,10 +137,10 @@
 #   loop at each candidate lengthscale -- the evidence *profiled* over (a, t), a
 #   fuller (never-lower) marginal likelihood, but in-sample, so it can
 #   over-shorten lengthscales (evidence-overfitting).
-# - "cv": the *held-out* predictive log-density (a train/validation split of the
-#   subsample), so a too-short lengthscale is penalised on the held-out rows.
-#   Regularised fuller-ARD: it keeps the relevance sharpening of the profiled
-#   evidence without its in-sample over-shortening.
+# - "cv": the *held-out* predictive log-density, summed over a k-fold partition
+#   of the subsample, so a too-short lengthscale is penalised on the held-out
+#   rows. Regularised fuller-ARD: it keeps the relevance sharpening of the
+#   profiled evidence without its in-sample over-shortening.
 .ard_learn_lengthscales <- function(
   xs,
   w0,
@@ -156,26 +156,33 @@
   cv <- identical(refit, "cv")
   if (cv) {
     n <- nrow(xs)
-    # deterministic 70/30 split by row order (the subsample is already a random
-    # draw, so an ordered split is an unbiased held-out set)
-    n_va <- max(1L, as.integer(round(0.3 * n)))
-    va <- seq_len(n_va)
-    tr <- setdiff(seq_len(n), va)
+    # k-fold held-out predictive density: the sum over folds is a far less noisy
+    # objective than a single split, so the Nelder-Mead lands on sharper
+    # lengthscales. The subsample is already a random draw, so contiguous folds
+    # (rep_len) are an unbiased partition.
+    n_folds <- min(5L, n)
+    fold <- rep_len(seq_len(n_folds), n)
   }
   obj <- function(log_invl) {
     invl <- exp(log_invl)
     phi <- .rff_features(xs, sweep(w0, 2L, invl, "*"), b)
     tot <- 0
-    for (j in seq_len(ncol(ys))) {
-      if (cv) {
-        tot <- tot +
-          .rff_cv_loglik(
-            phi[tr, , drop = FALSE],
-            ys[tr, j],
-            phi[va, , drop = FALSE],
-            ys[va, j]
-          )
-      } else {
+    if (cv) {
+      for (f in seq_len(n_folds)) {
+        va <- which(fold == f)
+        tr <- which(fold != f)
+        for (j in seq_len(ncol(ys))) {
+          tot <- tot +
+            .rff_cv_loglik(
+              phi[tr, , drop = FALSE],
+              ys[tr, j],
+              phi[va, , drop = FALSE],
+              ys[va, j]
+            )
+        }
+      }
+    } else {
+      for (j in seq_len(ncol(ys))) {
         at <- if (isTRUE(refit)) {
           .rff_evidence_at(phi, ys[, j])
         } else {
@@ -357,24 +364,33 @@
   sigma <- crossprod(resid) / dof # k x k noise covariance (standardised scale)
 
   # Optional rank-q factor-analysis storage of the noise covariance (large k).
-  # `cov_method = "eigen"` (default) truncates Sigma's eigendecomposition;
-  # "fa" learns the loadings by EM (better when the residual diagonal is
-  # heteroscedastic). Either way the residual diagonal `dd` is set to reproduce
-  # the covariance diagonal -- hence `<o>_sd` -- exactly.
+  # `cov_method = "eigen"` (default) truncates Sigma's eigendecomposition; "fa"
+  # learns the loadings by EM (better when the residual diagonal is
+  # heteroscedastic); "auto" picks between them by the heteroscedasticity of the
+  # eigen-residual diagonal. Either way `dd` is set to reproduce the covariance
+  # diagonal -- hence `<o>_sd` -- exactly. The eigen factor is computed once and
+  # reused for the probe and the eigen path. `sigma_lr$method` records the
+  # resolved method.
   sigma_lr <- NULL
   if (!is.null(cov_rank)) {
     q <- as.integer(cov_rank)
     if (q >= 1L && q < k) {
-      if (identical(cov_method, "fa")) {
-        umat <- .fa_em(sigma, q)
-      } else {
-        eig <- eigen(sigma, symmetric = TRUE)
-        lam <- pmax(eig$values[seq_len(q)], 0)
-        umat <- eig$vectors[, seq_len(q), drop = FALSE] %*% diag(sqrt(lam), q)
+      eig <- eigen(sigma, symmetric = TRUE)
+      lam <- pmax(eig$values[seq_len(q)], 0)
+      u_eigen <- eig$vectors[, seq_len(q), drop = FALSE] %*% diag(sqrt(lam), q)
+      method <- cov_method
+      if (identical(method, "auto")) {
+        # coefficient of variation of the eigen-residual diagonal: a near-even
+        # residual (homoscedastic) is well served by eigen-truncation; an uneven
+        # one (heteroscedastic) contaminates the top eigenvectors, so use FA.
+        dd_eigen <- pmax(diag(sigma) - rowSums(u_eigen^2), 0)
+        het <- stats::sd(dd_eigen) / mean(dd_eigen)
+        method <- if (is.finite(het) && het > 0.5) "fa" else "eigen"
       }
+      umat <- if (identical(method, "fa")) .fa_em(sigma, q) else u_eigen
       dd <- pmax(diag(sigma) - rowSums(umat^2), 0) # residual: exact diagonal
       sigma <- tcrossprod(umat) + diag(dd, k) # rank-q reconstruction
-      sigma_lr <- list(u = umat, d = dd, rank = q, method = cov_method)
+      sigma_lr <- list(u = umat, d = dd, rank = q, method = method)
     }
   }
 
@@ -463,8 +479,8 @@ register_surrogate <- function(method, fit_fn) {
 #'   candidate lengthscale (the evidence *profiled* over `(a, t)`) -- a fuller,
 #'   never-lower marginal likelihood, but in-sample, so it can over-shorten
 #'   lengthscales. `"cv"` instead maximises the **held-out** predictive
-#'   log-density on a train/validation split, the regularised fuller-ARD: it
-#'   keeps the relevance sharpening without the in-sample over-shortening.
+#'   log-density over a k-fold split, the regularised fuller-ARD: it keeps the
+#'   relevance sharpening without the in-sample over-shortening.
 #' @param joint Logical; for `method = "rff"` with two or more outputs, fit a
 #'   joint multi-output model preserving the cross-output predictive covariance
 #'   (default `TRUE`). `FALSE` fits one independent model per output (marginals
@@ -482,7 +498,10 @@ register_surrogate <- function(method, fit_fn) {
 #'   eigendecomposition; `"fa"` learns the loadings by factor-analysis EM, which
 #'   recovers them more faithfully when the residual diagonal is heteroscedastic
 #'   (the eigenvectors of the full covariance are otherwise contaminated by the
-#'   uneven diagonal). The covariance diagonal is reproduced exactly either way.
+#'   uneven diagonal); `"auto"` picks `"fa"` or `"eigen"` from the
+#'   heteroscedasticity of the eigen-residual diagonal. The covariance diagonal
+#'   is reproduced exactly in every case. The resolved method is recorded in the
+#'   fitted object.
 #' @param seed Integer RNG seed for the random features (reproducibility).
 #' @param ... Passed to a registered method's fit function.
 #'

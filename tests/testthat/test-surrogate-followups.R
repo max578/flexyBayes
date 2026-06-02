@@ -292,3 +292,51 @@ test_that("cov_method = 'fa' beats eigen-truncation on heteroscedastic noise", {
   expect_equal(diag(ce), diag(cf))
   expect_lt(rel(cfa), rel(ce))
 })
+
+test_that("cov_method = 'auto' picks fa for heteroscedastic, eigen otherwise", {
+  mk <- function(idio) {
+    set.seed(7L)
+    n <- 500L
+    k <- 7L
+    q <- 2L
+    a <- stats::runif(n, -2, 2)
+    b <- stats::runif(n, -2, 2)
+    loadings <- matrix(stats::rnorm(k * q), k, q)
+    z <- matrix(stats::rnorm(n * q), n, q)
+    signal <- cbind(sin(a), 0.5 * b) %*% t(matrix(stats::rnorm(k * 2L), k, 2L))
+    noise <- z %*%
+      t(loadings) +
+      sweep(matrix(stats::rnorm(n * k), n, k), 2L, idio, "*")
+    y <- signal + noise
+    colnames(y) <- paste0("o", seq_len(k))
+    fb_ensemble(
+      params = data.frame(a = a, b = b),
+      outputs = as.data.frame(y),
+      provenance = list(source = "raw")
+    )
+  }
+  s_hom <- fit_surrogate(
+    mk(rep(0.3, 7L)),
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "auto",
+    seed = 1L
+  )
+  s_het <- fit_surrogate(
+    mk(rep(c(0.05, 0.65), length.out = 7L)),
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "auto",
+    seed = 1L
+  )
+  s_het2 <- fit_surrogate(
+    mk(rep(c(0.05, 0.65), length.out = 7L)),
+    joint = TRUE,
+    cov_rank = 2L,
+    cov_method = "auto",
+    seed = 1L
+  )
+  expect_identical(s_hom$fit$sigma_lr$method, "eigen") # near-even residual
+  expect_identical(s_het$fit$sigma_lr$method, "fa") # uneven residual
+  expect_equal(s_het$fit$sigma_lr$u, s_het2$fit$sigma_lr$u) # deterministic
+})

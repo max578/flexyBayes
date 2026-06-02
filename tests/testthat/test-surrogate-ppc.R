@@ -274,3 +274,77 @@ test_that("the low-rank PPC passes a faithful surrogate and rejects a distortion
   expect_false(res_ok$reject) # the factored draws match the simulator
   expect_true(res_bad$reject) # and catch the distortion
 })
+
+# ---- the factor-space MMD (large k: test the correlated structure cheaply) --
+
+test_that("project = TRUE catches a correlated distortion, is blind to idiosyncratic", {
+  skip_if_not_installed("kernR")
+  # k = 40 outputs with rank-3 structure; the factor-space test runs in 3 dims
+  set.seed(20260603L)
+  n <- 500L
+  k <- 40L
+  q <- 3L
+  a <- stats::runif(n, -2, 2)
+  b <- stats::runif(n, -2, 2)
+  loadings <- matrix(stats::rnorm(k * q), k, q)
+  coefs <- matrix(stats::rnorm(k * 2L), k, 2L)
+  gen <- function(aa, bb, distort = "none") {
+    s <- cbind(sin(aa), 0.5 * bb) %*% t(coefs)
+    zz <- matrix(stats::rnorm(length(aa) * q), length(aa), q)
+    y <- s +
+      zz %*% t(loadings) +
+      matrix(stats::rnorm(length(aa) * k, 0, 0.1), length(aa), k)
+    if (identical(distort, "factor")) {
+      # a coherent shift along factor 1 -- correlated across many outputs
+      y <- y +
+        matrix(stats::rnorm(length(aa)) * 1.5, length(aa), k) *
+          matrix(loadings[, 1], length(aa), k, byrow = TRUE)
+    }
+    if (identical(distort, "idio")) {
+      y[, 1] <- y[, 1] + 3 # one output shifted -- orthogonal to the factor span
+    }
+    y
+  }
+  y <- gen(a, b)
+  colnames(y) <- paste0("o", seq_len(k))
+  e <- fb_ensemble(
+    params = data.frame(a = a, b = b),
+    outputs = as.data.frame(y),
+    provenance = list(source = "raw")
+  )
+  s <- fit_surrogate(e, joint = TRUE, cov_rank = 3L, seed = 1L)
+  set.seed(5L)
+  kk <- 80L
+  nd <- data.frame(
+    a = stats::runif(kk, -1.8, 1.8),
+    b = stats::runif(kk, -1.8, 1.8)
+  )
+  ppc <- function(distort) {
+    obs <- as.data.frame(gen(nd$a, nd$b, distort))
+    colnames(obs) <- paste0("o", seq_len(k))
+    fb_surrogate_ppc(
+      s,
+      nd,
+      obs,
+      n_draws = 8L,
+      joint = TRUE,
+      project = TRUE,
+      seed = 1L,
+      n_permutations = 199L
+    )
+  }
+  expect_false(ppc("none")$reject) # faithful: the factor space matches
+  expect_true(ppc("factor")$reject) # correlated distortion: caught in q dims
+  expect_false(ppc("idio")$reject) # idiosyncratic: blind by design
+})
+
+test_that("project = TRUE needs a low-rank surrogate", {
+  skip_if_not_installed("kernR")
+  s <- .mk_corr_surrogate()$surrogate # joint, no cov_rank
+  nd <- data.frame(a = c(0, 0.5), b = c(0.1, -0.2))
+  observed <- data.frame(o1 = c(0, 0.1), o2 = c(0, -0.1))
+  expect_error(
+    fb_surrogate_ppc(s, nd, observed, project = TRUE, n_permutations = 49L),
+    "low-rank"
+  )
+})

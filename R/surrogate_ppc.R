@@ -171,6 +171,15 @@
 #'   covariance is diagonal). When the surrogate stores a low-rank covariance
 #'   (`cov_rank`), the joint draws are sampled from the factored form directly,
 #'   so the `k x k` slice is never formed (the native low-rank PPC consumer).
+#' @param project Logical; for a surrogate that stores a low-rank covariance
+#'   (`cov_rank`), project both the predictive draws and `observed` onto the
+#'   surrogate's `q` factor directions before the MMD (default `FALSE`). It
+#'   then runs in `q` dimensions, not `k` -- cheaper and higher-powered on the
+#'   correlated cross-output structure for a large output count (the MMD loses
+#'   power as the dimension grows). It is, deliberately, **blind to distortions
+#'   orthogonal to the factor space** (purely idiosyncratic per-output errors,
+#'   which the marginal `<o>_sd` and a `joint = FALSE` check cover), so it
+#'   complements rather than replaces the full-space check.
 #' @param seed Optional integer RNG seed (the caller's stream is restored).
 #' @param ... Passed to [kernR::mmd_ppc()] (e.g. `n_permutations`, `kernel`).
 #'
@@ -184,6 +193,7 @@ fb_surrogate_ppc <- function(
   observed,
   n_draws = 1L,
   joint = TRUE,
+  project = FALSE,
   seed = NULL,
   ...
 ) {
@@ -231,6 +241,26 @@ fb_surrogate_ppc <- function(
     joint = joint,
     seed = seed
   )
+
+  if (isTRUE(project)) {
+    has_lr <- identical(surrogate$method, "rff") &&
+      isTRUE(surrogate$fit$joint) &&
+      !is.null(surrogate$fit[["sigma_lr"]])
+    if (!has_lr) {
+      stop(
+        "fb_surrogate_ppc(): project = TRUE needs a low-rank (cov_rank) rff ",
+        "surrogate -- there is no factor space to project onto otherwise.",
+        call. = FALSE
+      )
+    }
+    # orthonormal basis of the surrogate's factor span (shared across rows),
+    # restricted to the observed outputs; project both clouds into q dimensions
+    pc <- stats::predict(surrogate, newdata, cov = "lowrank")
+    u_obs <- pc$cov_lowrank$u[match(out_names, pc$output_names), , drop = FALSE]
+    basis <- qr.Q(qr(u_obs))
+    draws <- draws %*% basis
+    obs_mat <- obs_mat %*% basis
+  }
 
   kernR::mmd_ppc(draws, observed = obs_mat, ...)
 }
