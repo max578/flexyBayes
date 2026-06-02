@@ -1,0 +1,268 @@
+# =============================================================================
+# surrogate_ies.R -- surrogate-accelerated ensemble inversion (a C7 consumer).
+#
+# The distribution-preserving surrogate (C7) is built so an expensive forward
+# model can be replaced by a fast emulator that still reports predictive
+# uncertainty. fb_surrogate_ies() is the inverse / calibration consumer of that
+# property: an Ensemble Smoother with Multiple Data Assimilation (ES-MDA,
+# Emerick & Reynolds 2013) that drives the parameter ensemble toward agreement
+# with observed data using only the surrogate's predictions, never a simulator.
+#
+# Because the surrogate is distribution-preserving, its predictive variance is
+# folded into the data covariance, so emulator error inflates the assimilation
+# noise (the principled use of `<o>_sd`): the inversion is appropriately less
+# confident where the emulator is. This consumes any conforming fb_surrogate via
+# its predict() contract -- it does not depend on PESTO's internal IES (which is
+# monolithic and cannot accept an external surrogate), so flexyBayes is
+# standalone-functional for surrogate-accelerated inversion (invariant 1).
+# =============================================================================
+
+.safe_solve <- function(m) {
+  d <- nrow(m)
+  scale_jit <- mean(diag(m))
+  if (!is.finite(scale_jit) || scale_jit <= 0) {
+    scale_jit <- 1
+  }
+  jit <- 0
+  for (k in 0:8) {
+    res <- tryCatch(
+      chol2inv(chol(m + diag(jit, d))),
+      error = function(e) NULL
+    )
+    if (!is.null(res)) {
+      return(res)
+    }
+    jit <- if (jit == 0) 1e-10 * scale_jit else jit * 10
+  }
+  solve(m + diag(jit, d))
+}
+
+#' Surrogate-accelerated ensemble inversion (ES-MDA)
+#'
+#' Calibrates a parameter ensemble against observed data using a
+#' distribution-preserving surrogate (contract C7) in place of the forward
+#' model. Runs Ensemble Smoother with Multiple Data Assimilation (ES-MDA;
+#' Emerick and Reynolds, 2013): each of `n_iter` iterations applies a Kalman
+#' update with the data covariance inflated by `n_iter`, so the combined update
+#' equals a single tempered assimilation. No simulator is run -- every forward
+#' evaluation is a surrogate `predict()`.
+#'
+#' When `use_surrogate_sd = TRUE` (default) the surrogate's per-output
+#' predictive variance is added to the observation-error covariance, so emulator
+#' uncertainty inflates the assimilation noise -- the inversion trusts the
+#' surrogate less where it is less certain. This is the consumer that the
+#' distribution-preserving `<o>_sd` exists to serve.
+#'
+#' @param surrogate An `fb_surrogate` from [fit_surrogate()].
+#' @param observed A named numeric vector of target observations; names must
+#'   be a subset of the surrogate's emulated outputs.
+#' @param obs_sd Observation-error standard deviation: a single number (shared)
+#'   or a named numeric vector aligned with `observed`.
+#' @param prior A `data.frame` (or matrix) of the prior parameter ensemble --
+#'   one row per realisation; must contain the surrogate's parameter columns.
+#' @param n_iter Number of ES-MDA iterations (equal inflation `alpha = n_iter`).
+#' @param use_surrogate_sd Add the surrogate's mean predictive variance to the
+#'   data covariance (default `TRUE`).
+#' @param seed Optional integer RNG seed for the observation perturbations
+#'   (reproducibility); the caller's RNG stream is restored on exit.
+#'
+#' @return An object of class `c("fb_surrogate_ies", "list")` with components
+#'   `posterior` (the updated ensemble `data.frame`), `prior`, `observed`,
+#'   `misfit` (mean data-misfit before each iteration and after the last),
+#'   `n_iter`, `use_surrogate_sd`, `surrogate_method`, `param_names`, and
+#'   `output_names`.
+#' @references Emerick, A. A. and Reynolds, A. C. (2013). Ensemble smoother with
+#'   multiple data assimilation. *Computers & Geosciences*, 55, 3-15.
+#' @seealso [fit_surrogate()], [fb_surrogate_ppc()].
+#' @examples
+#' set.seed(1)
+#' # forward model y = G theta; build a training ensemble and an emulator
+#' g <- c(1.5, -0.8)
+#' tr <- data.frame(p1 = runif(150, -1, 3), p2 = runif(150, -2, 2))
+#' e <- fb_ensemble(
+#'   params = tr,
+#'   outputs = data.frame(y = g[1] * tr$p1 + g[2] * tr$p2)
+#' )
+#' s <- fit_surrogate(e)
+#' prior <- data.frame(p1 = rnorm(200, 1, 1), p2 = rnorm(200, 0, 1))
+#' fit <- fb_surrogate_ies(s, c(y = 2.3), obs_sd = 0.1, prior = prior)
+#' colMeans(fit$posterior)
+#' @export
+fb_surrogate_ies <- function(
+  surrogate,
+  observed,
+  obs_sd,
+  prior,
+  n_iter = 4L,
+  use_surrogate_sd = TRUE,
+  seed = NULL
+) {
+  if (!inherits(surrogate, "fb_surrogate")) {
+    stop(
+      "fb_surrogate_ies(): `surrogate` must be an fb_surrogate ",
+      "(see fit_surrogate()).",
+      call. = FALSE
+    )
+  }
+  if (is.null(names(observed)) || !is.numeric(observed)) {
+    stop(
+      "fb_surrogate_ies(): `observed` must be a named numeric vector.",
+      call. = FALSE
+    )
+  }
+  out_names <- names(observed)
+  miss <- setdiff(out_names, surrogate$output_names)
+  if (length(miss) > 0L) {
+    stop(
+      "fb_surrogate_ies(): observed output(s) the surrogate does not ",
+      "emulate: ",
+      paste(miss, collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+  n_iter <- as.integer(n_iter)
+  if (n_iter < 1L) {
+    stop("fb_surrogate_ies(): `n_iter` must be >= 1.", call. = FALSE)
+  }
+
+  d <- length(out_names)
+  obs <- as.numeric(observed)
+  if (length(obs_sd) == 1L) {
+    sd_used <- rep(obs_sd, d)
+  } else {
+    if (is.null(names(obs_sd))) {
+      stop(
+        "fb_surrogate_ies(): a vector `obs_sd` must be named by output.",
+        call. = FALSE
+      )
+    }
+    sd_used <- obs_sd[out_names]
+  }
+  if (any(!is.finite(sd_used)) || any(sd_used <= 0)) {
+    stop(
+      "fb_surrogate_ies(): `obs_sd` must be finite and positive.",
+      call. = FALSE
+    )
+  }
+  obs_var <- sd_used^2
+
+  prior_df <- as.data.frame(prior)
+  pmiss <- setdiff(surrogate$param_names, colnames(prior_df))
+  if (length(pmiss) > 0L) {
+    stop(
+      "fb_surrogate_ies(): `prior` is missing parameter column(s): ",
+      paste(pmiss, collapse = ", "),
+      ".",
+      call. = FALSE
+    )
+  }
+  ens <- as.matrix(prior_df[, surrogate$param_names, drop = FALSE])
+  colnames(ens) <- surrogate$param_names
+  n_real <- nrow(ens)
+  if (n_real < 3L) {
+    stop(
+      "fb_surrogate_ies(): need at least 3 prior realisations for sample ",
+      "covariances.",
+      call. = FALSE
+    )
+  }
+
+  # Deterministic perturbations (seeded; restore the caller's RNG on exit).
+  if (!is.null(seed)) {
+    if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+      on.exit(assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
+    }
+    set.seed(seed)
+  }
+
+  alpha <- n_iter
+  mean_cols <- paste0(out_names, "_mean")
+  sd_cols <- paste0(out_names, "_sd")
+  misfit <- numeric(n_iter + 1L)
+
+  .misfit <- function(g_mat) {
+    # mean over realisations of the data misfit (G - obs)' diag(1/obs_var) (.)
+    res <- sweep(g_mat, 2L, obs)
+    mean(rowSums(sweep(res^2, 2L, obs_var, "/")))
+  }
+
+  for (it in seq_len(n_iter)) {
+    pred <- stats::predict(surrogate, as.data.frame(ens))
+    g_mat <- as.matrix(pred[, mean_cols, drop = FALSE])
+    misfit[it] <- .misfit(g_mat)
+
+    emu_var <- if (use_surrogate_sd) {
+      colMeans(as.matrix(pred[, sd_cols, drop = FALSE])^2)
+    } else {
+      rep(0, d)
+    }
+    cd <- obs_var + emu_var
+
+    gbar <- colMeans(g_mat)
+    tbar <- colMeans(ens)
+    dg <- sweep(g_mat, 2L, gbar)
+    dt <- sweep(ens, 2L, tbar)
+    cgg <- crossprod(dg) / (n_real - 1L) # d x d
+    ctg <- crossprod(dt, dg) / (n_real - 1L) # p x d
+    kgain <- ctg %*% .safe_solve(cgg + alpha * diag(cd, d)) # p x d
+
+    pert <- matrix(stats::rnorm(n_real * d), n_real, d) %*%
+      diag(sqrt(alpha * cd), d)
+    d_pert <- matrix(obs, n_real, d, byrow = TRUE) + pert
+    ens <- ens + (d_pert - g_mat) %*% t(kgain)
+    colnames(ens) <- surrogate$param_names
+  }
+
+  pred <- stats::predict(surrogate, as.data.frame(ens))
+  misfit[n_iter + 1L] <- .misfit(as.matrix(pred[, mean_cols, drop = FALSE]))
+
+  structure(
+    list(
+      posterior = as.data.frame(ens),
+      prior = prior_df[, surrogate$param_names, drop = FALSE],
+      observed = observed,
+      obs_sd = obs_sd,
+      misfit = misfit,
+      n_iter = n_iter,
+      use_surrogate_sd = use_surrogate_sd,
+      surrogate_method = surrogate$method,
+      param_names = surrogate$param_names,
+      output_names = out_names
+    ),
+    class = c("fb_surrogate_ies", "list")
+  )
+}
+
+#' @export
+print.fb_surrogate_ies <- function(x, ...) {
+  cat("-- fb_surrogate_ies (surrogate-accelerated ES-MDA, C7 consumer) -\n")
+  cat(
+    "  surrogate: ",
+    x$surrogate_method,
+    " | iters: ",
+    x$n_iter,
+    " | realisations: ",
+    nrow(x$posterior),
+    "\n",
+    sep = ""
+  )
+  cat(
+    "  data misfit: ",
+    formatC(x$misfit[1L], format = "g", digits = 4L),
+    " -> ",
+    formatC(x$misfit[length(x$misfit)], format = "g", digits = 4L),
+    "\n",
+    sep = ""
+  )
+  shift <- data.frame(
+    parameter = x$param_names,
+    prior_mean = vapply(x$prior, mean, numeric(1L)),
+    posterior_mean = vapply(x$posterior, mean, numeric(1L)),
+    row.names = NULL
+  )
+  print(utils::head(shift, 10L))
+  cat("----------------------------------------------------------------\n")
+  invisible(x)
+}

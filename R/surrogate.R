@@ -302,7 +302,15 @@ predict.fb_surrogate <- function(object, newdata, ...) {
   xs <- scale(xnew, center = object$x_center, scale = object$x_scale)
 
   if (!identical(object$method, "rff")) {
-    return(stats::predict(object$fit, newdata, ...))
+    # A registered conformer is trained on the *standardised* design --
+    # fit_surrogate() hands the standardised `xs` to the fit function -- so it
+    # must predict on the same scale. Pass the standardised newdata (keyed by
+    # param_names), not the raw newdata, or train and predict would disagree on
+    # scale. The conformer's predict method returns the per-output `<o>_mean` /
+    # `<o>_sd` data.frame (contract C7 clause 2).
+    xs_df <- as.data.frame(xs)
+    colnames(xs_df) <- object$param_names
+    return(stats::predict(object$fit, xs_df, ...))
   }
 
   phi <- .rff_features(xs, object$fit$w, object$fit$b)

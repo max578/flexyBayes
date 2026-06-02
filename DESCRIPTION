@@ -77,7 +77,9 @@ Suggests:
     sn,
     tensorflow,
     vdiffr,
-    withr
+    withr,
+    kernR,
+    PESTO
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
 Encoding: UTF-8

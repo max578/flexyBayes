@@ -1,3 +1,41 @@
+# flexyBayes 0.6.0.9000 (development)
+
+## New features
+
+- **Sibling surrogate backends register as C7 conformers.** PESTO's GP
+  surrogate (`method = "gp"`) and kernR's conditional mean embedding
+  (`method = "cme"`) are available to `fit_surrogate()` when the member
+  package is installed, registered through the existing surrogate
+  registry. PESTO's GP already reports a per-output predictive mean and
+  variance; kernR's CME is a kernel linear smoother, so the adapter
+  supplies the standard linear-smoother predictive variance
+  `sigma^2 (1 + ||w||^2)` to honour the distribution-preserving `<o>_sd`
+  requirement. Both register opportunistically on load, or explicitly via
+  `register_pesto_surrogates()` / `register_kernr_surrogates()`. The
+  surrogate methods are consumed through the contract, never copied into
+  flexyBayes, and the built-in `rff` reference keeps the package
+  standalone.
+- **`fb_surrogate_ies()` calibrates a parameter ensemble through a
+  surrogate.** An Ensemble Smoother with Multiple Data Assimilation
+  (ES-MDA) drives a prior parameter ensemble toward observed data using
+  the surrogate in place of the forward model; the predictive `<o>_sd` is
+  folded into the data covariance, so emulator uncertainty inflates the
+  assimilation noise.
+- **`fb_surrogate_ppc()` checks whether a surrogate distorted the output
+  distribution.** It draws from the surrogate's predictive distribution
+  at held-out parameter sets and runs kernR's `mmd_ppc()` against the true
+  simulator outputs there -- a distribution-level check, not a mean-only
+  accuracy measure.
+
+## Bug fixes
+
+- **Registered surrogate conformers now predict on the standardised
+  design.** `predict.fb_surrogate()` previously passed raw `newdata` to a
+  registered conformer's `predict()` while training it on the standardised
+  design, so train and predict disagreed on scale. The standardised design
+  is now passed consistently.
+
+
 # flexyBayes 0.6.0
 
 ## New features

@@ -43,11 +43,22 @@ the **standardised** design matrix `x` and the response matrix `y` and returns a
 model object with a `predict()` method honouring clause 2. A registered method is
 selected by `fit_surrogate(ensemble, method = "<name>")`.
 
+**Standardised-design contract.** A conformer is trained on the standardised
+design `x` and is asked to predict on the same scale: `predict.fb_surrogate()`
+standardises `newdata` with the stored centre/scale and passes that (keyed by
+`param_names`) to the conformer's `predict()`. Train and predict therefore agree
+on scale -- a conformer must not re-standardise.
+
 | Producer | method | How it conforms |
 |---|---|---|
 | **flexyBayes (reference)** | `rff` | Random Fourier features + Bayesian linear regression, one model per output, predictive variance set by MacKay evidence maximisation (calibrated `<o>_sd`). Self-contained -- the always-available default. |
-| **kernR** | `cme` / `dist_regression` | `fit_cme()` / `dist_regression()` emulate the full conditional output *distribution* (the deep distribution-preserving surrogate); register a coercer to the `<o>_mean` / `<o>_sd` predict shape. |
-| **PESTO** | `gp` / `rff_gp` | `train_gp_surrogate()` / `train_rff_surrogate()` + `predict_*_surrogate()`; register the predict adapter. |
+| **PESTO** | `gp` | `train_gp_surrogate()` / `predict_gp_surrogate()` already report a per-output predictive `$mean` **and** `$variance`, so the adapter maps them straight onto `<o>_mean` / `<o>_sd = sqrt(variance)`. Registered by `register_pesto_surrogates()`. (PESTO's `rff` surrogate returns only an aggregate `$uncertainty`, not per-output variance, so it is not registered.) |
+| **kernR** | `cme` | `fit_cme()` is a kernel linear smoother: it yields the conditional *mean* `y_hat(x*) = w(x*)' y` but **no** predictive variance. The adapter supplies the standard linear-smoother predictive variance `sigma^2 (1 + ||w(x*)||^2)` (with `sigma^2 = RSS / (n - tr(S))` from the in-sample smoother), so `<o>_sd` is honest. The conditional-mean map stays kernR's; only the UQ is added. Registered by `register_kernr_surrogates()`. (`dist_regression()` takes distributional *bag* inputs, not a parameter design, so it is not a C7 surrogate.) |
+
+Both sibling adapters live in flexyBayes (`R/surrogate_conformers.R`), are
+`requireNamespace`-gated, and are registered opportunistically from `.onLoad`
+when the member is installed -- so `method = "gp"` / `"cme"` simply works when the
+sibling is present, and flexyBayes stays standalone otherwise.
 
 ## Why a contract, not a reimplementation
 
@@ -62,10 +73,24 @@ selected by `fit_surrogate(ensemble, method = "<name>")`.
 - **Standalone-functional** (charter invariant 1): the `rff` reference needs no
   sibling member -- flexyBayes emulates + propagates UQ on its own.
 
-## Consumers (downstream; not built here)
+## Consumers
 
-The surrogate's `<o>_mean` / `<o>_sd` feed: a surrogate-accelerated inverse step
-(PESTO's `pesto_surrogate_ies`), a posterior-predictive check of the emulator
-(kernR's `mmd_ppc()` -- did the surrogate distort the distribution?), and
-mechanistic-statistical fits (`fb_apsim()`, partner-gated). Each is provisioned
-in its own pass.
+The surrogate's `<o>_mean` / `<o>_sd` feed:
+
+- **Surrogate-accelerated inversion** -- `fb_surrogate_ies()`
+  (`R/surrogate_ies.R`): an Ensemble Smoother with Multiple Data Assimilation
+  (ES-MDA) that calibrates a parameter ensemble against observed data using the
+  surrogate in place of the simulator. The predictive `<o>_sd` is folded into the
+  data covariance, so emulator error appropriately inflates the assimilation
+  noise -- the consumer the distribution-preserving sd exists to serve. It
+  consumes any conforming `fb_surrogate` via `predict()`; it deliberately does
+  **not** route through PESTO's `pesto_surrogate_ies()`, which is monolithic
+  (its GP is trained internally in C++ and cannot accept an external surrogate),
+  so flexyBayes is standalone-functional for surrogate-accelerated inversion.
+- **Emulator-distortion check** -- `fb_surrogate_ppc()` (`R/surrogate_ppc.R`):
+  draws from the surrogate's predictive distribution at held-out parameter sets
+  and hands the draws to kernR's `mmd_ppc()` against the true simulator outputs
+  -- did the surrogate distort the output *distribution*, not just its mean?
+  kernR owns the MMD test; flexyBayes only generates the predictive sample.
+- **Mechanistic-statistical fits** -- `fb_apsim()` (ADR 0009, partner-gated),
+  provisioned in its own pass.
