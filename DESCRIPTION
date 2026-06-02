@@ -41,6 +41,7 @@ Imports:
     utils
 Suggests:
     greta (>= 0.4.0),
+    gretaR (>= 0.4.0),
     brms,
     INLA,
     fst (>= 0.9.0),
@@ -80,6 +81,8 @@ Suggests:
     withr
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
+Remotes:
+    max578/gretaR@v0.4.0
 Encoding: UTF-8
 Language: en-AU
 Roxygen: list(markdown = TRUE, roclets = c("rd", "namespace", "collate"))
