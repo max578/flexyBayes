@@ -88,7 +88,7 @@
         {
           "type": "double",
           "attributes": {},
-          "value": [0.89]
+          "value": [0.9]
         }
       ]
     }

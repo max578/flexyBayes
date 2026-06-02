@@ -135,7 +135,10 @@ test_that("plot.flexybayes(type = 'residuals') numerical inputs are stable", {
     n_obs = length(resid_vals),
     n_finite = sum(is.finite(resid_vals)),
     fitted_len = length(fitted_vals),
-    resid_round = .round_sig(stats::sd(resid_vals), digits = 2L)
+    # 1 sig fig: the greta/TF residual sd drifts ~1e-2 across sessions
+    # (0.89 <-> 0.90 flickered the old 2-sig-fig snapshot at the rounding
+    # boundary); 1 sig fig still catches a structural scale regression.
+    resid_round = .round_sig(stats::sd(resid_vals), digits = 1L)
   )
 
   pdf(file = NULL)
