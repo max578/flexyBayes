@@ -185,10 +185,10 @@
       [1] TRUE
       
       $.backend_registry$n_keys
-      [1] 4
+      [1] 5
       
       $.backend_registry$keys
-      [1] "brms"   "greta"  "gretaR" "inla"  
+      [1] "brms"   "greta"  "gretaR" "inla"   "koine" 
       
       
 

@@ -402,12 +402,31 @@
     grammars = c("asreml", "brms", "greta"),
     paradigm = "hmc_nuts",
     available_pkg = "gretaR",
-    default_in_auto = TRUE,         # an auto CANDIDATE; actual auto-selection
-                                    # stays gated on options(flexyBayes.gretaR_
-                                    # activated) + the lgm flag (both dormant by
-                                    # default), so auto keeps choosing greta/INLA
+    default_in_auto = TRUE, # an auto CANDIDATE; actual auto-selection
+    # stays gated on options(flexyBayes.gretaR_
+    # activated) + the lgm flag (both dormant by
+    # default), so auto still picks greta/INLA
     capability_predicate = .capability_gretaR,
     registered_in_adr = "0013/0031"
+  )
+  # koine -- the synthesised fourth opinion on the orthogonal lens axis
+  # (CONSTELLATION.md C1 + C3). A provisioned-but-DORMANT slot (R/koine_slot.R),
+  # the gretaR-pre-activation analogue: engine = NA, refuses at dispatch via
+  # .koine_dormant_refusal() until its programmatic builder is confirmed against
+  # backend_contract.md clause 1. The dormant capability predicate refuses every
+  # model with the slot-dormant flag, so a stray dispatch cannot silently fit.
+  # NOT default_in_auto. paradigm = "synthesis" (lens-axis, ADR 0029-graded;
+  # finalised at activation, inert while dormant).
+  .register_backend(
+    name = "koine",
+    status = "dormant",
+    engine = NA_character_,
+    grammars = c("asreml", "brms"),
+    paradigm = "synthesis",
+    available_pkg = "koine",
+    default_in_auto = FALSE,
+    capability_predicate = .capability_koine_dormant,
+    registered_in_adr = "0031/constellation-C1"
   )
   invisible(NULL)
 }

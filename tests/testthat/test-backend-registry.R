@@ -66,12 +66,18 @@ test_that("every backend entry carries the full field schema", {
 test_that("the v0.5.0 population registers the expected backends", {
   expect_setequal(
     flexyBayes:::.registered_backend_names(),
-    c("greta", "inla", "brms", "gretaR")
+    c("greta", "inla", "brms", "gretaR", "koine")
   )
   expect_identical(flexyBayes:::.lookup_backend("greta")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("inla")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("brms")$status, "active")
   expect_identical(flexyBayes:::.lookup_backend("gretaR")$status, "active")
+  # koine is the provisioned-but-dormant 4th-backend / lens-axis slot
+  # (CONSTELLATION.md C1 + C3): registered, engine NA, refuses at dispatch
+  # until activated. See R/koine_slot.R + test-koine-slot.R.
+  expect_identical(flexyBayes:::.lookup_backend("koine")$status, "dormant")
+  expect_true(is.na(flexyBayes:::.lookup_backend("koine")$engine))
+  expect_false(flexyBayes:::.lookup_backend("koine")$default_in_auto)
   # brms is retained as the engine label (the brms -> stan rename was
   # reversed 2026-05-31); no backend carries a rename target.
   expect_true(is.na(flexyBayes:::.lookup_backend("brms")$rename_to))

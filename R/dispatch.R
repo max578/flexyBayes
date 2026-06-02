@@ -521,20 +521,35 @@
     if (!isTRUE(cap)) {
       stop(.fb_refusal_condition(
         reason_code = cap,
-        message = paste0("backend = \"gretaR\" cannot fit this model (",
-                         cap, "). Use backend = \"greta\" / \"inla\" / ",
-                         "\"brms\"."),
+        message = paste0(
+          "backend = \"gretaR\" cannot fit this model (",
+          cap,
+          "). Use backend = \"greta\" / \"inla\" / ",
+          "\"brms\"."
+        ),
         family_class = "flexybayes_gretaR_refusal"
       ))
     }
     fit <- .backend_emit_fn("gretaR")(
-      fb = fb, data = data, known_matrices = known_matrices,
-      weights = weights, n_samples = n_samples, warmup = warmup,
-      chains = chains, prior_fixed_sd = prior_fixed_sd,
-      prior_vc_sd = prior_vc_sd, verbose = verbose,
-      mcmc_verbose = mcmc_verbose, return_code = return_code,
-      the_call = the_call, fixed = fixed, random = random, rcov = rcov,
-      family = family, link = link, data_name = data_name
+      fb = fb,
+      data = data,
+      known_matrices = known_matrices,
+      weights = weights,
+      n_samples = n_samples,
+      warmup = warmup,
+      chains = chains,
+      prior_fixed_sd = prior_fixed_sd,
+      prior_vc_sd = prior_vc_sd,
+      verbose = verbose,
+      mcmc_verbose = mcmc_verbose,
+      return_code = return_code,
+      the_call = the_call,
+      fixed = fixed,
+      random = random,
+      rcov = rcov,
+      family = family,
+      link = link,
+      data_name = data_name
     )
     if (!isTRUE(return_code) && !is.null(fit$extras)) {
       fit$extras$fb_terms <- fb
@@ -543,6 +558,15 @@
       }
     }
     return(fit)
+  }
+
+  # koine backend (dormant slot): the provisioned 4th-backend / lens-axis slot
+  # for the synthesised fourth opinion (CONSTELLATION.md C1 + C3). Not in any
+  # user-facing match.arg yet, so reachable only from internal callers / tests;
+  # it refuses with a structured dormancy condition until koine's builder is
+  # confirmed against the C1 contract. See R/koine_slot.R.
+  if (identical(backend, "koine")) {
+    .koine_dormant_refusal(call = the_call)
   }
 
   # Stage 2 MVP design-memory preflight (ADR 0021). Runs only above

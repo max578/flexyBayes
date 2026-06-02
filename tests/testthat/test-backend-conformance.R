@@ -96,7 +96,9 @@
     skip_reason = function() {
       if (!nzchar(home) && !installed_ok) {
         return(paste0(
-          "gretaR >= ", floor, " not available -- set ",
+          "gretaR >= ",
+          floor,
+          " not available -- set ",
           "options(flexyBayes.gretaR_home = <src>) or install a newer gretaR"
         ))
       }
@@ -125,11 +127,34 @@
   )
 }
 
-# The registry. koine registers alongside gretaR when its programmatic,
-# re-entrant builder satisfies clause 1 (CONSTELLATION.md Leader direction).
+# koine -- the synthesised fourth opinion (lens axis). A DORMANT descriptor: its
+# slot is provisioned (R/koine_slot.R) but not activated, so every clause skips
+# with the dormancy reason. This is the proof that the battery is genuinely
+# parameterised -- a second engine is wired in by adding one descriptor. When
+# koine's programmatic builder is confirmed against clause 1, `skip_reason()`
+# returns NULL and `fit` is swapped for the real call; nothing else changes.
+.conformance_koine <- function() {
+  list(
+    name = "koine",
+    skip_reason = function() {
+      paste0(
+        "koine slot dormant (",
+        .koine_dormancy_reason(),
+        ") -- confirm its builder against C1 clause 1 to activate"
+      )
+    },
+    prepare = function() function() invisible(NULL),
+    fit = function(formula, data) .koine_dormant_refusal(),
+    capability = NULL
+  )
+}
+
+# The registry. A backend joins the constellation conformance surface by adding
+# one entry here -- gretaR is active, koine is wired dormant.
 .conformance_backends <- function() {
   list(
-    gretaR = .conformance_gretaR()
+    gretaR = .conformance_gretaR(),
+    koine = .conformance_koine()
   )
 }
 
@@ -186,25 +211,32 @@ for (.backend_key in names(.conformance_backends())) {
 
     fit_class <- paste0("flexybayes_", desc$name)
 
-    test_that(sprintf("[%s] C1.1 construction: re-entrant IR builder", desc$name), {
-      skip_on_cran()
-      skip_on_ci()
-      if (!is.null(reason)) skip(reason)
-      expect_false(
-        inherits(fits, "error"),
-        info = if (inherits(fits, "error")) conditionMessage(fits) else ""
-      )
-      # A model built from the IR, plus a structurally different SECOND model in
-      # the same process -- proves the builder is re-entrant, not a session-
-      # global single-model graph (contract clause 1).
-      expect_s3_class(fits$primary, fit_class)
-      expect_s3_class(fits$second, fit_class)
-    })
+    test_that(
+      sprintf("[%s] C1.1 construction: re-entrant IR builder", desc$name),
+      {
+        skip_on_cran()
+        skip_on_ci()
+        if (!is.null(reason)) {
+          skip(reason)
+        }
+        expect_false(
+          inherits(fits, "error"),
+          info = if (inherits(fits, "error")) conditionMessage(fits) else ""
+        )
+        # A model built from the IR, plus a structurally different SECOND model in
+        # the same process -- proves the builder is re-entrant, not a session-
+        # global single-model graph (contract clause 1).
+        expect_s3_class(fits$primary, fit_class)
+        expect_s3_class(fits$second, fit_class)
+      }
+    )
 
     test_that(sprintf("[%s] C1.2 output: posterior::draws_array", desc$name), {
       skip_on_cran()
       skip_on_ci()
-      if (!is.null(reason)) skip(reason)
+      if (!is.null(reason)) {
+        skip(reason)
+      }
       skip_if(inherits(fits, "error"), "backend fit failed (see C1.1)")
       expect_s3_class(fits$primary$draws, "draws_array")
       dl <- fb_as_draws_simple(fits$primary)
@@ -214,25 +246,39 @@ for (.backend_key in names(.conformance_backends())) {
       expect_true(all(vapply(dl, is.numeric, logical(1L))))
     })
 
-    test_that(sprintf("[%s] C1.3 canonical names + posterior recovery", desc$name), {
-      skip_on_cran()
-      skip_on_ci()
-      if (!is.null(reason)) skip(reason)
-      skip_if(inherits(fits, "error"), "backend fit failed (see C1.1)")
-      nm <- names(fb_as_draws_simple(fits$primary))
-      expect_true(all(c("(Intercept)", "x", "sigma") %in% nm))
-      co <- stats::coef(fits$primary)
-      # Strong-signal GLM, n = 150: posterior means recover truth comfortably.
-      expect_equal(co[["(Intercept)"]], .conformance_truth[["(Intercept)"]],
-                   tolerance = 0.30)
-      expect_equal(co[["x"]], .conformance_truth[["x"]], tolerance = 0.30)
-      expect_equal(co[["sigma"]], .conformance_truth[["sigma"]], tolerance = 0.25)
-    })
+    test_that(
+      sprintf("[%s] C1.3 canonical names + posterior recovery", desc$name),
+      {
+        skip_on_cran()
+        skip_on_ci()
+        if (!is.null(reason)) {
+          skip(reason)
+        }
+        skip_if(inherits(fits, "error"), "backend fit failed (see C1.1)")
+        nm <- names(fb_as_draws_simple(fits$primary))
+        expect_true(all(c("(Intercept)", "x", "sigma") %in% nm))
+        co <- stats::coef(fits$primary)
+        # Strong-signal GLM, n = 150: posterior means recover truth comfortably.
+        expect_equal(
+          co[["(Intercept)"]],
+          .conformance_truth[["(Intercept)"]],
+          tolerance = 0.30
+        )
+        expect_equal(co[["x"]], .conformance_truth[["x"]], tolerance = 0.30)
+        expect_equal(
+          co[["sigma"]],
+          .conformance_truth[["sigma"]],
+          tolerance = 0.25
+        )
+      }
+    )
 
     test_that(sprintf("[%s] C1.4 agreement within SBC threshold", desc$name), {
       skip_on_cran()
       skip_on_ci()
-      if (!is.null(reason)) skip(reason)
+      if (!is.null(reason)) {
+        skip(reason)
+      }
       skip_if(inherits(fits, "error"), "backend fit failed (see C1.1)")
       tri <- triangulate(fits$primary, fits$reference)
       # The fixed effects + sigma must align across the candidate and the
@@ -245,29 +291,44 @@ for (.backend_key in names(.conformance_backends())) {
       expect_lt(stat, .CONFORMANCE_T_CEILING)
     })
 
-    test_that(sprintf("[%s] C1.5 capability declaration + catch-up boundary", desc$name), {
-      skip_on_cran()
-      skip_on_ci()
-      if (!is.null(reason)) skip(reason)
-      if (is.null(desc$capability)) {
-        skip("descriptor declares no capability predicate")
+    test_that(
+      sprintf(
+        "[%s] C1.5 capability declaration + catch-up boundary",
+        desc$name
+      ),
+      {
+        skip_on_cran()
+        skip_on_ci()
+        if (!is.null(reason)) {
+          skip(reason)
+        }
+        if (is.null(desc$capability)) {
+          skip("descriptor declares no capability predicate")
+        }
+        d <- .conformance_data()
+        # Admits a plain GLM ...
+        fb_glm <- fb_from_asreml(fixed = y ~ x, data = d, family = "gaussian")
+        expect_true(isTRUE(desc$capability(fb_glm)))
+        # ... and refuses its declared catch-up boundary (structured covariance)
+        # with a structured reason, never a silent wrong answer.
+        d$g <- factor(rep(seq_len(5L), length.out = nrow(d)))
+        fb_vm <- suppressWarnings(tryCatch(
+          fb_from_asreml(
+            fixed = y ~ x,
+            random = ~ vm(g),
+            data = d,
+            family = "gaussian"
+          ),
+          error = function(e) NULL
+        ))
+        skip_if(
+          is.null(fb_vm),
+          "structured-cov IR not constructible in this build"
+        )
+        cap <- desc$capability(fb_vm)
+        expect_type(cap, "character")
+        expect_match(cap, "structured_cov")
       }
-      d <- .conformance_data()
-      # Admits a plain GLM ...
-      fb_glm <- fb_from_asreml(fixed = y ~ x, data = d, family = "gaussian")
-      expect_true(isTRUE(desc$capability(fb_glm)))
-      # ... and refuses its declared catch-up boundary (structured covariance)
-      # with a structured reason, never a silent wrong answer.
-      d$g <- factor(rep(seq_len(5L), length.out = nrow(d)))
-      fb_vm <- suppressWarnings(tryCatch(
-        fb_from_asreml(fixed = y ~ x, random = ~ vm(g), data = d,
-                       family = "gaussian"),
-        error = function(e) NULL
-      ))
-      skip_if(is.null(fb_vm), "structured-cov IR not constructible in this build")
-      cap <- desc$capability(fb_vm)
-      expect_type(cap, "character")
-      expect_match(cap, "structured_cov")
-    })
+    )
   })
 }
