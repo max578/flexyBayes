@@ -24,60 +24,89 @@
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
 a <- commandArgs(trailingOnly = TRUE)
-spec_path <- a[1]; out_path <- a[2]
+spec_path <- a[1]
+out_path <- a[2]
 
-res <- tryCatch({
-  suppressMessages(suppressWarnings({
-    home <- Sys.getenv("GRETAR_HOME", "")
-    if (nzchar(home)) pkgload::load_all(home, quiet = TRUE) else library(gretaR)
-    library(posterior)
-  }))
-  spec <- readRDS(spec_path)
-  nt <- spec$mcmc$n_threads %||% 1L
-  if (exists("torch_set_num_threads", where = asNamespace("torch")))
-    torch::torch_set_num_threads(as.integer(nt))
+res <- tryCatch(
+  {
+    suppressMessages(suppressWarnings({
+      home <- Sys.getenv("GRETAR_HOME", "")
+      if (nzchar(home)) {
+        pkgload::load_all(home, quiet = TRUE)
+      } else {
+        library(gretaR)
+      }
+      library(posterior)
+    }))
+    spec <- readRDS(spec_path)
+    nt <- spec$mcmc$n_threads %||% 1L
+    if (exists("torch_set_num_threads", where = asNamespace("torch"))) {
+      torch::torch_set_num_threads(as.integer(nt))
+    }
 
-  reset_gretaR_env()
-  t0 <- Sys.time()
+    reset_gretaR_env()
+    t0 <- Sys.time()
 
-  X <- spec$X; y <- as_data(spec$y)
-  p <- ncol(X)
-  cn <- spec$canonical_names                      # X column tokens, e.g. (Intercept), x
-  b <- normal(0, spec$priors$fixed_sd, dim = p)   # fixed-effect coefficient vector
-  eta <- as_data(X) %*% b
+    X <- spec$X
+    y <- as_data(spec$y)
+    p <- ncol(X)
+    cn <- spec$canonical_names # X column tokens, e.g. (Intercept), x
+    # fixed-effect coefficient vector
+    b <- normal(0, spec$priors$fixed_sd, dim = p)
+    eta <- as_data(X) %*% b
 
-  targets <- list(b)
-  names_list <- list(cn)
+    targets <- list(b)
+    names_list <- list(cn)
 
-  if (!is.null(spec$random)) {                    # non-centred random intercept
-    J <- spec$random$J
-    tau <- half_normal(spec$priors$tau_scale)
-    u_raw <- normal(0, 1, dim = J)
-    u <- u_raw * tau
-    eta <- eta + as_data(spec$random$Z) %*% u
-    targets <- c(targets, list(tau)); names_list <- c(names_list, list("tau"))
-  }
+    if (!is.null(spec$random)) {
+      # non-centred random intercept
+      J <- spec$random$J
+      tau <- half_normal(spec$priors$tau_scale)
+      u_raw <- normal(0, 1, dim = J)
+      u <- u_raw * tau
+      eta <- eta + as_data(spec$random$Z) %*% u
+      targets <- c(targets, list(tau))
+      names_list <- c(names_list, list("tau"))
+    }
 
-  fam <- spec$family
-  if (fam == "gaussian") {
-    sigma <- half_normal(spec$priors$sigma_scale)
-    distribution(y) <- normal(eta, sigma)
-    targets <- c(targets, list(sigma)); names_list <- c(names_list, list("sigma"))
-  } else if (fam == "binomial") {
-    distribution(y) <- bernoulli(1 / (1 + exp(-eta)))
-  } else if (fam == "poisson") {
-    distribution(y) <- poisson_dist(exp(eta))
-  } else {
-    stop("gretaR_worker: unsupported family '", fam, "'.")
-  }
+    fam <- spec$family
+    if (fam == "gaussian") {
+      sigma <- half_normal(spec$priors$sigma_scale)
+      distribution(y) <- normal(eta, sigma)
+      targets <- c(targets, list(sigma))
+      names_list <- c(names_list, list("sigma"))
+    } else if (fam == "binomial") {
+      distribution(y) <- bernoulli(1 / (1 + exp(-eta)))
+    } else if (fam == "poisson") {
+      distribution(y) <- poisson_dist(exp(eta))
+    } else {
+      stop("gretaR_worker: unsupported family '", fam, "'.")
+    }
 
-  m <- model_from_arrays(targets = targets, likelihood = y, names = names_list)
-  fit <- mcmc(m, n_samples = spec$mcmc$n_samples, warmup = spec$mcmc$warmup,
-              chains = spec$mcmc$chains, sampler = "nuts", backend = "torch",
-              seed = spec$mcmc$seed, verbose = FALSE)
-  t_total <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-  list(status = "ok", draws = fit$draws, t_total = t_total,
-       gretaR_version = as.character(utils::packageVersion("gretaR")))
-}, error = function(e) list(status = "error", message = conditionMessage(e)))
+    m <- model_from_arrays(
+      targets = targets,
+      likelihood = y,
+      names = names_list
+    )
+    fit <- mcmc(
+      m,
+      n_samples = spec$mcmc$n_samples,
+      warmup = spec$mcmc$warmup,
+      chains = spec$mcmc$chains,
+      sampler = "nuts",
+      backend = "torch",
+      seed = spec$mcmc$seed,
+      verbose = FALSE
+    )
+    t_total <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+    list(
+      status = "ok",
+      draws = fit$draws,
+      t_total = t_total,
+      gretaR_version = as.character(utils::packageVersion("gretaR"))
+    )
+  },
+  error = function(e) list(status = "error", message = conditionMessage(e))
+)
 
 saveRDS(res, out_path)

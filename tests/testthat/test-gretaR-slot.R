@@ -123,7 +123,7 @@ test_that("flexybayes() accepts backend = 'gretaR' (activated); refuses cleanly 
   skip_if(
     nzchar(getOption("flexyBayes.gretaR_home", "")) ||
       (nzchar(system.file(package = "gretaR")) &&
-         utils::packageVersion("gretaR") >= flexyBayes:::.GRETAR_VERSION_FLOOR),
+        utils::packageVersion("gretaR") >= flexyBayes:::.GRETAR_VERSION_FLOOR),
     "gretaR is available -- this test exercises the unavailable path"
   )
   old <- options(flexyBayes.gretaR_home = "")
@@ -137,8 +137,10 @@ test_that("flexybayes() accepts backend = 'gretaR' (activated); refuses cleanly 
   # NOT a match.arg rejection
   expect_false(grepl("should be one of", conditionMessage(err)))
   # IS a structured gretaR availability refusal
-  expect_true(any(grepl("gretaR_below_version_floor|gretaR_not_installed",
-                        class(err))))
+  expect_true(any(grepl(
+    "gretaR_below_version_floor|gretaR_not_installed",
+    class(err)
+  )))
 })
 
 
@@ -165,27 +167,55 @@ test_that("fb() accepts backend = 'gretaR' (activated) -- not a match.arg reject
 
 test_that(".dispatch_backend(backend = 'gretaR') dispatches (activated); refuses structured-cov and unavailability cleanly", {
   d <- mk_lgm_data()
-  fb_si <- fb_from_asreml(fixed = y ~ x, random = ~g, data = d,
-                          family = "gaussian")
-  call_dispatch <- function(fb) flexyBayes:::.dispatch_backend(
-    fb = fb, data = d, backend = "gretaR", known_matrices = list(),
-    weights = NULL, n_samples = 1L, warmup = 1L, chains = 1L,
-    prior_fixed_sd = 100, prior_vc_sd = 1, verbose = FALSE,
-    mcmc_verbose = FALSE, return_code = FALSE, the_call = quote(test()),
-    fixed = y ~ x, random = ~g, rcov = ~units, family = "gaussian",
-    link = NULL, data_name = "d")
+  fb_si <- fb_from_asreml(
+    fixed = y ~ x,
+    random = ~g,
+    data = d,
+    family = "gaussian"
+  )
+  call_dispatch <- function(fb) {
+    flexyBayes:::.dispatch_backend(
+      fb = fb,
+      data = d,
+      backend = "gretaR",
+      known_matrices = list(),
+      weights = NULL,
+      n_samples = 1L,
+      warmup = 1L,
+      chains = 1L,
+      prior_fixed_sd = 100,
+      prior_vc_sd = 1,
+      verbose = FALSE,
+      mcmc_verbose = FALSE,
+      return_code = FALSE,
+      the_call = quote(test()),
+      fixed = y ~ x,
+      random = ~g,
+      rcov = ~units,
+      family = "gaussian",
+      link = NULL,
+      data_name = "d"
+    )
+  }
 
   # Activated: it no longer raises the dormant refusal.
-  caught <- tryCatch(suppressMessages(call_dispatch(fb_si)),
-                     error = function(e) e)
+  caught <- tryCatch(
+    suppressMessages(call_dispatch(fb_si)),
+    error = function(e) e
+  )
   expect_false(inherits(caught, "gretaR_dormant_refusal"))
 
   # Structured covariance is refused by the capability predicate, before any
   # worker launch -- a structured gretaR refusal, regardless of gretaR install.
   fb_vm <- suppressWarnings(tryCatch(
-    fb_from_asreml(fixed = y ~ x, random = ~ vm(g), data = d,
-                   family = "gaussian"),
-    error = function(e) NULL))
+    fb_from_asreml(
+      fixed = y ~ x,
+      random = ~ vm(g),
+      data = d,
+      family = "gaussian"
+    ),
+    error = function(e) NULL
+  ))
   if (!is.null(fb_vm)) {
     cap <- flexyBayes:::.capability_gretaR(fb_vm)
     expect_identical(cap, "gretaR_cannot_represent_structured_cov")
