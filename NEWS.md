@@ -2,6 +2,18 @@
 
 ## New features
 
+- **`fb_surrogate_ppc(whiten = TRUE)` whitens the outputs before the MMD.** The
+  predictive draws and `observed` are Mahalanobis-whitened by their pooled
+  covariance -- a label-agnostic representation that puts the outputs on a common
+  footing, removing the cross-output scale heterogeneity that makes a single
+  median bandwidth too coarse to resolve a distortion in a low-variance direction.
+  The map depends only on the pooled cloud (not the draws-vs-observed labels), so
+  the permutation test stays valid, and the same map is applied to both clouds, so
+  a relative scale, shape, or mean difference is preserved. It lifts power
+  substantially on localised / heterogeneous-scale distortions a raw-output check
+  misses (with no blind spot found across a mean / variance / shape battery), at a
+  valid level. Opt-in (a graduated ridge guards a near-singular pooled
+  covariance); composes with `project` and `aggregate`.
 - **`fb_surrogate_ppc(aggregate = TRUE)` runs an aggregated multi-kernel MMD.**
   An MMDAgg test (Schrab et al. 2023) over an RBF bandwidth grid around the median
   heuristic, sharing the permutations across bandwidths and aggregating by the

@@ -11,6 +11,7 @@ fb_surrogate_ppc(
   n_draws = 1L,
   joint = TRUE,
   project = FALSE,
+  whiten = FALSE,
   aggregate = FALSE,
   agg_weights = "uniform",
   seed = NULL,
@@ -45,6 +46,21 @@ power as the dimension grows). It is, deliberately, \strong{blind to distortions
 orthogonal to the factor space} (purely idiosyncratic per-output errors,
 which the marginal \verb{<o>_sd} and a \code{joint = FALSE} check cover), so it
 complements rather than replaces the full-space check.}
+
+\item{whiten}{Logical; Mahalanobis-whiten both the predictive draws and
+\code{observed} by their \strong{pooled covariance} before the MMD (default \code{FALSE}).
+This puts the outputs on a common footing, removing the cross-output scale
+heterogeneity that makes a single median bandwidth too coarse to resolve a
+distortion living in a low-variance direction. The map depends only on the
+pooled cloud (not the draws-vs-observed labels), so the permutation test
+stays valid; the same map is applied to both clouds, so a relative scale,
+shape, or mean difference between them is preserved. Empirically it lifts
+power substantially on localised / heterogeneous-scale distortions a
+raw-output check misses, with no blind spot found across a mean / variance
+/ shape battery. A graduated relative ridge guards a near-singular pooled
+covariance (highly collinear outputs); it remains opt-in for that numerical
+reason. Composes with \code{project} (the projected coordinates are whitened)
+and \code{aggregate}.}
 
 \item{aggregate}{Logical; run an \strong{aggregated multi-kernel} MMD instead of a
 single-kernel (default \code{FALSE}). An MMDAgg test (Schrab et al. 2023) over

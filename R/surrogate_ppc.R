@@ -136,6 +136,47 @@
   draws
 }
 
+# Mahalanobis-whiten the predictive draws and the observed outputs by their
+# POOLED covariance. The whitening map depends only on the pooled multiset (the
+# combined draws + observed), NOT on which rows are draws vs observed, so it is
+# label-agnostic: permuting the labels cannot change the map, and so the
+# permutation test on the whitened rows stays exactly valid. Its purpose is to
+# remove the cross-output scale heterogeneity that makes a single median
+# bandwidth too coarse to resolve structure in the low-variance directions. The
+# same map is applied to both clouds, so a relative scale / shape / mean
+# difference between them survives, while each output is put on a common
+# footing.
+# A graduated relative
+# ridge guards a near-singular pooled covariance (highly collinear outputs).
+# Returns the whitened (draws, observed) as plain numeric matrices.
+.whiten_clouds <- function(draws, obs_mat) {
+  z <- rbind(draws, obs_mat)
+  mu <- colMeans(z)
+  cc <- stats::cov(z)
+  d <- ncol(z)
+  ridge <- 1e-6 * mean(diag(cc))
+  if (!is.finite(ridge) || ridge <= 0) {
+    ridge <- 1e-8
+  }
+  r <- NULL
+  for (k in 0:6) {
+    r <- tryCatch(chol(cc + diag(ridge, d)), error = function(e) NULL)
+    if (!is.null(r)) {
+      break
+    }
+    ridge <- ridge * 10
+  }
+  if (is.null(r)) {
+    r <- chol(cc + diag(ridge, d))
+  }
+  # R^{-1}; then (z - mu) %*% R^{-1} has unit covariance
+  rinv <- backsolve(r, diag(d))
+  list(
+    x = sweep(draws, 2L, mu) %*% rinv,
+    y = sweep(obs_mat, 2L, mu) %*% rinv
+  )
+}
+
 # Aggregated (multi-kernel) MMD over a bandwidth grid -- the no-tuning,
 # scale-robust test (an MMDAgg-style aggregation; Schrab et al. 2023).
 # It orchestrates kernR's single-kernel mmd_test over a grid around
@@ -309,6 +350,20 @@ print.fb_mmd_agg <- function(x, ...) {
 #'   orthogonal to the factor space** (purely idiosyncratic per-output errors,
 #'   which the marginal `<o>_sd` and a `joint = FALSE` check cover), so it
 #'   complements rather than replaces the full-space check.
+#' @param whiten Logical; Mahalanobis-whiten both the predictive draws and
+#'   `observed` by their **pooled covariance** before the MMD (default `FALSE`).
+#'   This puts the outputs on a common footing, removing the cross-output scale
+#'   heterogeneity that makes a single median bandwidth too coarse to resolve a
+#'   distortion living in a low-variance direction. The map depends only on the
+#'   pooled cloud (not the draws-vs-observed labels), so the permutation test
+#'   stays valid; the same map is applied to both clouds, so a relative scale,
+#'   shape, or mean difference between them is preserved. Empirically it lifts
+#'   power substantially on localised / heterogeneous-scale distortions a
+#'   raw-output check misses, with no blind spot found across a mean / variance
+#'   / shape battery. A graduated relative ridge guards a near-singular pooled
+#'   covariance (highly collinear outputs); it remains opt-in for that numerical
+#'   reason. Composes with `project` (the projected coordinates are whitened)
+#'   and `aggregate`.
 #' @param aggregate Logical; run an **aggregated multi-kernel** MMD instead of a
 #'   single-kernel (default `FALSE`). An MMDAgg test (Schrab et al. 2023) over
 #'   an RBF bandwidth grid around the median heuristic, sharing the permutations
@@ -339,6 +394,7 @@ fb_surrogate_ppc <- function(
   n_draws = 1L,
   joint = TRUE,
   project = FALSE,
+  whiten = FALSE,
   aggregate = FALSE,
   agg_weights = "uniform",
   seed = NULL,
@@ -407,6 +463,14 @@ fb_surrogate_ppc <- function(
     basis <- qr.Q(qr(u_obs))
     draws <- draws %*% basis
     obs_mat <- obs_mat %*% basis
+  }
+
+  if (isTRUE(whiten)) {
+    # whiten the (possibly projected) coordinates by their pooled covariance --
+    # a label-agnostic representation that puts the outputs on a common footing
+    wc <- .whiten_clouds(draws, obs_mat)
+    draws <- wc$x
+    obs_mat <- wc$y
   }
 
   if (isTRUE(aggregate)) {

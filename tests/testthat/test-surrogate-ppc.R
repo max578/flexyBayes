@@ -479,3 +479,136 @@ test_that("aggregate weight schemes are valid and uniform recovers the default",
   expect_error(ppc("nope"), "unknown")
   expect_error(ppc(c(1, 2, 3)), "positive finite values")
 })
+
+# ---- pooled-covariance whitening (a label-agnostic representation) -----------
+
+test_that(".whiten_clouds yields a unit pooled covariance, shape-preserving", {
+  # no kernR needed -- a pure transform check. Heterogeneous per-column scales
+  # are the case whitening exists to equalise.
+  set.seed(1L)
+  scl <- diag(c(5, 1, 0.2, 3))
+  x <- matrix(stats::rnorm(200L * 4L), 200L, 4L) %*% scl
+  y <- matrix(stats::rnorm(60L * 4L), 60L, 4L) %*% scl + 2
+  wc <- flexyBayes:::.whiten_clouds(x, y)
+  pooled <- rbind(wc$x, wc$y)
+  expect_equal(stats::cov(pooled), diag(4L), tolerance = 0.05) # whitened ~ I
+  expect_identical(dim(wc$x), dim(x))
+  expect_identical(dim(wc$y), dim(y))
+})
+
+test_that("whiten leaves a faithful surrogate unrejected and is deterministic", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  # single-kernel path: faithful not rejected (its permutation seed is kernR's,
+  # exactly as for the un-whitened single-kernel path -- no p-value determinism
+  # claim, matching the existing single-kernel tests)
+  r0 <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 6L,
+    whiten = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_s3_class(r0, "mmd_ppc")
+  expect_false(r0$reject)
+  # aggregate path is seeded end-to-end (the seed reaches kernR::mmd_test): a
+  # faithful surrogate is not rejected and the p-value is deterministic
+  agg <- function() {
+    fb_surrogate_ppc(
+      s,
+      nd,
+      observed,
+      n_draws = 6L,
+      whiten = TRUE,
+      aggregate = TRUE,
+      seed = 1L,
+      n_permutations = 199L
+    )
+  }
+  a1 <- agg()
+  expect_false(a1$reject)
+  expect_equal(agg()$p_value, a1$p_value)
+})
+
+test_that("whiten lifts power on a localised distortion the raw check misses", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(11L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  # a fine-scale bimodal distortion on o1 with matched variance: a SHAPE change
+  # the raw median-bandwidth MMD cannot resolve, but whitening exposes by putting
+  # the low-variance idiosyncratic direction on a common footing (the gate
+  # finding, encoded as a regression).
+  observed$o1 <- observed$o1 + ifelse(stats::runif(k) < 0.5, -1, 1)
+  ppc <- function(whiten) {
+    fb_surrogate_ppc(
+      s,
+      nd,
+      observed,
+      n_draws = 6L,
+      aggregate = TRUE,
+      whiten = whiten,
+      seed = 1L,
+      n_permutations = 199L
+    )
+  }
+  raw <- ppc(FALSE)
+  wht <- ppc(TRUE)
+  expect_false(raw$reject) # raw misses the localised matched-variance shift
+  expect_true(wht$reject) # whitening exposes it
+  expect_lt(wht$p_value, raw$p_value)
+})
+
+test_that("whiten composes with project and with aggregate", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  rp <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 6L,
+    project = TRUE,
+    whiten = TRUE,
+    seed = 1L,
+    n_permutations = 149L
+  )
+  expect_s3_class(rp, "mmd_ppc")
+  ra <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 6L,
+    whiten = TRUE,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 149L
+  )
+  expect_s3_class(ra, "fb_mmd_agg")
+})

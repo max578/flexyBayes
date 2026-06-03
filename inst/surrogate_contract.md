@@ -140,6 +140,19 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   the surrogate's `q` factor directions before the MMD, so the test runs in `q`
   dimensions (cheaper + higher-powered on the correlated structure for a large
   output count; blind to idiosyncratic-direction distortions by construction).
+  With `whiten = TRUE` the draws and `observed` are Mahalanobis-whitened by their
+  **pooled covariance** before the MMD -- a label-agnostic linear representation
+  (it depends only on the pooled cloud, not the draws-vs-observed labels, so the
+  permutation test stays valid) that puts the outputs on a common footing and so
+  removes the cross-output scale heterogeneity defeating a single median
+  bandwidth. The same map is applied to both clouds, so a relative scale, shape,
+  or mean difference survives; empirically it lifts power substantially on a
+  localised / heterogeneous-scale distortion the raw check misses, with no blind
+  spot found across a mean / variance / shape battery. Opt-in (a graduated ridge
+  guards a near-singular pooled covariance); composes with `project` and
+  `aggregate`. This is the representation lever that the per-kernel statistic
+  exposed: a learned deep kernel was investigated and did not beat this cheap
+  whitening in the (conservative-null) PPC.
   With `aggregate = TRUE` the test is an aggregated multi-kernel MMD (MMDAgg;
   Schrab et al. 2023) over a bandwidth grid, aggregated by the weighted-quantile
   statistic `min_g p_g / w_g` (`agg_weights` sets the kernel weights) -- no
