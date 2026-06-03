@@ -348,3 +348,83 @@ test_that("project = TRUE needs a low-rank surrogate", {
     "low-rank"
   )
 })
+
+# ---- the aggregated multi-kernel MMD (MMDAgg, no bandwidth tuning) -----------
+
+test_that("aggregate = TRUE passes a faithful surrogate and catches a distortion", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  res_ok <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 8L,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_s3_class(res_ok, "fb_mmd_agg")
+  expect_identical(res_ok$n_kernels, 7L) # the default bandwidth grid
+  expect_length(res_ok$p_per_bandwidth, 7L)
+  expect_false(res_ok$reject)
+  # deterministic given the seed
+  res_ok2 <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 8L,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_equal(res_ok$p_value, res_ok2$p_value)
+
+  observed_bad <- observed
+  observed_bad$o1 <- observed_bad$o1 + 3
+  res_bad <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed_bad,
+    n_draws = 8L,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_true(res_bad$reject)
+})
+
+test_that("aggregate composes with project; print works", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  res <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 8L,
+    project = TRUE,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_s3_class(res, "fb_mmd_agg")
+  expect_false(res$reject) # faithful, factor space + aggregated
+  expect_output(print(res), "fb_mmd_agg")
+})

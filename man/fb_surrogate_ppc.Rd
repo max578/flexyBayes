@@ -11,6 +11,7 @@ fb_surrogate_ppc(
   n_draws = 1L,
   joint = TRUE,
   project = FALSE,
+  aggregate = FALSE,
   seed = NULL,
   ...
 )
@@ -44,13 +45,24 @@ orthogonal to the factor space} (purely idiosyncratic per-output errors,
 which the marginal \verb{<o>_sd} and a \code{joint = FALSE} check cover), so it
 complements rather than replaces the full-space check.}
 
+\item{aggregate}{Logical; run an \strong{aggregated multi-kernel} MMD instead of a
+single-kernel one (default \code{FALSE}). An MMDAgg-style test (Schrab et al.
+2023) over an RBF bandwidth grid around the median heuristic, sharing the
+permutations across bandwidths and aggregating by the calibrated min
+p-value -- it removes the bandwidth choice and is robust when the median
+heuristic is mis-scaled, at a valid level. Composes with \code{project}. Reads
+\code{n_permutations} and \code{alpha} from \code{...}.}
+
 \item{seed}{Optional integer RNG seed (the caller's stream is restored).}
 
-\item{...}{Passed to \code{\link[kernR:mmd_ppc]{kernR::mmd_ppc()}} (e.g. \code{n_permutations}, \code{kernel}).}
+\item{...}{Passed to \code{\link[kernR:mmd_ppc]{kernR::mmd_ppc()}} (e.g. \code{n_permutations}); for
+\code{aggregate = TRUE}, \code{n_permutations} and \code{alpha} are read from here.}
 }
 \value{
-The \code{kernR::mmd_ppc} test object (carries \verb{$statistic}, \verb{$p_value},
-\verb{$reject}, \verb{$surprise_bits}).
+For the single-kernel, the \code{kernR::mmd_ppc} object (\verb{$statistic},
+\verb{$p_value}, \verb{$reject}, \verb{$surprise_bits}); for \code{aggregate = TRUE} an
+\code{fb_mmd_agg} object (\verb{$p_value}, \verb{$reject}, \verb{$statistic}, \verb{$bandwidths},
+\verb{$p_per_bandwidth}).
 }
 \description{
 Tests whether a surrogate's predictive \emph{distribution} matches the simulator's

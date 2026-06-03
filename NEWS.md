@@ -2,6 +2,13 @@
 
 ## New features
 
+- **`fb_surrogate_ppc(aggregate = TRUE)` runs an aggregated multi-kernel MMD.**
+  An MMDAgg-style test (Schrab et al. 2023) over an RBF bandwidth grid around the
+  median heuristic, sharing the permutations across bandwidths and aggregating by
+  the calibrated min p-value -- it removes the bandwidth choice and is robust when
+  the median heuristic is mis-scaled, at a valid level. It orchestrates kernR's
+  single-kernel `mmd_test` over the grid (the MMD machinery stays kernR's) and
+  composes with `project`. Returns an `fb_mmd_agg` object.
 - **New vignette: distribution-preserving surrogates (emulate, invert, check).**
   A self-contained walkthrough of the C7 surrogate workflow -- ingest an
   ensemble, fit a surrogate, read its predictive distribution, invert it with

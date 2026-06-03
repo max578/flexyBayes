@@ -140,6 +140,11 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   the surrogate's `q` factor directions before the MMD, so the test runs in `q`
   dimensions (cheaper + higher-powered on the correlated structure for a large
   output count; blind to idiosyncratic-direction distortions by construction).
-  kernR owns the MMD test; flexyBayes only generates the predictive sample.
+  With `aggregate = TRUE` the test is an aggregated multi-kernel MMD (MMDAgg-style)
+  over a bandwidth grid -- no bandwidth tuning, robust when the median heuristic is
+  mis-scaled, at a valid level -- orchestrating kernR's single-kernel `mmd_test`.
+  kernR owns the MMD machinery (the kernel, the statistic, the permutation null);
+  flexyBayes generates the predictive sample and, for `aggregate`, the
+  cross-bandwidth aggregation.
 - **Mechanistic-statistical fits** -- `fb_apsim()` (ADR 0009, partner-gated),
   provisioned in its own pass.

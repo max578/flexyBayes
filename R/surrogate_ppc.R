@@ -136,6 +136,85 @@
   draws
 }
 
+# Aggregated (multi-kernel) MMD over a bandwidth grid -- the no-tuning,
+# scale-robust test (an MMDAgg-style aggregation; Schrab et al. 2023).
+# It orchestrates kernR's single-kernel mmd_test over a grid around
+# the median bandwidth, sharing the SAME permutations across bandwidths
+# (a fixed `seed`), then aggregates by the min p-value across bandwidths
+# calibrated against the shared permutation null. flexyBayes owns only the
+# aggregation; the kernel, the MMD statistic, and the permutation null are
+# all kernR's (the "contracts not internals" rule). Removes the bandwidth choice
+# and recovers power lost when the median is mis-scaled (the cont.22
+# triangulation-calibration result), at a valid level (null rejection ~ alpha).
+.mmd_agg <- function(x, y, n_permutations, alpha, seed, mult = 2^(-3:3)) {
+  base_bw <- kernR::select_bandwidth(rbind(x, y), method = "median")
+  grid <- base_bw * mult
+  res <- lapply(grid, function(bw) {
+    kernR::mmd_test(
+      x,
+      y,
+      kernel = kernR::kernel_spec("rbf", bandwidth = bw),
+      n_permutations = n_permutations,
+      seed = seed
+    )
+  })
+  t_obs <- vapply(res, function(r) r$statistic, numeric(1L))
+  nmat <- vapply(res, function(r) r$null_distribution, numeric(n_permutations))
+  b_perm <- nrow(nmat) # B permutations x G bandwidths
+  p_obs <- vapply(
+    seq_along(grid),
+    function(g) (1 + sum(nmat[, g] >= t_obs[g])) / (1 + b_perm),
+    numeric(1L)
+  )
+  # per-permutation p-value within each bandwidth's own (shared) null
+  pj <- vapply(
+    seq_along(grid),
+    function(g) {
+      col <- nmat[, g]
+      (1 + colSums(outer(col, col, ">="))) / (1 + b_perm)
+    },
+    numeric(b_perm)
+  )
+  m_obs <- min(p_obs)
+  m_null <- apply(pj, 1L, min)
+  p_agg <- (1 + sum(m_null <= m_obs)) / (1 + b_perm)
+  structure(
+    list(
+      p_value = p_agg,
+      reject = p_agg < alpha,
+      statistic = m_obs,
+      bandwidths = grid,
+      p_per_bandwidth = p_obs,
+      n_kernels = length(grid),
+      n_permutations = b_perm
+    ),
+    class = c("fb_mmd_agg", "list")
+  )
+}
+
+#' @export
+print.fb_mmd_agg <- function(x, ...) {
+  cat("-- fb_mmd_agg (aggregated multi-kernel MMD PPC) -------------\n")
+  cat(
+    "  kernels: ",
+    x$n_kernels,
+    " (RBF, bandwidth grid) | permutations: ",
+    x$n_permutations,
+    "\n",
+    sep = ""
+  )
+  cat(
+    "  aggregated p-value: ",
+    formatC(x$p_value, format = "g", digits = 3L),
+    " | reject: ",
+    x$reject,
+    "\n",
+    sep = ""
+  )
+  cat("------------------------------------------------------------\n")
+  invisible(x)
+}
+
 #' Posterior-predictive check of a surrogate against held-out outputs
 #'
 #' Tests whether a surrogate's predictive *distribution* matches the simulator's
@@ -180,11 +259,21 @@
 #'   orthogonal to the factor space** (purely idiosyncratic per-output errors,
 #'   which the marginal `<o>_sd` and a `joint = FALSE` check cover), so it
 #'   complements rather than replaces the full-space check.
+#' @param aggregate Logical; run an **aggregated multi-kernel** MMD instead of a
+#'   single-kernel one (default `FALSE`). An MMDAgg-style test (Schrab et al.
+#'   2023) over an RBF bandwidth grid around the median heuristic, sharing the
+#'   permutations across bandwidths and aggregating by the calibrated min
+#'   p-value -- it removes the bandwidth choice and is robust when the median
+#'   heuristic is mis-scaled, at a valid level. Composes with `project`. Reads
+#'   `n_permutations` and `alpha` from `...`.
 #' @param seed Optional integer RNG seed (the caller's stream is restored).
-#' @param ... Passed to [kernR::mmd_ppc()] (e.g. `n_permutations`, `kernel`).
+#' @param ... Passed to [kernR::mmd_ppc()] (e.g. `n_permutations`); for
+#'   `aggregate = TRUE`, `n_permutations` and `alpha` are read from here.
 #'
-#' @return The `kernR::mmd_ppc` test object (carries `$statistic`, `$p_value`,
-#'   `$reject`, `$surprise_bits`).
+#' @return For the single-kernel, the `kernR::mmd_ppc` object (`$statistic`,
+#'   `$p_value`, `$reject`, `$surprise_bits`); for `aggregate = TRUE` an
+#'   `fb_mmd_agg` object (`$p_value`, `$reject`, `$statistic`, `$bandwidths`,
+#'   `$p_per_bandwidth`).
 #' @seealso [fit_surrogate()], [predict.fb_surrogate()], [fb_surrogate_ies()].
 #' @export
 fb_surrogate_ppc <- function(
@@ -194,6 +283,7 @@ fb_surrogate_ppc <- function(
   n_draws = 1L,
   joint = TRUE,
   project = FALSE,
+  aggregate = FALSE,
   seed = NULL,
   ...
 ) {
@@ -260,6 +350,17 @@ fb_surrogate_ppc <- function(
     basis <- qr.Q(qr(u_obs))
     draws <- draws %*% basis
     obs_mat <- obs_mat %*% basis
+  }
+
+  if (isTRUE(aggregate)) {
+    dots <- list(...)
+    return(.mmd_agg(
+      draws,
+      obs_mat,
+      n_permutations = as.integer(dots$n_permutations %||% 199L),
+      alpha = dots$alpha %||% 0.05,
+      seed = seed %||% 1L
+    ))
   }
 
   kernR::mmd_ppc(draws, observed = obs_mat, ...)
