@@ -1,7 +1,33 @@
-# flexyBayes 0.6.0.9000 (development)
+# flexyBayes 0.7.0
+
+This release reconciles three parallel development streams onto the engine, data,
+and surrogate axes: gretaR activated as a fourth inference engine (the engine
+axis), the C5 ensemble-source data contract and its first consumers (the data
+axis), and the C7 surrogate carried end-to-end from a reference emulator to a
+distribution-preserving predictive check (the surrogate axis).
 
 ## New features
 
+- **gretaR activated as a fourth inference engine.** `flexybayes(..., backend =
+  "gretaR")` fits supported hierarchical models through an out-of-process
+  torch-NUTS worker, returning canonical parameter names and a `draws_array` that
+  flows into `triangulate()` like any other engine. The integration is governed by
+  a versioned backend contract (constellation C1) with an **executable
+  conformance battery** -- a new engine onboards by adding one descriptor, gated on
+  `triangulate()`-agreement within an SBC-calibrated threshold. A **dormant koine
+  backend slot** is provisioned (scaffolded and correct, switched on when koine's
+  programmatic model builder is confirmed against the contract).
+- **`fb_ensemble()` and the `ensemble_source` data contract (constellation C5).**
+  A canonical ingest shape for calibrated parameter ensembles, with PESTO (via its
+  manifest), raw `apsimx`, and file as conforming producers -- so flexyBayes is
+  standalone-functional for methods work without depending on any one producer's
+  internals. **`fb_pesto()`** turns a calibrated ensemble into an informative
+  `fb_prior` for a downstream fit (moments method; joint and KDE methods refuse
+  cleanly behind their gates).
+- **`fitted()`, `residuals()`, and `logLik()` methods for INLA fits.** `fitted()`
+  and `residuals()` now return values for a `flexybayes_inla` fit (previously
+  `NULL`); `logLik()` returns an honest `NA` with the right shape where INLA does
+  not expose a likelihood, rather than erroring.
 - **`fb_surrogate_ppc(whiten = TRUE)` whitens the outputs before the MMD.** The
   predictive draws and `observed` are Mahalanobis-whitened by their pooled
   covariance -- a label-agnostic representation that puts the outputs on a common
