@@ -133,6 +133,9 @@
   # registry.
   .populate_refusal_registry_v0400()
 
+  # gretaR backend activation (ADR 0013/0031): gretaR-specific refusal codes.
+  .populate_refusal_registry_gretaR()
+
   # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
   # The lock makes the registry immutable to user code once the
   # package is loaded; .register_refusal() calls beyond this point
