@@ -12,6 +12,7 @@ fb_surrogate_ppc(
   joint = TRUE,
   project = FALSE,
   aggregate = FALSE,
+  agg_weights = "uniform",
   seed = NULL,
   ...
 )
@@ -46,12 +47,19 @@ which the marginal \verb{<o>_sd} and a \code{joint = FALSE} check cover), so it
 complements rather than replaces the full-space check.}
 
 \item{aggregate}{Logical; run an \strong{aggregated multi-kernel} MMD instead of a
-single-kernel one (default \code{FALSE}). An MMDAgg-style test (Schrab et al.
-2023) over an RBF bandwidth grid around the median heuristic, sharing the
-permutations across bandwidths and aggregating by the calibrated min
-p-value -- it removes the bandwidth choice and is robust when the median
-heuristic is mis-scaled, at a valid level. Composes with \code{project}. Reads
-\code{n_permutations} and \code{alpha} from \code{...}.}
+single-kernel (default \code{FALSE}). An MMDAgg test (Schrab et al. 2023) over
+an RBF bandwidth grid around the median heuristic, sharing the permutations
+across bandwidths and aggregating by the weighted-quantile statistic
+\verb{min_g p_g / w_g} -- it removes the bandwidth choice and is robust when the
+median heuristic is mis-scaled, at a valid level. Composes with \code{project}.
+Reads \code{n_permutations} and \code{alpha} from \code{...}.}
+
+\item{agg_weights}{Kernel weights for \code{aggregate = TRUE}: a scheme
+(\code{"uniform"} default, or \code{"increasing"} / \code{"decreasing"} / \code{"centred"},
+ordered smallest-to-largest bandwidth) or a numeric vector over
+the bandwidth grid. A larger weight loosens that kernel's threshold, so
+up-weighting the scale a distortion is expected to live at recovers power;
+\code{"uniform"} is the safe default (it recovers the min p-value aggregation).}
 
 \item{seed}{Optional integer RNG seed (the caller's stream is restored).}
 

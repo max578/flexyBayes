@@ -140,9 +140,11 @@ The surrogate's `<o>_mean` / `<o>_sd` feed:
   the surrogate's `q` factor directions before the MMD, so the test runs in `q`
   dimensions (cheaper + higher-powered on the correlated structure for a large
   output count; blind to idiosyncratic-direction distortions by construction).
-  With `aggregate = TRUE` the test is an aggregated multi-kernel MMD (MMDAgg-style)
-  over a bandwidth grid -- no bandwidth tuning, robust when the median heuristic is
-  mis-scaled, at a valid level -- orchestrating kernR's single-kernel `mmd_test`.
+  With `aggregate = TRUE` the test is an aggregated multi-kernel MMD (MMDAgg;
+  Schrab et al. 2023) over a bandwidth grid, aggregated by the weighted-quantile
+  statistic `min_g p_g / w_g` (`agg_weights` sets the kernel weights) -- no
+  bandwidth tuning, robust when the median heuristic is mis-scaled, at a valid
+  level -- orchestrating kernR's single-kernel `mmd_test`.
   kernR owns the MMD machinery (the kernel, the statistic, the permutation null);
   flexyBayes generates the predictive sample and, for `aggregate`, the
   cross-bandwidth aggregation.

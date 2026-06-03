@@ -428,3 +428,54 @@ test_that("aggregate composes with project; print works", {
   expect_false(res$reject) # faithful, factor space + aggregated
   expect_output(print(res), "fb_mmd_agg")
 })
+
+test_that("aggregate weight schemes are valid and uniform recovers the default", {
+  skip_if_not_installed("kernR")
+  obj <- .mk_lowrank_ppc()
+  s <- obj$surrogate
+  set.seed(5L)
+  k <- 70L
+  nd <- data.frame(
+    a = stats::runif(k, -1.8, 1.8),
+    b = stats::runif(k, -1.8, 1.8)
+  )
+  observed <- as.data.frame(obj$gen(nd$a, nd$b))
+  colnames(observed) <- paste0("o", seq_len(5L))
+  ppc <- function(w) {
+    fb_surrogate_ppc(
+      s,
+      nd,
+      observed,
+      n_draws = 8L,
+      aggregate = TRUE,
+      agg_weights = w,
+      seed = 1L,
+      n_permutations = 199L
+    )
+  }
+  r_unif <- ppc("uniform")
+  # uniform is the default (cont.42 min-p form): same p-value as no agg_weights
+  r_default <- fb_surrogate_ppc(
+    s,
+    nd,
+    observed,
+    n_draws = 8L,
+    aggregate = TRUE,
+    seed = 1L,
+    n_permutations = 199L
+  )
+  expect_equal(r_unif$p_value, r_default$p_value)
+  for (scheme in c("increasing", "decreasing", "centred")) {
+    r <- ppc(scheme)
+    expect_s3_class(r, "fb_mmd_agg")
+    expect_length(r$weights, r$n_kernels)
+    expect_equal(sum(r$weights), 1) # normalised
+    expect_false(r$reject) # faithful surrogate
+  }
+  # a custom numeric weight vector works
+  r_vec <- ppc(c(1, 1, 2, 3, 2, 1, 1))
+  expect_equal(sum(r_vec$weights), 1)
+  # invalid schemes / wrong length error
+  expect_error(ppc("nope"), "unknown")
+  expect_error(ppc(c(1, 2, 3)), "positive finite values")
+})

@@ -140,15 +140,60 @@
 # scale-robust test (an MMDAgg-style aggregation; Schrab et al. 2023).
 # It orchestrates kernR's single-kernel mmd_test over a grid around
 # the median bandwidth, sharing the SAME permutations across bandwidths
-# (a fixed `seed`), then aggregates by the min p-value across bandwidths
-# calibrated against the shared permutation null. flexyBayes owns only the
+# (a fixed `seed`), then aggregates by the weighted-quantile statistic
+# R = min_g p_g / w_g calibrated against the shared permutation null (uniform
+# weights recover the min p-value). flexyBayes owns only the
 # aggregation; the kernel, the MMD statistic, and the permutation null are
 # all kernR's (the "contracts not internals" rule). Removes the bandwidth choice
 # and recovers power lost when the median is mis-scaled (the cont.22
 # triangulation-calibration result), at a valid level (null rejection ~ alpha).
-.mmd_agg <- function(x, y, n_permutations, alpha, seed, mult = 2^(-3:3)) {
+# Resolve a kernel-weight scheme to a positive vector of length g summing to 1.
+# A scheme name ("uniform" / "increasing" / "decreasing" / "centred", ordered
+# from the smallest to the largest bandwidth) or a numeric vector. The
+# weighted-quantile aggregation gives kernel g a (1 - u w_g)-quantile threshold,
+# so a larger w_g loosens that kernel's threshold -- up-weight the bandwidth
+# scale a distortion is expected to live at.
+.mmd_agg_weights <- function(weights, g) {
+  if (is.numeric(weights)) {
+    if (length(weights) != g || any(weights <= 0) || any(!is.finite(weights))) {
+      stop(
+        ".mmd_agg(): numeric `weights` must be ",
+        g,
+        " positive finite values.",
+        call. = FALSE
+      )
+    }
+    return(weights / sum(weights))
+  }
+  idx <- seq_len(g)
+  raw <- switch(
+    weights,
+    uniform = rep(1, g),
+    increasing = idx,
+    decreasing = rev(idx),
+    centred = exp(-((idx - (g + 1) / 2)^2) / (2 * (g / 4)^2)),
+    stop(
+      ".mmd_agg(): unknown `weights` scheme '",
+      weights,
+      "' (uniform / increasing / decreasing / centred, or a numeric vector).",
+      call. = FALSE
+    )
+  )
+  raw / sum(raw)
+}
+
+.mmd_agg <- function(
+  x,
+  y,
+  n_permutations,
+  alpha,
+  seed,
+  mult = 2^(-3:3),
+  weights = "uniform"
+) {
   base_bw <- kernR::select_bandwidth(rbind(x, y), method = "median")
   grid <- base_bw * mult
+  w <- .mmd_agg_weights(weights, length(grid))
   res <- lapply(grid, function(bw) {
     kernR::mmd_test(
       x,
@@ -175,15 +220,20 @@
     },
     numeric(b_perm)
   )
-  m_obs <- min(p_obs)
-  m_null <- apply(pj, 1L, min)
-  p_agg <- (1 + sum(m_null <= m_obs)) / (1 + b_perm)
+  # weighted-quantile aggregation (Schrab et al. 2023): the statistic is
+  # R = min_g p_g / w_g (kernel g exceeds its (1 - u w_g)-quantile iff
+  # p_g <= u w_g), calibrated against the shared permutation null. Uniform
+  # weights recover the min p-value form.
+  r_obs <- min(p_obs / w)
+  r_null <- apply(sweep(pj, 2L, w, "/"), 1L, min)
+  p_agg <- (1 + sum(r_null <= r_obs)) / (1 + b_perm)
   structure(
     list(
       p_value = p_agg,
       reject = p_agg < alpha,
-      statistic = m_obs,
+      statistic = r_obs,
       bandwidths = grid,
+      weights = w,
       p_per_bandwidth = p_obs,
       n_kernels = length(grid),
       n_permutations = b_perm
@@ -198,7 +248,7 @@ print.fb_mmd_agg <- function(x, ...) {
   cat(
     "  kernels: ",
     x$n_kernels,
-    " (RBF, bandwidth grid) | permutations: ",
+    " (RBF, bandwidth grid) | weighted-quantile | permutations: ",
     x$n_permutations,
     "\n",
     sep = ""
@@ -260,12 +310,18 @@ print.fb_mmd_agg <- function(x, ...) {
 #'   which the marginal `<o>_sd` and a `joint = FALSE` check cover), so it
 #'   complements rather than replaces the full-space check.
 #' @param aggregate Logical; run an **aggregated multi-kernel** MMD instead of a
-#'   single-kernel one (default `FALSE`). An MMDAgg-style test (Schrab et al.
-#'   2023) over an RBF bandwidth grid around the median heuristic, sharing the
-#'   permutations across bandwidths and aggregating by the calibrated min
-#'   p-value -- it removes the bandwidth choice and is robust when the median
-#'   heuristic is mis-scaled, at a valid level. Composes with `project`. Reads
-#'   `n_permutations` and `alpha` from `...`.
+#'   single-kernel (default `FALSE`). An MMDAgg test (Schrab et al. 2023) over
+#'   an RBF bandwidth grid around the median heuristic, sharing the permutations
+#'   across bandwidths and aggregating by the weighted-quantile statistic
+#'   `min_g p_g / w_g` -- it removes the bandwidth choice and is robust when the
+#'   median heuristic is mis-scaled, at a valid level. Composes with `project`.
+#'   Reads `n_permutations` and `alpha` from `...`.
+#' @param agg_weights Kernel weights for `aggregate = TRUE`: a scheme
+#'   (`"uniform"` default, or `"increasing"` / `"decreasing"` / `"centred"`,
+#'   ordered smallest-to-largest bandwidth) or a numeric vector over
+#'   the bandwidth grid. A larger weight loosens that kernel's threshold, so
+#'   up-weighting the scale a distortion is expected to live at recovers power;
+#'   `"uniform"` is the safe default (it recovers the min p-value aggregation).
 #' @param seed Optional integer RNG seed (the caller's stream is restored).
 #' @param ... Passed to [kernR::mmd_ppc()] (e.g. `n_permutations`); for
 #'   `aggregate = TRUE`, `n_permutations` and `alpha` are read from here.
@@ -284,6 +340,7 @@ fb_surrogate_ppc <- function(
   joint = TRUE,
   project = FALSE,
   aggregate = FALSE,
+  agg_weights = "uniform",
   seed = NULL,
   ...
 ) {
@@ -359,7 +416,8 @@ fb_surrogate_ppc <- function(
       obs_mat,
       n_permutations = as.integer(dots$n_permutations %||% 199L),
       alpha = dots$alpha %||% 0.05,
-      seed = seed %||% 1L
+      seed = seed %||% 1L,
+      weights = agg_weights
     ))
   }
 
