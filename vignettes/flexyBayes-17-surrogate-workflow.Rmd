@@ -1,0 +1,203 @@
+---
+title: "Distribution-preserving surrogates: emulate, invert, check"
+vignette: >
+  %\VignetteIndexEntry{Distribution-preserving surrogates: emulate, invert, check}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  fig.width = 6,
+  fig.height = 4
+)
+library(flexyBayes)
+set.seed(1)
+```
+
+A *surrogate* (or emulator) replaces an expensive simulator with a fast map
+from parameter sets to outputs. The flexyBayes surrogate (contract C7) does
+one extra thing that an ordinary regression emulator does not: it reports a
+predictive **distribution**, not a point. Reporting the predictive standard
+deviation alongside the mean is what lets a downstream calibration or inverse
+step stay honest about emulator error instead of silently treating the
+surrogate as exact.
+
+This vignette walks the whole loop on a small, self-contained example -- ingest
+an ensemble, fit a surrogate, read its predictive distribution, invert it against
+observed data, and check whether it distorted the output distribution. The
+reference surrogate ships with flexyBayes and needs no other package, so every
+code chunk below runs as shown.
+
+## A simulator we can check against
+
+We use a linear forward model `y = G theta` so the truth is known and the
+inversion is exact in expectation. Three outputs, two parameters, and a little
+observation noise.
+
+```{r ensemble}
+g <- rbind(c(1.5, -0.8), c(0.4, 1.1), c(-0.9, 0.6)) # 3 outputs x 2 params
+n_train <- 300L
+theta <- cbind(
+  p1 = runif(n_train, -3, 3),
+  p2 = runif(n_train, -3, 3)
+)
+y <- theta %*% t(g) + matrix(rnorm(n_train * 3L, 0, 0.1), n_train, 3L)
+colnames(y) <- c("o1", "o2", "o3")
+```
+
+The ensemble is ingested through the C5 contract, so any conforming producer
+(a PESTO manifest, a raw `apsimx` run, a saved file) feeds a surrogate the same
+way. Here we build one directly from the design and the outputs.
+
+```{r fb-ensemble}
+ens <- fb_ensemble(
+  params = as.data.frame(theta),
+  outputs = as.data.frame(y),
+  provenance = list(source = "raw")
+)
+ens
+```
+
+## Fit a surrogate and read its distribution
+
+`fit_surrogate()` trains the emulator. The default reference method, `"rff"`,
+is a random-Fourier-features Bayesian linear model whose predictive variance is
+set by evidence maximisation, so the reported standard deviation is calibrated
+rather than an arbitrary ridge.
+
+```{r fit}
+sur <- fit_surrogate(ens)
+sur
+```
+
+`predict()` returns, for each emulated output `<o>`, a `<o>_mean` and a
+`<o>_sd` column. The standard deviation is the distribution-preserving part of
+the contract.
+
+```{r predict}
+newdata <- data.frame(p1 = c(1.0, -2.0), p2 = c(0.5, 1.5))
+predict(sur, newdata)
+```
+
+By default the reference surrogate fits the outputs **jointly**, so it preserves
+the cross-output predictive covariance, not only the per-output marginals.
+`predict(..., cov = TRUE)` returns that covariance as a per-row array, and
+`fb_cov_slice()` reads one row's `k`-by-`k` slice.
+
+```{r joint-cov}
+pc <- predict(sur, newdata, cov = TRUE)
+round(fb_cov_slice(pc, 1L), 3)
+```
+
+The diagonal of that slice equals the `<o>_sd` values squared, exactly -- the
+marginal contract is never broken by the joint fit.
+
+## Invert: recover parameters from data
+
+`fb_surrogate_ies()` is the calibration consumer. It runs an Ensemble Smoother
+with Multiple Data Assimilation (ES-MDA), driving a prior parameter ensemble
+toward agreement with observed data using only the surrogate in place of the
+simulator. Because the surrogate is distribution-preserving, its predictive
+variance is folded into the data covariance, so emulator uncertainty inflates
+the assimilation noise where the emulator is least sure.
+
+```{r invert}
+theta_true <- c(p1 = 1.2, p2 = -0.7)
+observed <- as.numeric(g %*% theta_true)
+names(observed) <- c("o1", "o2", "o3")
+
+prior <- data.frame(
+  p1 = rnorm(300, 0, 1.5),
+  p2 = rnorm(300, 0, 1.5)
+)
+fit <- fb_surrogate_ies(sur, observed, obs_sd = 0.05, prior = prior, seed = 7)
+fit
+```
+
+The posterior ensemble concentrates near the truth, and the data misfit falls
+from prior to posterior.
+
+```{r invert-recovery}
+rbind(
+  truth = theta_true,
+  prior_mean = colMeans(prior),
+  posterior_mean = colMeans(fit$posterior)
+)
+```
+
+## Check: did the surrogate distort the distribution?
+
+A surrogate can recover the mean while getting the *spread* or the *cross-output
+correlation* wrong. `fb_surrogate_ppc()` tests the predictive distribution
+itself, by drawing from the surrogate at held-out parameter sets and comparing
+the draw cloud to the true simulator outputs with kernR's maximum-mean-discrepancy
+posterior-predictive check. The MMD test lives in kernR -- flexyBayes only
+generates the predictive sample -- so this chunk runs only when kernR is
+installed.
+
+```{r ppc, eval = requireNamespace("kernR", quietly = TRUE)}
+set.seed(4)
+held <- data.frame(p1 = runif(60, -2.5, 2.5), p2 = runif(60, -2.5, 2.5))
+truth_held <- held$p1 %o% g[, 1] + held$p2 %o% g[, 2] +
+  matrix(rnorm(60 * 3L, 0, 0.1), 60, 3L)
+colnames(truth_held) <- c("o1", "o2", "o3")
+
+check <- fb_surrogate_ppc(
+  sur, held, as.data.frame(truth_held),
+  n_draws = 5L, seed = 1L, n_permutations = 199L
+)
+c(p_value = check$p_value, reject = check$reject)
+```
+
+A high p-value (no rejection) means the surrogate's predictive draws are
+indistinguishable from the simulator's outputs -- the distribution was preserved,
+not merely the mean. The check is joint by default, so it exercises the
+cross-output correlation, not only each output's spread.
+
+## Many outputs: a low-rank covariance
+
+When a simulator has a large number of outputs whose covariance is driven by a
+few latent factors, the dense `k`-by-`k` covariance is wasteful. `cov_rank = q`
+stores the cross-output covariance in a rank-`q` factor-analysis form, reducing
+the storage from order `k` squared to order `k` times `q`, while reproducing the
+covariance diagonal -- and hence every `<o>_sd` -- exactly.
+
+```{r lowrank}
+sur_lr <- fit_surrogate(ens, cov_rank = 1L)
+sur_lr$fit$sigma_lr$rank
+```
+
+Both consumers use the factored form natively, so the dense covariance is never
+formed: `fb_surrogate_ies()` folds it into the Kalman update through the Woodbury
+identity, and `fb_surrogate_ppc()` samples it factored (and, with
+`project = TRUE`, runs the discrepancy test in the `q`-dimensional factor space,
+which is cheaper and higher-powered on the correlated structure for a large
+output count). The factor itself is fitted by an eigen-truncation,
+factor-analysis EM (`cov_method = "fa"`, more faithful when the residual noise is
+uneven across outputs), or `"auto"`.
+
+## Where the seam goes
+
+The reference `rff` surrogate keeps flexyBayes standalone-functional. Richer
+emulators -- a Gaussian process, a conditional mean embedding -- register through
+`register_surrogate()` and are consumed through exactly the same `predict()`
+contract, so the inversion and the check above work unchanged with a sibling's
+surrogate in place of the reference. The contract is the interface, not any one
+implementation.
+
+A surrogate is only as trustworthy as its predictive distribution. The point of
+making the standard deviation a contract requirement, and of shipping the
+inversion and the predictive check alongside the emulator, is that the
+distribution can be inspected and falsified rather than assumed. The reference
+surrogate is deliberately simple, so for a stiff or sharply non-linear simulator
+a richer registered emulator will preserve the distribution where the reference
+cannot, and the same predictive check is what tells the two apart.
+```

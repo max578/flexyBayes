@@ -1,3 +1,156 @@
+# flexyBayes 0.6.0.9000 (development)
+
+## New features
+
+- **`fb_surrogate_ppc(whiten = TRUE)` whitens the outputs before the MMD.** The
+  predictive draws and `observed` are Mahalanobis-whitened by their pooled
+  covariance -- a label-agnostic representation that puts the outputs on a common
+  footing, removing the cross-output scale heterogeneity that makes a single
+  median bandwidth too coarse to resolve a distortion in a low-variance direction.
+  The map depends only on the pooled cloud (not the draws-vs-observed labels), so
+  the permutation test stays valid, and the same map is applied to both clouds, so
+  a relative scale, shape, or mean difference is preserved. It lifts power
+  substantially on localised / heterogeneous-scale distortions a raw-output check
+  misses (with no blind spot found across a mean / variance / shape battery), at a
+  valid level. Opt-in (a graduated ridge guards a near-singular pooled
+  covariance); composes with `project` and `aggregate`.
+- **`fb_surrogate_ppc(aggregate = TRUE)` runs an aggregated multi-kernel MMD.**
+  An MMDAgg test (Schrab et al. 2023) over an RBF bandwidth grid around the median
+  heuristic, sharing the permutations across bandwidths and aggregating by the
+  weighted-quantile statistic `min_g p_g / w_g` -- it removes the bandwidth choice
+  and is robust when the median heuristic is mis-scaled, at a valid level. The
+  kernel weights are set by `agg_weights` (`"uniform"` default, or `"increasing"`
+  / `"decreasing"` / `"centred"`, or a numeric vector): up-weighting the scale a
+  distortion is expected to live at recovers power, and `"uniform"` recovers the
+  min p-value aggregation. It orchestrates kernR's single-kernel `mmd_test` over
+  the grid (the MMD machinery stays kernR's) and composes with `project`. Returns
+  an `fb_mmd_agg` object.
+- **New vignette: distribution-preserving surrogates (emulate, invert, check).**
+  A self-contained walkthrough of the C7 surrogate workflow -- ingest an
+  ensemble, fit a surrogate, read its predictive distribution, invert it with
+  `fb_surrogate_ies()`, and check it with `fb_surrogate_ppc()` -- runnable on the
+  built-in reference surrogate with no other package.
+- **`fb_surrogate_ppc(project = TRUE)` runs a factor-space MMD for large output
+  counts.** For a surrogate that stores a low-rank covariance (`cov_rank`), the
+  predictive-check draws and `observed` are projected onto the surrogate's `q`
+  factor directions before the MMD, so the test runs in `q` dimensions, not `k`
+  -- cheaper and higher-powered on the correlated cross-output structure (the MMD
+  loses power as the dimension grows). It is, by design, blind to distortions
+  orthogonal to the factor space (idiosyncratic per-output errors, which the
+  marginal and `joint = FALSE` checks cover), so it complements the full-space
+  check.
+- **`fit_surrogate(cov_method = "auto")` picks the low-rank factor method.**
+  In addition to `"eigen"` (default) and `"fa"`, `"auto"` selects between them
+  from the heteroscedasticity of the eigen-residual diagonal -- `"fa"` when the
+  residual is uneven (where eigen-truncation is biased), `"eigen"` otherwise. The
+  resolved method is recorded in the fitted object.
+- **`fit_surrogate(ard_refit = "cv")` now uses k-fold cross-validation.** The
+  held-out predictive-density objective is summed over a k-fold partition of the
+  subsample rather than a single split -- a less noisy objective, so the
+  Nelder-Mead lands on sharper lengthscales.
+- **`fb_surrogate_ppc()` samples a low-rank covariance factored.** When the
+  surrogate stores a low-rank covariance (`cov_rank`), the joint predictive-check
+  draws are sampled from the factored form directly -- a `q`-dimensional factor
+  noise plus a `k`-dimensional idiosyncratic noise -- so the `k x k` covariance
+  slice is never formed (the native low-rank consumer for the PPC, `O(k q)` per
+  draw). Draws from the same per-row covariance as the dense path.
+- **`fb_surrogate_ies()` consumes a low-rank covariance natively (Woodbury).**
+  When the surrogate stores a low-rank covariance (`cov_rank`), the ES-MDA Kalman
+  update folds the factored form straight in via the Woodbury identity (a
+  rank-sized solve) and samples the observation perturbation factored, so the
+  `d x d` data covariance is never formed -- the inversion cost scales with the
+  covariance rank, not the output count. Produces the same Kalman gain as the
+  dense path (a dense-joint or marginal surrogate keeps the dense path).
+- **`fit_surrogate(cov_method = "fa")` learns the low-rank factor by EM.**
+  In addition to the default eigen-truncation (`"eigen"`), the rank-`cov_rank`
+  factor can be fitted by factor-analysis EM, which recovers the loadings more
+  faithfully when the residual diagonal is heteroscedastic (the eigenvectors of
+  the full covariance are otherwise contaminated by the uneven diagonal). The
+  covariance diagonal stays exact either way.
+- **`fit_surrogate(ard_refit = "cv")` regularises the fuller evidence-ARD.**
+  The `ard_refit = TRUE` profiling maximises the in-sample evidence and can
+  over-shorten lengthscales; `"cv"` instead maximises the held-out predictive
+  log-density on a train/validation split, keeping the relevance sharpening
+  without the in-sample over-shortening.
+- **`fb_surrogate_ppc()` gains a joint draw path (contract C7 v1.2).** With
+  `joint = TRUE` (default) the predictive-check draws are sampled from the full
+  cross-output predictive covariance (`predict(cov = TRUE)` + a per-row
+  Cholesky), so the emulator's cross-output correlation is exercised -- the
+  second consumer of the joint covariance after `fb_surrogate_ies()`. On a
+  correlated-output simulator, marginal draws (`joint = FALSE`) discard that
+  structure and false-reject a faithful surrogate, so the joint path is the
+  correct distribution-preserving check. A single output, or a marginals-only
+  surrogate, behaves exactly as before.
+- **`fit_surrogate(method = "rff")` gains `cov_rank` for large output counts.**
+  Stores the cross-output noise covariance in a rank-`q` factor-analysis form
+  (`U U' + diag`), `O(k q)` instead of `O(k^2)`. The per-output marginal sd and
+  the covariance diagonal are reproduced exactly; only the off-diagonal
+  covariance is approximated. `predict(<fb_surrogate>, newdata,
+  cov = "lowrank")` returns the compact factored predictive
+  (`cov_lowrank = list(u, d, infl)`), and the new `fb_cov_slice()` reconstructs
+  a `k x k` covariance slice from either the dense or the factored form.
+- **`fit_surrogate(method = "rff")` gains `ard_refit` (fuller evidence-ARD).**
+  When `TRUE`, the prior/noise precisions `(a, t)` are re-estimated by evidence
+  at each candidate lengthscale (the evidence profiled over `(a, t)`), a fuller
+  -- and at equal lengthscales never lower -- marginal likelihood. It sharpens
+  relevance ranking but can over-shorten lengthscales (a higher evidence does
+  not guarantee better held-out recovery for finite-feature models), so it is
+  opt-in (`ard_refit = FALSE` default).
+- **The reference `rff` surrogate gains ARD lengthscales and a joint
+  multi-output fit, both on by default.** `fit_surrogate(method = "rff")`
+  now learns per-input (automatic relevance determination) lengthscales by
+  maximising the model evidence (`ard = TRUE`), so irrelevant parameters are
+  stretched out of the kernel; and it fits a joint matrix-normal --
+  inverse-Wishart model across outputs (`joint = TRUE`), preserving the
+  cross-output predictive covariance rather than only the marginals. Both
+  default behaviours can be turned off (`ard = FALSE`, `joint = FALSE`) to
+  recover the isotropic, per-output fit. The per-output `<o>_sd` contract is
+  unchanged.
+- **`predict(<fb_surrogate>, newdata, cov = TRUE)` returns the joint
+  predictive distribution** (contract C7 clause 4): an
+  `fb_surrogate_prediction` with the predictive mean matrix and a per-row
+  cross-output covariance array. A marginals-only surrogate (independent
+  `rff`, or a conformer reporting only `<o>_sd`) returns a diagonal
+  covariance, so the call is always honest.
+- **`fb_surrogate_ies()` consumes the joint predictive covariance.** When the
+  surrogate is joint, the full cross-output predictive covariance enters the
+  ES-MDA data covariance (`use_surrogate_cov = TRUE`, default), so correlated
+  emulator errors are assimilated coherently; a marginals-only surrogate
+  falls back to the diagonal path, identical to before.
+- **Sibling surrogate backends register as C7 conformers.** PESTO's GP
+  surrogate (`method = "gp"`) and kernR's conditional mean embedding
+  (`method = "cme"`) are available to `fit_surrogate()` when the member
+  package is installed, registered through the existing surrogate
+  registry. PESTO's GP already reports a per-output predictive mean and
+  variance; kernR's CME is a kernel linear smoother, so the adapter
+  supplies the standard linear-smoother predictive variance
+  `sigma^2 (1 + ||w||^2)` to honour the distribution-preserving `<o>_sd`
+  requirement. Both register opportunistically on load, or explicitly via
+  `register_pesto_surrogates()` / `register_kernr_surrogates()`. The
+  surrogate methods are consumed through the contract, never copied into
+  flexyBayes, and the built-in `rff` reference keeps the package
+  standalone.
+- **`fb_surrogate_ies()` calibrates a parameter ensemble through a
+  surrogate.** An Ensemble Smoother with Multiple Data Assimilation
+  (ES-MDA) drives a prior parameter ensemble toward observed data using
+  the surrogate in place of the forward model; the predictive `<o>_sd` is
+  folded into the data covariance, so emulator uncertainty inflates the
+  assimilation noise.
+- **`fb_surrogate_ppc()` checks whether a surrogate distorted the output
+  distribution.** It draws from the surrogate's predictive distribution
+  at held-out parameter sets and runs kernR's `mmd_ppc()` against the true
+  simulator outputs there -- a distribution-level check, not a mean-only
+  accuracy measure.
+
+## Bug fixes
+
+- **Registered surrogate conformers now predict on the standardised
+  design.** `predict.fb_surrogate()` previously passed raw `newdata` to a
+  registered conformer's `predict()` while training it on the standardised
+  design, so train and predict disagreed on scale. The standardised design
+  is now passed consistently.
+
+
 # flexyBayes 0.6.0
 
 ## New features
