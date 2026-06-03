@@ -12,7 +12,8 @@
 \item{...}{Ignored.}
 }
 \value{
-A numeric vector of posterior-mean fitted values, one per observation.
+A numeric vector of posterior-mean fitted values, one per
+observation.
 }
 \description{
 Returns INLA's posterior-mean fitted values (response scale) for the

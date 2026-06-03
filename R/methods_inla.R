@@ -176,7 +176,8 @@ family.flexybayes_inla <- function(object, ...) {
 #'
 #' @param object A `flexybayes_inla` fit.
 #' @param ... Ignored.
-#' @return A numeric vector of posterior-mean fitted values, one per observation.
+#' @return A numeric vector of posterior-mean fitted values, one per
+#'   observation.
 #' @export
 fitted.flexybayes_inla <- function(object, ...) {
   sf <- object$inla$summary.fitted.values
