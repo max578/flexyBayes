@@ -13,9 +13,13 @@
   fourth-opinion slot (`koine_status()`). Install `flexyBayesOrchestra` for
   these; `flexyBayes` alone now ships the mixed-model and cross-engine
   triangulation core.
-* Dropped `kernR`, `PESTO`, and `S7` from `Suggests` and removed the `Remotes:`
-  field, so the package installs cleanly from CRAN-like repositories. The
-  `gretaR` backend remains a dormant, opt-in R-native engine.
+* Dropped `kernR`, `PESTO`, `S7`, and `gretaR` from `Suggests` and removed the
+  `Remotes:` field, so the package installs cleanly from CRAN-style
+  repositories with no GitHub- or r-universe-only dependencies. The `greta`
+  (CRAN) and `INLA` backends remain; `INLA` is served by its own
+  `Additional_repositories`. The `gretaR` R-native engine is still wired as a
+  dormant, opt-in backend: install `gretaR` yourself and it is detected at run
+  time, but it is no longer a declared dependency of the public core.
 
 ## Methodology
 
@@ -72,6 +76,14 @@
   `fb_from_greta(model, canonical_names = ...)`). Vignettes were re-precompiled.
 
 # flexyBayes 0.7.0
+
+> **Note (current state).** The orchestra-composition features described in this
+> section — the ensemble-source data contract, simulator-derived priors, the
+> surrogate emulators and predictive checks, and the dormant fourth-opinion slot
+> — were subsequently extracted to the companion package **flexyBayesOrchestra**
+> (see the lean-core split under "(development version)" above). They are no
+> longer part of the `flexyBayes` exported surface; the entries below record the
+> 0.7.0 history.
 
 This release reconciles three parallel development streams onto the engine, data,
 and surrogate axes: gretaR activated as a fourth inference engine (the engine

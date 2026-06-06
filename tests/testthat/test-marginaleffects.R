@@ -99,7 +99,7 @@ test_that("predictions() / avg_slopes() on an INLA fit recover the DGP", {
 # ---------------------------------------------------------------- #
 
 test_that("predictions() / avg_slopes() work on a greta fit", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("marginaleffects")
   skip_on_cran()
   skip_on_ci()
@@ -133,7 +133,7 @@ test_that("predictions() / avg_slopes() work on a greta fit", {
 
 test_that("INLA and greta avg_comparisons agree on the factor effect", {
   skip_if_not_installed("INLA")
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("marginaleffects")
   skip_on_cran()
   skip_on_ci()

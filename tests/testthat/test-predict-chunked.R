@@ -52,7 +52,7 @@ mk_predict_fit <- function(seed = 2026L, N = 60L, J = 4L) {
 # ---------------------------------------------------------------- #
 
 test_that("Decision 1: fit carries extras$fb_dataset with dictionaries", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   expect_false(is.null(fx$fit$extras$fb_dataset))
   expect_s3_class(fx$fit$extras$fb_dataset, "fb_dataset")
@@ -62,14 +62,14 @@ test_that("Decision 1: fit carries extras$fb_dataset with dictionaries", {
 })
 
 test_that("Decision 1: extras$fb_dataset is metadata-only (no $data)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   expect_identical(fx$fit$extras$fb_dataset$origin, "metadata-only")
   expect_null(fx$fit$extras$fb_dataset$data)
 })
 
 test_that("Decision 1: known-level newdata round-trips factor codes", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:10, ]
   # Pass character (not factor) -- resolver should coerce to factor
@@ -86,7 +86,7 @@ test_that("Decision 1: known-level newdata round-trips factor codes", {
 # ---------------------------------------------------------------- #
 
 test_that("Decision 2: allow_new_levels match.arg rejects unknown values", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   expect_error(
@@ -96,7 +96,7 @@ test_that("Decision 2: allow_new_levels match.arg rejects unknown values", {
 })
 
 test_that("Decision 2: allow_new_levels='population' default succeeds on known levels", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   # Default allow_new_levels -- should NOT warn when no unknown levels
@@ -105,7 +105,7 @@ test_that("Decision 2: allow_new_levels='population' default succeeds on known l
 })
 
 test_that("Decision 2: allow_new_levels='population' warns + sets unknown rows to NA factor", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -119,7 +119,7 @@ test_that("Decision 2: allow_new_levels='population' warns + sets unknown rows t
 })
 
 test_that("Decision 2: allow_new_levels='refuse' raises structured stop on unknown level", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -133,7 +133,7 @@ test_that("Decision 2: allow_new_levels='refuse' raises structured stop on unkno
 })
 
 test_that("Decision 2: allow_new_levels='refuse' lists multiple unknown levels", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:6, ]
   nd$g <- as.character(nd$g)
@@ -150,7 +150,7 @@ test_that("Decision 2: allow_new_levels='refuse' lists multiple unknown levels",
 })
 
 test_that("Decision 2: allow_new_levels='population' is the default", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   p_default <- predict(fx$fit, newdata = nd)
@@ -164,7 +164,7 @@ test_that("Decision 2: allow_new_levels='population' is the default", {
 # ---------------------------------------------------------------- #
 
 test_that("Decision 3: chunk_size=NULL preserves single-pass behaviour", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:20, ]
   p_default <- predict(fx$fit, newdata = nd)
@@ -173,7 +173,7 @@ test_that("Decision 3: chunk_size=NULL preserves single-pass behaviour", {
 })
 
 test_that("Decision 3: chunk_size > nrow(newdata) bypasses chunked path", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:10, ]
   p_unchunked <- predict(fx$fit, newdata = nd)
@@ -182,7 +182,7 @@ test_that("Decision 3: chunk_size > nrow(newdata) bypasses chunked path", {
 })
 
 test_that("Decision 3: chunked vs unchunked produce identical output", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   # Replicate the data to get 180 rows, well above the chunk_size
   nd_big <- fx$dat[rep(seq_len(nrow(fx$dat)), 3), ]
@@ -192,7 +192,7 @@ test_that("Decision 3: chunked vs unchunked produce identical output", {
 })
 
 test_that("Decision 3: chunk_size + se.fit=TRUE assembles fit + se.fit", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd_big <- fx$dat[rep(seq_len(nrow(fx$dat)), 3), ]
   out_full <- predict(fx$fit, newdata = nd_big, se.fit = TRUE)
@@ -218,7 +218,7 @@ test_that("Decision 3: chunk_size + se.fit=TRUE assembles fit + se.fit", {
 # ---------------------------------------------------------------- #
 
 test_that("Backward-compat: legacy fit (no extras$fb_dataset) skips dictionary resolution", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   # Simulate a legacy fit by stripping the new slot
   legacy_fit <- fx$fit

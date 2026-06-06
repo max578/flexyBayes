@@ -42,29 +42,29 @@ Reach Stan explicitly with `fb_brms()` or `fb(..., backend = "brms")`.
 ## Installation
 
 ```r
-# Install greta (default backend)
-install.packages("greta")
+# greta (R-native MCMC backend) — archived from CRAN, served via the
+# greta-dev R-universe
+install.packages("greta",
+  repos = c("https://greta-dev.r-universe.dev", getOption("repos")))
 greta::install_greta_deps()
 
-# INLA (optional, second backend) — not on CRAN
+# INLA (approximate-inference backend) — not on CRAN
 install.packages("INLA",
   repos = c(getOption("repos"),
             INLA = "https://inla.r-inla-download.org/R/stable"))
 
-# brms (optional, Stan passthrough)
+# brms (Stan passthrough) — on CRAN
 install.packages("brms")
 
-# flexyBayes itself -- once the public release ships (pending the
-# upstream repository rename; see the DESCRIPTION URL), install it
-# directly from the repository:
+# flexyBayes itself (not yet on CRAN) -- install from the repository:
 # install.packages("remotes")
 remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
-`flexyBayes` degrades gracefully when optional engines are missing:
-greta-dependent code paths gate via `skip_if_no_greta()`; INLA paths
-gate via `requireNamespace("INLA", quietly = TRUE)`; brms paths gate
-the same way.
+`flexyBayes` degrades gracefully when an optional engine is missing:
+each backend is detected at run time, and a model sent to an
+unavailable engine is refused with a clear message naming what to
+install rather than failing obscurely.
 
 ## Quick start
 
@@ -113,8 +113,7 @@ triangulate(fit_g, fit_i)
 Add a third engine via brms / Stan:
 
 ```r
-fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy, backend = "brms")
+fit_s <- fb_brms(Reaction ~ Days + (1 | Subject), data = sleepstudy)
 
 triangulate(fit_g, fit_s)
 triangulate(fit_i, fit_s)

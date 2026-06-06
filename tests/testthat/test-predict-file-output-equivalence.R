@@ -76,7 +76,7 @@ suppressPackageStartupMessages(library(testthat))
 # ---------------------------------------------------------------- #
 
 test_that("file output matches the in-memory kernel for a fixed-only model", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   .fbe_quiet()
   set.seed(101L)
   dat <- data.frame(x = rnorm(60L), y = rnorm(60L))
@@ -99,7 +99,7 @@ test_that("file output matches the in-memory kernel for a fixed-only model", {
 # ---------------------------------------------------------------- #
 
 test_that("file output matches the in-memory kernel for a smooth s(x) model", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   .fbe_quiet()
   skip_if_not_installed("mgcv")
   set.seed(102L)
@@ -128,7 +128,7 @@ test_that("file output matches the in-memory kernel for a smooth s(x) model", {
 # ---------------------------------------------------------------- #
 
 test_that("file output matches the in-memory kernel for a population-level RI prediction", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   .fbe_quiet()
   set.seed(103L)
   dat <- data.frame(
@@ -167,7 +167,7 @@ test_that("file output matches the in-memory kernel for a population-level RI pr
 # the intervals are well-formed (finite, ordered).
 
 test_that("the sampled-new-level file path is reproducible under a fixed seed and well-formed", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   .fbe_quiet()
   set.seed(104L)
   dat <- data.frame(

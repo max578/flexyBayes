@@ -95,7 +95,7 @@ test_that("emmeans pairwise contrasts on an INLA fit recover the DGP gaps", {
 # ---------------------------------------------------------------- #
 
 test_that("emmeans(fit, ~ f) works on a greta fit (over-parameterised basis)", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("emmeans")
   skip_on_cran()
   skip_on_ci()

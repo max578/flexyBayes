@@ -18,11 +18,6 @@
 #   - fb_greta() user-supplied canonical_names argument wins over the
 #     verbatim-greta fallback (carried through ADR 0012 sec.1).
 
-skip_if_no_greta <- function() {
-  testthat::skip_if_not_installed("greta")
-  testthat::skip_on_cran()
-  testthat::skip_on_ci()
-}
 
 mk_canon_data <- function() {
   set.seed(20260522L)

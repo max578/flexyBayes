@@ -133,7 +133,7 @@ test_that("flexybayes(backend = fb_engine('inla')) routes to INLA", {
 })
 
 test_that("fb_engine() opts override the sampler controls on greta", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_on_cran()
   skip_on_ci()
   withr::local_options(

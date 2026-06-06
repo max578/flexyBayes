@@ -59,7 +59,7 @@ mk_brms_poisson_data <- function() {
 # ---------------------------------------------------------------- #
 
 test_that("fb() corpus 1: fixed-only Gaussian (brms grammar forced)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
@@ -88,7 +88,7 @@ test_that("fb() corpus 1: fixed-only Gaussian (brms grammar forced)", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_brms() corpus 2: Gaussian + one random intercept", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
@@ -114,7 +114,7 @@ test_that("fb_brms() corpus 2: Gaussian + one random intercept", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_brms() corpus 3: crossed random intercepts", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
@@ -144,7 +144,7 @@ test_that("fb_brms() corpus 3: crossed random intercepts", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_brms() corpus 4: binomial RI as single-column Bernoulli", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_binomial_data()
@@ -170,7 +170,7 @@ test_that("fb_brms() corpus 4: binomial RI as single-column Bernoulli", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_brms() corpus 5: Poisson random-intercept GLMM", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_poisson_data()
@@ -277,7 +277,7 @@ test_that("fb(..., backend = 'auto') routes to INLA when LGM-feasible", {
 # ---------------------------------------------------------------- #
 
 test_that("fb(..., review_code = TRUE) returns <flexybayes_review>; proceed() fits", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
@@ -309,7 +309,7 @@ test_that("fb(..., review_code = TRUE) returns <flexybayes_review>; proceed() fi
 # ---------------------------------------------------------------- #
 
 test_that("backend_decision() returns uniform-shape trace on fb_brms() fits", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_brms_gaussian_data()
@@ -379,7 +379,7 @@ test_that("fb(review_code = TRUE, backend != 'greta') raises structured refusal"
 # ---------------------------------------------------------------- #
 
 test_that("triangulate() on fb_brms() greta + INLA fits resolves canonical names automatically", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_if_not_installed("INLA")
   testthat::skip_on_cran()
   testthat::skip_on_ci()

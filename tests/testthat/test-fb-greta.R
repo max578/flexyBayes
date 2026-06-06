@@ -19,11 +19,6 @@
 # Greta is required for the fitting subtests; class / refusal /
 # IR-shape subtests run without it via a stub model object.
 
-skip_if_no_greta <- function() {
-  testthat::skip_if_not_installed("greta")
-  testthat::skip_on_cran()
-  testthat::skip_on_ci()
-}
 
 # Build a tiny greta_model for the integration subtests. Returns a
 # list with `model` and `data` for downstream assertions.

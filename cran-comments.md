@@ -6,8 +6,10 @@ The package is at version `0.7.0`.
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and
-404s today — see **NOTE 1** below. The local check run is otherwise
-clean.
+404s today — see **NOTE 1** below. The check status below is the
+itemised baseline; it is verified on a clean library with user R
+profiles disabled (not only on the maintainer's preconfigured
+machine), so a fresh reviewer sees the same result.
 
 ## Test environments
 
@@ -48,13 +50,16 @@ This NOTE carries four sub-items:
    is absent at the proper release version (`0.7.0`) and reappears
    only when checking the dev tip between releases.
 3. *Suggests or Enhances not in mainstream repositories: greta, INLA.*
-   `greta` lives on CRAN as of 0.5.x; this sub-NOTE fires when CRAN's
-   incoming-feasibility check cannot resolve `greta` against its
-   internal mirror snapshot. `INLA` is intentionally not on CRAN and
-   ships via `Additional_repositories:`
-   `https://inla.r-inla-download.org/R/stable`. Both code paths are
-   guarded by `requireNamespace(., quietly = TRUE)`; the package
-   degrades gracefully when either Suggests dependency is absent.
+   Neither inference backend is on CRAN, and both are declared in
+   `Additional_repositories:`. `greta` was archived from CRAN and is
+   maintained on the greta-dev R-universe
+   (`https://greta-dev.r-universe.dev`); `INLA` is distributed from
+   `https://inla.r-inla-download.org/R/stable`. The Stan backend
+   (`brms`) is on CRAN, so a reviewer always has at least one
+   CRAN-installable inference engine. Every backend code path is guarded
+   by `requireNamespace(., quietly = TRUE)`; the package degrades
+   gracefully when a Suggests dependency is absent, and the engine-using
+   tests skip cleanly (see "Test-suite behaviour on CRAN").
 4. *Found the following (possibly) invalid URLs:*
    `https://github.com/AAGI-AUS/flexyBayes` and
    `https://github.com/AAGI-AUS/flexyBayes/issues`, both returning

@@ -135,7 +135,7 @@ test_that(".resolve_format(): format='fst' + fst_available=TRUE returns 'fst'", 
 # ---------------------------------------------------------------- #
 
 test_that("rds round-trip: predict file output preserves factor type", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".rds")
   on.exit(unlink(f), add = TRUE)
@@ -154,7 +154,7 @@ test_that("rds round-trip: predict file output preserves factor type", {
 })
 
 test_that("csv round-trip: predict file output reads factor as character", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".csv")
   on.exit(unlink(f), add = TRUE)
@@ -167,7 +167,7 @@ test_that("csv round-trip: predict file output reads factor as character", {
 })
 
 test_that("fst round-trip: predict file output preserves factor type (when fst installed)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_if_not_installed("fst")
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".fst")
@@ -185,7 +185,7 @@ test_that("fst round-trip: predict file output preserves factor type (when fst i
 # ---------------------------------------------------------------- #
 
 test_that("chunk_size invariance: chunked vs unchunked file output equivalent at fp precision", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd_big <- fx$dat[rep(seq_len(nrow(fx$dat)), 2L), ]
   f1 <- tempfile(fileext = ".rds")
@@ -216,7 +216,7 @@ test_that("chunk_size invariance: chunked vs unchunked file output equivalent at
 # ---------------------------------------------------------------- #
 
 test_that("format='auto' end-to-end: small N writes .rds payload (not fst)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".out")
   on.exit(unlink(f), add = TRUE)
@@ -268,7 +268,7 @@ test_that("format='auto' + mocked fst at large-N reports 'fst'", {
 # ---------------------------------------------------------------- #
 
 test_that("interop=TRUE + format='auto' writes csv (predict body level)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".csv")
   on.exit(unlink(f), add = TRUE)
@@ -304,7 +304,7 @@ test_that("interop=TRUE + explicit format='rds' wins (auto-only rule)", {
 # ---------------------------------------------------------------- #
 
 test_that("overwrite refusal: existing output_file raises structured stop", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".rds")
   on.exit(unlink(f), add = TRUE)
@@ -318,7 +318,7 @@ test_that("overwrite refusal: existing output_file raises structured stop", {
 })
 
 test_that("output_file + newdata=NULL raises structured refusal", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".rds")
   on.exit(unlink(f), add = TRUE)
@@ -330,7 +330,7 @@ test_that("output_file + newdata=NULL raises structured refusal", {
 })
 
 test_that("output_file with se.fit=TRUE writes a 4th column", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   f <- tempfile(fileext = ".rds")
   on.exit(unlink(f), add = TRUE)

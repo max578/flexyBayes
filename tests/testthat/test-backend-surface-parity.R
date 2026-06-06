@@ -30,7 +30,7 @@ silence_notes <- function() {
 
 test_that("triangulate() puts INLA variance components on the SD scale, not precision", {
   skip_on_cran()
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("INLA")
   silence_notes()
 
@@ -204,7 +204,7 @@ test_that("predict() works on an INLA mixed model (brms-grammar bar term strippe
 
 test_that("a non-binary binomial response is refused on greta, not silently Bernoulli-fit", {
   skip_on_cran()
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   silence_notes()
 
   set.seed(303L)

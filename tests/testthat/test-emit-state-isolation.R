@@ -13,8 +13,6 @@
 
 # Local fixtures (parallel testthat: each test file runs in its own
 # R process, so cross-file helpers are not in scope).
-skip_if_no_greta <- function() skip_if_not_installed("greta")
-
 mk_emit_data <- function() {
   set.seed(42)
   n <- 30L

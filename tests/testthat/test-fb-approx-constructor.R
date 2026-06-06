@@ -63,7 +63,7 @@ test_that("print.fb_approx() shows scheme, kwargs, and bias bound", {
 # ---------------------------------------------------------------- #
 
 test_that("fb_approx() is accepted as a smooth representation spec", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("mgcv")
   skip_on_cran()
   skip_on_ci()

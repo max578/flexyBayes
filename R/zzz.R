@@ -196,15 +196,24 @@
   packageStartupMessage(
     "flexyBayes ",
     utils::packageVersion(pkgname),
-    " -- Bayesian mixed models with ASReml syntax"
+    " -- multi-backend Bayesian mixed models (greta / INLA / brms)",
+    " with cross-engine triangulation"
   )
 
-  # Check greta availability
-  if (!requireNamespace("greta", quietly = TRUE)) {
+  # Backend-readiness note: only when no inference engine is available, so the
+  # message is actionable rather than noisy on a normally-configured machine.
+  have_engine <- requireNamespace("greta", quietly = TRUE) ||
+    requireNamespace("INLA", quietly = TRUE) ||
+    requireNamespace("brms", quietly = TRUE)
+  if (!have_engine) {
     packageStartupMessage(
-      "  Note: greta is not installed. Install with:\n",
-      "    install.packages('greta')\n",
-      "    greta::install_greta_deps()"
+      "  Note: no inference backend is installed. Install at least one of:\n",
+      "    install.packages('greta',\n",
+      "      repos = c('https://greta-dev.r-universe.dev', getOption('repos')))\n",
+      "      ; greta::install_greta_deps()\n",
+      "    install.packages('INLA', repos = c(getOption('repos'),\n",
+      "      INLA = 'https://inla.r-inla-download.org/R/stable'))\n",
+      "    install.packages('brms')"
     )
   }
 }

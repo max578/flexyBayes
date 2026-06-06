@@ -6,8 +6,6 @@
 # unexported and continues to be tested in test-fb-from-brms.R for
 # v0.2 work continuity.
 
-skip_if_no_greta <- function() skip_if_not_installed("greta")
-
 mk_fb_data <- function() {
   set.seed(2026L)
   n <- 30L

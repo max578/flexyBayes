@@ -32,7 +32,10 @@
 ^\.claude$
 ^\.claude/.*$
 ^flexyBayes\.Rcheck$
+^\.\.Rcheck$
 ^flexyBayes_.*\.tar\.gz$
+Rplots\.pdf$
+\.DS_Store$
 ^tools$
 ^ledger$
 ^ledger/.*$
@@ -40,5 +43,6 @@
 ^dev-narrative/.*$
 ^inst/backend_contract\.md$
 ^inst/skip-ledger\.md$
+^inst/examples$
 ^paper$
 ^paper/.*$

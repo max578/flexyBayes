@@ -538,7 +538,7 @@ test_that("codegen: ped use_sparse_precision = TRUE emits solve(chol(Q)) square 
 # ---------------------------------------------------------------- #
 
 test_that("posterior equivalence: dense V vs chol = t(chol(V)) on greta", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   if (!identical(tolower(Sys.getenv("FLEXYBAYES_RUN_STRESS")), "true")) {
@@ -580,7 +580,7 @@ test_that("posterior equivalence: dense V vs chol = t(chol(V)) on greta", {
 })
 
 test_that("posterior equivalence: dense V vs precision = solve(V) on greta", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("Matrix")
   testthat::skip_on_cran()
   testthat::skip_on_ci()

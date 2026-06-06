@@ -55,7 +55,7 @@ mk_routing_fit <- function(seed = 2026L, N = 60L, J = 4L, backend = "greta") {
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (a): backend_decision() carries preflight_summary slot (NULL on small N)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_routing_fit()
   bd <- backend_decision(fx$fit)
   expect_true("preflight_summary" %in% names(bd))
@@ -69,7 +69,7 @@ test_that("ADR 0024 (a): backend_decision() carries preflight_summary slot (NULL
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (b): backend_decision() carries representation_plan slot (NULL on small N)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_routing_fit()
   bd <- backend_decision(fx$fit)
   expect_true("representation_plan" %in% names(bd))
@@ -82,7 +82,7 @@ test_that("ADR 0024 (b): backend_decision() carries representation_plan slot (NU
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (c): backend_decision()$rejected_routes lists non-chosen backends with reason codes", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   # backend = "auto" exercises the rejected_routes population path.
   fx <- mk_routing_fit(backend = "auto")
   bd <- backend_decision(fx$fit)
@@ -104,7 +104,7 @@ test_that("ADR 0024 (c): backend_decision()$rejected_routes lists non-chosen bac
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (d): routing_policy_version is 'stage5a_v1' on fresh fits", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_routing_fit()
   bd <- backend_decision(fx$fit)
   expect_identical(bd$routing_policy_version, "stage5a_v1")
@@ -116,7 +116,7 @@ test_that("ADR 0024 (d): routing_policy_version is 'stage5a_v1' on fresh fits", 
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (e): memory_feasibility_inla rule fires when INLA 3x ceiling exceeded", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   # Direct rule-level test -- the dispatch-level memory-infeasibility
   # path requires a >1e5-row preflight; we test the gate rule in
   # isolation with a synthetic preflight result that crosses the
@@ -172,7 +172,7 @@ test_that("ADR 0024 (e+): structural-vs-memory refusal distinguishable from reje
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (f): structural LGM-infeasible model surfaces structural reason on auto", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   # vm() carries random_term_type_inla refusal (per .inla_random_term_type_allowlist).
   # We build a synthetic IR directly to bypass requiring a vm() ingest path.
   fb <- fb_from_brms(
@@ -281,7 +281,7 @@ test_that("ADR 0024 (h++): approximate-scheme refusal works on fb_brms too", {
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (i): rejected_routes on auto-path carries (gretaR, backend_not_activated)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_routing_fit(backend = "auto")
   bd <- backend_decision(fx$fit)
   gretaR_entry <- Filter(
@@ -298,7 +298,7 @@ test_that("ADR 0024 (i): rejected_routes on auto-path carries (gretaR, backend_n
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0024 (j): two identical calls produce identical backend_decision traces (modulo draws)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx1 <- mk_routing_fit(seed = 7L)
   fx2 <- mk_routing_fit(seed = 7L)
   bd1 <- backend_decision(fx1$fit)
@@ -359,7 +359,7 @@ test_that("lgm_gate() with preflight: rule 11 trivially passes when INLA 3x with
 })
 
 test_that("Legacy fit (no Stage 4 fields) accessor surfaces 8-field shape with NULL defaults", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_routing_fit()
   # Simulate a v0.3.5 fit by stripping the new fields.
   legacy <- fx$fit

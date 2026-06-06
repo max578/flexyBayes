@@ -162,7 +162,7 @@ test_that("a non-Bernoulli binomial response is not auto-aggregated", {
 test_that("greta streamed-aggregated matches exact INLA within MC error", {
   skip_on_ci()
   skip_if_not_installed("INLA")
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   withr::local_options(flexyBayes.silence_uniform_inla_approx = TRUE)
 
   df <- .eq_make_data("gaussian", n = 3e4L, ng = 20L, seed = 111L)

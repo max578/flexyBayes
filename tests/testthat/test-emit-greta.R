@@ -12,15 +12,13 @@
 # committed; any divergence on subsequent commits indicates a
 # regression in the IR-or-emit transposition. greta is required
 # to be installed (the existing flexybayes() requireNamespace check
-# triggers `skip_if_not_installed("greta")` here too).
+# triggers `skip_if_greta_backend_unusable()` here too).
 #
 # v0.1.x note on prior defaults: each legacy snapshot test below
 # pins `prior_vc_sd = 1` explicitly so the snapshot exercises the
 # pre-v0.1.x lognormal path verbatim. The new PC-default emission
 # is exercised separately via the "default PC prior" test at the
 # bottom of this file.
-
-skip_if_no_greta <- function() skip_if_not_installed("greta")
 
 mk_emit_data <- function() {
   set.seed(42)

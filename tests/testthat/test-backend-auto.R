@@ -72,7 +72,7 @@ test_that("review_code = TRUE under backend != 'greta' raises a clean refusal", 
 # ---------------------------------------------------------------- #
 
 test_that("backend = 'greta' records the explicit-greta trace", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_lgm_data()
@@ -160,7 +160,7 @@ test_that("backend = 'inla' surfaces the INLA-side refusal cleanly", {
 # ---------------------------------------------------------------- #
 
 test_that("backend = 'auto' on a non-LGM model falls back to greta with trace", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_lgm_data()
@@ -200,7 +200,7 @@ test_that("backend = 'auto' on a non-LGM model falls back to greta with trace", 
 # ---------------------------------------------------------------- #
 
 test_that("ADR 0006 verification: explicit-greta + auto-accept + non-LGM refusal", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   d <- mk_lgm_data()

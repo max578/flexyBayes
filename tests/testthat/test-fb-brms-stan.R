@@ -293,7 +293,7 @@ test_that("fb(backend='brms'): Bernoulli RI fits cleanly", {
 
 test_that("triangulate(): brms + greta align via the identity registry", {
   testthat::skip_if_not_installed("brms")
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 
@@ -339,7 +339,7 @@ test_that("triangulate(): brms + greta align via the identity registry", {
 
 test_that("fb(backend='auto') does NOT route to Stan", {
   testthat::skip_if_not_installed("brms")
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 

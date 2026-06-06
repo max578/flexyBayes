@@ -6,7 +6,6 @@
 # effect layer uses .sigma_decl() so the smooth's sigma honours the
 # prior priority (uniform_per_vc -> pc_per_vc -> legacy lognormal).
 
-skip_if_no_greta <- function() skip_if_not_installed("greta")
 skip_if_no_mgcv <- function() skip_if_not_installed("mgcv")
 
 mk_smooth_data <- function() {

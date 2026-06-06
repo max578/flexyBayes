@@ -43,7 +43,7 @@ on.exit(options(old_opts), add = TRUE)
 
 skip_if_no_greta_quiet <- function() {
   testthat::skip_on_cran()
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
 }
 
 mk_fixed_fit <- function(seed = 20260526L, N = 80L) {

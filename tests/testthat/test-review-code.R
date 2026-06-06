@@ -17,7 +17,7 @@
 # on the TensorFlow side (see review object `seed` field doc).
 
 skip_if_no_greta_quiet <- function() {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 }
@@ -39,7 +39,7 @@ mk_review_data <- function() {
 # ---------------------------------------------------------------- #
 
 test_that("review_code = TRUE returns a flexybayes_review with the expected fields", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   d <- mk_review_data()
   rev <- flexybayes(
     yield ~ env,
@@ -72,7 +72,7 @@ test_that("review_code = TRUE returns a flexybayes_review with the expected fiel
 # ---------------------------------------------------------------- #
 
 test_that("print(<flexybayes_review>) emits the two-line summary", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   d <- mk_review_data()
   rev <- flexybayes(
     yield ~ env,
@@ -97,7 +97,7 @@ test_that("print(<flexybayes_review>) emits the two-line summary", {
 # ---------------------------------------------------------------- #
 
 test_that("cat_code(rev) emits and returns the stored code", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   d <- mk_review_data()
   rev <- flexybayes(
     yield ~ env,
@@ -190,7 +190,7 @@ test_that("return_code + review_code raises a structured refusal", {
 # ---------------------------------------------------------------- #
 
 test_that("review objects built at the same outer seed carry identical code + seed", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   d <- mk_review_data()
 
   set.seed(20260521L)
@@ -224,7 +224,7 @@ test_that("review objects built at the same outer seed carry identical code + se
 # ---------------------------------------------------------------- #
 
 test_that("flexyBayes.review_code_default opts a call into review mode", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   d <- mk_review_data()
 
   prev_opt <- options(flexyBayes.review_code_default = TRUE)

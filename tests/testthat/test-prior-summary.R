@@ -12,11 +12,6 @@
 #   - The print method labels auto-default vs user-supplied priors
 #     and flags fb_greta() fits as declaration-only.
 
-skip_if_no_greta <- function() {
-  testthat::skip_if_not_installed("greta")
-  testthat::skip_on_cran()
-  testthat::skip_on_ci()
-}
 
 
 # ---------------------------------------------------------------- #

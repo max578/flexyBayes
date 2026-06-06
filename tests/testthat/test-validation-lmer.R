@@ -22,7 +22,7 @@
 # inflated |delta| on the intercept by ~ 246 ms).
 
 skip_if_no_greta_quiet <- function() {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_if_not_installed("lme4")
   testthat::skip_on_cran()
   testthat::skip_on_ci()

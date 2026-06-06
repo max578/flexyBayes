@@ -200,7 +200,7 @@ test_that("(j) aggregate = TRUE on out-of-scope IR raises refusal", {
 })
 
 test_that("(j) aggregate = TRUE on backend = 'greta' now succeeds (v0.3.3)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   # Fits via greta -> needs a usable TensorFlow backend, which CI does
   # not set up (absent on Windows even with the greta R package present).
   # Matches the skip_on_ci() guard on the suite's other greta-fit tests.
@@ -514,7 +514,7 @@ test_that("flexybayes_aggregated on greta has no flexybayes_inla label", {
   # greta. (aggregate = "auto" defers to per-row on greta per ADR 0022,
   # which would give class "flexybayes" -- a different shape that
   # neither needs nor receives the inla label).
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   dat <- mk_agg_data()
@@ -593,7 +593,7 @@ test_that("greta-aggregated fit exposes $greta$draws for triangulate / extractor
   # by adding the live aggregated-path triangulate test; the fix wraps
   # the draws as list(draws = ...) to mirror the per-row emit_greta()
   # slot shape.
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
   dat <- mk_agg_data(seed = 3L, N = 200L, J = 6L)
@@ -665,7 +665,7 @@ test_that("$glm shim carries per-row reconstructed fitted values", {
 # covers the backend-side translation only.
 
 test_that("(d) greta aggregated posterior recovers truth (MC tol)", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true")) {
     testthat::skip(
       "FLEXYBAYES_RUN_STRESS != \"true\"; skip greta backend-fidelity check."

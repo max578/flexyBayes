@@ -25,7 +25,7 @@
 skip_if_no_greta_quiet <- function() {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_if_not_installed("mgcv")
 }
 
@@ -204,7 +204,7 @@ test_that("predict.flexybayes_direct_greta() refuses newdata without a predictor
 
 test_that("smooth emit code-size stays bounded with literal-matrix storage", {
   testthat::skip_on_cran()
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_if_not_installed("mgcv")
   set.seed(20260523L)
   n <- 10000L

@@ -47,7 +47,7 @@ mk_predict_fit <- function(seed = 2026L, N = 60L, J = 4L, prior_vc_sd = 1) {
 # ---------------------------------------------------------------- #
 
 test_that("sample activation: known+unknown returns numeric of length nrow(newdata) without warning", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -66,7 +66,7 @@ test_that("sample activation: known+unknown returns numeric of length nrow(newda
 # ---------------------------------------------------------------- #
 
 test_that("sample activation: different seeds give different predictions on unknown rows", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -82,7 +82,7 @@ test_that("sample activation: different seeds give different predictions on unkn
 })
 
 test_that("sample activation: known rows are seed-independent", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -103,7 +103,7 @@ test_that("sample activation: known rows are seed-independent", {
 # ---------------------------------------------------------------- #
 
 test_that("sample activation: file-output interval on unknown row reflects RE variance", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit(prior_vc_sd = 1)
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -152,7 +152,7 @@ test_that("sample activation: file-output interval on unknown row reflects RE va
 # ---------------------------------------------------------------- #
 
 test_that("sample + legacy fit silently skips dictionary resolution + sampling", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   legacy_fit <- fx$fit
   legacy_fit$extras$fb_dataset <- NULL
@@ -173,7 +173,7 @@ test_that("sample + legacy fit silently skips dictionary resolution + sampling",
 # ---------------------------------------------------------------- #
 
 test_that("sample activation: v0.3.4 deferred-stop refusal is no longer raised", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   nd <- fx$dat[1:5, ]
   nd$g <- as.character(nd$g)
@@ -202,7 +202,7 @@ test_that("sample activation: v0.3.4 deferred-stop refusal is no longer raised",
 # ---------------------------------------------------------------- #
 
 test_that("sample activation: fit without $greta$draws raises structured refusal", {
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   fx <- mk_predict_fit()
   no_draws_fit <- fx$fit
   no_draws_fit$greta$draws <- NULL

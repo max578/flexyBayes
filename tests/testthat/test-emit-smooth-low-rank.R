@@ -7,8 +7,6 @@
 # checks confirm a plain s(x) carries no approximation.
 
 skip_if_no_mgcv <- function() skip_if_not_installed("mgcv")
-skip_if_no_greta <- function() skip_if_not_installed("greta")
-
 mk_lr_data <- function() {
   set.seed(2026L)
   n <- 60L

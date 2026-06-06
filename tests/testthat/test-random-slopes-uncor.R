@@ -34,11 +34,6 @@
 #   (n) 10-row priors-to-brms table: (x || g) adds the
 #       (class = "sd", coef = "<x>", group = "<g>") row.
 
-skip_if_no_greta <- function() {
-  testthat::skip_if_not_installed("greta")
-  testthat::skip_on_cran()
-  testthat::skip_on_ci()
-}
 
 mk_slope_data <- function(
   seed = 20260523L,

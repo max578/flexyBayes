@@ -39,7 +39,7 @@ make_test_data <- function(N = 120, n_geno = 10, n_env = 4, n_rep = 3) {
 }
 
 test_that("CG-1: intercept-only generates mu_atg, no model.matrix", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -56,7 +56,7 @@ test_that("CG-1: intercept-only generates mu_atg, no model.matrix", {
 })
 
 test_that("CG-1b: fixed factor uses indexing", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 0 + env,
@@ -72,7 +72,7 @@ test_that("CG-1b: fixed factor uses indexing", {
 })
 
 test_that("CG-2: random geno uses u_geno[geno_id]", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -89,7 +89,7 @@ test_that("CG-2: random geno uses u_geno[geno_id]", {
 })
 
 test_that("CG-3: vm(geno, Gmat) uses Cholesky", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   n_geno <- 10
   G_mat <- diag(n_geno) + 0.1
@@ -109,7 +109,7 @@ test_that("CG-3: vm(geno, Gmat) uses Cholesky", {
 })
 
 test_that("CG-4a: at(env):geno generates DIAG structure", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -125,7 +125,7 @@ test_that("CG-4a: at(env):geno generates DIAG structure", {
 })
 
 test_that("CG-4b: us(env):id(geno) generates LKJ correlation", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -141,7 +141,7 @@ test_that("CG-4b: us(env):id(geno) generates LKJ correlation", {
 })
 
 test_that("CG-4c: fa(env,2):id(geno) generates FA structure", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -159,7 +159,7 @@ test_that("CG-4c-id: fa loadings are identified (lower-tri, positive diagonal)",
   # NOT as a free normal() matrix -- a free Lambda is rotation/sign/label-switch
   # unidentified for k > 1, so its posterior summaries are meaningless. The
   # strict-lower mask plus the positive-diagonal sweep ARE the identification.
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -179,7 +179,7 @@ test_that("CG-4c-id: fa loadings are identified (lower-tri, positive diagonal)",
 })
 
 test_that("CG-5: ar1(row):id(col) generates spatial terms", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -195,7 +195,7 @@ test_that("CG-5: ar1(row):id(col) generates spatial terms", {
 })
 
 test_that("CG-6: spl(x_cov) generates B-spline basis", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -208,7 +208,7 @@ test_that("CG-6: spl(x_cov) generates B-spline basis", {
 })
 
 test_that("CG-8: at(env):units generates heterogeneous residual", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -221,7 +221,7 @@ test_that("CG-8: at(env):units generates heterogeneous residual", {
 })
 
 test_that("CG-10: nested block:rep uses pre-computed ID", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -238,7 +238,7 @@ test_that("CG-10: nested block:rep uses pre-computed ID", {
 })
 
 test_that("return_code=TRUE returns string, not fit", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   result <- flexybayes(
     fixed = yield ~ 1,
@@ -251,7 +251,7 @@ test_that("return_code=TRUE returns string, not fit", {
 })
 
 test_that("binomial family generates bernoulli distribution", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = bin_y ~ env,
@@ -264,7 +264,7 @@ test_that("binomial family generates bernoulli distribution", {
 })
 
 test_that("poisson family generates poisson distribution", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = count_y ~ env,
@@ -277,7 +277,7 @@ test_that("poisson family generates poisson distribution", {
 })
 
 test_that("probit link uses iprobit", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = bin_y ~ env,
@@ -291,7 +291,7 @@ test_that("probit link uses iprobit", {
 })
 
 test_that("unknown family raises error", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   expect_error(
     flexybayes(
@@ -306,7 +306,7 @@ test_that("unknown family raises error", {
 })
 
 test_that("missing known_matrix raises error", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   expect_error(
     flexybayes(
@@ -321,7 +321,7 @@ test_that("missing known_matrix raises error", {
 })
 
 test_that("missing response variable raises error", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- data.frame(x = rnorm(10))
   expect_error(
     flexybayes(fixed = y ~ x, data = dat, return_code = TRUE, verbose = FALSE),
@@ -330,7 +330,7 @@ test_that("missing response variable raises error", {
 })
 
 test_that("crossed random effects generate both terms", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ 1,
@@ -351,7 +351,7 @@ test_that("crossed random effects generate both terms", {
 })
 
 test_that("continuous covariate generates beta coefficient", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ x_cov,
@@ -366,7 +366,7 @@ test_that("continuous covariate generates beta coefficient", {
 })
 
 test_that("factor + covariate model has correct structure", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   dat <- make_test_data()
   code <- flexybayes(
     fixed = yield ~ env + x_cov,

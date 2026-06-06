@@ -177,7 +177,7 @@ test_that("a native greta_model with ASReml random/rcov refuses", {
 })
 
 test_that("a native greta_model on the universal entry builds a greta-source IR", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   # A real (fittable) graph lowers to a greta-source IR via fb_from_greta().
   set.seed(3)
   yy <- greta::as_data(rnorm(20))
@@ -209,7 +209,7 @@ test_that("a native greta_model on the universal entry builds a greta-source IR"
 })
 
 test_that("a prebuilt greta-source IR passes through the universal entry", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   set.seed(4)
   yy <- greta::as_data(rnorm(20))
   xx <- greta::as_data(rnorm(20))

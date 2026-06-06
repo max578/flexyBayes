@@ -117,7 +117,7 @@ test_that("a redundant self-pin (fb_brms(backend = 'brms')) is accepted", {
 
 test_that("fb_greta() fits a formula via the greta engine", {
   skip_on_cran()
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_on_ci()
   df <- mk_pin_df()
   fit <- suppressMessages(
@@ -137,7 +137,7 @@ test_that("fb_greta() fits a formula via the greta engine", {
 
 test_that("fb_greta(model = <native graph>) still fits the native graph", {
   skip_on_cran()
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_on_ci()
   # The removed `model = ` argument is remapped to the model-spec slot for
   # call-compatibility, so a native graph passed as `model = ` reaches the

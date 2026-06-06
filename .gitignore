@@ -34,3 +34,8 @@ ledger/
 
 # pkgdown output (rebuilt by CI; not committed)
 docs/
+
+# Stress-harness outputs (generated; tools/ is also .Rbuildignore'd so
+# never ships). The stress scripts themselves are tracked; only their
+# results directory is local-only.
+tools/stress_results/

@@ -882,6 +882,34 @@
 }
 
 .fb_probe_system_ram <- function() {
+  # Quiet, platform-native probes for the common platforms, with child stderr
+  # suppressed (`stderr = FALSE`). benchmarkme / memuse shell out to system
+  # tools (sysctl, kstat) without stderr control, which prints harmless but
+  # alarming noise ("sysctl: hw.memsize: Operation not permitted",
+  # "/bin/kstat: No such file or directory") on restricted or sandboxed hosts
+  # and makes a successful preflight look broken. The native probes avoid that;
+  # the optional helpers are a last resort for other platforms only.
+  sysname <- Sys.info()[["sysname"]]
+  if (identical(sysname, "Darwin")) {
+    res <- tryCatch(
+      as.numeric(suppressWarnings(
+        system2("sysctl", c("-n", "hw.memsize"),
+          stdout = TRUE, stderr = FALSE)
+      )[1]),
+      error = function(e) NA_real_
+    )
+    return(if (!is.na(res) && res > 0) res else NA_real_)
+  }
+  if (identical(sysname, "Linux")) {
+    res <- tryCatch(
+      {
+        mt <- grep("^MemTotal:", readLines("/proc/meminfo"), value = TRUE)[1]
+        as.numeric(regmatches(mt, regexpr("[0-9]+", mt))) * 1024
+      },
+      error = function(e) NA_real_
+    )
+    return(if (!is.na(res) && res > 0) res else NA_real_)
+  }
   if (requireNamespace("benchmarkme", quietly = TRUE)) {
     res <- tryCatch(as.numeric(benchmarkme::get_ram()), error = function(e) {
       NA_real_

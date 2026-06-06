@@ -26,10 +26,6 @@
 # (`R/codegen.R`, `R/parse_formula.R`) and Stage 1B branches; once
 # those merge into main, the skips become active subtests.
 
-skip_if_no_greta <- function() {
-  testthat::skip_on_cran()
-  testthat::skip_if_not_installed("greta")
-}
 
 skip_if_no_mgcv <- function() {
   testthat::skip_on_cran()

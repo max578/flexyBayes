@@ -5,7 +5,6 @@
 # run always. Live cross-engine triangulation tests skip when greta
 # or INLA isn't installed.
 
-skip_if_no_greta <- function() skip_if_not_installed("greta")
 skip_if_no_inla <- function() skip_if_not_installed("INLA")
 
 # ---------------------------------------------------------------- #

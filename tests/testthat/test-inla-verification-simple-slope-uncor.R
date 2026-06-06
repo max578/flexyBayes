@@ -34,7 +34,7 @@
 skip_if_three_arbitrators_unavailable <- function() {
   testthat::skip_if_not_installed("INLA")
   testthat::skip_if_not_installed("lme4")
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 }

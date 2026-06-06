@@ -120,7 +120,7 @@ test_that("indexed emit equals model.matrix() at tolerance 1e-10", {
 # must be gone.
 
 test_that("generated greta code uses indexed-slope idiom (Option C)", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   withr::local_options(list(
     flexyBayes.silence_default_prior_note = TRUE
   ))
@@ -161,7 +161,7 @@ test_that("generated greta code uses indexed-slope idiom (Option C)", {
 # >3-sigma regression that the v0.2 bug produced.
 
 test_that("posterior mean recovers lme4 fit on factor:continuous", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("lme4")
   testthat::skip_on_cran()
   testthat::skip_on_ci()
@@ -418,7 +418,7 @@ test_that("lgm_gate accepts factor_numeric_interaction structurally", {
 # ---------------------------------------------------------------- #
 
 test_that("parse_info$factor_continuous_emit records the emit path", {
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   withr::local_options(list(
     flexyBayes.silence_default_prior_note = TRUE
   ))
@@ -472,7 +472,7 @@ test_that("Option D fallback emits per-observation lookup vectors", {
     f = factor(rep(c("a", "b", "c"), length.out = n)),
     y = rnorm(n)
   )
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   code <- flexybayes(
     y ~ f * x,
     data = d,

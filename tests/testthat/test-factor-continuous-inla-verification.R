@@ -20,7 +20,7 @@
 test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate", {
   testthat::skip_on_cran()
   skip_if_not_installed("INLA")
-  skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
   skip_if_not_installed("lme4")
   withr::local_options(list(
     flexyBayes.silence_default_prior_note = TRUE

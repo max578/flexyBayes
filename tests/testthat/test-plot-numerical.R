@@ -21,7 +21,7 @@
 skip_if_no_greta_quiet <- function() {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
-  testthat::skip_if_not_installed("greta")
+  skip_if_greta_backend_unusable()
 }
 
 # Cache one tiny fit for all snapshot tests in this file. Cheap
