@@ -26,7 +26,7 @@ greta_ok   <- requireNamespace("greta",   quietly = TRUE)
 agridat_ok <- requireNamespace("agridat", quietly = TRUE)
 ggplot2_ok <- requireNamespace("ggplot2", quietly = TRUE)
 set.seed(1300)
-mcmc_small <- list(n_samples = 200, warmup = 200, chains = 1)
+mcmc_small <- list(n_samples = 1000, warmup = 2000, chains = 2)
 ```
 
 # 1. Why structured covariance?
@@ -62,6 +62,21 @@ the *MET and genomic selection* vignette.
 INLA cannot fit these structures in v0.1 (the hyperparameter budget
 exceeds the gate's hard limit even at modest environment counts).
 The greta backend handles them all.
+
+> **A note on the fits below — read first.** Structured-covariance
+> models are the hardest case for Hamiltonian Monte Carlo. At the modest
+> MCMC budgets used here (kept small so the vignette builds quickly), the
+> fits below **frequently fail to mix** -- you will see large
+> $\widehat{R}$ and near-zero ESS, sometimes severely so. That is
+> expected for these models at a vignette-scale budget on the v0.1 greta
+> sampler, and it is shown rather than hidden. **Treat this vignette
+> purely as a guide to *specifying* each covariance structure, not as a
+> demonstration of inference.** Reliable inference on these structures
+> needs a much larger budget (and, for the hardest of them, a more
+> specialised sampler than v0.1 ships); always verify convergence as the
+> *getting started* vignette describes before interpreting anything, and
+> treat a non-mixing variance component as a signal to simplify the
+> structure or supply an explicit prior.
 
 # 2. The diagonal: `at(env, simple):geno`
 

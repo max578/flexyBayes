@@ -26,7 +26,7 @@ greta_ok   <- requireNamespace("greta",   quietly = TRUE)
 agridat_ok <- requireNamespace("agridat", quietly = TRUE)
 ggplot2_ok <- requireNamespace("ggplot2", quietly = TRUE)
 set.seed(1500)
-mcmc_small <- list(n_samples = 200, warmup = 200, chains = 1)
+mcmc_small <- list(n_samples = 1000, warmup = 2000, chains = 2)
 ```
 
 # 1. The two questions of plant breeding
@@ -49,6 +49,20 @@ Crop variety evaluation poses two intertwined questions, and
 This vignette walks through both questions, fitting models on real
 agricultural data, and notes the connection through the kinship
 matrix.
+
+> **A note on the fits below — read first.** The factor-analytic MET
+> model and the genomic-prediction (GBLUP / pedigree) models are
+> structured-covariance models -- the hardest case for Hamiltonian Monte
+> Carlo. At the modest MCMC budgets used here (kept small so the vignette
+> builds quickly), these fits **frequently fail to mix**: you will see
+> large $\widehat{R}$ and near-zero ESS, and the factor-analytic loadings
+> in particular do not sample reliably at this budget. The output is
+> shown rather than hidden. **Read the loadings, biplots, and predictions
+> below as illustrations of the *workflow*, not as inference.** A real
+> analysis needs a much larger budget (and, for the hardest structures, a
+> more specialised sampler than v0.1 ships); always verify convergence as
+> the *getting started* and *structured covariance* vignettes describe
+> before interpreting anything.
 
 # 2. Multi-environment trials: `yan.winterwheat`
 
