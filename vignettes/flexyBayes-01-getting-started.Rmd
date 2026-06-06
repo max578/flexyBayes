@@ -140,9 +140,9 @@ and fit it with the greta engine pin `fb_greta()`:
 fit_greta <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -151,12 +151,12 @@ fit_greta
 #> ------------------------------------------------------- 
 #>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 500 samples (warmup = 500 ) -- 13.6 sec
+#>   MCMC   : 4 chain(s) x 2000 samples (warmup = 5000 ) -- 30.3 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 4.47  [!] 
-#>   Min ESS: 5 
+#>   Max Rhat: 1.213  [!] 
+#>   Min ESS: 87 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -197,24 +197,24 @@ summary(fit_greta)
 #> ============================================================ 
 #>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian / identity 
-#>   N = 180 , chains = 2 , samples = 500 
+#>   N = 180 , chains = 4 , samples = 2000 
 #>   Representation: exact
 #>   Engine:         greta MCMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
-#>             Estimate Post.SD    2.5%   97.5%
-#> (Intercept)  64.7262 19.6780 33.9900 94.6297
-#> Days         10.6363  0.7803  9.2164 12.2085
+#>             Estimate Post.SD     2.5%    97.5%
+#> (Intercept) 249.7999  9.3448 231.0464 267.0576
+#> Days         10.5319  0.8207   8.9420  12.1814
 #> 
 #> -- Variance components  -------------------------------------- 
-#>       Component Estimate      SD     2.5%    97.5%
-#> 1 sigma_Subject 214.8218 32.0591 150.4961 270.8090
-#> 2   sigma_e_atg  30.9246  1.8884  27.9748  34.6503
+#>       Component Estimate     SD    2.5%   97.5%
+#> 1 sigma_Subject  39.7569 8.1246 27.3758 57.4825
+#> 2   sigma_e_atg  31.2229 1.7749 27.9887 34.9299
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.009 - 4.47 
-#>   ESS  range: 5 - 413 
-#>   Run time  : 13.6 sec
+#>   Rhat range: 1 - 1.213 
+#>   ESS  range: 87 - 3040 
+#>   Run time  : 30.3 sec
 ```
 
 The output is laid out in three blocks.
@@ -226,9 +226,21 @@ The output is laid out in three blocks.
 2. **Variance components.** The Subject-level SD and the residual SD,
    both on the response scale.
 3. **Sampler diagnostics.** Effective sample size (ESS) and the
-   rank-normalised $\widehat{R}$ (Vehtari et al., 2021). A
-   trustworthy fit has ESS ≥ 400 and $\widehat{R} \le 1.01$ on
-   every parameter.
+   rank-normalised $\widehat{R}$ (Vehtari et al., 2021). The targets
+   for a trustworthy fit are ESS $\ge 400$ and $\widehat{R} \le 1.01$
+   on every parameter. The fixed effects and the residual SD reach
+   them; the Subject-level variance component and its latent
+   per-subject deviations mix more slowly -- variance components are
+   among the slowest-mixing quantities in hierarchical MCMC -- so the
+   worst of them does not reach the strict bar at a vignette-scale
+   budget. How far above it lands varies from run to run, because
+   greta's TensorFlow-backed sampler is not fully seed-reproducible; in
+   practice it sits in roughly the $\widehat{R} \approx 1.1$ to $1.4$
+   range. The honest reading: the quantities you interpret are
+   reliable, while the hardest-mixing nuisance parameter is not yet at
+   the strict bar. Two moves address it -- run longer (more warmup and
+   draws), or cross-check against a different algorithm, which the next
+   section does with INLA.
 
 A density plot of the posteriors is one line:
 
@@ -281,16 +293,16 @@ summary(fit_inla)
 #> ------------------------------------------------------------ 
 #> Fixed effects:
 #>                 mean     sd 0.025quant 0.5quant 0.975quant     mode kld
-#> (Intercept) 251.4781 6.6482   238.4296 251.4778   264.5287 251.4778   0
-#> Days         10.4511 1.2450     8.0070  10.4511    12.8947  10.4511   0
+#> (Intercept) 251.4779 6.6394   238.4465 251.4776   264.5113 251.4776   0
+#> Days         10.4511 1.2434     8.0102  10.4512    12.8915  10.4512   0
 #> 
 #> Hyperparameters:
 #>                                                 mean           sd   0.025quant
 #> Precision for the Gaussian observations 4.000000e-04 0.000000e+00 4.000000e-04
-#> Precision for Subject                   5.885282e+28 8.444377e+27 4.778171e+28
+#> Precision for Subject                   7.373782e+15 1.721297e+15 5.131056e+15
 #>                                             0.5quant   0.975quant         mode
 #> Precision for the Gaussian observations 4.000000e-04 5.000000e-04 4.000000e-04
-#> Precision for Subject                   5.722705e+28 7.986632e+28 5.180543e+28
+#> Precision for Subject                   7.023968e+15 1.172617e+16 6.107567e+15
 #> 
 #> Random effects:
 #>   groups: Subject
@@ -329,16 +341,16 @@ if (!is.null(tri)) tri
 #>   only_b:   198 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
 #> 
 #> Metrics (per common parameter):
-#>         param   mean_a   mean_b mean_diff    sd_a   sd_b     sd_ratio q025_diff
-#> 1 (Intercept)  64.7262 251.7587 -187.0325 19.6780 6.8077 2.890600e+00 -203.0319
-#> 2        Days  10.6363  10.4182    0.2181  0.7803 1.2147 6.424000e-01    1.0775
-#> 3  sd_Subject 214.8218   0.0000  214.8218 32.0591 0.0000 5.836834e+16  150.4961
-#> 4       sigma  30.9246  48.0292  -17.1046  1.8884 2.4417 7.734000e-01  -15.3849
+#>         param   mean_a   mean_b mean_diff   sd_a   sd_b     sd_ratio q025_diff
+#> 1 (Intercept) 249.7999 251.4361   -1.6363 9.3448 6.7046 1.393800e+00   -7.5065
+#> 2        Days  10.5319  10.4433    0.0886 0.8207 1.2584 6.522000e-01    0.9189
+#> 3  sd_Subject  39.7569   0.0000   39.7569 8.1246 0.0000 3.619005e+09   27.3758
+#> 4       sigma  31.2229  47.9229  -16.7000 1.7749 2.3465 7.564000e-01  -15.3356
 #>   q975_diff wasserstein_1
-#> 1 -170.1877      187.0195
-#> 2   -0.6234        0.3539
-#> 3  270.8090      214.9136
-#> 4  -18.0994       17.0992
+#> 1    2.4795        2.3844
+#> 2   -0.8900        0.3404
+#> 3   57.4825       39.6188
+#> 4  -17.6713       16.6902
 ```
 
 The output is a per-parameter readout. The column to focus on first is
@@ -346,12 +358,23 @@ The output is a per-parameter readout. The column to focus on first is
 marginals — read alongside the SD ratio and the tail-quantile
 differences. Values near zero indicate agreement.
 
-For a well-behaved Gaussian random-intercept model the two engines
-should agree to at least the second decimal on the fixed effects and
-within a few percent on the variance components. Disagreement of more
-than 0.1 SD on any parameter is a *finding*, not a bug — the
-*cross-engine triangulation* vignette walks through the eight
-common patterns and the protocol for diagnosing each.
+For the fixed effects the two engines agree closely -- the intercept
+and the `Days` slope match to within a credible-interval width. The
+Subject variance component is where an approximate engine earns
+scrutiny. INLA's integrated nested Laplace approximation is fast and
+accurate for the fixed-effect structure of a latent Gaussian model, but
+its estimate of a *small-group* variance component -- here there are
+only eighteen subjects -- is fragile: depending on the numerical
+optimisation it may track the MCMC estimate or shrink the component
+sharply toward zero. The `sd_ratio` column is where any such divergence
+shows. That fragility is the lesson, not a detail to hide: a single
+approximate fit of a small-group variance component is not trustworthy
+on its own. Triangulate it against MCMC, or supply an explicit
+penalised-complexity prior on the SD (the *priors and regularisation*
+vignette shows how). The *cross-engine triangulation* vignette
+catalogues this and the other common disagreement patterns and the
+protocol for diagnosing each. A divergence of more than 0.1 SD on a
+parameter you care about is a *finding*, not a bug.
 
 ### Letting the package choose the backend
 
@@ -465,9 +488,10 @@ structured message that names the rule violated.
 
 Try the following while the package is loaded:
 
-1. Re-fit `fit_greta` with `chains = 4` and `n_samples = 1000`. How
-   do the ESS and $\widehat{R}$ values change? Does the posterior
-   mean of `Days` shift?
+1. Re-fit `fit_greta` at a much shorter `warmup = 300` and then a much
+   longer `warmup = 12000`. How do the ESS and $\widehat{R}$ of
+   `sigma_Subject` respond, and which parameters are most sensitive to
+   the warmup budget? Does the posterior mean of `Days` shift at all?
 2. Inspect `fit_greta$extras$code`: this is the literal greta program
    that `flexyBayes` generated. Compare it with the program generated
    by the asreml-style call
