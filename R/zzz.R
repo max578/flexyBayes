@@ -13,13 +13,7 @@
   # marginaleffects:::sanity_model_supported_class). Append the flexyBayes
   # classes without clobbering a user's existing setting.
   if (requireNamespace("marginaleffects", quietly = TRUE)) {
-    cur <- getOption("marginaleffects_model_classes", default = NULL)
-    options(
-      marginaleffects_model_classes = union(
-        as.character(cur),
-        c("flexybayes", "flexybayes_inla")
-      )
-    )
+    .register_marginaleffects_classes()
   }
 
   # Register broom S3 methods if generics is available
@@ -190,6 +184,23 @@
   # this point raise rather than mutate the locked environment; future
   # engines (gretaR activation, NIMBLE) register here in later releases.
   .lock_backend_registry()
+}
+
+# Append the flexyBayes fit classes to marginaleffects' custom-class
+# allow-list. Safe to call repeatedly and safe on any pre-existing user
+# value: the new option is the set union of whatever is already registered
+# with the flexyBayes classes, so it never drops a user's own classes
+# (non-clobbering) and a second call adds nothing (idempotent). Factored
+# out of .onLoad() so the contract is unit-testable
+# (test-onload-options.R).
+.register_marginaleffects_classes <- function(
+  classes = c("flexybayes", "flexybayes_inla")
+) {
+  cur <- getOption("marginaleffects_model_classes", default = NULL)
+  options(
+    marginaleffects_model_classes = union(as.character(cur), classes)
+  )
+  invisible(getOption("marginaleffects_model_classes"))
 }
 
 .onAttach <- function(libname, pkgname) {
