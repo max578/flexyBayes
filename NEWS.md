@@ -800,21 +800,6 @@ each closed flake-class skip is replaced by an opt-in
 stress-gated skip exercising the strict assertion under the
 release-rehearsal probe.
 
-**Cairns**:
-`ledger/r-package/2026-05-27-emit-state-latch-env-migration.cairn.md`
-(Phase A, T3, alternatives bracketed: status-quo / env-keyed-CHOSEN /
-withr-only / rlang-typed-message-deferred-v0.4.0);
-`ledger/r-package/2026-05-27-tf-rng-containment-hybrid-sleepstudy.cairn.md`
-(Phase B, T3, alternatives bracketed: status-quo /
-greta-opt-MAP-bypass / hybrid-CHOSEN /
-hybrid-plus-deterministic-ops-deferred);
-`ledger/r-package/2026-05-27-aggregated-inla-tolerance-amendment.cairn.md`
-(Phase B', T2, alternatives bracketed: status-quo / hybrid-CHOSEN /
-INLA-session-state-investigation-deferred /
-unconditional-1e-2-loosening);
-`ledger/r-package/2026-05-27-isolation-helper-umbrella.cairn.md`
-(Phase C, T2, alternatives bracketed: separate-helpers /
-umbrella-CHOSEN / inlined-monolith).
 
 # flexyBayes 0.3.8
 
@@ -881,9 +866,6 @@ scaffold).**
 **Phase C `docs:` (audit-drift close + selective vignette
 refresh).**
 
-- Workspace `AGENTS.md` rewritten as a thin pointer to
-  `CLAUDE.md` (eliminates the stale `bayesreml` / `Codex (ctb)`
-  references the audit flagged).
 - Workspace `README.md` replaced (the 2026-04-26 pre-implementation
   review guide is now historical; current-state README documents
   v0.2.5 -> v0.3.7 release history + the local-tarball install

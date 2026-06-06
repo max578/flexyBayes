@@ -2,7 +2,7 @@
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package is currently a 0.4.x release build (`0.4.0`).
+The package is at version `0.7.0`.
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and
@@ -45,7 +45,7 @@ This NOTE carries four sub-items:
    CRAN's incoming checks accept the upload.
 2. *Version contains large components.* This sub-NOTE fires only at
    development versions (`*.9000` tag per the R-pkgs convention); it
-   is absent at the proper release version (`0.3.9`) and reappears
+   is absent at the proper release version (`0.7.0`) and reappears
    only when checking the dev tip between releases.
 3. *Suggests or Enhances not in mainstream repositories: greta, INLA.*
    `greta` lives on CRAN as of 0.5.x; this sub-NOTE fires when CRAN's
@@ -123,7 +123,7 @@ a working Stan toolchain. Stan-dependent tests gate via
 
 ## Vignette compute
 
-Fifteen vignettes ship with the package. Heavy MCMC fits inside
+Sixteen vignettes ship with the package. Heavy MCMC fits inside
 vignettes use small `n_samples` budgets and conditional evaluation
 (`requireNamespace("greta")`, `requireNamespace("INLA")`); failures
 of the live INLA + greta integration during CRAN's clean re-render

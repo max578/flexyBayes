@@ -54,14 +54,11 @@ install.packages("INLA",
 # brms (optional, Stan passthrough)
 install.packages("brms")
 
-# flexyBayes -- install from the local checkpoint tarball
-# (installation from the public repository will be available once
-# the package is published there).
-R CMD INSTALL release_tarballs/flexyBayes_0.5.0.tar.gz
-
-# Once published, install directly from the repository:
+# flexyBayes itself -- once the public release ships (pending the
+# upstream repository rename; see the DESCRIPTION URL), install it
+# directly from the repository:
 # install.packages("remotes")
-# remotes::install_github("AAGI-AUS/flexyBayes")
+remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
 `flexyBayes` degrades gracefully when optional engines are missing:
@@ -189,7 +186,7 @@ family = "gaussian" | "binomial" | "poisson" | "negative_binomial" |
 
 ## Vignettes
 
-Fifteen numbered vignettes ship with the package:
+Sixteen numbered vignettes ship with the package:
 
 1. Getting started
 2. ASReml-shaped formulas
@@ -206,6 +203,7 @@ Fifteen numbered vignettes ship with the package:
 13. LGM feasibility and memory
 14. Choosing an engine: the universal entry and the engine pins
 15. Architecture: the backend registry and how a new engine joins
+16. Big-data streaming
 
 Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern; the `.Rmd`
 that ships in the package tarball is the pre-evaluated static output.
