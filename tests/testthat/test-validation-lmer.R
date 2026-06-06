@@ -145,8 +145,9 @@ test_that("flexybayes fixed effects agree with lme4 on sleepstudy (primary, TF-s
   # interaction and `I()`-expression terms. On sleepstudy (Reaction
   # has mean ~ 298), this brackets the data scale without crushing
   # the posterior; previous narrower defaults forced the intercept
-  # toward zero and inflated the residual variance. Rationale:
-  # Gelman (2006) Bayesian Analysis 1(3):515-534.
+  # toward zero and inflated the residual variance. Rationale: a
+  # weakly-informative prior on the data scale (cf. the
+  # weakly-informative-prior literature, e.g. Gelman et al. 2008).
   #
   # v0.3.9 Phase B hybrid recast: the primary always-on path uses
   # local_tf_seed() to reseed both R and TF before the greta fit, a

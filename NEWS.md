@@ -36,6 +36,16 @@
   distributional metrics: `wasserstein_1`, `sd_ratio`, `mean_diff`, and the
   quantile differences. (The per-fit, within-engine rank-normalised R-hat used as
   a convergence diagnostic is unaffected.)
+* **Honest default-prior provenance.** The default variance-component prior
+  (bounded uniform on each SD; `U = 5 * sd(y)` for Gaussian) was attributed
+  "following Gelman (2006)". Gelman (2006) in fact recommends a half-t /
+  half-Cauchy for variance components with few groups and cautions against a flat
+  prior there; the uniform-on-SD default is a weakly-informative choice for
+  *moderate* group counts, and the `5 * sd(y)` bound is a flexyBayes heuristic.
+  The attribution is corrected throughout (the one-time announcement message,
+  `prior_summary()`, the docstrings, the README, and the regression + priors
+  vignettes). The default behaviour is unchanged; `fb_prior(half_cauchy(...))`
+  remains the documented choice for small `J` (see the priors vignette).
 
 # flexyBayes 0.7.0
 

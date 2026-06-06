@@ -54,9 +54,10 @@
 #'   without crushing the posterior toward zero), while still
 #'   regularising at sample sizes below ~ 30 per coefficient. Set
 #'   wider (e.g. `1000`) for responses on a larger natural scale, or
-#'   narrower for explicit shrinkage. Rationale follows Gelman (2006)
-#'   *Bayesian Analysis* 1(3):515-534 on weakly-informative priors for
-#'   regression coefficients on the data scale.
+#'   narrower for explicit shrinkage. A weakly-informative normal prior
+#'   on the data scale, in the spirit of the weakly-informative-prior
+#'   literature for regression coefficients (e.g. Gelman et al. 2008,
+#'   *Annals of Applied Statistics* 2(4):1360-1383).
 #' @param prior_vc_sd Numeric: hyperparameter for the legacy
 #'   `lognormal(0, prior_vc_sd)` variance-component prior. **Note:**
 #'   when both `prior` and `prior_vc_sd` are left at their defaults,
@@ -64,8 +65,10 @@
 #'   (`uniform(0, U)` with family-aware `U`: `5 * sd(y)` for Gaussian;
 #'   `5` on the logit scale for binomial / beta; `3` on the log scale
 #'   for Poisson / negative-binomial / gamma) for `sigma` and every
-#'   named random-effect group. Theory: Gelman (2006), *Bayesian
-#'   Analysis* 1(3):515-534. The legacy `lognormal(0, 1)` default
+#'   named random-effect group -- a weakly-informative choice for
+#'   moderate group counts; for very small `J`, Gelman (2006), *Bayesian
+#'   Analysis* 1(3):515-534, recommends a half-t / half-Cauchy instead
+#'   (see the priors vignette). The legacy `lognormal(0, 1)` default
 #'   fires only when `prior_vc_sd` is passed explicitly. Silence the
 #'   one-time announcement message via
 #'   `options(flexyBayes.silence_default_prior_note = TRUE)`.

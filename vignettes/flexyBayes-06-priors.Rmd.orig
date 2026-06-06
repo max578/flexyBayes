@@ -192,8 +192,8 @@ options(flexyBayes.silence_default_prior_note = TRUE)
 ```
 
 The announcement message lists the chosen $U$, the family / scale
-basis, the Gelman 2006 citation, and the override knobs. We keep
-this fit as the reference.
+basis, the small-$J$ half-Cauchy guidance, and the override knobs. We
+keep this fit as the reference.
 
 ```{r prior-halfcauchy-fit, eval = greta_ok}
 priors_hc <- fb_prior(

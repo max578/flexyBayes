@@ -286,7 +286,8 @@ Two things change relative to the pooled fit in §4.
 * A second variance component appears: the standard deviation of the
   `Subject`-level random intercepts. Under the v0.1 default this is
   given a bounded uniform prior — `sd(Subject) ~ uniform(0, 5*sd(y))`
-  — following Gelman (2006).
+  — a weakly-informative choice for this moderate group count (for
+  very small `J`, Gelman (2006) recommends a half-Cauchy instead).
 * The residual standard deviation drops, because between-subject
   variance is no longer absorbed into it.
 

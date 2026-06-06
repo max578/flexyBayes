@@ -116,9 +116,10 @@ scale for the vast majority of agricultural / clinical responses
 without crushing the posterior toward zero), while still
 regularising at sample sizes below ~ 30 per coefficient. Set
 wider (e.g. \code{1000}) for responses on a larger natural scale, or
-narrower for explicit shrinkage. Rationale follows Gelman (2006)
-\emph{Bayesian Analysis} 1(3):515-534 on weakly-informative priors for
-regression coefficients on the data scale.}
+narrower for explicit shrinkage. A weakly-informative normal prior
+on the data scale, in the spirit of the weakly-informative-prior
+literature for regression coefficients (e.g. Gelman et al. 2008,
+\emph{Annals of Applied Statistics} 2(4):1360-1383).}
 
 \item{prior_vc_sd}{Numeric: hyperparameter for the legacy
 \code{lognormal(0, prior_vc_sd)} variance-component prior. \strong{Note:}
@@ -127,8 +128,10 @@ v0.1 activates a bounded-uniform default on the SD scale
 (\code{uniform(0, U)} with family-aware \code{U}: \code{5 * sd(y)} for Gaussian;
 \code{5} on the logit scale for binomial / beta; \code{3} on the log scale
 for Poisson / negative-binomial / gamma) for \code{sigma} and every
-named random-effect group. Theory: Gelman (2006), \emph{Bayesian
-Analysis} 1(3):515-534. The legacy \code{lognormal(0, 1)} default
+named random-effect group -- a weakly-informative choice for
+moderate group counts; for very small \code{J}, Gelman (2006), \emph{Bayesian
+Analysis} 1(3):515-534, recommends a half-t / half-Cauchy instead
+(see the priors vignette). The legacy \code{lognormal(0, 1)} default
 fires only when \code{prior_vc_sd} is passed explicitly. Silence the
 one-time announcement message via
 \code{options(flexyBayes.silence_default_prior_note = TRUE)}.}

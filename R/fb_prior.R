@@ -501,8 +501,11 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 #   covers the full probability range.
 # Wider than the PC default's 2.5*sd because uniform is flat across
 # its support; the upper must be loose enough to be uninformative.
-# Theory: Gelman 2006, Bayesian Analysis 1(3):515-534, sec.4 worked
-# example. ADR 0004.
+# The U = 5*sd(y) bound is a flexyBayes heuristic. Uniform-on-SD is a
+# weakly-informative choice for moderate group counts; for very small J
+# Gelman (2006, Bayesian Analysis 1(3):515-534) recommends a half-t /
+# half-Cauchy instead -- available via fb_prior(); see the priors
+# vignette. ADR 0004.
 .default_uniform_scale <- function(data, response, family, link = NULL) {
   fam <- if (inherits(family, "family")) {
     family$family
@@ -639,8 +642,9 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
     "flexyBayes: variance-component prior default is uniform(0, ",
     format(scale, digits = 3),
     ") on every SD (residual sigma + ",
-    "every named random-effect group), following Gelman (2006, ",
-    "Bayesian Analysis 1(3):515-534). Scale basis = \"",
+    "every named random-effect group): a weakly-informative choice ",
+    "for moderate group counts. For very small groups, Gelman (2006) ",
+    "recommends a half-Cauchy instead -- see ?fb_prior. Scale basis = \"",
     basis,
     "\". Pass `prior_vc_sd` explicitly for the legacy ",
     "lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` ",

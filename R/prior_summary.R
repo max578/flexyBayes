@@ -234,7 +234,7 @@ print.prior_summary_flexybayes <- function(x, ...) {
       if (identical(x$default_origin, "auto")) {
         cat(
           "  Source: auto-default bounded uniform on SD ",
-          "(Gelman 2006)\n",
+          "(weakly-informative; half-Cauchy advised for small J)\n",
           sep = ""
         )
         if (!is.null(x$default_scale)) {
