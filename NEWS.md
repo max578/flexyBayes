@@ -1,3 +1,22 @@
+# flexyBayes (development version)
+
+## Lean-core split
+
+* The orchestra-composition layer has been extracted to the companion package
+  **flexyBayesOrchestra** (`Imports: flexyBayes`): the surrogate emulators
+  (`fit_surrogate()`, `fb_surrogate_ies()`, `fb_surrogate_ppc()`), ensemble
+  sources (`fb_ensemble()`, `as_fb_ensemble()`, `read_fb_ensemble()`,
+  `verify_fb_ensemble()`, `register_ensemble_source()`), the PESTO
+  ensemble-derived priors (`fb_pesto()`, `fb_prior_from_ensemble()`), the
+  surrogate conformers (`register_pesto_surrogates()`,
+  `register_kernr_surrogates()`, `register_surrogate()`), and the dormant koine
+  fourth-opinion slot (`koine_status()`). Install `flexyBayesOrchestra` for
+  these; `flexyBayes` alone now ships the mixed-model and cross-engine
+  triangulation core.
+* Dropped `kernR`, `PESTO`, and `S7` from `Suggests` and removed the `Remotes:`
+  field, so the package installs cleanly from CRAN-like repositories. The
+  `gretaR` backend remains a dormant, opt-in R-native engine.
+
 # flexyBayes 0.7.0
 
 This release reconciles three parallel development streams onto the engine, data,
