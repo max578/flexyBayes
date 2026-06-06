@@ -57,9 +57,9 @@ data(sleepstudy, package = "lme4")
 fit <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -70,6 +70,16 @@ fit
 posterior digest; its `coef()` method returns the posterior means of
 the fixed effects; its `predict()` method computes posterior
 predictions on a `newdata` of your choice.
+
+> **A note on the diagnostics.** This is the same random-intercept model
+> as the *getting started* vignette, fit at a production budget (warmup
+> 5000, four chains). The fixed effects -- which the `emmeans` and
+> `marginaleffects` analyses below rely on -- mix well; the Subject
+> variance component mixes more slowly, so its worst $\widehat{R}$ sits
+> above the strict 1.01 target, by an amount that varies from run to run
+> (greta's TensorFlow sampler is not fully seed-reproducible). The
+> downstream summaries
+> below are functions of the fixed-effect posterior and are unaffected.
 
 ```{r fit-summary, eval = greta_ok}
 summary(fit)
