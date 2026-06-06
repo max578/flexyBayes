@@ -64,7 +64,7 @@ library(flexyBayes)
 data(sleepstudy, package = "lme4")
 fit_ri <- fb_greta(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
-  n_samples    = 500, warmup = 500, chains = 2,
+  n_samples    = 2000, warmup = 5000, chains = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -104,6 +104,16 @@ about the second decimal — because `Subject` has 18 levels, which is
 on the cusp where REML and Bayesian fits start to diverge for small
 clusters.
 
+> **Reading the diagnostics.** The fits here use production MCMC budgets
+> (warmup 5000, four chains), so the fixed effects and the headline
+> variance components are reliable. As in the *getting started*
+> vignette, the slowest-mixing variance-related parameters can still sit
+> a little above the strict $\widehat{R} \le 1.01$ target -- variance
+> components are the hardest quantities for HMC, and greta's TensorFlow
+> sampler is not fully seed-reproducible -- so read a single run's worst
+> $\widehat{R}$ as indicative, and run longer or triangulate when a
+> variance component is itself the inferential target.
+
 # 3. Random intercept and slope (asreml-form)
 
 The full repeated-measures model lets each subject have its own
@@ -118,7 +128,7 @@ fit_ris <- flexybayes(
   fixed  = Reaction ~ Days,
   random = ~ Subject + Subject:Days,
   data   = sleepstudy,
-  n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
+  n_samples = 2000, warmup = 5000, chains = 4, verbose = FALSE
 )
 summary(fit_ris)
 ```
@@ -150,7 +160,7 @@ posterior, different surface.
 fit_ris_uncor <- fb_greta(
   Reaction ~ Days + (Days || Subject),
   data = sleepstudy,
-  n_samples = 500, warmup = 500, chains = 2,
+  n_samples = 2000, warmup = 5000, chains = 4,
   verbose = FALSE, mcmc_verbose = FALSE
 )
 summary(fit_ris_uncor)
@@ -215,7 +225,7 @@ str(epil)
 fit_pois_g <- fb_greta(
   y ~ trt + (1 | subject), data = epil,
   family       = "poisson",
-  n_samples    = 500, warmup = 500, chains = 2,
+  n_samples    = 2000, warmup = 5000, chains = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -262,6 +272,14 @@ tri <- tryCatch(
 if (!is.null(tri)) tri
 ```
 
+As always with an approximate engine, scrutinise the variance
+components in the cross-check: INLA's Laplace estimate of a small-group
+random-effect variance can diverge from the MCMC value, and for very
+few groups it can be unstable across runs. Where the `sd_ratio` column
+flags such a divergence, trust the MCMC estimate or set an explicit
+prior -- the divergence is the triangulation doing its job, not a fault
+to hide.
+
 If the planted-extreme example from the *cross-engine triangulation*
 vignette is fresh in mind, the `epil` data have a similar structure:
 patient 49 has anomalously high seizure counts, and the Pareto-$\hat{k}$
@@ -272,7 +290,7 @@ The recommended response is to refit with negative-binomial:
 fit_nb <- fb_greta(
   y ~ trt + (1 | subject), data = epil,
   family       = "negative_binomial",
-  n_samples    = 500, warmup = 500, chains = 2,
+  n_samples    = 2000, warmup = 5000, chains = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
