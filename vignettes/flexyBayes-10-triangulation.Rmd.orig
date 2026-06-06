@@ -238,9 +238,9 @@ fit_greta <- fb_greta(
   data         = dat,
   family       = "poisson",
   prior        = priors,
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -281,13 +281,26 @@ tri <- tryCatch(
 if (!is.null(tri)) tri
 ```
 
-The print method highlights the columns that breach the
-flag-thresholds. In a clean run, fixed effects agree to two decimal
-places, variance components within 5–10 %, and `wasserstein_1` is
-modest. The planted extreme observation pulls the Poisson
-likelihood's right tail; that distortion propagates to the
-group-level SD and is visible as a non-trivial Wasserstein-1
-distance even when the posterior means agree.
+The print method highlights any column that breaches the
+flag-thresholds. Here the engines agree closely: the fixed effects and
+the group-level SD match to within a credible-interval width, with
+`sd_ratio`s near one and modest `wasserstein_1`. That agreement is the
+*reassuring* outcome of a triangulation -- two independent algorithms
+applied to the same model land in the same place, so neither is
+misleading you about the posterior.
+
+Triangulation earns its keep on the runs where the engines do *not*
+agree. The group-level SD is the usual flashpoint, whether because a
+heavy-tailed observation distorts the likelihood or because INLA's
+Laplace approximation of a small-group variance is itself unreliable
+(it may shrink the component, or with very few groups vary across runs);
+§3 classifies the patterns and the response to each. Crucially, engine
+*agreement* does not mean the *model* is right: the planted extreme in
+this dataset is a likelihood-misspecification problem that both engines
+share, so the cross-engine table cannot reveal it. The
+posterior-predictive check in §5.3 is what surfaces that -- a reminder
+that triangulation is a check on the *inference*, not a substitute for
+checking the *model*.
 
 User-supplied `name_map` and `transform_b` still take precedence
 over the registry, so a custom alignment (e.g., for an unmapped
@@ -295,7 +308,7 @@ hyperparameter, or to override the SD canonical form) remains
 available; see `?canonical_names` for the per-fit map view and
 `?triangulate` for the precedence contract.
 
-## 5.2 Visualise the disagreement
+## 5.2 Visualise the comparison
 
 ```{r tri-density, eval = both_ok, fig.height = 3.5}
 # Overlay marginals via posterior::draws_array. INLA posterior sampling
