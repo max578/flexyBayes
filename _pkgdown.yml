@@ -102,6 +102,7 @@ reference:
     contents:
       - backend_decision
       - canonical_names
+      - fb_backend_status
       - fb_refusals
       - prior_summary
       - gretaR_status

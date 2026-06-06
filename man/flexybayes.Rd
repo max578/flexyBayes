@@ -164,6 +164,15 @@ for "do everything except sampling". \code{review_code = TRUE} and
 feasible (deterministic and faster on that certified class), and to
 greta (full MCMC, the universal fallback) otherwise --- so a
 no-\code{backend} call reaches every available engine the model supports.
+
+\strong{Caution (small-group random effects).} The \code{"auto"} route prefers
+INLA when feasible, but INLA's default random-effect precision prior
+can collapse a small-group variance component to a near-zero standard
+deviation (it will not match an \code{lme4}-style estimate). For a flagship
+random-intercept model with few groups, prefer \code{backend = "greta"} or
+supply an explicit variance-component prior (see the \emph{priors} vignette);
+\code{\link[=fb_backend_status]{fb_backend_status()}} reports which engines are usable.
+
 \code{"greta"} forces full MCMC; \code{"inla"} forces INLA and raises a
 structured refusal if the model is not LGM-feasible; \code{"brms"} is the
 Stan passthrough via brms (refuses asreml structured-covariance

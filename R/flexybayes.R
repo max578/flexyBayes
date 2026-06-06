@@ -106,6 +106,15 @@
 #'   feasible (deterministic and faster on that certified class), and to
 #'   greta (full MCMC, the universal fallback) otherwise --- so a
 #'   no-`backend` call reaches every available engine the model supports.
+#'
+#'   **Caution (small-group random effects).** The `"auto"` route prefers
+#'   INLA when feasible, but INLA's default random-effect precision prior
+#'   can collapse a small-group variance component to a near-zero standard
+#'   deviation (it will not match an `lme4`-style estimate). For a flagship
+#'   random-intercept model with few groups, prefer `backend = "greta"` or
+#'   supply an explicit variance-component prior (see the *priors* vignette);
+#'   [fb_backend_status()] reports which engines are usable.
+#'
 #'   `"greta"` forces full MCMC; `"inla"` forces INLA and raises a
 #'   structured refusal if the model is not LGM-feasible; `"brms"` is the
 #'   Stan passthrough via brms (refuses asreml structured-covariance

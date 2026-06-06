@@ -1,5 +1,15 @@
 # flexyBayes (development version)
 
+## Usability
+
+* **New `fb_backend_status()`** reports which inference backends are installed
+  and usable in the current session (greta additionally needs a reachable
+  Python / TensorFlow stack), with an actionable install hint per backend. It
+  is read-only and runs without any backend present. The `backend = "auto"`
+  documentation now also states plainly that INLA's default random-effect
+  precision prior can collapse a small-group variance component, and points to
+  greta or an explicit prior for flagship random-intercept models.
+
 ## Lean-core split
 
 * The orchestra-composition layer has been extracted to the companion package
