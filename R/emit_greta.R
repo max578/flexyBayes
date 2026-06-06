@@ -1,22 +1,20 @@
 # emit_greta -- flexyBayes greta backend emit shim.
 #
-# Phase 0.C: a no-semantic-change shim that takes an fb_terms IR
+# A no-semantic-change shim that takes an fb_terms IR
 # (intermediate representation) object and runs the full greta
 # backend pipeline that flexybayes() previously ran inline. This
 # lifts greta dispatch out of flexybayes() and behind a single
-# emit_*() function, mirroring what emit_brms (deliverable 1+) and
-# emit_inla (deliverable 1+) will do.
+# emit_*() function, mirroring what emit_brms and emit_inla do.
 #
 # Behaviour invariant: for every input previously valid for
 # flexybayes(), the migrated path flexybayes() -> fb_from_asreml() ->
 # emit_greta() produces byte-identical generated greta code to the
-# pre-0.C flexybayes() inline pipeline. Snapshot-tested in
+# earlier flexybayes() inline pipeline. Snapshot-tested in
 # tests/testthat/test-emit-greta.R; transparency-tested in
 # tests/testthat/test-fb-from-asreml.R.
 #
-# Internal -- not exported. Called from flexybayes() and (in
-# deliverable 4) from triangulate() when greta is one of the
-# requested backends.
+# Internal -- not exported. Called from flexybayes() and from
+# triangulate() when greta is one of the requested backends.
 
 emit_greta <- function(
   fb,
@@ -45,7 +43,7 @@ emit_greta <- function(
 
   # ---------------------------------------------------------------- #
   # Unwrap the IR back into the shape the existing helpers expect.   #
-  # No semantic change: fixed_info, random_terms, rcov_terms,        #
+  # fixed_info, random_terms, rcov_terms,                            #
   # fam_link are byte-identical to what flexybayes() previously      #
   # produced inline via .parse_fixed / .parse_formula /              #
   # .resolve_family.                                                 #
@@ -61,7 +59,7 @@ emit_greta <- function(
   fam_link <- list(family = fb$family, link = fb$link)
 
   # ---------------------------------------------------------------- #
-  # Build evaluation environment (unchanged from pre-0.C flexybayes).#
+  # Build evaluation environment (unchanged from earlier flexybayes).#
   # ---------------------------------------------------------------- #
 
   greta_ns <- asNamespace("greta")
@@ -81,9 +79,9 @@ emit_greta <- function(
   # ---------------------------------------------------------------- #
 
   # If the user supplied an fb_prior(), derive per-variance-component
-  # spec maps so codegen can emit greta::uniform(lower, upper) (ADR
-  # 0004 v0.1 default) or greta::exponential(rate) (PC; ADR 0003
-  # explicit choice) instead of the legacy lognormal default for the
+  # spec maps so codegen can emit greta::uniform(lower, upper) (the
+  # v0.1 default) or greta::exponential(rate) (PC; explicit choice)
+  # instead of the legacy lognormal default for the
   # matched groups.
   legacy_specs <- if (inherits(fb$priors, "fb_prior")) {
     priors_to_legacy(fb$priors)
@@ -102,7 +100,7 @@ emit_greta <- function(
     prior_fx = prior_fixed_sd,
     pc_per_vc = pc_per_vc,
     uniform_per_vc = uniform_per_vc,
-    # ADR 0018: codegen for s() smooths binds the basis matrix into
+    # Codegen for s() smooths binds the basis matrix into
     # this environment as B_s_<vname>; emit_greta evaluates the
     # generated code against `ev` (which is `ctx$env` here) so the
     # bound name is in scope. Other code-paths that build a ctx
@@ -226,12 +224,12 @@ emit_greta <- function(
         random = random_terms,
         rcov = rcov_terms,
         family = fam_link,
-        # ADR 0018: collect non-NULL smooth_obj slots into a named list
+        # Collect non-NULL smooth_obj slots into a named list
         # keyed by smooth-term variable name. Empty list when the model
         # has no smooths. predict.flexybayes() reads this slot and
         # re-evaluates the basis on newdata via mgcv::Predict.matrix().
         smooths = .collect_smooths(random_terms),
-        # v0.4.0 Wave 1 Phase 1B (ADR 0027): collect per-smooth
+        # Collect per-smooth
         # approximation metadata (scheme, rank, projection V_K, full
         # singular spectrum, realised Frobenius capture) keyed by
         # smooth variable. Empty list when no smooth was routed through
@@ -240,7 +238,7 @@ emit_greta <- function(
         # project the newdata basis into the truncated coefficient
         # space (R/predict_kernel.R).
         approx = .collect_approx(random_terms),
-        # ADR 0019: record which factor:continuous emit branch fired
+        # Record which factor:continuous emit branch fired
         # (Option C primary or Option D fallback). NULL if no
         # factor_numeric_interaction term was present.
         factor_continuous_emit = ctx$factor_continuous_emit
@@ -285,7 +283,7 @@ emit_greta <- function(
   invisible(result)
 }
 
-# ADR 0018: collect non-NULL `smooth_obj` slots from the IR's
+# Collect non-NULL `smooth_obj` slots from the IR's
 # random_terms list into a named list keyed by the smooth-term
 # variable name (e.g., `s(x)` -> `smooths[["x"]] <- <Smooth>`).
 # Returns an empty named list when no smooths are present, so the
@@ -305,7 +303,7 @@ emit_greta <- function(
   out
 }
 
-# v0.4.0 Wave 1 Phase 1B (ADR 0027): collect the per-smooth
+# Collect the per-smooth
 # approximation metadata recorded by .enrich() (R/parse_formula.R) into
 # a named list keyed by smooth-term variable name. Each entry carries
 # the scheme, the truncation rank, the projection V_K (the predict path

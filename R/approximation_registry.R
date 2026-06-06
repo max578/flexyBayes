@@ -1,14 +1,14 @@
-# Approximation registry --- scaffold only at v0.4.0 Wave 1 Phase 1A
-# substrate (ADR 0030 C5 + ADR 0027)
+# Approximation registry --- scaffold only at the v0.4.0
+# substrate.
 #
 # Container + registration helper + lookup accessor + lock helper for
-# the canonical approximation-scheme vocabulary. ADR 0027 makes every
-# approximate route declare, at registration time, the four things a
+# the canonical approximation-scheme vocabulary. Every
+# approximate route declares, at registration time, the four things a
 # user needs to keep their own judgement: a bias bound, a validation
 # procedure, a fallback hint, and ADR provenance. The registry is the
 # single source of truth for "is this string a legitimate
 # approximation scheme?", mirroring the v0.3.8 R/refusal_taxonomy.R
-# (C7) and the v0.4.0 R/representation_registry.R (C4) scaffolds.
+# and the v0.4.0 R/representation_registry.R scaffolds.
 #
 # Empty at this substrate step --- deliberately. The first scheme
 # (`low_rank_smooth`) registers together with its emit path
@@ -21,15 +21,13 @@
 # working validation procedure") is best honoured by landing scheme +
 # validation + producer in one reviewed, end-to-end-verifiable change.
 # This step ships the container so that landing is a population step,
-# not an architecture step --- the same posture the C7 refusal
+# not an architecture step --- the same posture the refusal
 # scaffold took at v0.3.8 (container at v0.3.8, first population at
 # v0.3.10).
 #
-# Rationale (v040-plan-2026-05-28 section 5.3):
-#
-#   "atomicity matters: a half-shipped scheme with a populated
-#    registry but no validation procedure would violate the registry's
-#    invariant."
+# Atomicity matters: a half-shipped scheme with a populated
+# registry but no validation procedure would violate the registry's
+# invariant.
 #
 # The registry is an environment (parent = emptyenv()) so symbol
 # lookup cannot fall through to the package namespace and pick up an
@@ -52,7 +50,7 @@
 # than silently overwriting; the vocabulary is append-only at
 # .onLoad() time and the registry then locks.
 #
-# Arguments (the five-field ADR 0027 Decision 2 schema)
+# Arguments (the five-field schema)
 #   scheme             canonical machine-readable identifier; the same
 #                      string the exactness label "approximate_<scheme>"
 #                      carries and the string validate_approximation()
@@ -202,11 +200,11 @@
 }
 
 
-# --- v0.4.0 Wave 1 Phase 1B population ---------------------------- #
+# --- v0.4.0 population -------------------------------------------- #
 
 # .populate_approximation_registry_v0400() --- registers the first
 # approximation scheme, `low_rank_smooth`, with the full five-field
-# ADR 0027 Decision 2 schema. Called from .onLoad() *before*
+# schema. Called from .onLoad() *before*
 # .lock_approximation_registry() so the scheme is in place when user
 # code (and validate_approximation()) first observes the registry.
 # The validation_fn is .validate_low_rank_smooth() from

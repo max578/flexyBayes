@@ -7,7 +7,7 @@
 # (summary / coef / vcov / prior_summary / triangulate) works on an
 # fb_greta() fit.
 #
-# Per ADR 0012 §2 in design-notes-priors-brms-lgm.md. The flow runs
+# The flow runs
 # in the opposite direction to the formula entries: there is nothing
 # to emit (the user has already built the greta graph); the IR is
 # built post-hoc by introspecting `model$target_greta_arrays` and
@@ -205,7 +205,7 @@ fb_from_greta <- function(
     )
   }
 
-  # Canonical-name resolution. Per ADR 0012 §1 (canonical_names bullet):
+  # Canonical-name resolution:
   # supplied map is validated; otherwise falls back to the verbatim
   # greta names with a one-time structured note (silenceable).
   canonical_map <- if (is.null(canonical_names)) {
@@ -271,11 +271,11 @@ fb_from_greta <- function(
     }
   }
 
-  # Greta-meta slot. Per ADR 0012 §2: arrays + canonical_map +
+  # Greta-meta slot: arrays + canonical_map +
   # model_dim + n_data. Extras (likelihood family, response label)
   # carried for downstream summary().
   #
-  # ADR 0031 Phase 3.6 (v0.5.0): the `model` graph itself is recorded on
+  # v0.5.0: the `model` graph itself is recorded on
   # the IR so a greta-source IR is self-contained -- `fb(fb_from_greta(m,
   # canonical_names = ...))` carries everything `.fit_native_greta()`
   # needs (the graph to sample, plus the canonical map) without a

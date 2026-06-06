@@ -216,13 +216,13 @@ flexybayes <- function(
   plan = FALSE,
   syntax = c("auto", "asreml", "brms", "greta")
 ) {
-  # Stage 4 (ADR 0024 §6(h)): refuse approximate-scheme requests
+  # Refuse approximate-scheme requests
   # before match.arg fires its generic "should be one of" error.
-  # The structured refusal points to ADR 0027 (the future
-  # approximation registry) and the available exact-route
+  # The structured refusal points to the future
+  # approximation registry and the available exact-route
   # alternatives. Runs first so the user sees the architectural
   # rationale rather than match.arg's surface message.
-  # v0.4.0 Wave 1 Phase 1D: accept backend = fb_engine(...) directly.
+  # Accept backend = fb_engine(...) directly.
   # Resolve to the engine-name string before the approximate-scheme
   # check + match.arg, then apply the engine's sampler-control opts.
   engine_in <- backend
@@ -242,7 +242,7 @@ flexybayes <- function(
   aggregate <- .normalise_aggregate(aggregate)
   syntax <- match.arg(syntax)
 
-  # ADR 0031 Phase 3.6: the universal entry accepts a native greta_model
+  # The universal entry accepts a native greta_model
   # graph or a prebuilt greta-source IR (from fb_from_greta()) on the
   # model slot. Those carry their own data into the greta graph, so
   # `data` is optional on that path; the formula grammars still require
@@ -260,13 +260,13 @@ flexybayes <- function(
 
   # Resolve session-level review-mode default BEFORE the unsupported-
   # backend guard, otherwise options(flexyBayes.review_code_default =
-  # TRUE) would slip past the refusal on backend = "inla" / "auto"
-  # (audit P1.1, 2026-05-24). Argument at call time wins.
+  # TRUE) would slip past the refusal on backend = "inla" / "auto".
+  # Argument at call time wins.
   if (missing(review_code)) {
     review_code <- isTRUE(getOption("flexyBayes.review_code_default", FALSE))
   }
 
-  # Q1 (ADR 0031 Phase 2b): the code-inspection modes return generated
+  # The code-inspection modes return generated
   # backend code, which only greta produces under this entry. When
   # backend resolves to "auto", pick greta -- the engine that satisfies
   # the request -- rather than refusing or returning a non-code INLA
@@ -281,11 +281,11 @@ flexybayes <- function(
   # review_code = TRUE is scoped to the code-emitting engines: greta
   # (greta source via the codegen path) and brms (Stan source via
   # brms::make_stancode()). Under backend = "inla" review_code is
-  # deferred to a future ADR -- the deferred-execution token would need
+  # deferred to a future release -- the deferred-execution token would need
   # an INLA-side `code` slot (the inla() formula + family + hyper list)
   # and a different proceed() target. Refuse cleanly rather than
   # silently emitting code for an engine that did not author it.
-  # (ADR 0031 Phase 3.6: brms support folded in here from the recast
+  # (brms support folded in here from the recast
   # fb_brms() pin, which now routes through this shared review branch.)
   if (isTRUE(review_code) && !backend %in% c("greta", "brms")) {
     stop(.fb_refusal_condition(
@@ -326,8 +326,8 @@ flexybayes <- function(
   # an explicit prior_vc_sd. In that case the v0.1 default fires:
   # build a bounded-uniform default keyed to the response scale (per
   # family / link) for sigma + every random group surfaced by the IR,
-  # and emit the one-time announcement message. ADR 0004 (uniform)
-  # supersedes ADR 0003 (PC).
+  # and emit the one-time announcement message. The uniform default
+  # supersedes the earlier PC default.
   default_prior_active <- is.null(prior) && missing(prior_vc_sd)
 
   # Build the flexyBayes intermediate representation (IR). The universal
@@ -336,7 +336,7 @@ flexybayes <- function(
   # greta_model -- and routes to the matching ingest adapter. ASReml
   # ingest is byte-identical to the historical direct fb_from_asreml()
   # call; `syntax = ` forces a grammar. See .build_ir_polymorphic() in
-  # R/fb.R (ADR 0031 Phase 3).
+  # R/fb.R.
   fb <- .build_ir_polymorphic(
     fixed = fixed,
     random = random,
@@ -352,7 +352,7 @@ flexybayes <- function(
     syntax = syntax
   )
 
-  # ADR 0031 Phase 3.6: a native greta model graph is fit directly by
+  # A native greta model graph is fit directly by
   # greta::mcmc() (no shared emit path, no formula-specific machinery).
   # .dispatch_native_greta() pins the backend (greta only), refuses the
   # code-inspection / plan modes that do not apply to a user-built graph,
@@ -376,7 +376,7 @@ flexybayes <- function(
   }
 
   if (default_prior_active) {
-    # ADR 0020: simple_slope_uncor contributes BOTH the standard
+    # simple_slope_uncor contributes BOTH the standard
     # intercept-variance group name AND a slope-variance group name
     # (paste0(slope_var, "_", grouping_factor)) so the existing
     # per-group uniform-on-SD machinery covers both hyperparameters.
@@ -398,8 +398,8 @@ flexybayes <- function(
       }
     }
     grp_names <- unique(grp_names)
-    # AMBITION_STAGE.md §1.4: vm() + ped() structured-cov groups
-    # also receive the uniform-on-SD default (extends ADR 0004).
+    # vm() + ped() structured-cov groups
+    # also receive the uniform-on-SD default.
     vm_ped_names <- vapply(
       fb$random_terms,
       function(t) {
@@ -428,7 +428,7 @@ flexybayes <- function(
     )
   }
 
-  # plan = TRUE: short-circuit after IR build (ADR 0030 C1). The plan
+  # plan = TRUE: short-circuit after IR build. The plan
   # surface lives in fb_plan(); flexybayes(plan = TRUE) is the
   # courtesy alternative invocation that lets asreml-style callers
   # reach the same planning object without re-typing the formula in
@@ -510,7 +510,7 @@ flexybayes <- function(
       the_call_proceed$prior <- prior
     }
 
-    # Stage 2 MVP -- run preflight upstream of the code emit so the
+    # Run preflight upstream of the code emit so the
     # review token carries the design-memory summary and a refusal
     # short-circuits before any code generation happens. Below the
     # 1e5-row threshold .maybe_preflight() returns NULL and the
@@ -521,7 +521,7 @@ flexybayes <- function(
       the_call = the_call
     )
 
-    # ADR 0031 Phase 3.6: emit the review code from the engine the user
+    # Emit the review code from the engine the user
     # pinned -- greta source (codegen) or Stan source (make_stancode()).
     # Both emit paths derive the model from the IR on return_code = TRUE,
     # so the fixed / random / rcov args (display-only) pass through as-is.
@@ -590,8 +590,8 @@ flexybayes <- function(
   }
 
   # Backend dispatch lives in R/dispatch.R as the shared helper
-  # `.dispatch_backend()` (lifted per ADR 0014 so fb_brms() drives
-  # the same routing). Semantics per ADR 0006: backend = "greta"
+  # `.dispatch_backend()` (lifted so fb_brms() drives
+  # the same routing). Semantics: backend = "greta"
   # skips the gate; backend = "inla" calls lgm_gate() and raises
   # the refusal on non-LGM; backend = "auto" gate-then-route with
   # silenceable fall-back notes.
@@ -622,7 +622,7 @@ flexybayes <- function(
 
 
 # ----------------------------------------------------------------- #
-# fb -- alias for flexybayes() (ADR 0004 D1)                        #
+# fb -- alias for flexybayes()                                      #
 # ----------------------------------------------------------------- #
 #
 # `fb` is a literal alias for `flexybayes()`. One canonical
@@ -631,8 +631,6 @@ flexybayes <- function(
 # deferred to v0.2 as `fb_brms()`; the internal helper
 # `fb_from_brms()` in R/fb_from_brms.R remains unexported as v0.2
 # work-continuity code.
-#
-# Rationale: ADR 0004 in design-notes-priors-brms-lgm.md.
 
 #' @rdname flexybayes
 #' @export

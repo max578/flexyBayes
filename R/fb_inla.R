@@ -1,4 +1,4 @@
-# fb_inla -- INLA engine pin (ADR 0031 Phase 3 verb taxonomy).
+# fb_inla -- INLA engine pin.
 #
 # An engine pin is sugar over the universal entry with `backend` fixed:
 # fb_inla(...) == flexybayes(..., backend = "inla"). It fits via INLA
@@ -19,7 +19,7 @@
 # the user's environment. Namespaced target (flexyBayes::flexybayes) so
 # it resolves whether or not the package is attached.
 #
-# Backend-argument discipline (ADR 0031 Phase 3.6). A pin fixes the
+# Backend-argument discipline. A pin fixes the
 # engine, so an explicit `backend` is a contradiction --- EXCEPT the
 # redundant self-pin (e.g. fb_brms(backend = "brms")), which the v0.4.1
 # deprecation notice promised would remain forward-compatible. A

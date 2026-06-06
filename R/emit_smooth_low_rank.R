@@ -1,5 +1,5 @@
-# Low-rank smooth approximation --- v0.4.0 Wave 1 Phase 1B
-# (ADR 0030 C5 + ADR 0027, first registered scheme `low_rank_smooth`)
+# Low-rank smooth approximation --- v0.4.0
+# (first registered scheme `low_rank_smooth`)
 #
 # The truncation engine behind the `low_rank_smooth` approximation
 # scheme. An s() smooth contributes an n x k dense basis matrix B
@@ -26,7 +26,7 @@
 #                                 validate_approximation() dispatches
 #                                 here (see R/validate_approximation.R).
 #
-# Bias bound (ADR 0027 Decision 2 / ADR 0026 threshold). For the rank-K
+# Bias bound. For the rank-K
 # truncation B_K of B, the analytical bias bound is the relative
 # squared Frobenius residual
 #
@@ -36,7 +36,7 @@
 #
 #     capture(B, K) = sum_{i<=K} d_i^2 / sum_i d_i^2.
 #
-# The default pass threshold is capture >= 0.99 (ADR 0026). The
+# The default pass threshold is capture >= 0.99. The
 # validation procedure reports the realised capture, the threshold, the
 # pass/fail verdict, and the fallback hint --- the user keeps the
 # judgement, the contract surfaces the number.
@@ -198,7 +198,7 @@
 # validate_approximation() (R/validate_approximation.R). Reads the
 # truncation metadata recorded on the fit at emit time
 # (fit$extras$parse_info$approx, keyed by smooth variable) and reports
-# the realised Frobenius capture against the ADR 0026 pass threshold.
+# the realised Frobenius capture against the pass threshold.
 #
 # A fit may carry more than one low-rank smooth; the procedure returns
 # one per-smooth row plus an overall verdict (all smooths must clear
@@ -209,8 +209,8 @@
 # Arguments
 #   fit        a fitted flexybayes object carrying at least one
 #              low_rank_smooth approximation.
-#   threshold  the Frobenius-capture pass threshold; defaults to the
-#              ADR 0026 value 0.99.
+#   threshold  the Frobenius-capture pass threshold; defaults to
+#              the value 0.99.
 #   ...        ignored; present for the generic's signature.
 .validate_low_rank_smooth <- function(fit, threshold = 0.99, ...) {
   approx <- fit$extras$parse_info$approx

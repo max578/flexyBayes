@@ -1,10 +1,10 @@
 # priors_to_brms -- flexyBayes fb_prior -> brms prior translation.
 #
 # Stan-passthrough emit on fb_brms(backend = "brms"). The translation
-# follows a ten-row table -- the original Q2 cross-engine table
+# follows a ten-row table -- the original cross-engine table
 # (Intercept normal, b normal, sigma uniform / half_normal / pc,
 # sd half_normal / pc / uniform on the intercept-variance keyed by
-# group) plus ADR 0020's tenth row for the uncorrelated random-slope
+# group) plus a tenth row for the uncorrelated random-slope
 # variance keyed by (class = "sd", coef = "<slope_var>", group =
 # "<grouping_factor>"). brms-native prior shape: a data.frame built
 # by stacking brms::prior_string() rows, keyed by the brms
@@ -33,8 +33,7 @@
 # half_cauchy / cauchy / lkj / exponential / gamma targets) raises a
 # structured refusal naming both the unsupported spec and the brms-
 # native fallback: pass `prior` directly through `...` to brms::brm()
-# via fb_brms()'s pass-through `...` argument (Decision-out-of-scope
-# block of the Stan-passthrough ADR).
+# via fb_brms()'s pass-through `...` argument.
 
 # ---------------------------------------------------------------- #
 # Pure spec list                                                    #
@@ -74,7 +73,7 @@
     )
   }
 
-  # ADR 0020: build a lookup of (slope_var, grouping_factor) pairs for
+  # Build a lookup of (slope_var, grouping_factor) pairs for
   # every simple_slope_uncor random term in the IR. The flexyBayes
   # default-prior expansion synthesises a group name `<slope_var>_<g>`
   # for the slope-variance hyperparameter so the per-group uniform-on-
@@ -113,7 +112,7 @@
       next
     }
 
-    # ADR 0020 slope-variance unwrap (per slope_lookup above).
+    # Slope-variance unwrap (per slope_lookup above).
     if (
       identical(s$target$type %||% "", "sd") &&
         !is.null(s$target$group) &&
@@ -241,7 +240,7 @@
   # ------------------------------ sd(group) ------------------------------ #
   if (identical(target$type, "sd")) {
     grp <- target$group
-    # ADR 0020 slope-variance row: when the target carries a `coef`
+    # Slope-variance row: when the target carries a `coef`
     # slot, the sd row is keyed on (class = "sd", coef = "<x>",
     # group = "<g>") rather than the bare intercept-only
     # (class = "sd", group = "<g>") shape.
@@ -474,7 +473,7 @@
   }
 
   # sd(group) -- one row per named random group.
-  # ADR 0020: simple_slope_uncor adds a 10th row class to the
+  # simple_slope_uncor adds a 10th row class to the
   # legacy table -- the slope-variance prior, keyed on
   # (class = "sd", coef = "<slope_var>", group = "<grouping_factor>").
   # brms's set_prior() discriminates intercept- and slope-variance
@@ -577,7 +576,7 @@
     if (!is.na(s$group %||% NA_character_) && nzchar(s$group)) {
       args$group <- s$group
     }
-    # ADR 0020: brms refuses `Prior argument 'coef' may not be
+    # brms refuses `Prior argument 'coef' may not be
     # specified when using boundaries` -- when a coef-keyed sd row
     # carries lb/ub the parser rejects the spec. For sd rows the
     # natural sd >= 0 bound is implicit in brms's Stan emit anyway;

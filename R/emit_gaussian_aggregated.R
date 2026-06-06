@@ -1,12 +1,11 @@
-# emit_gaussian_aggregated -- Stage 3A backend wiring (ADR 0022; v0.3.2).
+# emit_gaussian_aggregated -- aggregated backend wiring (v0.3.2).
 #
-# Stage 3A emit path: gaussian-identity LMMs in scope route through the
+# Aggregated emit path: gaussian-identity LMMs in scope route through the
 # `<fb_aggregated>` sufficient-statistics object instead of the per-row
 # likelihood. The aggregated form is algebraically identical to the
-# per-row form (not an approximation); see ADR 0022 Decision 3.
+# per-row form (not an approximation).
 #
-# Two implementation patterns -- one per backend, both verified by the
-# 2026-05-24 day-1 spikes under `spikes_stage3a/`:
+# Two implementation patterns -- one per backend:
 #
 # (1) greta path. Combines two greta `distribution()` attachments:
 #
@@ -33,8 +32,8 @@
 #                       return(log_dens);"
 #
 #     The constants `a` and `b` collapse the default `loggamma(1, 5e-5)`
-#     precision prior with the `Delta(theta)` correction derived in
-#     `spikes_stage3a/spike_inla.R`. The combined prior is fed via
+#     precision prior with the `Delta(theta)` correction. The combined
+#     prior is fed via
 #     `control.family$hyper$prec$prior` and INLA's deterministic
 #     numerical engine recovers the per-row posterior on beta + sigma
 #     to bit-exact precision (spike: differences <= 1e-4 on a 1000-row
@@ -140,8 +139,8 @@ emit_gaussian_aggregated <- function(
   ri_plan <- .agg_emit_ri_plan(fb, fb_aggregated)
 
   if (return_code) {
-    # Stage 3A emit at v0.3.2 does NOT yet expose review_code = TRUE
-    # for the aggregated path; the per-row review path remains the
+    # The aggregated emit at v0.3.2 does NOT yet expose review_code =
+    # TRUE for the aggregated path; the per-row review path remains the
     # documented v0.2 surface. Honest refusal:
     stop(
       "emit_gaussian_aggregated(): return_code = TRUE is not yet ",
@@ -590,7 +589,7 @@ emit_gaussian_aggregated <- function(
   # combines INLA's default loggamma(1, 5e-5) prior with the Delta
   # correction that absorbs the within-cell SS into the prior so the
   # cell-mean weighted likelihood + custom prior recovers the per-row
-  # posterior. Algebra in `spikes_stage3a/spike_inla.R` header.
+  # posterior.
   a <- WSS_total / 2 + 5e-5
   b <- (N - K) / 2 + 1
   # Recenter the log-density to ~0 at its mode theta* = log(b / a). The
@@ -805,7 +804,7 @@ emit_gaussian_aggregated <- function(
         random = fb$random_terms,
         rcov = fb$rcov_terms,
         family = list(family = fb$family, link = fb$link %||% "identity"),
-        smooths = list() # Stage 3A scope excludes smooths.
+        smooths = list() # the aggregated path excludes smooths.
       ),
       call_info = list(
         fixed = fixed,

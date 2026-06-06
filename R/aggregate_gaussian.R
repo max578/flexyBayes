@@ -1,5 +1,5 @@
-# .fb_aggregate_gaussian() -- Stage 3A foundation: Gaussian exact
-# aggregation by sufficient statistics (ADR 0022; target v0.3.2).
+# .fb_aggregate_gaussian() -- Gaussian exact aggregation by
+# sufficient statistics (target v0.3.2).
 #
 # Cell construction. A cell k is the maximal subset of observations
 # that share the same linear-predictor value mu_k = x_k^T beta + sum_j
@@ -8,12 +8,12 @@
 #   (i)  every column of the fixed-effects model.matrix();
 #   (ii) every random-intercept grouping-factor level.
 #
-# Three sufficient statistics per cell (ADR 0022 §Decision 2):
+# Three sufficient statistics per cell:
 #   n_k    -- cell size              (integer)
 #   S1_k   -- sum_{i in k} y_i       (double)
 #   S2_k   -- sum_{i in k} y_i^2     (double)
 #
-# Aggregated gaussian-identity log-likelihood (ADR 0022 §Decision 3):
+# Aggregated gaussian-identity log-likelihood:
 #   ell(beta, sigma^2) = -N/2 * log(2 pi sigma^2)
 #                        - (1 / (2 sigma^2)) * sum_k [ S2_k
 #                                                       - 2 mu_k S1_k
@@ -23,19 +23,19 @@
 # test gate; the cell-mean shortcut (replacing the cell by its mean
 # and modelling N(mu_k, sigma^2/n_k)) is explicitly forbidden because
 # it drops the sigma-dependent within-cell sum-of-squares term and
-# biases the residual-variance posterior (ADR 0022 §Decision 4).
+# biases the residual-variance posterior.
 #
 # Internal-only at v0.3.2 -- consumed by emit_gaussian_aggregated()
-# (Stage 3A backend wiring; not in this commit). No @export.
+# (backend wiring; not in this commit). No @export.
 
 # Top-level aggregator. Returns an <fb_aggregated> S3 list:
 #   $cell_design     K x p cell-level fixed-effects design matrix.
 #                    One row per cell carrying the unique fixed-effect
-#                    column values for that cell. Audit P1.4 (2026-
-#                    05-23): the v0.3.0.9000 foundation stored the full
-#                    N x p design matrix; this defeated compression at
-#                    large N and was not implementation-shape for the
-#                    10M-100M-row roadmap. The cell-level form contains
+#                    column values for that cell. The v0.3.0.9000
+#                    foundation stored the full N x p design matrix;
+#                    this defeated compression at large N and did not
+#                    scale to the 10M-100M-row roadmap. The cell-level
+#                    form contains
 #                    the same information for the aggregated emit path
 #                    (the per-cell linear predictor) at a fraction of
 #                    the memory cost.
@@ -84,8 +84,8 @@
   }
 
   # Scope gate -- the cell-constant mu_k property only holds for the
-  # Stage 3A envelope: gaussian-identity + fixed (numeric / factor) +
-  # random intercept.
+  # aggregation envelope: gaussian-identity + fixed (numeric /
+  # factor) + random intercept.
   .assert_aggregate_in_scope(fb_ir)
 
   data <- fb_dataset$data # data.table; always a wrapper-owned copy
@@ -193,7 +193,7 @@
 # Scope gate                                                        #
 # ---------------------------------------------------------------- #
 
-# Refuses IRs outside the Stage 3A scope envelope. Raises a typed
+# Refuses IRs outside the aggregation scope envelope. Raises a typed
 # `flexybayes_aggregate_out_of_scope` condition so downstream tooling
 # (the eventual emit_gaussian_aggregated() dispatch branch) can
 # pattern-match without parsing free text.
@@ -235,9 +235,9 @@
     }
   }
 
-  # Random-effect term scope: random intercept only. Audit P2.8
-  # (2026-05-24): the previous catch-all `random_slope_in_scope`
-  # conflated three distinct out-of-scope shapes; split into a
+  # Random-effect term scope: random intercept only. The previous
+  # catch-all `random_slope_in_scope` conflated three distinct
+  # out-of-scope shapes; split into a
   # taxonomy that names what actually breaks aggregation:
   #   - smooth_term_not_aggregatable    (smooth / spline on random side)
   #   - random_slope_not_aggregatable   (correlated / uncorrelated slope)
@@ -317,7 +317,7 @@
     0.5 / sigma^2 * sum(S2_k - 2 * mu_cell * S1_k + n_k * mu_cell^2)
 }
 
-# Cell-mean shortcut (ADR 0022 §Decision 4). Drops the within-cell
+# Cell-mean shortcut. Drops the within-cell
 # sum-of-squares term `S2_k - S1_k^2 / n_k` (sigma-dependent). This is
 # the BIASED form -- exposed as a helper so the property-based test
 # can confirm it produces a different log-likelihood from the correct

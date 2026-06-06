@@ -1,11 +1,11 @@
-# Representation registry --- v0.4.0 Wave 1 Phase 1A (ADR 0030 C4)
+# Representation registry --- v0.4.0
 #
 # Container + registration helper + lookup accessor + lock helper
 # for the canonical representation-class vocabulary that classifies
 # every term entering the preflight / planning / dispatch stack by
 # the shape of the design or covariance machinery it carries.
 #
-# Same shape as the v0.3.8 R/refusal_taxonomy.R scaffold: an
+# Same shape as the R/refusal_taxonomy.R scaffold: an
 # environment (parent = emptyenv()) populated by .register_*() at
 # .onLoad() time and locked immediately after via .lock_*(). The
 # registry is the single source of truth for "is this string a
@@ -14,23 +14,23 @@
 # route through .representation_class() so typos refuse at runtime
 # rather than silently propagating an unknown class.
 #
-# Vocabulary at v0.4.0 open (15 entries): two of the plan's named
-# entries that are already load-bearing in the v0.3.10 source
+# Vocabulary at v0.4.0 open (15 entries): two entries already
+# load-bearing in the v0.3.10 source
 # (block_diagonal, indexed_structured_known); eight forward-pattern
-# entries the plan named (dense_cov, chol_cov, sparse_precision,
+# entries (dense_cov, chol_cov, sparse_precision,
 # pedigree_sparse_precision, dense_smooth, sparse_smooth, banded_smooth,
 # indexed_structured_estimate); two additional entries discovered in
-# the v0.3.10 source during Phase 1A scope refinement
+# the v0.3.10 source during scope refinement
 # (indexed_random_intercept, dense_baseline; both load-bearing inside
 # the per-term INLA memory estimator); and three further entries
-# discovered during the Phase 1A producer-site sweep of
+# discovered during the producer-site sweep of
 # .preflight_fixed_term() (indexed_fixed_numeric, indexed_fixed_factor,
 # indexed_fixed_factor_numeric --- load-bearing on every fixed-effect
 # preflight entry under a new `indexed_fixed` category). The
-# sixteenth entry, low_rank, registers at v0.4.0 Wave 1 Phase 1B
-# alongside the approximation registry (the low_rank_smooth scheme's
-# truncated smooth-basis representation); axis_* entries reserve in
-# Phase 2B alongside the backend-independence axis vocabulary.
+# sixteenth entry, low_rank, registers at v0.4.0 alongside the
+# approximation registry (the low_rank_smooth scheme's truncated
+# smooth-basis representation); axis_* entries reserve later
+# alongside the backend-independence axis vocabulary.
 #
 # The string "unknown" at fb_preflight.R:608 is a sentinel for the
 # unknown_representation = TRUE meta-state and is intentionally
@@ -210,8 +210,8 @@
 # --- v0.4.0 registry population ---------------------------------- #
 
 # .populate_representation_registry_v0400() --- registers the 16
-# v0.4.0 representation classes (15 at Phase 1A open plus low_rank at
-# Phase 1B). Called from .onLoad() *before*
+# v0.4.0 representation classes (15 at open plus low_rank added
+# later). Called from .onLoad() *before*
 # .lock_representation_registry() so the entries are in place when
 # user code first observes the registry.
 .populate_representation_registry_v0400 <- function() {
@@ -383,8 +383,8 @@
     registered_in_adr = "ADR 0019 + ADR 0030 (C4)",
     since_version = "0.3.6"
   )
-  # v0.4.0 Wave 1 Phase 1B (ADR 0027): the deferred Phase 1A
-  # reservation lands here, alongside the approximation registry.
+  # The deferred low-rank reservation lands here, alongside the
+  # approximation registry.
   # Classifies an s() smooth whose dense mgcv basis is replaced by its
   # rank-K principal-component truncation B_K = B V_K (the
   # low_rank_smooth approximation scheme); the design block the greta

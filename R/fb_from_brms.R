@@ -1,4 +1,4 @@
-# fb_from_brms -- flexyBayes brms-format ingest path (deliverable 1).
+# fb_from_brms -- flexyBayes brms-format ingest path.
 #
 # v0.1 MINIMUM SUBSET -- parses a brms-style formula
 #   `response ~ fixed_effects + (1 | g1) + (1 | g2) + ...`
@@ -21,14 +21,13 @@
 #   (no correlation parameter). The explicit `(0 + x || g)` shape
 #   suppresses the intercept block (slope-only). Semantics match
 #   lme4 / brms exactly: `(x || g)` expands to
-#   `(1 | g) + (0 + x | g)`. Per ADR 0020 in
-#   design-notes-priors-brms-lgm.md; lifts the v0.2 refusal.
+#   `(1 | g) + (0 + x | g)`. Lifts the v0.2 refusal.
 # - Optional `weights` argument mapped to addition_terms with
 #   type = "weights" (mirrors fb_from_asreml).
 #
 # Refused (v0.1) -- fail-fast at ingest with a clear message:
-# - Correlated random slopes `(x | g)` (deferred to v0.3 / Stage 5A
-#   structured-covariance representation per ADR 0025; refuses with
+# - Correlated random slopes `(x | g)` (deferred to the v0.3
+#   structured-covariance representation; refuses with
 #   condition class flexybayes_correlated_slope_unsupported).
 # - Smoothers `s()`, `t2()`.
 # - Gaussian processes `gp()`.
@@ -40,7 +39,7 @@
 #   by lgm_gate post-construction or by the family-name check
 #   here).
 #
-# Future iterations will use brms::brmsterms() for the full Q4
+# Future iterations will use brms::brmsterms() for the full
 # v0.1 ingest set and add full random-slope translation,
 # smoothers via INLA's rw1/rw2, GP via SPDE, distributional
 # regression refusal hooks, and the addition-form family.
@@ -124,7 +123,7 @@ fb_from_brms <- function(
     stop("`formula` must be two-sided: response ~ predictors.", call. = FALSE)
   }
 
-  # Stage 2 MVP metadata-only path: data = NULL + carry_n_rows lets
+  # Metadata-only path: data = NULL + carry_n_rows lets
   # the caller build an IR for stress-testing the preflight layer
   # without materialising N rows of data. The formula's free variables
   # are realised as a one-row placeholder data.frame (all numeric);
@@ -269,9 +268,9 @@ fb_from_brms <- function(
 
   # Translate each (1 | g) / (x || g) / (1 + x || g) RE pair to a
   # parse_formula.R-style term descriptor. `(x | g)` correlated slopes
-  # raise a structured refusal (ADR 0020 §Decision 2) with a v0.3
-  # deferral pointer; everything else outside the supported set
-  # raises the legacy refusal.
+  # raise a structured refusal with a v0.3 deferral pointer;
+  # everything else outside the supported set raises the legacy
+  # refusal.
   random_terms <- list()
   for (pair in walked$re_pairs) {
     rt <- .brms_re_to_fb(pair, data)
@@ -343,7 +342,7 @@ fb_from_brms <- function(
 }
 
 
-# Stage 2 MVP -- synthesise a one-row, all-numeric placeholder
+# Synthesise a one-row, all-numeric placeholder
 # data.frame from a brms-style formula. Used by the data = NULL +
 # carry_n_rows ingest path so the existing brms walker can produce
 # the IR shape; the realised level counts are stripped after the
@@ -474,7 +473,7 @@ fb_from_brms <- function(
 # Translate a single brms RE pair (lhs | rhs) to a parse_formula.R
 # term descriptor.
 #
-# v0.2.6 supported (ADR 0020):
+# v0.2.6 supported:
 #   (1 | g)        -> type = "simple"             (random intercept)
 #   (1 || g)       -> type = "simple"             (random intercept)
 #   (x || g)       -> type = "simple_slope_uncor" (intercept + slope,
@@ -486,7 +485,7 @@ fb_from_brms <- function(
 #   (0 + x || g)   -> type = "simple_slope_uncor" (with_intercept = FALSE;
 #                                                  slope-only)
 #   (x | g)        -> type = "brms_re_correlated_slope_unsupported"
-#                     (correlated slope; deferred to v0.3 per ADR 0025)
+#                     (correlated slope; deferred to v0.3)
 #
 # Anything else returns a marker descriptor whose type =
 # "brms_re_unsupported" so the caller can reject with a clear
@@ -602,7 +601,7 @@ fb_from_brms <- function(
   }
 
   # Slope correlated: (x | g) or (1 + x | g). Refused with the
-  # structured v0.3 deferral message (ADR 0020 §Decision 2).
+  # structured v0.3 deferral message.
   if (isTRUE(cor)) {
     slope_var <- NA_character_
     if (is_simple_var(lhs)) {
@@ -669,7 +668,7 @@ fb_from_brms <- function(
   out
 }
 
-# Raise the ADR 0020 §Decision 2 structured refusal for (x | g).
+# Raise the structured refusal for (x | g).
 # The custom condition class flexybayes_correlated_slope_unsupported
 # carries the grouping factor, slope variable, deferral target, and
 # workaround so downstream tooling can pattern-match on the slots

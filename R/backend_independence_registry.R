@@ -1,4 +1,4 @@
-# Backend-independence registry (ADR 0029; v0.4.0 Wave 2 Phase 2B).
+# Backend-independence registry.
 #
 # A small controlled vocabulary plus a per-pair registry that lets
 # triangulate() label *what kind* of convergence claim a cross-engine
@@ -7,8 +7,8 @@
 # independence) underwrites a weaker claim than the same distance
 # between an HMC fit and a Laplace-approximation fit ("algorithmic"
 # independence). The label is the report's honesty machinery -- the
-# same posture R/approximation_registry.R (ADR 0027) takes for
-# approximation labels and R/refusal_taxonomy.R (ADR 0030 C7) takes for
+# same posture R/approximation_registry.R takes for
+# approximation labels and R/refusal_taxonomy.R takes for
 # refusal codes: a closed vocabulary, an internal registry the backends
 # populate, surfaced on every report, snapshot-gated against silent
 # vocabulary drift.
@@ -17,12 +17,12 @@
 # is HMC" tells you nothing about which other backend it is HMC-against
 # -- so the registry is keyed by the canonicalised (sorted) backend
 # pair. The vocabulary is closed; adding a fourth axis or splitting one
-# of the three requires an ADR 0029 amendment.
+# of the three requires a deliberate vocabulary amendment.
 
 # --- closed axis vocabulary --------------------------------------- #
 
-# The three controlled axis values (ADR 0029 Decision 1). Closed;
-# expansion requires an ADR amendment. Glossary:
+# The three controlled axis values. Closed;
+# expansion requires a deliberate vocabulary amendment. Glossary:
 #   algorithmic    -- different inference paradigms (HMC vs Laplace vs
 #                     VI vs Gibbs). Catches algorithm-specific failure
 #                     modes (mixing pathologies, tail-approximation
@@ -180,10 +180,10 @@
 # .populate_backend_independence_registry_v0400() --- registers the
 # three pairs among the v0.3.x triangulatable backends (greta = HMC on
 # TensorFlow; inla = Laplace approximation on C; brms = HMC on Stan via
-# the fb_brms() surface). The axis assignments follow ADR 0029's
-# authoritative table: Laplace-vs-HMC pairs differ on BOTH paradigm and
+# the fb_brms() surface). The axis assignments follow the authoritative
+# table: Laplace-vs-HMC pairs differ on BOTH paradigm and
 # code base (algorithmic + implementation); the two HMC backends differ
-# only on code base (implementation). The stan_brms backend (ADR 0028)
+# only on code base (implementation). The stan_brms backend
 # registers its own pairs when it lands at v0.4.1.
 .populate_backend_independence_registry_v0400 <- function() {
   .register_pair_independence(

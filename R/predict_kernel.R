@@ -1,5 +1,5 @@
 # predict_kernel.R -- v0.3.8 unified prediction kernel
-# (audit close 2026-05-25; ADR 0030 contract C2).
+# (audit close 2026-05-25).
 #
 # .predict_linear_draws() is the single per-draw linear-predictor
 # kernel routed through by every prediction call site:
@@ -223,7 +223,7 @@
     for (v in names(smooths_slot)) {
       sm <- smooths_slot[[v]]
       Bnew <- mgcv::PredictMat(sm, data = newdata)
-      # v0.4.0 Wave 1 Phase 1B (ADR 0027): on the low_rank_smooth
+      # On the low_rank_smooth
       # approximate path the fitted coefficients live in the rank-K
       # truncated space, so the newdata basis must be projected through
       # the same V_K (Bnew %*% V_K, n_new x K) used at fit time. Without
@@ -289,7 +289,7 @@
 # monolithic output at numerical tolerance (default 1e-10). BLAS
 # non-associativity makes BIT-identity infeasible across re-grouped
 # chunkings of the same matrix multiplication; the audit contract
-# (ADR 0023 §6.d) is numerical equivalence, not byte-identity.
+# is numerical equivalence, not byte-identity.
 # Within a single chunk_size run the result IS deterministic (same
 # computation, same BLAS path) -- the file-output test asserts that
 # separately. Not user-facing.

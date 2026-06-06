@@ -50,7 +50,7 @@
   }
 
   # Register greta S3 methods inside flexyBayes's namespace so the
-  # Stage 3A `.emit_gaussian_aggregated_greta()` path can call into
+  # `.emit_gaussian_aggregated_greta()` path can call into
   # greta from within a package-namespace context. Without this,
   # greta's internal `check_dims` -> `as.greta_array(...)` dispatch
   # routes greta_array operands to `as.greta_array.matrix` instead
@@ -92,17 +92,17 @@
   # helper-emit-state.R.
   .init_emit_state()
 
-  # ADR 0030 C4 (v0.4.0 Wave 1 Phase 1A): populate the representation
+  # Populate the representation
   # registry with the fifteen v0.4.0-open classes (the ten plan-named
   # entries plus indexed_random_intercept + dense_baseline discovered
   # in the v0.3.10 source plus indexed_fixed_numeric /
   # indexed_fixed_factor / indexed_fixed_factor_numeric discovered
-  # during the Phase 1A .preflight_fixed_term() producer-site sweep).
+  # during the .preflight_fixed_term() producer-site sweep).
   # The registry is the single source of truth for legitimate
   # representation_class strings at preflight / planning / display
   # sites; .lookup_representation() / .representation_class() refuse
   # unknown names so typos cannot silently propagate. low_rank
-  # registers in Phase 1B alongside the approximation registry.
+  # registers alongside the approximation registry.
   .populate_representation_registry_v0400()
 
   # Lock the representation registry. Bindings remain readable
@@ -110,20 +110,21 @@
   # this point raise rather than mutate the locked environment.
   .lock_representation_registry()
 
-  # ADR 0025 Decisions 3 + 4 (v0.3.10): register the first three
-  # canonical refusal-reason codes into the v0.3.8 C7 scaffold ---
-  # block_partition_incomplete, block_not_positive_definite, and the
+  # Register the first three
+  # canonical refusal-reason codes into the v0.3.8 refusal-registry
+  # scaffold --- block_partition_incomplete,
+  # block_not_positive_definite, and the
   # upgraded approximate_route_not_yet_registered. This is the first
-  # migration; the v0.4.0 Wave 1 Phase 1C bulk migration follows the
+  # migration; the v0.4.0 bulk migration follows the
   # same .register_refusal() shape for the ~28 remaining sites.
   .populate_refusal_registry_v0310()
 
-  # ADR 0030 C7 (v0.4.0 Wave 1 Phase 1C): bulk-register the remaining
+  # Bulk-register the remaining
   # user-facing refusal codes (the v0.3.10 scaffold above seeds the
   # first three). With the family gate and the parse-time spec
-  # refusals and the entry-point argument guards folded in during the
-  # 2026-05-30 audit remediation, the registry held 39 user-facing
-  # codes; Wave 2 Phase 2A (ADR 0030 C3 fb_cov()) adds three
+  # refusals and the entry-point argument guards folded in, the
+  # registry held 39 user-facing
+  # codes; the fb_cov() work adds three
   # (fb_cov_type_unknown, fb_cov_missing_matrix, cov_arg_not_fb_cov)
   # for a v0.4.0 total of 42. Routing-
   # decision reasons (backend_decision trace) and internal aggregate-
@@ -133,16 +134,16 @@
   # registry.
   .populate_refusal_registry_v0400()
 
-  # gretaR backend activation (ADR 0013/0031): gretaR-specific refusal codes.
+  # gretaR backend activation: gretaR-specific refusal codes.
   .populate_refusal_registry_gretaR()
 
-  # Lock the refusal-reason registry (ADR 0030 C7 scaffold; v0.3.8).
+  # Lock the refusal-reason registry (v0.3.8 scaffold).
   # The lock makes the registry immutable to user code once the
   # package is loaded; .register_refusal() calls beyond this point
   # raise rather than mutate the locked environment.
   .lock_refusal_registry()
 
-  # ADR 0030 C5 + ADR 0027 (v0.4.0 Wave 1 Phase 1B): register the
+  # Register the
   # first approximation scheme, low_rank_smooth, with its full
   # five-field schema and its validation_fn (.validate_low_rank_smooth,
   # R/emit_smooth_low_rank.R). The scheme lands together with its emit
@@ -160,28 +161,28 @@
   # predictive_process, vb) register here in subsequent releases.
   .lock_approximation_registry()
 
-  # ADR 0029 (v0.4.0 Wave 2 Phase 2B): populate the backend-independence
+  # Populate the backend-independence
   # registry with the three pairs among the v0.3.x triangulatable
   # backends (greta, inla, brms). triangulate() consumes this to label
   # each cross-engine comparison with its independence axis
   # (algorithmic / implementation / specification). The stan_brms
-  # backend (ADR 0028) registers its own pairs when it lands at v0.4.1.
+  # backend registers its own pairs when it lands at v0.4.1.
   .populate_backend_independence_registry_v0400()
 
   # Lock the backend-independence registry. The closed axis vocabulary
   # and the per-pair records are immutable to user code once loaded.
   .lock_backend_independence_registry()
 
-  # ADR 0031 (v0.5.0 backend-axis recovery): populate the backend
+  # Populate the backend
   # registry --- the fifth closed-vocabulary registry, modelling backend
-  # as a first-class axis (the one concept ADR 0030 left hard-coded).
+  # as a first-class axis.
   # Registers the three active backends (greta, inla, brms) plus the
-  # dormant gretaR slot. By Phase 3 the registry is the single source of
+  # dormant gretaR slot. The registry is the single source of
   # truth for backend facts and dispatch CONSUMES them: availability via
   # .available_backend_names(), capability via .backend_can_fit(), the
   # emit entry-point via .backend_emit_fn(). The per-paradigm routing
-  # order / fallback policy stays explicit in dispatch by design
-  # (Option A, 2026-05-31). test-backend-registry.R guards consistency
+  # order / fallback policy stays explicit in dispatch by design.
+  # test-backend-registry.R guards consistency
   # against the match.arg vocabularies and .routing_policy_table().
   .populate_backend_registry_v050()
 

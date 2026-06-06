@@ -1,4 +1,4 @@
-# .fb_preflight() -- Stage 2 MVP design-memory preflight (v0.3.0).
+# .fb_preflight() -- design-memory preflight (v0.3.0).
 #
 # Takes a parsed `<fb_terms>` IR + an `<fb_dataset>` wrapper and
 # returns an `<fb_preflight>` S3 list with three slots:
@@ -16,7 +16,7 @@
 #
 # All term estimates are deterministic, computed from IR + dataset
 # metadata only -- never reads the underlying $data row-wise. This
-# keeps preflight O(terms) regardless of n_rows; the 1e8-row Tier-3
+# keeps preflight O(terms) regardless of n_rows; the 1e8-row
 # stress test exercises exactly this property.
 #
 # Internal-only at v0.3.0. No @export tag.
@@ -50,9 +50,8 @@
 # for shared workstations / CI / interactive laptops where the user
 # expects the rest of the machine to remain responsive under load.
 # Override per session via `options(flexyBayes.preflight_ram_fraction
-# = <fraction>)`. Audit P2.3 (2026-05-23): the previous 80% default was
-# too high for shared hosts; the new default plus the option give
-# users explicit control.
+# = <fraction>)`. The previous 80% default was too high for shared
+# hosts; the new default plus the option give users explicit control.
 .FB_PREFLIGHT_DEFAULT_RAM_FRACTION <- 0.6
 
 
@@ -60,11 +59,11 @@
 # the design is feasible (refusal == NULL); the caller pattern-matches
 # on inherits(pf$refusal, "fb_preflight_refusal").
 #
-# ADR 0024 §Consequences amendment (a) (v0.3.10): the `known_matrices`
-# arg threads the user-supplied vm/ped carriers through so the per-
-# term INLA memory estimator can resolve sparse-precision nnz() and
-# block-diagonal sum_k n_k^2 accurately. NULL is the v0.3.5 backward-
-# compatible default --- callers that do not have known_matrices in
+# The `known_matrices` arg (v0.3.10) threads the user-supplied
+# vm/ped carriers through so the per-term INLA memory estimator can
+# resolve sparse-precision nnz() and block-diagonal sum_k n_k^2
+# accurately. NULL is the v0.3.5 backward-compatible default ---
+# callers that do not have known_matrices in
 # scope (legacy tests, dataset-only preflight) get the conservative
 # upper-bound estimator that assumes worst-case dense/diagonal forms.
 .fb_preflight <- function(
@@ -125,8 +124,8 @@
   # The .preflight_fixed_term() dispatcher handles the smooth marker
   # internally; the if-branch above already covers it.
 
-  # Unknown-representation gate (audit P1.3, 2026-05-23). Any per-term
-  # entry flagged as unknown_representation = TRUE forces a refusal
+  # Unknown-representation gate. Any per-term entry flagged as
+  # unknown_representation = TRUE forces a refusal
   # regardless of byte estimate: an honest ceiling check cannot be made
   # on a term whose design shape we did not characterise. This refusal
   # is preferred over the byte-ceiling refusal -- a known-too-large
@@ -174,8 +173,8 @@
     }
   }
 
-  # Stage 3A model-level aggregation plan (audit P1.5, 2026-05-23).
-  # Informational at v0.3.0.9000 -- the per-term
+  # Model-level aggregation plan. Informational at v0.3.0.9000 --
+  # the per-term
   # `aggregated_likelihood_candidate` flag remains the dispatcher
   # contract through v0.3.1. The plan supersedes per-term flags as the
   # dispatch input in v0.3.2 when the aggregated emit path lands.
@@ -184,8 +183,8 @@
     error = function(e) NULL
   )
 
-  # ADR 0024 §Consequences amendment (a) (v0.3.10): per-term INLA
-  # memory estimator. Reads representation_class per term and applies
+  # Per-term INLA memory estimator (v0.3.10). Reads
+  # representation_class per term and applies
   # the INLA-specific model (dense n^2, sparse nnz * c_sparse, block-
   # diagonal sum_k n_k^2, pedigree_sparse_precision nnz(A^-1) *
   # c_sparse, fixed effects n * p) plus a 2x internal overhead
@@ -218,8 +217,8 @@
 # Family-in-scope check for aggregated_likelihood_candidate            #
 # ---------------------------------------------------------------- #
 
-# The Stage-3A scope envelope includes "gaussian family + identity link"
-# per ADR 0022 §1. Preflight evaluates this once and gates every
+# The aggregation scope envelope includes "gaussian family +
+# identity link". Preflight evaluates this once and gates every
 # per-term flag through it; non-gaussian / non-identity families
 # cannot carry the aggregation candidacy on any term.
 .fb_preflight_family_in_scope <- function(fb_ir) {
@@ -237,10 +236,9 @@
 # entries carry varying shapes depending on the ingest path; we
 # pattern-match on $type with one branch per term class the parsers
 # can emit. Anything that does not match a known class falls into
-# the unknown-representation guard at the bottom -- audit P1.3
-# (2026-05-23): a "conservative lower bound" is not safe for refusal;
-# under-estimating risks letting a model through that the backend
-# then fails to allocate.
+# the unknown-representation guard at the bottom -- a "conservative
+# lower bound" is not safe for refusal; under-estimating risks
+# letting a model through that the backend then fails to allocate.
 .preflight_fixed_term <- function(term, n_rows, fb_dataset, family_ok) {
   ttype <- if (!is.null(term$type)) term$type else "expression"
   label <- .preflight_term_label(term, ttype, kind = "fixed")
@@ -313,10 +311,9 @@
   }
 
   # Factor fixed term -- integer index + (k-1) beta dummy contrasts.
-  # Per audit P1.4 (2026-05-24): NA level count escalates to
-  # representation_unknown rather than silently sizing the dummy
-  # block at 0 -- the count is the binding factor for the dummy
-  # vector size.
+  # NA level count escalates to representation_unknown rather than
+  # silently sizing the dummy block at 0 -- the count is the binding
+  # factor for the dummy vector size.
   if (ttype %in% c("factor", "categorical")) {
     k <- .preflight_term_level_count(term, fb_dataset)
     if (is.na(k)) {
@@ -348,8 +345,8 @@
   # Factor:factor interaction -- treatment-coded reduced-rank
   # model.matrix(~ f1*f2, data) returns prod(L_i - 1) columns for the
   # interaction block alone, on the standard convention where main
-  # effects and the intercept are also present. Audit-named scary
-  # case: high-cardinality factor:factor can exceed the ceiling by
+  # effects and the intercept are also present. The hard case:
+  # high-cardinality factor:factor can exceed the ceiling by
   # orders of magnitude vs the v0.3.0 "single dense column"
   # fallthrough estimate. The estimate is exact for the common
   # additive-with-interaction model; on the rare `y ~ f1:f2 - 1`
@@ -387,11 +384,11 @@
     ))
   }
 
-  # Factor:continuous interaction -- treatment-coded indexed slope
-  # (ADR 0019). Representation: factor index column + continuous
-  # column + (L - 1) per-level slope coefficients (reference level's
-  # slope fixed to zero so no coefficient slot). Per audit P1.4
-  # (2026-05-24), NA level count escalates to representation_unknown.
+  # Factor:continuous interaction -- treatment-coded indexed slope.
+  # Representation: factor index column + continuous column + (L - 1)
+  # per-level slope coefficients (reference level's slope fixed to
+  # zero so no coefficient slot). NA level count escalates to
+  # representation_unknown.
   if (identical(ttype, "factor_numeric_interaction")) {
     L <- .preflight_term_level_count(term, fb_dataset)
     if (is.na(L)) {
@@ -472,7 +469,7 @@
     ))
   }
 
-  # Unknown fallthrough. The Stage 2 contract is
+  # Unknown fallthrough. The contract is
   # "do not silently under-estimate"; an unrecognised fixed term flags
   # the entry for representation-unknown refusal at the top level.
   # A diagnostic single-column estimate is recorded so the print
@@ -500,9 +497,9 @@
   k <- .preflight_term_level_count(term, fb_dataset)
 
   # (1 | g) -- random intercept. Integer index + k-vector of u's.
-  # Per audit P1.4 (2026-05-24), NA level count escalates to
-  # representation_unknown rather than silently sizing the latent
-  # vector at 0 -- the group cardinality drives the latent block.
+  # NA level count escalates to representation_unknown rather than
+  # silently sizing the latent vector at 0 -- the group cardinality
+  # drives the latent block.
   if (identical(rtype, "simple")) {
     if (is.na(k)) {
       return(.preflight_entry(
@@ -531,8 +528,8 @@
 
   # (x || g) / (1 + x || g) / (0 + x || g) -- uncorrelated slope.
   # Integer index + slope variable column + k-vector of slope (and,
-  # if with_intercept, another k-vector of intercept). Per audit P1.4
-  # (2026-05-24), NA level count escalates to representation_unknown.
+  # if with_intercept, another k-vector of intercept). NA level
+  # count escalates to representation_unknown.
   if (identical(rtype, "simple_slope_uncor")) {
     if (is.na(k)) {
       return(.preflight_entry(
@@ -564,9 +561,9 @@
   # Smooth s(x) on the random side -- the asreml ingest path places
   # parser-emitted "smooth_mgcv" terms in random_terms (e.g.
   # random = ~ s(x, k = 6)). Same N x k dense basis cost as the
-  # fixed-side branch. Prior to the 2026-05-23 audit fix this fell
-  # through to the structured-cov estimate below, which under-estimated
-  # by a factor of k.
+  # fixed-side branch. This previously fell through to the
+  # structured-cov estimate below, which under-estimated by a factor
+  # of k.
   if (rtype %in% c("smooth_mgcv", "smooth", "s", "t2")) {
     sm_k <- if (!is.null(term$k) && is.numeric(term$k)) {
       as.integer(term$k)
@@ -621,8 +618,8 @@
     ))
   }
 
-  # Structured-covariance random terms. Per audit P1.4 (2026-05-24)
-  # this branch is split into two categories:
+  # Structured-covariance random terms. This branch is split into
+  # two categories:
   #
   #   (a) Known indexed representations with a tested estimator
   #       shape (vm, ped, ar1, ar1_spatial): a k-length latent vector
@@ -657,12 +654,11 @@
     ))
   }
 
-  # ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped terms
-  # surface as `block_diagonal` so fb_plan() can render
-  # "(K blocks)" annotations on the print form. The byte estimate
-  # tracks the indexed_structured_known formula at preflight time
-  # --- the per-block memory model lands in the Phase B per-term
-  # INLA memory estimator.
+  # Blocks-format vm/ped terms (v0.3.10) surface as `block_diagonal`
+  # so fb_plan() can render "(K blocks)" annotations on the print
+  # form. The byte estimate tracks the indexed_structured_known
+  # formula at preflight time --- the per-block memory model lands in
+  # the per-term INLA memory estimator.
   cov <- term$cov_representation
   bytes <- 4 * n_rows + 8 * n_rows + 16 * k + .FB_PREFLIGHT_TERM_OVERHEAD
   if (!is.null(cov) && identical(cov$format, "blocks")) {
@@ -693,7 +689,7 @@
 # ---------------------------------------------------------------- #
 
 # Build a single per-term entry. Centralised so adding a new field
-# (e.g. an `effort_estimate` for Stage 2.1) is a one-line change.
+# (e.g. an `effort_estimate`) is a one-line change.
 # `unknown_representation = TRUE` flags terms whose design memory we
 # could not characterise; the top-level `.fb_preflight()` then routes
 # such terms to a `representation_unknown_for_preflight` refusal in
@@ -800,8 +796,8 @@
 # $var_n; (2) the dataset's frozen dictionary length; (3) NA_integer_
 # when neither source can resolve the count.
 #
-# Per audit P1.4 (2026-05-24) the previous `1L` fallback was removed:
-# it was labelled "conservative" but is actually the smallest latent
+# The previous `1L` fallback was removed: it was labelled
+# "conservative" but is actually the smallest latent
 # block, which silently under-estimates the design memory whenever
 # the level count is genuinely unresolvable. The structured-cov
 # branch in .preflight_random_term() (and any future estimator that
@@ -830,8 +826,8 @@
 #   1. Explicit `memory_ceiling_gb` argument (always wins).
 #   2. RAM probe x fraction-of-RAM, where the fraction is
 #      `getOption("flexyBayes.preflight_ram_fraction", 0.6)`. The
-#      audit P2.3 (2026-05-23) change moved the default fraction
-#      from 0.8 to 0.6 and exposed the option so users on shared
+#      default fraction moved from 0.8 to 0.6 and the option is
+#      exposed so users on shared
 #      workstations / CI / interactive laptops can tighten or
 #      loosen the default without passing an argument through every
 #      dispatch entry. The fraction is validated as `(0, 1]`.
@@ -1070,8 +1066,7 @@ print.fb_preflight_refusal <- function(x, ...) {
 
 
 # ---------------------------------------------------------------- #
-# v0.3.10 (ADR 0024 §Consequences amendment (a)) ---             #
-# Per-term INLA memory estimator                                    #
+# v0.3.10 --- Per-term INLA memory estimator                        #
 # ---------------------------------------------------------------- #
 
 # Sparse-matrix bytes-per-non-zero constant. The Matrix package's
@@ -1103,7 +1098,7 @@ print.fb_preflight_refusal <- function(x, ...) {
 #                              representation   (character)
 #                              bytes            (numeric)
 #                              share            (numeric in [0, 1])
-#                           Column order is stable per ADR 0030 §C4
+#                           Column order is stable under the
 #                           closed-vocabulary discipline.
 #
 # Backward compatibility: the carrier inherits class `fb_memory_estimate`

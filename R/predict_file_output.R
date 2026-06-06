@@ -1,4 +1,4 @@
-# predict_file_output.R -- Stage 3B file-output (ADR 0023 Decision 4).
+# predict_file_output.R -- file-output for predict().
 #
 # Three internal helpers driving the v0.3.5 file-output extension on
 # predict.flexybayes():
@@ -8,7 +8,7 @@
 #     tests via testthat::local_mocked_bindings().
 #
 #   .resolve_format(format, N, interop, fst_available)
-#     Pure path function per ADR 0023 §4 resolution table:
+#     Pure path function per the resolution table:
 #       format = "auto" + interop          -> "csv"
 #       format = "auto" + N >= 1e6 + fst   -> "fst"
 #       format = "auto" + N >= 1e6 + !fst  -> "rds"
@@ -22,7 +22,7 @@
 #     data.table::fwrite() / base::saveRDS() / fst::write_fst() per
 #     the resolved format. Refuses if output_file exists -- no
 #     silent overwrite, consistent with the package's broader
-#     no-silent-refusal posture (ADR 0017).
+#     no-silent-refusal posture.
 #
 # Not exported.
 
@@ -156,7 +156,7 @@
 # .predict_sample_re_for_unknowns(), then dispatches sampled_re
 # per-chunk by translating global row indices to chunk-relative
 # indices. Same set of pre-sampled values used across chunks --
-# preserves the ADR 0023 §6.d bitwise-identical chunked-vs-
+# preserves the bitwise-identical chunked-vs-
 # unchunked file-output equivalence.
 .predict_to_file <- function(
   object,
@@ -232,7 +232,7 @@
       }
     }
 
-    # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route through the
+    # v0.3.8 audit Critical Fix #1: route through the
     # shared kernel so fits with s() smooth random terms include the
     # smooth-basis contribution per draw. Pre-v0.3.8 the file-backed
     # path built model.matrix(fixed_formula, chunk) without consulting

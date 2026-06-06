@@ -1,7 +1,6 @@
-# lgm_gate -- LGM (latent Gaussian model) feasibility filter (Q5).
+# lgm_gate -- LGM (latent Gaussian model) feasibility filter.
 #
-# Deliverable 2. Structural-first hybrid filter per
-# design-notes-priors-brms-lgm.md Sec.Q5. Operates on an fb_terms
+# Structural-first hybrid filter. Operates on an fb_terms
 # object (the IR -- intermediate representation) and decides whether
 # the model is feasible for INLA (Integrated Nested Laplace
 # Approximations) dispatch.
@@ -10,7 +9,7 @@
 # the original six (family, predictor, distributional, re_prior,
 # latent_class, hyperparam_budget) plus three INLA-emit-support
 # checks (fixed_term_type_inla, random_term_type_inla,
-# rcov_term_type_inla) added under ADR 0017 to fold emit_inla()
+# rcov_term_type_inla) that fold emit_inla()
 # structural refusals into the gate. Check 10 -- the post-fit
 # numerical-confirm gate -- is stubbed; it lands alongside
 # emit_inla()'s numerical-confirm pass where it can inspect
@@ -58,8 +57,8 @@
 #   by construction.
 # @param reason character(1) non-empty. Logged into capabilities so
 #   downstream tooling can audit forced-INLA fits.
-# @param preflight Optional `<fb_preflight>` result. When supplied
-#   (Stage 4; ADR 0024 Decision 2), the gate runs an 11th rule
+# @param preflight Optional `<fb_preflight>` result. When supplied,
+#   the gate runs an 11th rule
 #   `.lgm_check_memory_feasibility_inla()` that refuses when the
 #   INLA path's projected memory exceeds the active ceiling. When
 #   NULL (the v0.3.5 calling convention), the gate behaves exactly
@@ -83,15 +82,15 @@ lgm_gate <- function(
     .lgm_check_re_prior(fb), # check 4
     .lgm_check_latent_class(fb), # check 5
     .lgm_check_hyperparam_budget(fb), # check 6
-    .lgm_check_fixed_term_inla_support(fb), # check 7 (ADR 0017)
-    .lgm_check_random_term_inla_support(fb), # check 8 (ADR 0017)
-    .lgm_check_rcov_term_inla_support(fb), # check 9 (ADR 0017)
-    # check 10 (ADR 0019 §Decision 5) -- conditional INLA-mapping
+    .lgm_check_fixed_term_inla_support(fb), # check 7
+    .lgm_check_random_term_inla_support(fb), # check 8
+    .lgm_check_rcov_term_inla_support(fb), # check 9
+    # check 10 -- conditional INLA-mapping
     # verification for the factor_numeric_interaction term class.
     # Refuses the INLA emit path when verification has not been run
     # or did not pass on this host.
     .lgm_check_factor_numeric_interaction_inla_verified(fb),
-    # check 11 (ADR 0024 §Decision 2, Stage 4, v0.3.6) -- INLA-
+    # check 11 -- INLA-
     # specific memory-feasibility rule. Trivially passes when the
     # caller did not supply a preflight result (v0.3.5 backward-
     # compatible default); otherwise estimates the INLA-path
@@ -632,11 +631,11 @@ print.lgm_refusal <- function(x, ...) {
 # Checks 7-9 -- INLA emit-support allowlists                       #
 # ---------------------------------------------------------------- #
 #
-# Added under ADR 0017 ("Gate truth = emit truth"). Each check
+# Gate truth = emit truth. Each check
 # mirrors the corresponding switch() default in
 # `.build_inla_formula()` (R/emit_inla.R) and refuses at the gate
-# what emit_inla would refuse at emit time. After this ADR lands,
-# `lgm_gate(fb) == accept` is a sufficient condition for
+# what emit_inla would refuse at emit time. With these checks in
+# place, `lgm_gate(fb) == accept` is a sufficient condition for
 # `.build_inla_formula(gated)` to succeed structurally; the
 # emit-side `stop()`s become internal contract-violation
 # assertions.
@@ -649,12 +648,12 @@ print.lgm_refusal <- function(x, ...) {
 
 # Allowlist: fixed-term types that emit_inla()'s fixed-effect
 # switch() accepts. Anything else is refused at the gate with the
-# offending type named. ADR 0019 (Stage 1A, v0.2.6) adds
+# offending type named. The v0.2.6 release adds
 # `factor_numeric_interaction` -- treatment-coded indexed slopes for
 # factor x continuous interactions -- to the allowlist. INLA's
 # native `f:x` notation handles this term shape directly for the
 # gaussian-identity case; non-gaussian cases re-route to greta per
-# the §3.4 INLA verification policy (see
+# the INLA verification policy (see
 # .lgm_check_factor_numeric_interaction_inla_verified() below).
 .inla_fixed_term_type_allowlist <- function() {
   c(
@@ -672,13 +671,13 @@ print.lgm_refusal <- function(x, ...) {
 # variants) maps to greta's broader formula path; the refusal
 # text names the structured-covariance class.
 .inla_random_term_type_allowlist <- function() {
-  # ADR 0020 §Decision 5: "simple_slope_uncor" enters the allowlist
+  # "simple_slope_uncor" enters the allowlist
   # conditionally -- the gate accepts so dispatch routes to emit_inla,
   # but emit_inla itself consults the verification artefact at
   # inst/extdata/inla-verification/simple_slope_uncor.rds and refuses
-  # with a v0.3 deferral message if the §3.4 three-arbitrator test
-  # has not passed. This keeps the gate truth = emit truth invariant
-  # (ADR 0017): accept here means "INLA dispatch is attempted"; emit
+  # with a v0.3 deferral message if the three-arbitrator test
+  # has not passed. This keeps the gate truth = emit truth invariant:
+  # accept here means "INLA dispatch is attempted"; emit
   # refusal is structurally distinguishable from gate refusal.
   c("simple", "ide", "id", "spline", "simple_slope_uncor")
 }
@@ -727,7 +726,7 @@ print.lgm_refusal <- function(x, ...) {
 #
 # emit_inla()'s fixed-effect switch() recognises factor /
 # continuous / interaction / factor_interaction / expression.
-# Anything else falls through to a stop(); under ADR 0017 we
+# Anything else falls through to a stop(); we
 # catch that at the gate instead. In v0.2 the codegen does not
 # produce out-of-allowlist fixed-term types; this check is
 # defensive against codegen drift.
@@ -765,11 +764,11 @@ print.lgm_refusal <- function(x, ...) {
 #
 # emit_inla()'s random-effect switch() recognises simple / ide /
 # id (mapped to INLA "iid"), spline (mapped to INLA "rw2"), and
-# simple_slope_uncor (mapped via the ADR 0020 §3.4 verification
-# gate). ADR 0025 Phase B-inla adds vm / ped *conditionally*: the
+# simple_slope_uncor (mapped via the verification
+# gate). vm / ped enter the allowlist *conditionally*: the
 # precision and pedigree_sparse_precision formats route through
 # INLA's f(model = "generic0", Cmatrix = Q) interface; the blocks
-# format (v0.3.10, Decision 3) routes through K independent
+# format (v0.3.10) routes through K independent
 # f(<var>_id_block_<k>, model = "generic0", Cmatrix = solve(V_k))
 # calls. The dense and chol formats stay refused on INLA (no
 # native interface for a user-supplied dense covariance or
@@ -843,10 +842,10 @@ print.lgm_refusal <- function(x, ...) {
 }
 
 # Predicate: does a single random-effect term land on the INLA
-# emit path? ADR 0017 "gate truth = emit truth": every term that
+# emit path? Gate truth = emit truth: every term that
 # this returns TRUE for must have a matching branch in
-# .build_inla_formula()'s switch, and vice versa. Phase B-inla
-# extends the predicate to accept vm / ped only when the
+# .build_inla_formula()'s switch, and vice versa. The predicate
+# accepts vm / ped only when the
 # cov_representation slot carries the precision /
 # pedigree_sparse_precision format.
 .is_supported_random_term_for_inla <- function(term) {
@@ -912,7 +911,7 @@ print.lgm_refusal <- function(x, ...) {
   .lgm_pass("rcov_term_type_inla")
 }
 
-# Check 10 -- ADR 0019 §Decision 5 / merged-v2 §3.4 verification gate
+# Check 10 -- verification gate
 # for the `factor_numeric_interaction` term class.
 #
 # The fixed-term allowlist (check 7) accepts the new term class
@@ -942,7 +941,7 @@ print.lgm_refusal <- function(x, ...) {
   # Probe the on-disk verification artefact. The artefact is written
   # by tests/testthat/test-factor-continuous-inla-verification.R after
   # a successful three-arbitrator run. Absence is treated identically
-  # to a recorded failure -- the §3.4 policy forbids silent translation
+  # to a recorded failure -- the policy forbids silent translation
   # of an unverified mapping.
   verified <- .factor_numeric_interaction_inla_verified()
   if (isTRUE(verified)) {
@@ -1006,7 +1005,7 @@ print.lgm_refusal <- function(x, ...) {
 
 
 # ---------------------------------------------------------------- #
-# Check 11 -- ADR 0024 (Stage 4, v0.3.6) memory-feasibility rule    #
+# Check 11 -- memory-feasibility rule                              #
 # ---------------------------------------------------------------- #
 #
 # INLA-specific design-memory feasibility check. The hard ceiling
@@ -1015,8 +1014,8 @@ print.lgm_refusal <- function(x, ...) {
 # ceiling. This rule, by contrast, fires on the SOFTER ceiling
 # where the indexed total fits but the INLA path's projected
 # memory does not -- the INLA dense intermediates inflate the
-# indexed estimate by a fixed multiplier per the ADR 0021
-# supplement's 12-class representation taxonomy (dense_factor /
+# indexed estimate by a fixed multiplier per the
+# 12-class representation taxonomy (dense_factor /
 # dense_continuous / dense_factor_interaction representations
 # allocate 3-4x the indexed_* variants when INLA materialises
 # the full design matrix).
@@ -1027,18 +1026,18 @@ print.lgm_refusal <- function(x, ...) {
 # `preflight$total_estimate_bytes` + `preflight$ceiling_bytes` and
 # refuses if the inflated INLA projection exceeds the ceiling.
 #
-# Decision rationale (ADR 0024 §header): the structural-vs-
+# Decision rationale: the structural-vs-
 # memory distinction is the central new piece of dispatch
 # information. memory_infeasibility_inla is the dedicated reason
-# code for memory refusals; the nine structural reason codes from
-# ADR 0017 carry the structural refusals. The two are
+# code for memory refusals; the nine structural reason codes
+# carry the structural refusals. The two are
 # distinguishable from `rejected_routes` alone, without re-running
 # the gate.
 #
-# Multiplier sourcing: the Stage 4 ship is a single-multiplier
+# Multiplier sourcing: the v0.3.6 ship is a single-multiplier
 # approximation. Per-term INLA memory estimators (the more
 # accurate model) land at v0.3.7 alongside the routing-trace
-# vignette refresh per ADR 0024 implementation amendment. The
+# vignette refresh. The
 # multiplier value (3) reflects the typical INLA dense-design
 # inflation observed on the v0.3.x test corpus; it can be
 # overridden per-session via getOption("flexyBayes.inla_memory_multiplier",
@@ -1058,7 +1057,7 @@ print.lgm_refusal <- function(x, ...) {
     return(.lgm_pass(rule_id))
   }
 
-  # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
+  # v0.3.10: when the per-term
   # INLA memory estimator landed on `preflight$memory_estimate`, the
   # check decomposes the estimate by representation class and reports
   # the breakdown on refusal. Falls back to the v0.3.6 single-

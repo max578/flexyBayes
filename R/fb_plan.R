@@ -1,4 +1,4 @@
-# fb_plan() --- plan-only dispatch surface (ADR 0030 C1)
+# fb_plan() --- plan-only dispatch surface
 #
 # Returns the dispatch + preflight + representation + memory decision
 # the routing layer would make, without firing the backend. The fifth
@@ -21,7 +21,7 @@
 #    small data would defeat that contract.
 #
 #  - cov_validation_policy is the dial set by `flexyBayes.trust_pd`
-#    (Phase A, v0.3.8). "full_pd" when trust_pd is FALSE; "structural_only"
+#    (v0.3.8). "full_pd" when trust_pd is FALSE; "structural_only"
 #    when TRUE; "n/a" when the model carries no known-matrix terms.
 #    Reported on the plan and on backend_decision()$preflight_summary
 #    after fit.
@@ -280,11 +280,11 @@ fb_plan <- function(
     mem_bytes <- NA_real_
   }
 
-  # ---- engine label (human-readable; ADR 0030 Decision 4) ------ #
+  # ---- engine label (human-readable) --------------------------- #
   engine_label <- .engine_label_for(chosen_backend, chosen_path)
 
-  # ---- representation label (Representation: line; ADR 0030 D4) - #
-  # v0.4.0 Wave 1 Phase 1B: detect a low-rank (or any registered)
+  # ---- representation label (Representation: line) ------------- #
+  # Detect a low-rank (or any registered)
   # approximation scheme requested on a smooth so the plan's
   # Representation line carries the [APPROX:] badge.
   plan_approx <- .collect_approx(fb$random_terms)
@@ -466,7 +466,7 @@ fb_plan <- function(
   representation_plan = NULL,
   approx_scheme = NULL
 ) {
-  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 3): a plan whose formula
+  # A plan whose formula
   # routes a smooth through an approximation scheme surfaces the same
   # [APPROX: <scheme>] badge the fitted object will carry.
   if (!is.null(approx_scheme)) {
@@ -731,7 +731,7 @@ print.fb_plan <- function(x, ...) {
     )
   }
 
-  # ADR 0024 §Consequences amendment (a) (v0.3.10): when the per-term
+  # v0.3.10: when the per-term
   # INLA memory estimator ran, surface the breakdown rows directly
   # under the headline memory line. Total + overhead make the
   # representation-class contributions auditable at plan time.

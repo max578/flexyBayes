@@ -74,7 +74,7 @@
   env$proceed_args <- proceed_args
   env$proceeded <- FALSE
   env$fit <- NULL
-  env$preflight <- preflight # Stage 2 MVP -- NULL below 1e5 rows
+  env$preflight <- preflight # NULL below 1e5 rows
   class(env) <- c("flexybayes_review", "environment")
   env
 }
@@ -109,7 +109,7 @@ print.flexybayes_review <- function(x, ...) {
     n_rand
   ))
 
-  # Stage 2 MVP -- show the preflight summary above the cat_code()
+  # Show the preflight summary above the cat_code()
   # prompt when the IR carries n_rows >= 1e5 (the threshold the
   # dispatch / review-entry preflight call gates on).
   if (inherits(x$preflight, "fb_preflight")) {

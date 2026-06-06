@@ -3,7 +3,7 @@
 # Not exported.
 
 # Emit the prior declaration line for a single sd-scale variance
-# component. Decision order (ADR 0004 D2):
+# component. Decision order:
 #   1. Per-VC uniform spec for `key`: emit
 #      `greta::uniform(lower, upper)` -- the v0.1 default for
 #      `sigma` + named random groups via .default_uniform_prior().
@@ -11,7 +11,7 @@
 #      `greta::exponential(rate = -log(prob)/upper)` -- the closed-
 #      form interpretation of a PC prior on sigma (Simpson et al.
 #      2017 Stat Sci 32:1-28); kept as an explicit-choice prior in
-#      v0.1 (ADR 0003).
+#      v0.1.
 #   3. Fallback: legacy `lognormal(0, prior_vc_sd)`.
 # `key` is "__sigma__" for residual sd; otherwise the random-effect
 # group / smoother variable name.
@@ -159,8 +159,8 @@
         )
         ctx
       },
-      # ADR 0019 (Stage 1A, v0.2.6) -- treatment-coded indexed slopes
-      # for factor x continuous interactions. For an L-level factor `f`
+      # Treatment-coded indexed slopes (v0.2.6) for factor x
+      # continuous interactions. For an L-level factor `f`
       # crossed with continuous `x`, the reference-level slope is
       # absorbed into the main-effect coefficient `beta_<x>`; the L-1
       # non-reference levels each carry a slope deviation. The per-
@@ -313,13 +313,13 @@
         ctx
       },
 
-      # ADR 0020: uncorrelated random slope (x || g) or (1 + x || g).
-      # Two independent indexed components -- intercept deviation
+      # Uncorrelated random slope (x || g) or (1 + x || g). Two
+      # independent indexed components -- intercept deviation
       # (optional, only when with_intercept = TRUE for the 1 + x || g
       # form) and slope deviation -- each with its own variance
       # hyperparameter and its own length-J latent vector. No
       # correlation parameter; (x | g) refuses upstream with the
-      # ADR 0020 structured deferral. The slope-variance
+      # structured deferral. The slope-variance
       # hyperparameter is named sigma_<x>_<g> so the existing
       # sigma_<group> -> sd_<group> greta canonical-name rule
       # produces canonical sd_<x>_<g> automatically.
@@ -361,22 +361,22 @@
         ctx
       },
 
-      # GBLUP: vm(geno, G). AMBITION_STAGE.md §1.4: sigma routes via
-      # .sigma_decl() so the uniform-on-SD default (and any per-group
-      # uniform_per_vc / pc_per_vc spec) applies; legacy lognormal is
-      # the fallback when no per-group spec is set.
+      # GBLUP: vm(geno, G). sigma routes via .sigma_decl() so the
+      # uniform-on-SD default (and any per-group uniform_per_vc /
+      # pc_per_vc spec) applies; legacy lognormal is the fallback when
+      # no per-group spec is set.
       #
-      # ADR 0025 Stage 5A: cov_representation$format dispatches the
-      # square-root construction. The dense path is bit-identical to
-      # the pre-Stage 5A `t(chol(V))` emit; the new chol path uses
-      # the user-supplied L directly (saving the chol() step); the
-      # precision and pedigree_sparse_precision paths derive a square
-      # root via solve(chol(Q)) -- algebraically: if R = chol(Q) so
-      # R'R = Q, then B = solve(R) satisfies BB' = Q^{-1} = V, which
-      # is the property u = B z gives covariance V. as.matrix() wraps
-      # the symbol so Matrix-package sparse inputs densify cleanly
-      # for greta's as_data() lift. The sparse-precision efficiency
-      # win lands on the INLA path (Phase B-inla).
+      # cov_representation$format dispatches the square-root
+      # construction. The dense path is bit-identical to the earlier
+      # `t(chol(V))` emit; the chol path uses the user-supplied L
+      # directly (saving the chol() step); the precision and
+      # pedigree_sparse_precision paths derive a square root via
+      # solve(chol(Q)) -- algebraically: if R = chol(Q) so R'R = Q,
+      # then B = solve(R) satisfies BB' = Q^{-1} = V, which is the
+      # property u = B z gives covariance V. as.matrix() wraps the
+      # symbol so Matrix-package sparse inputs densify cleanly for
+      # greta's as_data() lift. The sparse-precision efficiency win
+      # lands on the INLA path.
       "vm" = {
         tag <- term$var
         cov <- term$cov_representation
@@ -401,10 +401,10 @@
         ctx
       },
 
-      # Animal model: ped(animal, A). AMBITION_STAGE.md §1.4: same as
-      # vm() above -- sigma routes via .sigma_decl() for uniform-on-SD.
-      # ADR 0025 Decision 6: use_sparse_precision = TRUE routes through
-      # the pedigree_sparse_precision branch of .vm_ped_sqrt_expr().
+      # Animal model: ped(animal, A). Same as vm() above -- sigma
+      # routes via .sigma_decl() for uniform-on-SD.
+      # use_sparse_precision = TRUE routes through the
+      # pedigree_sparse_precision branch of .vm_ped_sqrt_expr().
       "ped" = {
         tag <- term$var
         cov <- term$cov_representation
@@ -787,10 +787,10 @@
         ctx
       },
 
-      # mgcv-style univariate smooth: s(x[, k = ..., bs = ...]) (ADR
-      # 0004 D3). The basis matrix `term$X` was built at parse time
-      # via mgcv::smoothCon(); under ADR 0018 it is bound into the
-      # evaluation environment as `B_s_<vname>` and the emitted code
+      # mgcv-style univariate smooth: s(x[, k = ..., bs = ...]). The
+      # basis matrix `term$X` was built at parse time via
+      # mgcv::smoothCon(); it is bound into the evaluation environment
+      # as `B_s_<vname>` and the emitted code
       # references it via `as_data()` -- the prior pattern (literal
       # n x k matrix(c(...), ...) block) inlined the basis into the
       # generated code, ballooning `nchar(return_code(fit))` to ~10 MB
@@ -800,8 +800,8 @@
       "smooth_mgcv" = {
         vname <- term$var
         tag <- paste0("s_", vname)
-        # v0.4.0 Wave 1 Phase 1B (ADR 0027): on the low_rank_smooth
-        # approximate path, bind the rank-K truncated basis B_K = X V_K
+        # On the low_rank_smooth approximate path, bind the rank-K
+        # truncated basis B_K = X V_K
         # (n x K) and carry K coefficients instead of the full n x k
         # basis. The linear-predictor block is otherwise identical:
         # f = B_K %*% (raw_K * sigma). Prediction projects the newdata
@@ -813,13 +813,12 @@
         } else {
           term$k
         }
-        # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-1: bind the
-        # basis matrix into the model evaluation environment so the
-        # generated greta code can reference it by name.
+        # Bind the basis matrix into the model evaluation environment
+        # so the generated greta code can reference it by name.
         assign(paste0("B_", tag), basis, envir = ctx$env)
-        # ADR 0018 / merged-v2 §4.1 sub-step 0018-extra-2: replace the
-        # literal-matrix emission with a bare `as_data(B_s_<vname>)`
-        # reference -- the matrix is already in the env from the
+        # Replace the literal-matrix emission with a bare
+        # `as_data(B_s_<vname>)` reference -- the matrix is already in
+        # the env from the
         # assign() above; we just lift it into greta.
         ctx <- .add(ctx, "B_g_", tag, " <- as_data(B_", tag, ")")
         ctx <- .add(ctx, .sigma_decl(ctx, paste0("sigma_", tag), vname))
@@ -836,14 +835,14 @@
           tag,
           ")"
         )
-        # ADR 0018: monitor the basis-coefficient parameter `s_<v>_raw`
-        # in addition to its scale `sigma_s_<v>`. predict.flexybayes()
+        # Monitor the basis-coefficient parameter `s_<v>_raw` in
+        # addition to its scale `sigma_s_<v>`. predict.flexybayes()
         # needs the posterior-mean basis-coefficient vector
         # (raw[k] * sigma) to evaluate the smooth on newdata via
         # mgcv::PredictMat(). Without monitoring `s_<v>_raw` the
         # draws matrix only carries sigma, and predict() falls back
         # to a flat-zero smooth contribution -- the silent-wrong
-        # path ADR 0018 closes.
+        # path this closes.
         ctx <- .add_param(ctx, paste0("sigma_", tag), paste0(tag, "_raw"))
         ctx <- .add_pred(ctx, paste0("f_", tag))
         ctx

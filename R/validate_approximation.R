@@ -1,5 +1,4 @@
-# validate_approximation() --- v0.4.0 Wave 1 Phase 1B exported verb
-# (ADR 0030 C5 + ADR 0027 Decision 3)
+# validate_approximation() --- v0.4.0 exported verb.
 #
 # The sixth and architecturally-final exported verb. Every approximate
 # fit carries, on the registry side, a validation procedure that

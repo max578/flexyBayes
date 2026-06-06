@@ -1,4 +1,4 @@
-# .fb_dataset() -- Stage 2 MVP internal dataset wrapper (v0.3.0).
+# .fb_dataset() -- internal dataset wrapper (v0.3.0).
 #
 # Wraps a data.frame / data.table in a list-shaped S3 object
 # `<fb_dataset>` carrying:
@@ -28,7 +28,7 @@
 # `.Rd` entries -- their output format is internal-grade and may change
 # without a deprecation cycle (see API_STABILITY.md, "Internal-but-S3-
 # visible diagnostics"). Constructor export is gated on at least two
-# downstream workflows (Stage 3A aggregation + Stage 3B chunked predict)
+# downstream workflows (aggregation + chunked predict)
 # stabilising the contract.
 #
 # Metadata-only path (`data = NULL`): caller supplies n_rows,
@@ -257,10 +257,10 @@ print.fb_dataset <- function(x, ...) {
 # metadata-only descriptor (dictionaries + col_types + n_rows
 # preserved; origin tagged metadata-only). Used by .dispatch_backend()
 # to persist the dataset descriptor on the fit object's extras slot
-# without retaining the full training data.frame. Stage 3B (ADR 0023)
+# without retaining the full training data.frame. Chunked-predict
 # consumer: predict.flexybayes(newdata, ...) reads the persisted
 # dictionaries to resolve factor levels in newdata against the fit-
-# time codes (Decision 1; closes the latent silent-re-levelling bug).
+# time codes (closes the latent silent-re-levelling bug).
 .fb_dataset_metadata <- function(ds) {
   if (!inherits(ds, "fb_dataset")) {
     stop(

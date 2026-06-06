@@ -1,4 +1,4 @@
-# emit_inla -- flexyBayes INLA backend emit (deliverable 5 partial).
+# emit_inla -- flexyBayes INLA backend emit.
 #
 # v0.1 MINIMUM SUBSET: takes an fb_terms object (the IR --
 # intermediate representation; see R/fb_terms.R) that has passed
@@ -64,7 +64,7 @@ emit_inla <- function(
     )
   }
 
-  # ADR 0020 §Decision 5 INLA verification gate. simple_slope_uncor
+  # INLA verification gate. simple_slope_uncor
   # passes lgm_gate (the allowlist includes it) so dispatch routes
   # here, but the INLA mapping for (x || g) is registered only when
   # the three-arbitrator verification test on a simple fixture has
@@ -72,7 +72,7 @@ emit_inla <- function(
   # inst/extdata/inla-verification/simple_slope_uncor.rds records
   # pass = TRUE. Until then, refuse explicitly with a v0.3 deferral
   # message naming the workaround (backend = "greta"). This is the
-  # §3.4 "no silent translation of an unverified mapping" policy.
+  # "no silent translation of an unverified mapping" policy.
   if (.has_simple_slope_uncor(fb)) {
     .check_inla_verification_simple_slope_uncor()
   }
@@ -86,7 +86,7 @@ emit_inla <- function(
   } else {
     list()
   }
-  # ADR 0025 Decision 3 (v0.3.10): the formula builder consults
+  # v0.3.10: the formula builder consults
   # known_matrices to count blocks per blocks-format vm/ped term,
   # so it must run AFTER the data_inla setup loop (which validates
   # the blocks structure). The previous v0.3.7 ordering --- formula
@@ -109,7 +109,7 @@ emit_inla <- function(
     )))
   }
 
-  # ADR 0025 Phase B-inla: when a vm/ped term routes via
+  # When a vm/ped term routes via
   # f(<var>_id, model = "generic0", Cmatrix = <symbol>), INLA
   # resolves both the integer index column AND the Cmatrix symbol
   # from the `data` argument. Convert data.frame to a list, attach
@@ -119,7 +119,7 @@ emit_inla <- function(
   # known_matrices entry shadows a data column, preserving the
   # package's no-silent-failure identity.
   data_inla <- as.list(data)
-  # v0.3.10 (ADR 0025 Decision 3): blocks-format vm/ped terms generate
+  # v0.3.10: blocks-format vm/ped terms generate
   # K per-block precision matrices that need to live in `data_inla`
   # alongside the integer index columns, since INLA looks up Cmatrix
   # symbols from the data list at fit time. The slot is also keyed by
@@ -132,10 +132,10 @@ emit_inla <- function(
       f <- factor(data[[term$var]])
       data_inla[[idx_name]] <- as.integer(f)
 
-      # v0.3.8 audit Critical Fix #2: enforce known-matrix dim + level
+      # v0.3.8: enforce known-matrix dim + level
       # alignment on the INLA emit path. Pre-v0.3.8 the
-      # .build_inla_formula() body deferred this to the user (see the
-      # comment block at L289+ that documented `f(<var>_id, model =
+      # .build_inla_formula() body deferred this to the user (it
+      # documented `f(<var>_id, model =
       # "generic0", Cmatrix = Q)` and the user-responsibility
       # caveat). The validator refuses cleanly when (a) the matrix
       # dim does not match the level count, (b) the matrix carries
@@ -145,7 +145,7 @@ emit_inla <- function(
       # positional alignment with the integer index column built
       # above. When dimnames are absent the alignment downgrades to
       # the dim check + a future <fb_plan>-surfaced caution
-      # (planned at Phase B, v0.3.8).
+      # (planned at v0.3.8).
       cov <- term$cov_representation
       if (
         !is.null(cov) &&
@@ -161,7 +161,7 @@ emit_inla <- function(
         )
       }
 
-      # v0.3.10 (ADR 0025 Decision 3): blocks-format vm/ped routes
+      # v0.3.10: blocks-format vm/ped routes
       # through K independent f(<var>_id_block_<k>, model =
       # "generic0", Cmatrix = <symbol>_Q_<k>) calls. Pre-compute one
       # integer index column per block (NA outside the block) and one
@@ -220,7 +220,7 @@ emit_inla <- function(
     data_inla <- c(data_inla, blocks_precision_for_inla)
   }
   if (length(known_matrices)) {
-    # ADR 0025 Decision 3 (v0.3.10): blocks-format carriers are
+    # v0.3.10: blocks-format carriers are
     # lists-of-matrices, not single matrices --- they belong in
     # blocks_precision_for_inla (in their per-block Q_k form), not
     # in data_inla under their user-facing symbol. Drop them before
@@ -298,7 +298,7 @@ emit_inla <- function(
   )
   elapsed <- unname((proc.time() - t0)["elapsed"])
 
-  # Post-fit numerical-confirm gate (lgm_gate check 7)
+  # Post-fit numerical-confirm gate
   num_check <- .lgm_check_numerical(fit)
   if (!num_check$pass) {
     warning(
@@ -351,7 +351,7 @@ emit_inla <- function(
           family = family,
           link = link
         ),
-        # ADR 0018: thread the IR's smooth-objects slot through to the
+        # Thread the IR's smooth-objects slot through to the
         # extras so predict() on the INLA path can also use
         # mgcv::Predict.matrix() when smooths are present. The INLA
         # backend itself does not currently fit s() smooths via mgcv
@@ -391,17 +391,17 @@ emit_inla <- function(
       "continuous" = term$var,
       "interaction" = paste(term$vars, collapse = ":"),
       "factor_interaction" = paste(term$vars, collapse = ":"),
-      # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed
+      # v0.2.6 -- factor:continuous indexed
       # interaction. INLA's native `f:x` notation produces the same
       # treatment-coded indexed-slope shape as base R model.matrix();
-      # the §3.4 verification gate
+      # the verification gate
       # (.lgm_check_factor_numeric_interaction_inla_verified) confirmed
       # posterior agreement with both greta and lme4 on a gaussian-
       # identity fixture before this branch became reachable.
       "factor_numeric_interaction" = paste(term$vars, collapse = ":"),
       "expression" = term$label,
-      # ADR 0017: this stop() is an internal contract-violation
-      # assertion. Under the new gate, .lgm_check_fixed_term_inla_support()
+      # This stop() is an internal contract-violation
+      # assertion. The gate's .lgm_check_fixed_term_inla_support()
       # refuses any fixed term type outside the allowlist before
       # we reach here. A fired assertion means the gate and the
       # emit are out of sync -- a flexyBayes-side bug, not a
@@ -425,13 +425,13 @@ emit_inla <- function(
   # splice it in as `hyper = list(prec = list(prior = ..., param = ...))`
   # so the user's prior actually reaches INLA.
   for (term in fb$random_terms) {
-    # ADR 0020 §Decision 5: uncorrelated random slope `(x || g)`
+    # Uncorrelated random slope `(x || g)`
     # maps to two independent IID hyperparameter slots --
     #   f(<g>, model = "iid") + f(<g>_for_slope, <x>, model = "iid")
     # `<g>_for_slope` is a fresh INLA index keyed off the same
     # grouping factor so the two precisions remain independent
     # (INLA aggregates two `f()` calls under the same name).
-    # Only reachable when the §3.4 verification artefact records
+    # Only reachable when the verification artefact records
     # pass = TRUE -- the emit_inla() entry refuses upfront otherwise.
     if (identical(term$type, "simple_slope_uncor")) {
       sv <- term$slope_var
@@ -467,14 +467,14 @@ emit_inla <- function(
       )
       next
     }
-    # ADR 0025 Phase B-inla: vm/ped with format = "precision" or
+    # vm/ped with format = "precision" or
     # "pedigree_sparse_precision" route through INLA's user-defined
     # precision interface, f(idx, model = "generic0", Cmatrix = Q).
     # INLA's generic0 model requires the first arg to be an integer
     # index into the rows/cols of Cmatrix; we pre-compute the index
     # column <var>_id in data_inla (see emit_inla() body above) and
     # reference it here so summary.random[[<var>_id]] carries the
-    # natural name in the fit object. v0.3.8 audit Critical Fix #2:
+    # natural name in the fit object. v0.3.8:
     # the level ordering of the factor against the row ordering of Q
     # is now enforced by .validate_precision_input() (called from
     # emit_inla() body above with expected_n = nlevels(f) and
@@ -485,7 +485,7 @@ emit_inla <- function(
       key <- term$var
       hyper_str <- .inla_hyper_arg(hyper_ctrl[[key]])
 
-      # ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped emits K
+      # v0.3.10: blocks-format vm/ped emits K
       # independent f() calls, one per block, each with its own
       # generic0 precision and an INLA-default per-block precision
       # hyperparameter. The K integer index columns + K per-block
@@ -554,7 +554,7 @@ emit_inla <- function(
       "ide" = ,
       "id" = "iid",
       "spline" = "rw2",
-      # ADR 0017: internal contract-violation assertion. See the
+      # Internal contract-violation assertion. See the
       # fixed-term site above for the rationale; the gate's
       # .lgm_check_random_term_inla_support() owns this guard.
       stop(
@@ -584,7 +584,7 @@ emit_inla <- function(
   # Heterogeneous residual / structured rcov
   for (term in fb$rcov_terms) {
     if (term$type != "units") {
-      # ADR 0017: internal contract-violation assertion. See the
+      # Internal contract-violation assertion. See the
       # fixed-term site above for the rationale; the gate's
       # .lgm_check_rcov_term_inla_support() owns this guard.
       stop(
@@ -685,7 +685,7 @@ emit_inla <- function(
 }
 
 # ---------------------------------------------------------------- #
-# Post-fit numerical-confirm gate -- lgm_gate check 7              #
+# Post-fit numerical-confirm gate                                  #
 # ---------------------------------------------------------------- #
 
 .lgm_check_numerical <- function(fit) {
@@ -718,7 +718,7 @@ emit_inla <- function(
 }
 
 # ---------------------------------------------------------------- #
-# ADR 0020 §Decision 5 -- INLA verification gate for (x || g)      #
+# INLA verification gate for (x || g)                             #
 # ---------------------------------------------------------------- #
 
 # Predicate: is any random term in the IR an uncorrelated random
@@ -734,7 +734,7 @@ emit_inla <- function(
   FALSE
 }
 
-# Consult the §3.4 three-arbitrator verification artefact for the
+# Consult the three-arbitrator verification artefact for the
 # (x || g) INLA mapping. The artefact is an .rds at
 # inst/extdata/inla-verification/simple_slope_uncor.rds carrying at
 # minimum a `pass` slot (logical). If the file does not exist, or

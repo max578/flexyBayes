@@ -1,20 +1,20 @@
 # fb_terms -- flexyBayes intermediate representation (IR)
 #
 # An S3 class that bridges asreml-format ingest (via parse_formula.R)
-# and brms-formula ingest (via brms::brmsterms(); deliverable 1) to
+# and brms-formula ingest (via brms::brmsterms()) to
 # the three v0.1 emit backends: greta (existing), brms / Stan (new),
 # and INLA -- Integrated Nested Laplace Approximations (new).
 #
 # Internal for v0.1. Constructed inside `flexybayes()` (the asreml
-# entry, retained) or `fb()` (the brms entry, deliverable 1) -- not
+# entry, retained) or `fb()` (the brms entry) -- not
 # for direct user instantiation. The print and format S3 methods
 # below are exported solely for dispatch under
 # `devtools::load_all()` and `R CMD check --as-cran`.
 #
-# Phase 0.A scope (this file): class skeleton, constructor,
+# Scope of this file: class skeleton, constructor,
 # validator, predicate, accessors, print, format. No ingest, no
 # backend logic, no semantic interpretation of term descriptors.
-# Phases 0.B and 0.C wire this into the existing asreml -> greta
+# The ingest layers wire this into the existing asreml -> greta
 # pathway without altering codegen.R.
 
 # ---------------------------------------------------------------- #
@@ -26,8 +26,7 @@
 # All inputs are expected to be pre-shaped by the caller
 # (`flexybayes()` or `fb()`); the constructor performs structural
 # validation only -- types, lengths, allowed values. Term-level
-# semantic validation is the responsibility of `lgm_gate()`
-# (deliverable 2).
+# semantic validation is the responsibility of `lgm_gate()`.
 #
 # @param response  length-1 non-empty character: response variable name.
 # @param family    a base-R `family` object, or a length-1 character
@@ -39,19 +38,19 @@
 #                  list with a non-empty character `type` field.
 #                  parse_formula.R types (e.g., "factor", "simple",
 #                  "fa_gxe", "ar1_spatial") are accepted; brms-derived
-#                  types ("gr", "mm", "gp", "s", "cs") will be added
-#                  in phase 0.B / deliverable 1.
-# @param priors    an `fb_prior` object (deliverable 3) or NULL --
+#                  types ("gr", "mm", "gp", "s", "cs") are added
+#                  by the brms ingest layer.
+# @param priors    an `fb_prior` object or NULL --
 #                  defaults applied downstream by the emit backend.
 # @param data_summary list with at least `n` (sample size) and
 #                  factor-level metadata. Populated by the ingest
-#                  layer (phase 0.B).
+#                  layer.
 # @param capabilities character vector of capability flags
-#                  populated by `lgm_gate()` (deliverable 2). Empty
+#                  populated by `lgm_gate()`. Empty
 #                  at construction.
 # @param source    "asreml" or "brms" -- provenance, used by
 #                  `triangulate()` for clear ingest-path labelling
-#                  in cross-engine reports (deliverable 4).
+#                  in cross-engine reports.
 # @return an fb_terms object (S3, inherits from list).
 new_fb_terms <- function(
   response,
@@ -133,7 +132,7 @@ validate_fb_terms <- function(x) {
   if (!is.logical(x$intercept) || length(x$intercept) != 1L) {
     stop("`intercept` must be TRUE or FALSE.", call. = FALSE)
   }
-  # NA permitted only when source = "greta" (ADR 0012 §2): greta-direct
+  # NA permitted only when source = "greta": greta-direct
   # models do not declare an intercept syntactically. Otherwise the
   # original "TRUE or FALSE" contract holds.
   if (is.na(x$intercept) && !identical(x$source, "greta")) {
@@ -189,7 +188,7 @@ validate_fb_terms <- function(x) {
   }
 
   # greta_meta is required when source = "greta" and forbidden otherwise.
-  # ADR 0012 §2 specifies the slot for the post-hoc IR built from a
+  # The slot holds the post-hoc IR built from a
   # user-supplied greta_model object.
   if (identical(x$source, "greta")) {
     if (!is.list(x$greta_meta)) {

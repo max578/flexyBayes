@@ -1,4 +1,4 @@
-# Refusal registry --- scaffold only at v0.3.8 (ADR 0030 C7)
+# Refusal registry --- scaffold only at v0.3.8
 #
 # Container + registration helper for the canonical refusal-reason
 # vocabulary. Empty at v0.3.8: this release ships the registry
@@ -8,11 +8,9 @@
 # existing site) + the user-facing fb_refusals() accessor land at
 # v0.4.0.
 #
-# Rationale (v038-plan-2026-05-25 section 5.2):
-#
-#   "The deliberate choice here is to ship the container without the
-#    migration risk of touching ~30 existing refusal sites in one
-#    release."
+# Rationale: the deliberate choice here is to ship the container
+# without the migration risk of touching ~30 existing refusal sites
+# in one release.
 #
 # The registry is an environment (not a list) so .register_refusal()
 # can write idempotently without copy-on-modify cost; locked at the
@@ -182,10 +180,10 @@
 }
 
 
-# --- unified refusal-condition constructor (ADR 0030 C7) ---------- #
+# --- unified refusal-condition constructor ----------------------- #
 
 # .fb_refusal_condition() --- the single constructor every
-# user-facing refusal site routes through (v0.4.0 Wave 1 Phase 1C).
+# user-facing refusal site routes through (v0.4.0).
 # It assembles one canonical condition-class taxonomy so the whole
 # refusal surface is assertable the same way, and it gates on the
 # registry so the refusal vocabulary cannot drift silently.
@@ -199,15 +197,15 @@
 #
 # The per-code class makes
 #   expect_error(class = "flexybayes_refusal_<reason_code>")
-# the preferred test contract (ADR 0030 C7); the retained family
+# the preferred test contract; the retained family
 # class keeps every pre-existing class-based handler and assertion
-# working unchanged (additive migration, ratified 2026-05-29).
+# working unchanged (additive migration).
 #
 # Registry gate: `reason_code` MUST be registered (via
 # .register_refusal() at .onLoad()). An unregistered code is a
 # flexyBayes internal contract violation --- the refusal does not
 # silently surface under an unknown vocabulary. This is the
-# "register or the gate refuses it" closing posture of C7.
+# "register or the gate refuses it" closing posture.
 #
 # The fully-rendered, site-specific `message` is supplied by the
 # call site and carried verbatim: one reason_code may be raised at
@@ -279,35 +277,32 @@
 }
 
 
-# --- v0.3.10 registry population (ADR 0025 Decisions 3 + 4) ------ #
+# --- v0.3.10 registry population ------------------------------- #
 
 # .populate_refusal_registry_v0310() --- the first migration of
-# existing refusal sites into the v0.3.8 C7 scaffold. Called from
+# existing refusal sites into the v0.3.8 scaffold. Called from
 # .onLoad() *before* .lock_refusal_registry() so the entries are
 # in place when user code first observes the registry.
 #
 # Three reason codes register at v0.3.10:
 #
-#   block_partition_incomplete         --- ADR 0025 D3 (blocks
-#                                          structural refusal: sum of
-#                                          block sizes != grouping
-#                                          factor level count).
-#   block_not_positive_definite        --- ADR 0025 D3 (blocks
-#                                          structural refusal: at
-#                                          least one V_k fails the
+#   block_partition_incomplete         --- blocks structural refusal:
+#                                          sum of block sizes !=
+#                                          grouping factor level count.
+#   block_not_positive_definite        --- blocks structural refusal:
+#                                          at least one V_k fails the
 #                                          PD probe; the offending
 #                                          block index is named in
-#                                          the message text).
-#   approximate_route_not_yet_registered --- ADR 0025 D4 + ADR 0027
-#                                            (low-rank refusal-stub
+#                                          the message text.
+#   approximate_route_not_yet_registered --- low-rank refusal-stub
 #                                            upgrade naming
 #                                            validate_approximation()
-#                                            as the v0.4.0 Wave 1
-#                                            Phase 1B forward export).
+#                                            as the v0.4.0 forward
+#                                            export.
 #
-# Forward pattern: the v0.4.0 Wave 1 Phase 1C bulk migration moves
-# the ~28 remaining inline-message refusal sites into this scaffold
-# using the same .register_refusal() call shape.
+# Forward pattern: the v0.4.0 bulk migration moves the ~28 remaining
+# inline-message refusal sites into this scaffold using the same
+# .register_refusal() call shape.
 .populate_refusal_registry_v0310 <- function() {
   .register_refusal(
     reason_code = "block_partition_incomplete",
@@ -356,11 +351,11 @@
 }
 
 
-# --- v0.4.0 Wave 1 Phase 1C bulk migration (ADR 0030 C7) --------- #
+# --- v0.4.0 bulk migration --------------------------------------- #
 
 # .populate_refusal_registry_v0400() --- the bulk migration of the
-# remaining 28 user-facing refusal codes into the registry, ratified
-# 2026-05-29. Together with the 3 v0.3.10 codes the registry now
+# remaining 28 user-facing refusal codes into the registry.
+# Together with the 3 v0.3.10 codes the registry now
 # holds the complete user-facing refusal vocabulary (31 codes); the
 # routing-decision reasons (backend_decision trace) and the internal
 # aggregate-out-of-scope control-flow signals are deliberately NOT
@@ -375,7 +370,7 @@
 # the representation-level (structured covariance) refusals carry
 # "representation_plan"; runtime-only refusals carry NA_character_.
 .populate_refusal_registry_v0400 <- function() {
-  # -- structured-covariance carriers (ADR 0025; structured_cov.R,
+  # -- structured-covariance carriers (structured_cov.R,
   #    emit_inla.R) --------------------------------------------------
   .register_refusal(
     reason_code = "vm_redundant_specification",
@@ -604,7 +599,7 @@
     since_version = "0.4.0"
   )
 
-  # -- approximation surface (ADR 0027; parse_formula.R,
+  # -- approximation surface (parse_formula.R,
   #    validate_approximation.R, emit_smooth_low_rank.R, dispatch.R) -
   .register_refusal(
     reason_code = "low_rank_requires_greta",
@@ -726,7 +721,7 @@
   # v0.3.10 code approximate_route_not_yet_registered -- one code,
   # two site-specific messages; nothing new to register here.)
 
-  # -- aggregated-Gaussian emit (ADR 0022; emit_gaussian_aggregated.R)
+  # -- aggregated-Gaussian emit (emit_gaussian_aggregated.R)
   .register_refusal(
     reason_code = "heterogeneous_residual_factor_not_in_cell_key",
     description = paste0(
@@ -762,7 +757,7 @@
     since_version = "0.4.0"
   )
 
-  # -- prediction kernel (ADR 0023; predict_kernel.R) ---------------
+  # -- prediction kernel (predict_kernel.R) ---------------
   .register_refusal(
     reason_code = "predict_kernel_invalid_include",
     description = paste0(
@@ -778,7 +773,7 @@
     since_version = "0.4.0"
   )
 
-  # -- preflight refusals (ADR 0024; fb_preflight.R, dispatch.R) -----
+  # -- preflight refusals (fb_preflight.R, dispatch.R) -----
   .register_refusal(
     reason_code = "design_memory_exceeds_ceiling",
     description = paste0(
@@ -969,7 +964,7 @@
     since_version = "0.4.0"
   )
 
-  # -- fb_cov() constructor (ADR 0030 C3; Wave 2 Phase 2A) ----------
+  # -- fb_cov() constructor ----------
   # Carrier-construction refusals reachable from both the standalone
   # fb_cov() constructor and the inline `cov = fb_cov(...)` formula
   # front door.
@@ -1015,7 +1010,7 @@
     since_version = "0.4.0"
   )
 
-  # -- backend capability gates (ADR 0031 Phase 2b; dispatch.R) -------
+  # -- backend capability gates (dispatch.R) -------
   # Raised when flexybayes(backend = "brms") meets an asreml structured-
   # covariance term (vm/ped/fa/us/ar1) that Stan cannot represent. The
   # brms capability predicate (R/backend_registry.R, .capability_brms)
@@ -1038,7 +1033,7 @@
     since_version = "0.5.0"
   )
 
-  # -- grammar polymorphism on the universal entry (ADR 0031 Phase 3) --
+  # -- grammar polymorphism on the universal entry --
   # fb() / flexybayes() detect the input grammar from the call shape.
   # These three guard the brms-grammar and reserved-greta branches of
   # .build_ir_polymorphic() (R/fb.R).
@@ -1073,9 +1068,9 @@
     plan_field = NA_character_,
     since_version = "0.4.1"
   )
-  # ADR 0031 Phase 3.6 (v0.5.0): the universal entry now FITS a native
-  # greta model graph (the deferral the v0.4.1 grammar_greta_via_fb_deferred
-  # code described is gone -- it is removed from the vocabulary). Two
+  # The universal entry now FITS a native greta model graph (v0.5.0).
+  # The deferral the v0.4.1 grammar_greta_via_fb_deferred code
+  # described is gone -- it is removed from the vocabulary. Two
   # genuine refusals replace it: a native graph requested on a non-greta
   # engine, and an engine pin handed a conflicting `backend`.
   .register_refusal(
@@ -1114,7 +1109,7 @@
   invisible(NULL)
 }
 
-# gretaR backend activation (ADR 0013/0031): the refusal codes the gretaR
+# gretaR backend activation: the refusal codes the gretaR
 # backend (R/emit_gretaR.R + the dispatch branch) can raise. Registered
 # alongside the others before the registry locks (see R/zzz.R).
 .populate_refusal_registry_gretaR <- function() {
@@ -1177,7 +1172,7 @@
 }
 
 
-# --- user-facing discovery surface (ADR 0030 C7) ----------------- #
+# --- user-facing discovery surface ------------------------------- #
 
 #' List flexyBayes refusal reasons
 #'

@@ -1,12 +1,11 @@
-# fb_prior -- PC-canonical hybrid prior DSL (deliverable 3).
+# fb_prior -- PC-canonical hybrid prior DSL.
 #
-# Implements the prior interlingua described in
-# design-notes-priors-brms-lgm.md Sec.Q2. v0.1 minimum subset:
+# Implements the cross-engine prior interlingua. v0.1 minimum subset:
 # user-facing constructor + S3 class + structured spec list +
 # print method. Cross-engine translation tables for greta /
 # brms / INLA emit are stubbed in priors_to_inla() and
 # priors_to_legacy() (the legacy-scalar bridge for emit_greta);
-# full translation lands as deliverables 5+ flesh out.
+# full translation lands in later releases.
 #
 # Targets supported in v0.1:
 #   sigma             - residual standard deviation
@@ -28,12 +27,11 @@
 #   uniform(lower, upper)      - on sd scale (lower >= 0, upper > lower).
 #                                Sits outside the PC interlingua so cross-
 #                                engine compilation is engine-direct, not
-#                                via the PC translation table; documented
-#                                as such per Q2.
+#                                via the PC translation table.
 #
 # All specifications are stored verbatim with their parsed args;
 # the emit_*() functions translate to backend-specific syntax at
-# fit time per the Q2 translation table.
+# fit time per the cross-engine translation table.
 
 # ---------------------------------------------------------------- #
 # Constructor                                                      #
@@ -459,10 +457,10 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 
 # Construct a PC prior fb_prior() for a model. PC spec applied to
 # sigma + every named random group in `random_groups`. Retained in
-# v0.1.x as an explicit-choice constructor (e.g., used in vignette 06
-# advanced appendix and PC-default tests); no longer the v0.1
-# default. ADR 0004 supersedes ADR 0003 (PC default) with the
-# bounded-uniform default below.
+# v0.1.x as an explicit-choice constructor (e.g., used in the advanced
+# priors vignette appendix and PC-default tests); no longer the v0.1
+# default. The bounded-uniform default below supersedes the former
+# PC default.
 .default_pc_prior <- function(
   data,
   response,
@@ -505,7 +503,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # weakly-informative choice for moderate group counts; for very small J
 # Gelman (2006, Bayesian Analysis 1(3):515-534) recommends a half-t /
 # half-Cauchy instead -- available via fb_prior(); see the priors
-# vignette. ADR 0004.
+# vignette.
 .default_uniform_scale <- function(data, response, family, link = NULL) {
   fam <- if (inherits(family, "family")) {
     family$family
@@ -558,7 +556,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # Bounded uniform on SD: sigma ~ uniform(0, U) and every named random
 # group's SD ~ uniform(0, U).
 #
-# AMBITION_STAGE.md §1.4 extension (extending ADR 0004): the uniform-
+# The uniform-
 # on-SD default now also fires on vm() and ped() structured-cov
 # random terms. The two forms share the simple-RI scale derivation
 # (5 * sd(response) heuristic; identity / log / logit family-aware
@@ -572,7 +570,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
 # patches (each has a different natural scale -- per-level SDs for
 # at, full Cholesky for us, SD+correlation for ar1/fa -- and a
 # uniform default per form requires methodological judgement that
-# is being deferred per §1.4).
+# is being deferred).
 #
 # `vm_ped_groups` is a character vector of `term$var` strings (one
 # per vm / ped random term) and is keyed identically to `random_groups`
@@ -600,7 +598,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
       spec = list(family = "uniform", args = list(lower = 0, upper = scl$scale))
     )
   }
-  # §1.4 vm() + ped() branch. Add a separate spec per structured group
+  # vm() + ped() branch. Add a separate spec per structured group
   # so prior_summary() surfaces them distinctly from the simple-RI
   # groups; carry a `_default_uniform_form` tag (vm / ped) so the
   # surface can explain which structured form the spec came from.
@@ -625,8 +623,8 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   obj
 }
 
-# One-time announcement of the v0.1.x default change. ADR 0004
-# (uniform default) supersedes ADR 0003 (PC default). Silenceable via
+# One-time announcement of the v0.1.x default change (the uniform
+# default supersedes the former PC default). Silenceable via
 # options(flexyBayes.silence_default_prior_note = TRUE). The once-flag
 # is held in the package-internal emit-state env (see R/emit_state.R);
 # v0.3.9 migrated the flag out of the options() namespace where
@@ -778,8 +776,8 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10, vc_sd_default = 1) {
   pc_per_vc <- list()
 
   # Per-VC uniform specs, same keying. codegen.R's .sigma_decl emits
-  # greta::uniform(lower, upper) for these. Mirrors pc_per_vc; under
-  # ADR 0004 these are the v0.1 default for sigma + named random
+  # greta::uniform(lower, upper) for these. Mirrors pc_per_vc; these
+  # are the v0.1 default for sigma + named random
   # groups via .default_uniform_prior(). Structured-covariance
   # branches (us, fa, ar1, vm, ped) bypass .sigma_decl and stay on
   # the legacy lognormal pending v0.2 codegen broadening.
@@ -822,7 +820,7 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10, vc_sd_default = 1) {
 
     # uniform on a variance component (target = sigma / sd / smooth):
     # surface in uniform_per_vc; codegen .sigma_decl emits
-    # greta::uniform(lower, upper) directly. ADR 0004 D2.
+    # greta::uniform(lower, upper) directly.
     if (
       s$target$type %in%
         c("sigma", "sd", "smooth") &&
@@ -858,7 +856,7 @@ priors_to_legacy <- function(prior, fixed_sd_default = 10, vc_sd_default = 1) {
 
 # Translate fb_prior -> INLA hyperpar control list. v0.1 minimum:
 # returns a named list keyed by f()-term group / "sigma" mapping
-# to INLA `prior = "pc.prec"` / `param` arguments per the Q2
+# to INLA `prior = "pc.prec"` / `param` arguments per the cross-engine
 # translation table.
 priors_to_inla <- function(prior) {
   out <- list()
@@ -888,7 +886,7 @@ priors_to_inla <- function(prior) {
         "<unknown>"
       )
       # Approximate half_normal(scale = s) via PC matched at
-      # u = s * qnorm(0.995), alpha = 0.005 (Q2 design note).
+      # u = s * qnorm(0.995), alpha = 0.005.
       u <- scale * stats::qnorm(0.995)
       out[[key]] <- list(
         prior = "pc.prec",

@@ -45,12 +45,11 @@ print.flexybayes <- function(x, ...) {
     "random terms\n"
   )
 
-  # ADR 0030 Decision 4 (v0.3.8): the truth-display surface --
-  # "Representation:" and "Engine:" as two adjacent lines. Replaces
-  # the single-line "Exact.: <exactness>" rendering that conflated
-  # the representation regime (exact vs aggregated_exact) with the
-  # inference engine (greta MCMC vs INLA Laplace etc.). Closes
-  # 2026-05-25 audit Critical Fix #4. Older fits without $exactness
+  # The truth-display surface (v0.3.8): "Representation:" and
+  # "Engine:" as two adjacent lines. Replaces the single-line
+  # "Exact.: <exactness>" rendering that conflated the representation
+  # regime (exact vs aggregated_exact) with the inference engine
+  # (greta MCMC vs INLA Laplace etc.). Older fits without $exactness
   # fall through silently.
   if (!is.null(x$exactness)) {
     bd <- x$extras$backend_decision
@@ -115,12 +114,10 @@ summary.flexybayes <- function(object, ...) {
     "\n"
   )
 
-  # ADR 0030 Decision 4 (v0.3.8): Representation:/Engine: two-line
-  # truth display, replacing the single-line "Exact.:". The
-  # conditional compression-ratio line is preserved per ADR 0022
-  # Decision 6 ("avoid misleading claims on small or non-aggregable
-  # data" mitigation: only show ratio when N/K >= 2). Closes
-  # 2026-05-25 audit Critical Fix #4.
+  # Representation:/Engine: two-line truth display (v0.3.8),
+  # replacing the single-line "Exact.:". The conditional
+  # compression-ratio line avoids misleading claims on small or
+  # non-aggregable data by only showing the ratio when N/K >= 2.
   if (!is.null(object$exactness)) {
     bd <- object$extras$backend_decision
     cat("  Representation: ", .repr_label_for_fit(object, bd), "\n", sep = "")
@@ -245,7 +242,7 @@ print.flexybayes_aggregated <- function(x, ...) {
   cat("  random:    ", mi$n_random, "\n")
   cat("  backend:   ", bd$backend, "(path =", bd$path, ")\n")
   cat("  runtime:   ", round(x$extras$run_time, 2), "sec\n")
-  # ADR 0030 Decision 4 (v0.3.8): truth display as adjacent lines.
+  # Truth display as adjacent lines (v0.3.8).
   cat("  Representation: ", .repr_label_for_fit(x, bd), "\n", sep = "")
   cat("  Engine:         ", .engine_label_for_fit(x, bd), "\n", sep = "")
   if (!is.null(am) && am$N / am$K >= 2) {
@@ -557,11 +554,11 @@ predict.flexybayes <- function(
     return(pred)
   }
 
-  # Stage 3B (ADR 0023) dictionary-backed factor handling. When the
-  # fit carries a persisted <fb_dataset> descriptor (v0.3.4+ fits),
-  # resolve factor levels in newdata against the fit-time codes per
-  # allow_new_levels policy. Legacy fits (no extras$fb_dataset slot)
-  # skip this step and fall through to the v0.3.3 behaviour.
+  # Dictionary-backed factor handling. When the fit carries a
+  # persisted <fb_dataset> descriptor (v0.3.4+ fits), resolve factor
+  # levels in newdata against the fit-time codes per allow_new_levels
+  # policy. Legacy fits (no extras$fb_dataset slot) skip this step and
+  # fall through to the v0.3.3 behaviour.
   # "sample" was reserved at v0.3.4 (deferred-stop); v0.3.5 activates
   # the branch -- the resolver attaches `attr(newdata,
   # "sample_re_summary")` so downstream paths can layer a sampled
@@ -575,8 +572,8 @@ predict.flexybayes <- function(
     )
   }
 
-  # Stage 3B (ADR 0023 Decision 4) file-backed output path. Routes
-  # before the chunked-iteration branch because .predict_to_file()
+  # File-backed output path. Routes before the chunked-iteration
+  # branch because .predict_to_file()
   # handles its own chunking with a per-chunk per-draw posterior
   # interval computation, accumulates point/lower/upper vectors
   # across chunks, and writes the result via .predict_write_file()
@@ -601,8 +598,8 @@ predict.flexybayes <- function(
   # which uses per-draw computation to layer sampled-RE
   # contributions onto unknown rows. Single-pass; sample mode does
   # not chunk in the in-memory return path (sample + chunked
-  # iteration would re-sample per chunk and break ADR 0023 §6.d
-  # bitwise equivalence; chunked sample is only supported via
+  # iteration would re-sample per chunk and break bitwise
+  # equivalence; chunked sample is only supported via
   # `output_file`).
   if (
     identical(allow_new_levels, "sample") &&
@@ -616,8 +613,8 @@ predict.flexybayes <- function(
     ))
   }
 
-  # Stage 3B (ADR 0023) chunked iteration. Routes through the chunk
-  # iterator when chunk_size is supplied AND the row count exceeds
+  # Chunked iteration. Routes through the chunk iterator when
+  # chunk_size is supplied AND the row count exceeds
   # it. Chunked path recurses into predict.flexybayes(chunk_size =
   # NULL) per chunk so the chunked branch only fires once at the
   # outer call. Dictionary resolution above has already happened on
@@ -644,13 +641,13 @@ predict.flexybayes <- function(
     ))
   }
 
-  # ADR 0018: smooth-aware prediction on newdata. The smooth terms
-  # live on the IR's random_terms slot (asreml-style fits put s() in
-  # `random`, not in the fixed formula). The truth source is the
-  # IR's parse_info$random list plus the parse_info$smooths slot
-  # populated at codegen time. If the IR carries smooth_mgcv random
-  # terms but the smooths slot is empty/missing (legacy fits saved
-  # before ADR 0018), refuse cleanly. If the smooths slot is
+  # Smooth-aware prediction on newdata. The smooth terms live on the
+  # IR's random_terms slot (asreml-style fits put s() in `random`, not
+  # in the fixed formula). The truth source is the IR's
+  # parse_info$random list plus the parse_info$smooths slot populated
+  # at codegen time. If the IR carries smooth_mgcv random terms but
+  # the smooths slot is empty/missing (legacy fits saved before smooth
+  # support shipped), refuse cleanly. If the smooths slot is
   # populated, use mgcv::PredictMat() per smooth and column-bind to
   # the linear-only design matrix.
   fixed_formula <- object$glm$formula
@@ -682,9 +679,9 @@ predict.flexybayes <- function(
   tryCatch(
     {
       if (has_smooth_in_ir && length(smooths_slot) > 0L) {
-        # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route the smooth
-        # in-memory path through the shared kernel so it matches the
-        # file-backed (.predict_to_file) and sampled-RE
+        # Route the smooth in-memory path through the shared kernel
+        # so it matches the file-backed (.predict_to_file) and
+        # sampled-RE
         # (.predict_in_memory_sample) paths byte-for-byte. The kernel
         # builds the linear-only design matrix via .linear_formula(),
         # multiplies the fixed-effect per-draw beta block, layers the
@@ -716,8 +713,8 @@ predict.flexybayes <- function(
       # No-smooth path. Preserves the coef()-based posterior-mean
       # computation so INLA fits (which do not currently expose
       # per-draw access on $greta$draws) continue to predict() on
-      # newdata. Per ADR 0023 the file-backed and sampled-RE paths
-      # remain greta-only; the kernel refuses cleanly there.
+      # newdata. The file-backed and sampled-RE paths remain
+      # greta-only; the kernel refuses cleanly there.
       mm <- stats::model.matrix(
         stats::delete.response(stats::terms(fixed_formula)),
         data = newdata
@@ -761,9 +758,9 @@ predict.flexybayes <- function(
       pred
     },
     error = function(e) {
-      # ADR 0018: the legacy-fit correctness refusal above is a
-      # deliberate stop() with a structured message; re-raise it
-      # rather than swallow into a warning + NA vector.
+      # The legacy-fit correctness refusal above is a deliberate
+      # stop() with a structured message; re-raise it rather than
+      # swallow into a warning + NA vector.
       msg <- conditionMessage(e)
       if (grepl("smooth-basis retention", msg, fixed = TRUE)) {
         stop(msg, call. = FALSE)
@@ -774,9 +771,9 @@ predict.flexybayes <- function(
   )
 }
 
-# ADR 0018 internal helper: TRUE when the rhs of `f` contains at
-# least one s() smooth specification. Used by predict.flexybayes()
-# to drive the smooth-aware branch + the legacy-fit refusal.
+# Internal helper: TRUE when the rhs of `f` contains at least one
+# s() smooth specification. Used by predict.flexybayes() to drive
+# the smooth-aware branch + the legacy-fit refusal.
 .formula_has_smooth <- function(f) {
   if (!inherits(f, "formula")) {
     return(FALSE)
@@ -785,7 +782,7 @@ predict.flexybayes <- function(
   any(grepl("\\bs\\(", deparse(rhs)))
 }
 
-# ADR 0018 internal helper: strip s() terms from the rhs of `f` and
+# Internal helper: strip s() terms from the rhs of `f` and
 # return the linear-only formula. Preserves the lhs, the intercept
 # convention, and any non-s() terms (factor / continuous /
 # interaction / I() expressions). Used by predict.flexybayes() to

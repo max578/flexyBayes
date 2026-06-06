@@ -1,13 +1,13 @@
 # fb_cov() -- constructor noun for structured-covariance carriers.
 #
-# One of the four flexyBayes constructor nouns (ADR 0030 C3).
+# One of the four flexyBayes constructor nouns.
 # `fb_cov(M, type, ...)` wraps a known covariance / precision / Cholesky
 # / block-diagonal / low-rank carrier in a classed object the random-
 # effect terms consume:
 #
 #   y ~ vm(geno, cov = fb_cov(G, type = "chol"))
 #
-# It is the v0.4.0 replacement for the v0.3.7 ADR 0025 legacy kwarg
+# It is the v0.4.0 replacement for the v0.3.7 legacy kwarg
 # forms (`vm(geno, chol = L)`, `vm(geno, precision = Q)`,
 # `vm(geno, blocks = list(...))`, `vm(geno, low_rank_factor = U,
 # low_rank_scheme = "pca")`), which deprecate at v0.4.0 and error at
@@ -51,7 +51,7 @@
 )
 
 # Carrier type -> the cov_representation$format token the IR / emit
-# path reads. The format vocabulary predates fb_cov() (ADR 0025); the
+# path reads. The format vocabulary predates fb_cov(); the
 # constructor is a typed front door onto the same tokens.
 .FB_COV_TYPE_TO_FORMAT <- c(
   dense = "dense",

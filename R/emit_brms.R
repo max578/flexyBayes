@@ -136,13 +136,13 @@ emit_brms <- function(
   iter <- as.integer(warmup) + as.integer(n_samples)
 
   t0 <- proc.time()
-  # ADR 0020: brms warns "It appears as if you have specified an
+  # brms warns "It appears as if you have specified an
   # upper bounded prior on a parameter that has no natural upper
   # bound. ... please specify argument 'ub' of 'set_prior'" when a
   # coef-keyed sd row carries a `uniform(0, X)` prior. brms refuses
   # the same row with an explicit `ub` slot ("Prior argument 'coef'
   # may not be specified when using boundaries"), so the warning is
-  # structurally unavoidable for ADR 0020's slope-variance row.
+  # structurally unavoidable for the slope-variance row.
   # The bounded prior expression `uniform(0, X)` is still applied
   # correctly on the Stan side; the warning is purely informational
   # and would otherwise leak into every Stan-passthrough fit on
@@ -266,7 +266,7 @@ emit_brms <- function(
       run_time = elapsed,
       model_info = list(
         n_obs = nrow(data),
-        # ADR 0020: brms_form may carry `(x || g)` which
+        # brms_form may carry `(x || g)` which
         # stats::model.matrix() rejects (`||` requires logical(1)
         # operands). Compute n_fixed off a fixed-only formula
         # reconstructed from the IR's fixed_terms slot so the
@@ -361,7 +361,7 @@ emit_brms <- function(
     if (is.null(grp) || !nzchar(grp)) {
       stop("Random-effect term missing the group variable.", call. = FALSE)
     }
-    # ADR 0020: uncorrelated random slope. Round-trip to the brms
+    # Uncorrelated random slope. Round-trip to the brms
     # double-pipe shape -- (x || g) for the intercept + slope form
     # (the lme4 / brms-default semantics for the bare slope),
     # (0 + x || g) for the slope-only form (with explicit
@@ -396,7 +396,7 @@ emit_brms <- function(
   stats::as.formula(paste(response, "~", rhs))
 }
 
-# ADR 0020: build a fixed-only formula from the IR's fixed_terms
+# Build a fixed-only formula from the IR's fixed_terms
 # slot. Used by emit_brms()'s model_info$n_fixed calculation --
 # stats::model.matrix() rejects the lme4 double-pipe `(x || g)`
 # random-effects shorthand (`||` requires logical(1) operands), so

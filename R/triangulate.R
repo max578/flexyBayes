@@ -1,4 +1,4 @@
-# triangulate -- cross-engine posterior comparison (deliverable 4).
+# triangulate -- cross-engine posterior comparison.
 #
 # The signature feature of flexyBayes. Takes two model fits produced
 # via different backends (greta / INLA / brms passthrough) and
@@ -152,7 +152,7 @@ triangulate <- function(
     )
   }
 
-  # ADR 0005: when transforms / name_map are not user-supplied, fall
+  # When transforms / name_map are not user-supplied, fall
   # back to the per-backend canonical-name registry. User-supplied
   # values always win over the registry per the explicit-over-implicit
   # principle. Resolve canonical_names() defensively (returns empty
@@ -233,7 +233,7 @@ triangulate <- function(
     .triangulate_empty_table()
   }
 
-  # ADR 0029: label the pair with its independence axis vocabulary.
+  # Label the pair with its independence axis vocabulary.
   # The lookup is symmetric (sorted pair key); an unregistered pair
   # (same backend, or a backend with no registered claims) yields an
   # empty axis set and the report renders without the label rather than
@@ -550,7 +550,7 @@ print.triangulate_result <- function(x, ...) {
   cat("<triangulate_result>\n")
   cat("  source_a: ", x$source_a, "\n", sep = "")
   cat("  source_b: ", x$source_b, "\n", sep = "")
-  # ADR 0029: the independence axis labels the kind of convergence
+  # The independence axis labels the kind of convergence
   # claim this pair underwrites. Absent (empty) for same-backend or
   # unregistered pairs.
   if (length(x$independence) > 0L) {
@@ -581,8 +581,8 @@ print.triangulate_result <- function(x, ...) {
   invisible(x)
 }
 
-# Render the independence axes as a " + "-joined string. ADR 0029
-# Decision 3: colour grades match the methodological strength of the
+# Render the independence axes as a " + "-joined string.
+# Colour grades match the methodological strength of the
 # convergence claim -- algorithmic (strongest) blue, implementation
 # plain, specification dim. Colour is additive: a monochrome / dumb
 # terminal sees the same labels in plain text (cli degrades to identity

@@ -1,15 +1,15 @@
-# predict_chunked.R -- Stage 3B core (ADR 0023 Decisions 1, 2, 3) +
-# Stage 3B file-output (ADR 0023 Decision 4) "sample" activation.
+# predict_chunked.R -- chunked-prediction core +
+# file-output "sample" activation.
 #
 # Three internal helpers driving the v0.3.4 core + v0.3.5
 # sample-activation extensions on predict.flexybayes():
 #
 #   .predict_resolve_factors(newdata, fb_dataset, allow_new_levels)
-#     Decision 1: dictionary-backed factor handling. Coerces each
+#     Dictionary-backed factor handling. Coerces each
 #     factor / character column in newdata that has a dictionary on
 #     <fb_dataset>$dictionaries to factor(levels = dictionary).
 #     Detects unknown levels (values present in newdata that are not
-#     in the dictionary). Routes per Decision 2:
+#     in the dictionary). Routes per the allow_new_levels mode:
 #       - "population" -- coerce to NA; rows surface in the predict()
 #                         return with a warning naming the count.
 #                         Population-level prediction (no RE
@@ -31,7 +31,7 @@
 #                         v0.3.4 with a forward-pointer refusal).
 #
 #   .predict_chunked_iterate(object, newdata, chunk_size, ...)
-#     Decision 3: chunk_size iteration. Splits newdata into chunks
+#     Chunk_size iteration. Splits newdata into chunks
 #     of `chunk_size` rows, calls predict.flexybayes() per chunk
 #     (with chunk_size = NULL so the recursion bottoms out), and
 #     concatenates the per-chunk numeric vectors (or se.fit lists)

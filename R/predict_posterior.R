@@ -1,7 +1,7 @@
 # predict_posterior.R -- per-draw posterior aggregation + sampled-RE
 # helpers used by the v0.3.5 file-output / sample-mode predict paths.
 #
-# v0.3.8 audit close (ADR 0030 C2): the legacy .predict_per_draw()
+# v0.3.8 audit close: the legacy .predict_per_draw()
 # entry point was superseded by .predict_linear_draws() in
 # R/predict_kernel.R, which is the single per-draw kernel routed
 # through by every prediction call site (in-memory smooth-aware,
@@ -176,7 +176,7 @@
     NULL
   }
 
-  # ADR 0030 C2 / v0.3.8 audit Critical Fix #1: route through the
+  # v0.3.8 audit Critical Fix #1: route through the
   # shared kernel so sample-mode fits with s() smooths layer the
   # smooth-basis contribution onto the linear predictor (pre-v0.3.8
   # .predict_per_draw() built mm from fixed_formula alone, silently

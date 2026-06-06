@@ -62,7 +62,7 @@
       assign(paste0(tag, "_id"), as.integer(f), envir = ev)
       assign(paste0("n_", tag), nlevels(f), envir = ev)
     } else if (term$type == "factor_numeric_interaction") {
-      # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed
+      # v0.2.6 -- factor:continuous indexed
       # slopes. The codegen emits `slope_dev_<fac>_<con>[<fac>_id]`
       # so we need <fac>_id, n_<fac>, and the continuous data column.
       # For the Option D fallback (per-observation padded lookup) we
@@ -102,7 +102,7 @@
   if (!is.null(weights)) ev$wt_atg <- weights
 }
 
-# v0.3.8 audit Critical Fix #2 helpers. Resolve the grouping factor's
+# v0.3.8 audit fix helpers. Resolve the grouping factor's
 # level count + levels from data for known-matrix alignment validation.
 # Return NULL when the variable is not present in `data` (e.g.
 # data-side fixture binds *_id directly), in which case the validator
@@ -157,7 +157,7 @@
     "simple" = ,
     "ide" = ,
     "id" = mk_id(term$var),
-    # ADR 0020 uncorrelated random slope: bind the grouping-factor
+    # Uncorrelated random slope: bind the grouping-factor
     # ID + level count via the standard mk_id() helper, AND bind the
     # slope variable as a numeric column the codegen can lift via
     # as_data().
@@ -183,7 +183,7 @@
       }
     },
     "vm" = {
-      # v0.3.8 audit Critical Fix #2: invoke mk_id() before the route
+      # v0.3.8 audit fix: invoke mk_id() before the route
       # check so the validators can enforce dim + level alignment of
       # the user-supplied known matrix against the grouping factor.
       mk_id(term$var)

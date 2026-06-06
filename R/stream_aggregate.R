@@ -18,9 +18,9 @@
 # designs keyed on a continuous covariate do not compress and are
 # refused before any data is read.
 #
-# References. The sufficient-statistic aggregation contract is ADR 0022
-# (gaussian) extended to the exponential-family count cases; the
-# in-memory counterpart is `.fb_aggregate_gaussian()`.
+# References. The sufficient-statistic aggregation contract is the
+# gaussian aggregation contract extended to the exponential-family
+# count cases; the in-memory counterpart is `.fb_aggregate_gaussian()`.
 
 # ---------------------------------------------------------------- #
 # User-facing entry                                                 #

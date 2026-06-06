@@ -1,22 +1,21 @@
-# Backend registry (ADR 0031; v0.5.0 backend-axis recovery, Phase 1).
+# Backend registry (v0.5.0 backend-axis recovery).
 #
 # The fifth closed-vocabulary registry, alongside representation
 # (R/representation_registry.R), approximation (R/approximation_registry.R),
 # backend-independence (R/backend_independence_registry.R), and refusal
 # (R/refusal_taxonomy.R). It models *backend* as a first-class axis
 # rather than a value hard-coded into each verb's match.arg vocabulary
-# and into .routing_policy_table(). ADR 0030 built the package's whole
-# architecture on "extend by registration, not by API growth" but left
-# backend the one concept still hard-coded (ADR 0030 SS7 deferred the
-# backend roster to per-backend ADRs); ADR 0031 supplies the registry
-# that philosophy always implied.
+# and into .routing_policy_table(). The package's whole architecture is
+# built on "extend by registration, not by API growth" but backend was
+# the one concept still hard-coded; this registry supplies the
+# extension point that philosophy always implied.
 #
 # Same shape as the other four registries: an environment allocated at
 # namespace load, filled by .register_backend() during .onLoad(), locked
 # immediately after by .lock_backend_registry(). parent = emptyenv() so a
 # key miss cannot fall through to the package namespace.
 #
-# DISPATCH ROLE (v0.5.0 Phase 3; ADR 0031, Option A decided 2026-05-31).
+# DISPATCH ROLE (v0.5.0).
 # The registry is the single source of truth for backend *facts*:
 # legitimate names, per-backend capability_predicate, auto-membership
 # (default_in_auto), availability (available_pkg), and the emit
@@ -49,12 +48,12 @@
 
 # A backend entry is one of three lifecycle states. `active` backends are
 # reachable today; `dormant` backends have a provisioned but inactive
-# slot (gretaR per ADR 0013 -- see R/gretaR_slot.R) and refuse at
-# dispatch until activated; `reserved` is documentation-only and not
-# registered here (NIMBLE is the reserved next slot; it has no slot yet,
-# so registering it would be a stub -- it is named in this comment
-# instead). The vocabulary is closed; a new state requires an ADR 0031
-# amendment.
+# slot (gretaR -- see R/gretaR_slot.R) and refuse at dispatch until
+# activated; `reserved` is documentation-only and not registered here
+# (NIMBLE is the reserved next slot; it has no slot yet, so
+# registering it would be a stub -- it is named in this comment
+# instead). The vocabulary is closed; a new state requires a
+# deliberate amendment.
 .BACKEND_STATUS_VOCABULARY <- c("active", "dormant")
 
 # The grammars a backend can ingest-and-fit. A formula model (asreml or
@@ -216,8 +215,7 @@
 # .available_backend_names() --- the active backends whose required
 # package is installed (NA available_pkg means always-on). Dormant
 # backends are excluded. This is the candidate set the universal entry
-# will default to in Phase 2; in Phase 1 it is read only by the
-# consistency test.
+# defaults to; it is also read by the consistency test.
 .available_backend_names <- function() {
   out <- character(0)
   for (nm in .registered_backend_names()) {
@@ -253,7 +251,7 @@
   invisible(NULL)
 }
 
-# --- capability predicates (ADR 0031 Phase 2) --------------------- #
+# --- capability predicates ---------------------------------------- #
 
 # Each predicate takes the fb_terms IR and returns TRUE (the engine can
 # represent the model) or a single reason-code string naming why it
@@ -279,8 +277,8 @@
 
 # The asreml structured-covariance term types with no lossless brms /
 # Stan translation (dispatch.R names fa / us / ar1; vm / ped add
-# known-matrix and pedigree carriers). Closed set; extending it is an
-# ADR 0031 amendment.
+# known-matrix and pedigree carriers). Closed set; extending it is a
+# deliberate amendment.
 .STRUCTURED_COV_TYPES <- c("vm", "ped", "fa", "us", "ar1")
 
 # brms / Stan cannot represent the asreml structured-covariance terms or
@@ -362,7 +360,7 @@
 # `default_in_auto` encodes the auto candidate set
 # c("greta", "gretaR", "inla"): greta + inla + gretaR are auto-considered,
 # brms is opt-in only (its 30--60 s Stan compile would break the auto
-# fast-path promise -- ADR 0024). Dispatch reads this set via
+# fast-path promise). Dispatch reads this set via
 # .available_backend_names() / .auto_default_backend_names().
 .populate_backend_registry_v050 <- function() {
   .register_backend(

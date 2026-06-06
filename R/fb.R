@@ -1,11 +1,10 @@
 # fb -- flexyBayes user-facing entry points and ingest dispatchers.
 #
-# - fb_from_asreml() (deliverable 0.B): asreml-format ingest path,
+# - fb_from_asreml(): asreml-format ingest path,
 #   wraps the existing parse_formula.R helpers (.parse_fixed,
 #   .parse_formula, .resolve_family) and emits an fb_terms object
-#   (the intermediate representation, IR, introduced in phase 0.A;
-#   see R/fb_terms.R).
-# - fb() (ADR 0004 D1): literal alias for flexybayes(). The
+#   (the intermediate representation, IR; see R/fb_terms.R).
+# - fb(): literal alias for flexybayes(). The
 #   brms-format ingest (former fb() body) is deferred to v0.2 under
 #   the working name fb_brms().
 
@@ -132,7 +131,7 @@ fb_from_asreml <- function(
 }
 
 # ---------------------------------------------------------------- #
-# Grammar polymorphism for the universal entry (ADR 0031 Phase 3)  #
+# Grammar polymorphism for the universal entry                    #
 # ---------------------------------------------------------------- #
 
 # .detect_grammar() -- deterministic call-shape dispatch for the
@@ -170,8 +169,8 @@ fb_from_asreml <- function(
 # the grammar from the call shape and routes to the matching exported
 # adapter, producing the backend-agnostic fb_terms IR. ASReml ingest is
 # byte-identical to the historical direct fb_from_asreml() call;
-# brms-grammar ingest is added at ADR 0031 Phase 3; native-greta ingest
-# lands here at Phase 3.6 (v0.5.0).
+# brms-grammar ingest was added later; native-greta ingest
+# lands here at v0.5.0.
 #
 # Two non-formula model-spec shapes are accepted on the model slot
 # (`fixed`):
@@ -299,4 +298,4 @@ fb_from_asreml <- function(
 # Note: the `fb` alias for `flexybayes()` is defined at the bottom
 # of R/flexybayes.R so that the alias target is in scope at source
 # time (R sources files alphabetically; this file loads before
-# flexybayes.R). See ADR 0004 in design-notes-priors-brms-lgm.md.
+# flexybayes.R).

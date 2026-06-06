@@ -1,6 +1,6 @@
 # fb_brms() -- the brms (Stan) engine pin.
 #
-# ADR 0031 Phase 3.6 (v0.5.0 backend-axis recovery). `fb_brms()` is one
+# v0.5.0 backend-axis recovery. `fb_brms()` is one
 # of the three engine pins (alongside `fb_inla()` and `fb_greta()`): sugar
 # over the universal entry with the engine fixed --- `fb_brms(...)` ==
 # `fb(..., backend = "brms")`. It fits via Stan (through brms) and accepts
@@ -15,14 +15,14 @@
 # reused here as the brms-ENGINE pin. The brms engine cannot represent an
 # ASReml structured-covariance term (vm / ped / fa / us / ar1) or a
 # low_rank approximation; those raise the registry's structured refusals
-# (the brms capability_predicate, R/backend_registry.R).
+# (the brms capability_predicate in R/backend_registry.R).
 #
 # The pin forwards the user's call verbatim via .fb_engine_pin() (the
 # match.call() rewrite seam in R/fb_inla.R), so missing()-based defaults
 # and the data-name capture behave exactly as on a direct fb() call. A
 # conflicting `backend` argument raises engine_pin_backend_conflict; the
 # redundant self-pin fb_brms(backend = "brms") is accepted (the v0.4.1
-# deprecation notice promised it would survive the recast).
+# deprecation notice promised it would survive the rename).
 
 #' Fit a flexyBayes model via the brms (Stan) engine
 #'

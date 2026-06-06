@@ -1,5 +1,5 @@
-# .fb_aggregation_plan() -- Stage 3A model-level aggregation planning
-# (audit P1.5, 2026-05-23). Decides whether a model is a candidate for
+# .fb_aggregation_plan() -- model-level aggregation planning.
+# Decides whether a model is a candidate for
 # the aggregated-likelihood path WITHOUT materialising any design
 # matrix. Reads only the IR + dataset wrapper metadata.
 #
@@ -23,8 +23,8 @@
 #   $compression_est       numeric: K_est / N; NA_real_ when
 #                          requires_materialisation = TRUE.
 #
-# The plan is informational at v0.3.0.9000: the Stage 3A emit
-# dispatch (Stage 3A close work in v0.3.2) will consume the plan to
+# The plan is informational at v0.3.0.9000: the aggregated emit
+# dispatch (landed in v0.3.2) consumes the plan to
 # decide between the per-row and aggregated paths. `.fb_preflight()`
 # attaches the plan to the result for diagnostic visibility.
 #
@@ -130,7 +130,7 @@
         list(label = lbl, vars = as.character(t$vars), K = L)
     } else if (identical(ttype, "factor_numeric_interaction")) {
       # Mixed factor:numeric -- the numeric component breaks the
-      # cell-constant linear predictor (ADR 0019 indexed slope still
+      # cell-constant linear predictor (the indexed slope still
       # carries one slope per factor level applied to the per-row
       # numeric value).
       any_data_dependent_cell <- TRUE
@@ -141,7 +141,7 @@
   }
 
   # ---- Random-effect term scope ---- #
-  # Audit P2.8 (2026-05-24): the previous catch-all
+  # The previous catch-all
   # `random_slope_in_scope` conflated random-slope and structured-
   # covariance shapes; split into a taxonomy that names what
   # actually breaks aggregation. Aligned with

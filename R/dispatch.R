@@ -1,40 +1,37 @@
-# .dispatch_backend() -- shared ADR 0006 dispatch helper.
+# .dispatch_backend() -- shared dispatch helper.
 #
-# Lifted from R/flexybayes.R lines 330--518 (pre-ADR-0014) so that
-# both flexybayes() (asreml entry) and fb_brms() (brms entry) drive
-# the same backend dispatch. Byte-equivalent under snapshot guard
-# (test-emit-greta.md + test-backend-auto.R).
+# Shared so that both flexybayes() (asreml entry) and fb_brms()
+# (brms entry) drive the same backend dispatch. Byte-equivalent
+# under snapshot guard (test-emit-greta.md + test-backend-auto.R).
 #
 # Routes to emit_inla() or emit_greta() per backend = c("greta",
 # "inla", "auto"), populates fit$extras$backend_decision with the
 # uniform-shape trace, and attaches the fb_terms IR for downstream
-# canonical_names() resolution. Per ADR 0006 (decision trace) and
-# ADR 0014 (shared helper extraction).
+# canonical_names() resolution.
 #
-# Stage 4 (ADR 0024, v0.3.6): the trace shape gains four new
-# fields (`preflight_summary`, `representation_plan`,
-# `rejected_routes`, `routing_policy_version`); the dispatch
-# threads the `<fb_preflight>` result into `lgm_gate()` so the
-# 11th rule (`memory_feasibility_inla`) can fire on INLA-specific
-# memory infeasibility; and the routing policy is centralised in
-# the `.routing_policy_table` registry below.
+# The trace shape carries four fields (`preflight_summary`,
+# `representation_plan`, `rejected_routes`,
+# `routing_policy_version`); the dispatch threads the
+# `<fb_preflight>` result into `lgm_gate()` so the
+# `memory_feasibility_inla` rule can fire on INLA-specific memory
+# infeasibility; and the routing policy is centralised in the
+# `.routing_policy_table` registry below.
 #
 # Internal -- not exported.
 
 # ---------------------------------------------------------------- #
-# Stage 4 (ADR 0024) routing policy + trace helpers                 #
+# Routing policy + trace helpers                                    #
 # ---------------------------------------------------------------- #
 
 # The routing policy version string. Bump when the policy table
 # changes shape (rows added / chosen_backend semantics changed) so
 # every fit object produced under a given policy carries the
-# version that decided its dispatch. Audit-anchor per ADR 0024
-# Decision 1 §`routing_policy_version`.
+# version that decided its dispatch.
 .ROUTING_POLICY_VERSION <- "stage5a_v1"
 
 
-# .routing_policy_table -- single source of truth for the Stage 4
-# routing policy. Each row encodes one (user_request, gate_outcome,
+# .routing_policy_table -- single source of truth for the routing
+# policy. Each row encodes one (user_request, gate_outcome,
 # preflight_outcome) tuple and maps to the chosen backend plus a
 # canonical reason code from the fixed vocabulary. The table is
 # internal-only (no @export); the dispatch logic queries it via
@@ -55,10 +52,10 @@
 #   auto_inla_unavailable        -- auto + gate accept + INLA missing
 #                                   from .libPaths().
 #   auto_gate_refuse_structural  -- auto + gate refuse on a structural
-#                                   reason (ADR 0017 rules 7-9 or the
-#                                   ADR 0019 verification rule 10).
+#                                   reason (the structural gate rules
+#                                   or the verification rule).
 #   auto_gate_refuse_memory      -- auto + gate refuse on the
-#                                   ADR 0024 rule 11 (memory_feasibility_inla).
+#                                   memory_feasibility_inla rule.
 #   backend_not_activated        -- gretaR slot rejected because the
 #                                   scaffold is dormant at v0.3.x.
 #
@@ -69,7 +66,7 @@
 # tests/testthat/test-backend-routing-trace.R subtest (n).
 
 # ---------------------------------------------------------------- #
-# Constructor-noun resolution (v0.4.0 Wave 1 Phase 1D)              #
+# Constructor-noun resolution                                       #
 # ---------------------------------------------------------------- #
 # Resolve a `backend` argument to its engine-name string. An
 # `fb_engine()` object resolves to its `name`; a bare string (or the
@@ -167,8 +164,7 @@
 #   $chosen_backend   character(1)
 #   $reason_code      character(1)
 #   $rejected_routes  list of list(backend, reason_code); empty for
-#                     explicit user requests (policy bypassed) per
-#                     ADR 0024 §6(g).
+#                     explicit user requests (policy bypassed).
 .resolve_routing <- function(
   user_request,
   gate_outcome,
@@ -213,7 +209,7 @@
   rejected <- list()
   if (!is_explicit) {
     # auto's policy considers {inla, greta, gretaR}; brms never
-    # appears in auto's candidate set per ADR 0024 §3.
+    # appears in auto's candidate set.
     chosen <- row$chosen_backend
     candidates <- c("inla", "greta", "gretaR")
     for (cand in setdiff(candidates, chosen)) {
@@ -262,11 +258,11 @@
 
 # .build_routing_decision() -- canonical 8-field trace constructor.
 # All six dispatch sites in this file build their trace via this
-# helper so the trace shape is uniform. The four existing fields
-# (backend, path, gate_checks, reason) per ADR 0006 are preserved
-# verbatim; the four new fields (preflight_summary, representation_
-# plan, rejected_routes, routing_policy_version) are populated per
-# ADR 0024 Decision 1.
+# helper so the trace shape is uniform. The four base fields
+# (backend, path, gate_checks, reason) are preserved verbatim; the
+# four extended fields (preflight_summary, representation_plan,
+# rejected_routes, routing_policy_version) are populated alongside
+# them.
 .build_routing_decision <- function(
   backend,
   path,
@@ -291,9 +287,9 @@
 
 
 # .representation_plan_from_preflight() -- slim per-term plan
-# derived from the `<fb_preflight>` per_term_estimate slot. Per
-# ADR 0024 §6(b), one entry per IR term with the representation
-# class + a one-line justification. The full preflight per-term
+# derived from the `<fb_preflight>` per_term_estimate slot. One
+# entry per IR term with the representation class + a one-line
+# justification. The full preflight per-term
 # entries remain available on $preflight_summary; this slim
 # representation surfaces the chosen-class summary for trace
 # consumers.
@@ -332,13 +328,12 @@
 
 # .check_approximate_scheme() -- entry-function guard called from
 # `flexybayes()` and `fb_brms()` BEFORE match.arg(backend) so
-# approximate-scheme requests refuse with a structured ADR-0027
-# pointer rather than match.arg's generic "should be one of" error.
-# Per ADR 0024 §3 last bullet + §6(h).
+# approximate-scheme requests refuse with a structured pointer
+# rather than match.arg's generic "should be one of" error.
 #
 # Pattern: any backend name containing "approximate" (case-
 # insensitive) or matching ^variational_ is considered an
-# approximate-scheme request. Catches the ADR's named examples
+# approximate-scheme request. Catches the named examples
 # (inla_pardiso_approximate, variational_advi) plus future
 # `approximate_<scheme>` shapes.
 .check_approximate_scheme <- function(backend) {
@@ -389,7 +384,7 @@
 
 
 # ---------------------------------------------------------------- #
-# Native-greta dispatch (ADR 0031 Phase 3.6)                        #
+# Native-greta dispatch                                             #
 # ---------------------------------------------------------------- #
 # .dispatch_native_greta() -- route a greta-source IR (a native model
 # graph wrapped by fb_from_greta()) to the direct greta::mcmc() fit. A
@@ -499,13 +494,13 @@
 ) {
   aggregate <- .normalise_aggregate(aggregate)
 
-  # Stage 3B (ADR 0023) factor-dictionary persistence. Build a
-  # metadata-only <fb_dataset> descriptor at dispatch time so every
-  # exit path can attach it to fit$extras$fb_dataset for downstream
+  # Factor-dictionary persistence. Build a metadata-only
+  # <fb_dataset> descriptor at dispatch time so every exit path can
+  # attach it to fit$extras$fb_dataset for downstream
   # predict.flexybayes(newdata, ...) consumption. Stripping $data
   # avoids retaining the full training frame on the fit object;
   # dictionaries + col_types + n_rows are the only fields predict
-  # needs (per Decision 1 of ADR 0023).
+  # needs.
   fb_dataset_meta_for_fit <- tryCatch(
     .fb_dataset_metadata(.fb_dataset(data)),
     error = function(e) NULL
@@ -560,21 +555,20 @@
     return(fit)
   }
 
-  # Stage 2 MVP design-memory preflight (ADR 0021). Runs only above
-  # the 1e5-row threshold so the v0.2 user surface is unchanged at
-  # small scales -- the existing test suite never trips this branch.
-  # Above the threshold, .fb_preflight() reads only fb_dataset
-  # metadata (n_rows, dictionaries, col_types) and refuses upstream
-  # with a structured error if any term's design-memory estimate
-  # exceeds the active ceiling. The refusal short-circuits dispatch
-  # before any backend code runs.
-  # Stage 4 (ADR 0024, v0.3.6): the preflight return is captured
-  # and threaded into lgm_gate(fb, preflight) below so the 11th
-  # rule (memory_feasibility_inla) can fire on INLA-specific
-  # memory infeasibility. .maybe_preflight() still raises on the
-  # hard-ceiling refusal (backward compat for test-fb-preflight-
-  # dispatch.R); the soft INLA-only ceiling is handled by the gate
-  # rule.
+  # Design-memory preflight. Runs only above the 1e5-row threshold
+  # so the v0.2 user surface is unchanged at small scales -- the
+  # existing test suite never trips this branch. Above the
+  # threshold, .fb_preflight() reads only fb_dataset metadata
+  # (n_rows, dictionaries, col_types) and refuses upstream with a
+  # structured error if any term's design-memory estimate exceeds
+  # the active ceiling. The refusal short-circuits dispatch before
+  # any backend code runs.
+  # The preflight return is captured and threaded into
+  # lgm_gate(fb, preflight) below so the memory_feasibility_inla
+  # rule can fire on INLA-specific memory infeasibility.
+  # .maybe_preflight() still raises on the hard-ceiling refusal
+  # (backward compat for test-fb-preflight-dispatch.R); the soft
+  # INLA-only ceiling is handled by the gate rule.
   preflight_result <- .maybe_preflight(
     fb = fb,
     data = data,
@@ -582,7 +576,7 @@
     known_matrices = known_matrices
   )
 
-  # Stage 3A aggregated-gaussian gate (ADR 0022). Consumes the
+  # Aggregated-gaussian gate. Consumes the
   # `<fb_aggregation_plan>` if the user opted in (aggregate = "auto"
   # silently routes when the plan declares eligibility; aggregate =
   # TRUE refuses with the plan's reason_codes when ineligible;
@@ -619,8 +613,8 @@
     }
   }
 
-  # v0.4.0 Wave 1 Phase 1B (ADR 0027): low_rank_smooth is a
-  # greta-backend approximation. It truncates the dense mgcv smooth
+  # low_rank_smooth is a greta-backend approximation (v0.4.0). It
+  # truncates the dense mgcv smooth
   # basis, which only the greta emit path materialises; INLA
   # represents smooths via rw2 and brms via Stan spline bases, so
   # neither can honour the truncation. An explicit inla / brms request
@@ -655,9 +649,9 @@
   # not advertise the value because asreml structured-covariance
   # terms (fa, us, ar1) do not translate losslessly to brms.
   if (identical(backend, "brms")) {
-    # ADR 0031 Phase 2b capability gate. With flexybayes() (asreml entry)
-    # now able to select backend = "brms", an asreml structured-covariance
-    # term (vm/ped/fa/us/ar1) can reach this branch -- brms/Stan has no
+    # Capability gate. With flexybayes() (asreml entry) now able to
+    # select backend = "brms", an asreml structured-covariance term
+    # (vm/ped/fa/us/ar1) can reach this branch -- brms/Stan has no
     # lossless translation for it. Refuse structurally before the emit
     # rather than fail mid-translation. The low_rank case is already
     # handled upstream by the .collect_approx() check, so structured-cov
@@ -680,8 +674,8 @@
         family_class = "flexybayes_stan_cannot_represent_structured_cov"
       ))
     }
-    # ADR 0031 Phase 3 (Option A): emit entry-point resolved through the
-    # registry `engine` field rather than a hard-coded symbol.
+    # Emit entry-point resolved through the registry `engine` field
+    # rather than a hard-coded symbol.
     fit <- .backend_emit_fn("brms")(
       fb = fb,
       data = data,
@@ -707,8 +701,8 @@
       return(fit)
     }
     if (!is.null(fit$extras)) {
-      # Stage 4 (ADR 0024): explicit-brms request bypasses the
-      # policy; rejected_routes is empty per §6(g).
+      # Explicit-brms request bypasses the policy; rejected_routes
+      # is empty.
       fit$extras$backend_decision <- .build_routing_decision(
         backend = "brms",
         path = "explicit_brms",
@@ -734,19 +728,18 @@
   }
 
   decision <- NULL
-  # ADR 0031 Phase 3 (Option A): availability is a registry fact, not a
-  # raw requireNamespace() here. .available_backend_names() returns the
-  # active backends whose required package is installed -- for inla that
-  # is the INLA namespace check, so this is behaviour-equivalent while
-  # sourcing the fact from the single registry authority.
+  # Availability is a registry fact, not a raw requireNamespace()
+  # here. .available_backend_names() returns the active backends
+  # whose required package is installed -- for inla that is the INLA
+  # namespace check, so this is behaviour-equivalent while sourcing
+  # the fact from the single registry authority.
   inla_installed <- "inla" %in% .available_backend_names()
   gretaR_activated <- isTRUE(getOption("flexyBayes.gretaR_activated", FALSE))
   if (backend %in% c("inla", "auto")) {
-    # Stage 4 (ADR 0024): gate receives preflight so the 11th rule
-    # (memory_feasibility_inla) can fire on INLA-specific memory
-    # infeasibility. preflight is NULL below the 1e5-row threshold;
-    # the rule then trivially passes per its v0.3.5 backward-
-    # compatible default.
+    # Gate receives preflight so the memory_feasibility_inla rule
+    # can fire on INLA-specific memory infeasibility. preflight is
+    # NULL below the 1e5-row threshold; the rule then trivially
+    # passes per its v0.3.5 backward-compatible default.
     gated <- lgm_gate(fb, preflight = preflight_result)
 
     if (is_lgm_refusal(gated)) {
@@ -758,10 +751,10 @@
       # Distinguish memory vs structural refusal for routing trace.
       is_memory <- identical(primary$rule_id, "memory_feasibility_inla")
       gate_outcome <- if (is_memory) "refuse_memory" else "refuse_structural"
-      # ADR 0031 Phase 2b: one-time per session (auto is now the default,
-      # so a per-call note on every non-LGM model would nag). Silenceable
-      # outright via the option; the routing trace always carries the
-      # decision on backend_decision()$rejected_routes.
+      # One-time per session (auto is now the default, so a per-call
+      # note on every non-LGM model would nag). Silenceable outright
+      # via the option; the routing trace always carries the decision
+      # on backend_decision()$rejected_routes.
       if (
         !isTRUE(getOption(
           "flexyBayes.silence_auto_fallback_note",
@@ -854,7 +847,7 @@
         backend == "inla" ||
           (backend == "auto" && inla_installed)
       ) {
-        # ADR 0017 + ADR 0031 Q2: explicit backend = "inla" surfaces any
+        # Explicit backend = "inla" surfaces any
         # emit_inla() error directly (the user asked for INLA; the true
         # diagnostic must not be masked, and a flexyBayes-side contract
         # assertion must surface). On the AUTO path -- now the default --
@@ -886,7 +879,7 @@
         )
 
         if (inherits(inla_fit, "fb_auto_inla_failure")) {
-          # Q2 fallback: numerical INLA failure on the auto path -> greta.
+          # Fallback: numerical INLA failure on the auto path -> greta.
           if (
             !isTRUE(getOption(
               "flexyBayes.silence_auto_fallback_note",
@@ -961,7 +954,7 @@
       }
     }
   } else {
-    # Explicit greta request -- policy bypassed per ADR 0024 §6(g).
+    # Explicit greta request -- policy bypassed.
     decision <- .build_routing_decision(
       backend = "greta",
       path = "explicit_greta",
@@ -985,8 +978,8 @@
     )
   }
 
-  # ADR 0031 Phase 3 (Option A): emit entry-point resolved through the
-  # registry `engine` field rather than a hard-coded symbol.
+  # Emit entry-point resolved through the registry `engine` field
+  # rather than a hard-coded symbol.
   fit <- .backend_emit_fn("greta")(
     fb = fb,
     data = data,
@@ -1018,8 +1011,8 @@
       fit$extras$fb_dataset <- fb_dataset_meta_for_fit
     }
   }
-  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 1): three-tier exactness
-  # vocabulary. A greta fit carrying a registered approximation scheme
+  # Three-tier exactness vocabulary (v0.4.0). A greta fit carrying
+  # a registered approximation scheme
   # is labelled "approximate_<scheme>"; an exact fit keeps "exact"
   # (aggregated paths set "aggregated_exact" upstream). The label is
   # the same string validate_approximation() and the [APPROX:] display
@@ -1056,7 +1049,7 @@
 }
 
 
-# Stage 3A aggregated-gaussian gate (ADR 0022). Returns either a
+# Aggregated-gaussian gate. Returns either a
 # fitted <flexybayes_aggregated> object (gate accepted; aggregated
 # emit ran) or NULL (gate declined; caller falls through to per-row).
 # Refuses (raises a typed condition) when aggregate = TRUE but the
@@ -1241,11 +1234,10 @@
 
   fit$exactness <- "aggregated_exact"
   if (!is.null(fit$extras)) {
-    # Stage 4 (ADR 0024): the aggregated-gaussian path's chosen
-    # backend was already resolved by .agg_resolve_backend()
-    # above; rejected_routes is empty (the aggregation gate
-    # itself bypasses the routing policy table -- per ADR 0022
-    # this is its own dispatch path). preflight is NULL here
+    # The aggregated-gaussian path's chosen backend was already
+    # resolved by .agg_resolve_backend() above; rejected_routes is
+    # empty (the aggregation gate itself bypasses the routing policy
+    # table -- this is its own dispatch path). preflight is NULL here
     # because aggregation runs upstream of the >1e5 preflight
     # threshold in practice; if invoked under the metadata-only
     # path the slot stays NULL and reproducibility checks treat
@@ -1298,7 +1290,7 @@
 }
 
 
-# Stage 2 MVP -- shared preflight call. Runs IFF the IR carries
+# Shared preflight call. Runs IFF the IR carries
 # n_rows >= 1e5; below that threshold the v0.2 user surface is
 # unchanged. Returns the <fb_preflight> result (or NULL when below
 # the threshold); on refusal raises the typed condition via
@@ -1325,7 +1317,7 @@
   # passing an argument through every dispatch entry. NULL falls back
   # to the default RAM-probe resolution inside .fb_preflight(). The
   # related option `flexyBayes.preflight_ram_fraction` adjusts the
-  # default fraction multiplicatively (audit P2.3, 2026-05-23).
+  # default fraction multiplicatively.
   pf_ceiling_gb <- getOption("flexyBayes.preflight_ceiling_gb", NULL)
   pf_dataset <- .fb_dataset(data)
   pf_result <- .fb_preflight(
@@ -1341,15 +1333,15 @@
 }
 
 
-# Stage 2 MVP -- raise a typed preflight refusal as a structured
-# condition. The custom class `flexybayes_preflight_refusal` carries
-# the refusal object verbatim so downstream tooling can pattern-match
-# on the slots without parsing free text.
+# Raise a typed preflight refusal as a structured condition. The
+# custom class `flexybayes_preflight_refusal` carries the refusal
+# object verbatim so downstream tooling can pattern-match on the
+# slots without parsing free text.
 #
-# Audit P1.3 (2026-05-24): the headline is branched on
-# refusal$reason_code so that an unknown-representation refusal does
-# not falsely suggest raising the memory ceiling. The detailed body
-# already prints correctly via print.fb_preflight_refusal().
+# The headline is branched on refusal$reason_code so that an
+# unknown-representation refusal does not falsely suggest raising
+# the memory ceiling. The detailed body already prints correctly
+# via print.fb_preflight_refusal().
 .stop_preflight_refusal <- function(refusal, call) {
   msg <- paste(utils::capture.output(print(refusal)), collapse = "\n")
   headline <- switch(

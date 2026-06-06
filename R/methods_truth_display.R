@@ -1,11 +1,11 @@
-# Truth-display helpers --- ADR 0030 Decision 4 (v0.3.8)
+# Truth-display helpers --- v0.3.8
 #
 # Shared helpers for print.flexybayes() / summary.flexybayes() /
 # print.flexybayes_aggregated() / summary.flexybayes_aggregated() that
 # render the two adjacent "Representation:" and "Engine:" lines. The
 # split disambiguates representation regime (exact vs aggregated_exact)
 # from inference engine (greta MCMC vs INLA Laplace vs brms / Stan
-# HMC) --- closes 2026-05-25 audit Critical Fix #4.
+# HMC) --- closes the 2026-05-25 audit Critical Fix #4.
 #
 # These helpers also back fb_plan()'s engine_label / representation_label
 # slots (see R/fb_plan.R for the plan-side equivalents .engine_label_for()
@@ -13,14 +13,14 @@
 # materialised fit object plus its $extras$backend_decision trace).
 
 # .repr_label_for_fit() --- the Representation: line content.
-# Reads $exactness directly (the canonical slot since ADR 0022) and
+# Reads $exactness directly (the canonical slot) and
 # attaches the compression ratio for aggregated_exact when N/K >= 2.
-# ADR 0025 Decision 3 (v0.3.10): blocks-format vm/ped fits surface
+# v0.3.10: blocks-format vm/ped fits surface
 # the "(block-diagonal, K blocks)" annotation by reading the routing
 # trace's representation_plan for block_diagonal entries.
 .repr_label_for_fit <- function(fit, bd) {
   exact <- fit$exactness %||% "exact"
-  # v0.4.0 Wave 1 Phase 1B (ADR 0027 Decision 3): approximate fits
+  # Approximate fits
   # carry a bracketed [APPROX: <scheme>] badge --- the load-bearing,
   # monochrome-friendly visual distinction marking that the fit is not
   # exact. validate_approximation(fit) reports the realised bias bound.

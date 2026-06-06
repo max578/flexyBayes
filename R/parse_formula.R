@@ -63,16 +63,16 @@
       return(list(type = "factor_interaction", vars = parts, label = lbl))
     }
 
-    # Mixed factor x continuous (ADR 0019, Stage 1A v0.2.6). Treatment-
+    # Mixed factor x continuous (v0.2.6). Treatment-
     # coded indexed slopes: the reference level's slope is structurally
     # fixed at zero; the L-1 non-reference levels carry per-level
     # deviation parameters. v0.2 collapsed this to
     # `beta * as_data(factor) * as_data(continuous)`, which silently
     # coerced the factor to its integer codes and produced a posterior
-    # disagreeing with lme4::lmer by > 3 sigma; ADR 0019 closes that
-    # correctness bug. Restricted to two-way mixed terms in v0.2.6
+    # disagreeing with lme4::lmer by > 3 sigma; the v0.2.6 path closes
+    # that correctness bug. Restricted to two-way mixed terms in v0.2.6
     # (one factor + one continuous); higher-order combinations stay on
-    # the legacy `interaction` branch pending Stage 1B / v0.3.
+    # the legacy `interaction` branch pending v0.3.
     if (
       length(parts) == 2L &&
         sum(kinds == "factor") == 1L &&
@@ -160,15 +160,15 @@
   # ASReml-specific functions
   switch(
     fn,
-    # ADR 0025 Stage 5A: vm() ingest extends to capture optional
+    # vm() ingest extends to capture optional
     # named arguments (chol, precision, blocks, low_rank_factor,
     # low_rank_scheme) alongside the historical positional / V=
     # dense-matrix arg. The cov_representation slot is the IR
     # anchor; v0.3.7 emits dense + chol + precision, v0.3.8 emits
-    # blocks, low-rank reserves the slot for ADR 0027.
+    # blocks, low-rank reserves the slot for a future release.
     "vm" = {
       var_name <- .dep(expr, 2)
-      # v0.4.0 (ADR 0030 C3): the fb_cov() constructor front door takes
+      # v0.4.0: the fb_cov() constructor front door takes
       # precedence. `cov = fb_cov(...)` is the canonical form; the four
       # legacy keyword carriers (chol / precision / blocks /
       # low_rank_factor) continue to work with a deprecation warning.
@@ -201,16 +201,15 @@
     },
     "ide" = ,
     "id" = list(list(type = "ide", var = .dep(expr, 2))),
-    # ADR 0025 Decision 6: ped() gains optional use_sparse_precision
+    # ped() gains optional use_sparse_precision
     # flag that routes through the sparse-precision format internally.
-    # Phase A captures the flag; emit activation is Phase B.
     "ped" = {
       var_name <- .dep(expr, 2)
-      # v0.4.0 (ADR 0030 C3): ped() also accepts the fb_cov() front
+      # v0.4.0: ped() also accepts the fb_cov() front
       # door, e.g. ped(animal, cov = fb_cov(A, type = "precision",
       # sparse_precision = TRUE)). The legacy positional A +
       # use_sparse_precision form continues to work unchanged (it is
-      # not part of the ADR 0030 §5 deprecated keyword set).
+      # not part of the deprecated keyword set).
       if (!is.null(expr[["cov"]])) {
         cov_rep <- .fb_cov_call_to_representation(
           expr[["cov"]],
@@ -258,16 +257,16 @@
       structure = if (length(expr) > 2) expr[[3]] else NULL
     )),
     "spl" = list(list(type = "spline", var = .dep(expr, 2))),
-    # mgcv-style univariate smooth s(x[, k = ..., bs = ...]). ADR
-    # 0004 D3 scope: v0.1 supports s() only; te() / ti() / t2()
+    # mgcv-style univariate smooth s(x[, k = ..., bs = ...]).
+    # v0.1 supports s() only; te() / ti() / t2()
     # tensor-product smooths defer to v0.2. The full original call is
     # captured here; .enrich() evaluates it via mgcv::smoothCon() to
     # build the n x k design matrix.
-    # v0.4.0 Wave 1 Phase 1B (ADR 0027): an optional `representation`
+    # v0.4.0: an optional `representation`
     # argument inside s() requests an approximation scheme for the
     # smooth basis, e.g. s(x, representation = list(scheme =
     # "low_rank_smooth", rank = 5L)) (the list is the de-classed shape
-    # fb_approx() returns at Phase 1D). It is NOT an mgcv::s() argument,
+    # fb_approx() returns). It is NOT an mgcv::s() argument,
     # so it is intercepted here and stripped from the call before
     # .enrich() evaluates the cleaned call via mgcv::smoothCon(); the
     # raw spec expression is carried on `approx_expr` and resolved at
@@ -535,7 +534,7 @@
       term$X <- sm_obj$X
       term$k <- ncol(sm_obj$X)
       term$smooth_label <- sm_obj$label
-      # ADR 0018: retain the constructed mgcv Smooth object on the IR.
+      # Retain the constructed mgcv Smooth object on the IR.
       # predict.flexybayes(newdata = ...) re-evaluates the basis via
       # mgcv::Predict.matrix(<smooth_obj>, newdata) -- the only correct
       # way to reproduce the training-time knot placement / quantile
@@ -543,7 +542,7 @@
       # back to stats::model.matrix() which silently produces wrong
       # predictions near or beyond the training range.
       term$smooth_obj <- sm_obj
-      # v0.4.0 Wave 1 Phase 1B (ADR 0027): if the s() carried a
+      # v0.4.0: if the s() carried a
       # `representation` spec, resolve it now (k and n are known) and
       # truncate the basis to its rank-K principal-component
       # approximation. The model then carries B_K = X V_K (n x K) and
@@ -612,10 +611,9 @@
 
 # ---------------------------------------------------------------- #
 # Contrast-detection guard for factor:continuous interactions       #
-# (ADR 0019 §Decision 6).                                           #
 # ---------------------------------------------------------------- #
 #
-# Stage 1A / v0.2.6 ships the treatment-coded indexed-slopes emit
+# v0.2.6 ships the treatment-coded indexed-slopes emit
 # only. Other contrast schemes (`contr.helmert`, `contr.sdif`,
 # `contr.sum`, ordered factors, user-supplied custom contrast
 # matrices) defer to the v0.3 representation IR. Raise a structured

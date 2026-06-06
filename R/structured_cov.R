@@ -1,4 +1,4 @@
-# Stage 5A known-covariance input formats (ADR 0025).
+# Known-covariance input formats.
 #
 # The cov_representation slot on a vm() / ped() IR term carries the
 # user's chosen carrier for the structured covariance:
@@ -10,31 +10,29 @@
 #                  name for low_rank>)
 #
 # v0.3.7 activates dense + chol + precision (+ ped sparse-precision
-# opt-in via Decision 6). v0.3.10 activates blocks (ADR 0025 Decision
-# 3); low_rank reserves the slot for ADR 0027 (Stage 6 / v0.4.0) and
-# the refusal message names `validate_approximation()` as the v0.4.0
-# Wave 1 Phase 1B forward export.
+# opt-in). v0.3.10 activates blocks; low_rank reserves the slot for
+# v0.4.0 and the refusal message names `validate_approximation()` as
+# the v0.4.0 forward export.
 #
-# Phase A (this file) ships:
+# This file ships:
 #   - The IR slot constructor (.cov_representation_from_call).
 #   - The dense-arg extractor that backward-compatibly reads V=
-#     (named) or position 3 (positional), but routes new Stage 5A
+#     (named) or position 3 (positional), but routes new
 #     named args away from the dense bucket so they cannot silently
 #     shadow V.
 #   - Validators that run after known_matrices binding resolves
 #     (.validate_chol_input, .validate_precision_input). These are
 #     called from setup_env when the format is non-dense; their
-#     refusals fire before the route-not-yet-emitted Phase A guard
-#     so users see structural input errors at the right granularity.
-#   - The Phase A route guard (.stage5a_route_check) that refuses
-#     non-dense formats with route_not_yet_emitted until Phase B
-#     activates them.
+#     refusals fire before the route guard so users see structural
+#     input errors at the right granularity.
+#   - The route guard (.stage5a_route_check) that refuses non-dense
+#     formats with route_not_yet_emitted until they are activated.
 #
 # All refusals raise a typed flexybayes_structured_cov_refusal
 # condition with a reason_code slot, mirroring the pattern
 # established by flexybayes_preflight_refusal.
 
-# Names reserved by Stage 5A for vm() / ped() named-argument extension.
+# Names reserved for vm() / ped() named-argument extension.
 # Backward-compat for historic calls (vm(geno, K), vm(geno, V = K), or
 # vm(geno, mat = K)) is preserved: the 3rd-position arg is treated as
 # the dense V unless its name is in this reserved set.
@@ -45,8 +43,8 @@
   "low_rank_factor",
   "low_rank_scheme",
   "use_sparse_precision",
-  # v0.4.0 (ADR 0030 C3): the fb_cov() constructor front door. Reserved
-  # so a `cov = fb_cov(...)` argument is never swept into the dense-V
+  # The fb_cov() constructor front door (v0.4.0). Reserved so a
+  # `cov = fb_cov(...)` argument is never swept into the dense-V
   # bucket by .extract_vm_dense_arg().
   "cov"
 )
@@ -55,7 +53,7 @@
 # parser's .dep_named() helper returns deparsed expressions; for the
 # low_rank_scheme arg the user writes "pca" (a string literal) which
 # deparses to the quoted form '"pca"'. Strip the wrapping quotes so
-# the stored scheme name matches the ADR 0027 registry vocabulary.
+# the stored scheme name matches the approximation registry vocabulary.
 .strip_string_literal <- function(s) {
   if (is.na(s)) {
     return(NA_character_)
@@ -71,7 +69,7 @@
 
 # Backward-compatible dense-V extractor for vm() / ped() calls.
 #
-# Accepts either positional position-3 OR named V=. Routes new Stage 5A
+# Accepts either positional position-3 OR named V=. Routes the new
 # named args (chol, precision, ...) away from the dense bucket so they
 # do not shadow V silently.
 .extract_vm_dense_arg <- function(expr) {
@@ -92,7 +90,7 @@
 
 # Build the cov_representation IR slot from a vm() / ped() call's
 # captured named args. Enforces mutual exclusion across V / chol /
-# precision / blocks / low_rank_factor (Decision 1--4 of ADR 0025).
+# precision / blocks / low_rank_factor.
 #
 # All args arrive as deparsed character strings or NA_character_.
 .cov_representation_from_call <- function(
@@ -128,7 +126,7 @@
   }
 
   # ped() with use_sparse_precision = TRUE routes through the
-  # sparse-precision format internally; phase B turns getA() into
+  # sparse-precision format internally; the emit turns getA() into
   # getAInv() and lifts the matrix through the precision codepath.
   if (
     identical(fn, "ped") &&
@@ -136,7 +134,7 @@
   ) {
     return(list(
       format = "pedigree_sparse_precision",
-      data = mat, # the pedigree symbol; phase B converts to Q at fit time
+      data = mat, # the pedigree symbol; converted to Q at fit time
       scheme = NULL
     ))
   }
@@ -171,8 +169,8 @@
   list(format = "dense", data = mat, scheme = NULL)
 }
 
-# v0.4.0 (ADR 0030 C3): build the cov_representation IR slot from an
-# inline `cov = fb_cov(...)` argument on a vm() / ped() term. The
+# Build the cov_representation IR slot from an inline
+# `cov = fb_cov(...)` argument on a vm() / ped() term (v0.4.0). The
 # formula parser does NOT evaluate the carrier -- it deparse-extracts
 # the matrix symbol and the `type` literal so the matrix continues to
 # resolve via known_matrices at fit time, identical to the legacy
@@ -296,9 +294,9 @@
   list(format = fmt, data = m_sym, scheme = if (is.na(scheme)) NULL else scheme)
 }
 
-# v0.4.0 (ADR 0030 C3 / ADR 0030 §5): the four v0.3.7 ADR 0025 legacy
-# vm() keyword carrier forms deprecate at v0.4.0 (warn) and are removed
-# at v0.5.0 (error). The warning names the fb_cov() migration with a
+# The four v0.3.7 legacy vm() keyword carrier forms deprecate at
+# v0.4.0 (warn) and are removed at v0.5.0 (error). The warning names
+# the fb_cov() migration with a
 # worked example. lifecycle::deprecate_warn() dedupes to once per
 # session per form by default; the dedicated deprecation tests force
 # it via lifecycle_verbosity = "warning".
@@ -356,30 +354,27 @@
   invisible(NULL)
 }
 
-# Stage 5A route guard. Runs at setup_env time on the greta dispatch
+# Route guard. Runs at setup_env time on the greta dispatch
 # path (setup_env is greta-only; emit_inla() runs its own allowlist
 # check via lgm_gate). Dispatches:
 #
 #   format = "dense"                      -> no-op (legacy path).
-#   format = "chol"                       -> v0.3.7 Phase B active on
-#                                            greta: run input validator,
-#                                            then proceed silently.
+#   format = "chol"                       -> active on greta: run
+#                                            input validator, then
+#                                            proceed silently.
 #   format = "precision" /
-#   format = "pedigree_sparse_precision"  -> v0.3.7 Phase B active on
-#                                            greta: run input validator
+#   format = "pedigree_sparse_precision"  -> active on greta: run
+#                                            input validator
 #                                            (precision validator
 #                                            applies to both), then
 #                                            proceed silently. (Sparse
 #                                            efficiency wins land on
-#                                            the INLA path at Phase
-#                                            B-inla; greta densifies
-#                                            via as.matrix() at
-#                                            codegen time.)
-#   format = "blocks"                     -> v0.3.8 forward-pointer
-#                                            refusal (ADR 0025
-#                                            Decision 3).
-#   format = "low_rank"                   -> ADR 0027 / Stage 6
-#                                            approximate-route refusal.
+#                                            the INLA path; greta
+#                                            densifies via as.matrix()
+#                                            at codegen time.)
+#   format = "blocks"                     -> forward-pointer refusal
+#                                            (active from v0.3.8).
+#   format = "low_rank"                   -> approximate-route refusal.
 #
 # The validators raise typed structural refusals (chol_not_triangular,
 # precision_not_positive_definite, ...) so users see input errors at
@@ -479,11 +474,11 @@
 #     where R = chol(Q), giving B B' = Q^{-1} = V.
 #   blocks: t(chol(bdiag(V_1, ...)))  -- block-diagonal V; the K-independent
 #     MVN draws are algebraically identical to a single MVN with V = bdiag,
-#     which the dense codepath already handles correctly ("exact and boring"
-#     per the 2026-05-28 planning correction).
+#     which the dense codepath already handles correctly (exact and
+#     boring).
 #
-# The Phase A route guard ensures low_rank cannot reach this helper
-# from setup_env; the stop() branch is a contract assertion.
+# The route guard ensures low_rank cannot reach this helper from
+# setup_env; the stop() branch is a contract assertion.
 .vm_ped_sqrt_expr <- function(cov, legacy_mat) {
   if (is.null(cov)) {
     return(paste0("t(chol(", legacy_mat, "))"))
@@ -512,7 +507,7 @@
 
 # Validator: user-supplied Cholesky factor.
 #
-# Phase A scope: lower-triangular pattern check + square-shape check +
+# Scope: lower-triangular pattern check + square-shape check +
 # group-level-count dim match. Accepts dense base-R matrix or
 # Matrix::dtCMatrix. Both refusal classes name the offending symbol +
 # group var so the message is actionable at the formula level.
@@ -571,7 +566,7 @@
     )
   }
 
-  # v0.3.8 audit Critical Fix #2: known-matrix dim + level alignment.
+  # Known-matrix dim + level alignment (v0.3.8).
   # Pre-v0.3.8 the validator stopped at structural checks; a chol
   # factor with wrong dim or permuted dimnames would silently
   # produce wrong predictions downstream. Both checks no-op when
@@ -595,7 +590,7 @@
 
 # Validator: sparse precision matrix Q = V^{-1}.
 #
-# Phase A scope: symmetry (Matrix::isSymmetric) + positive-definite
+# Scope: symmetry (Matrix::isSymmetric) + positive-definite
 # probe (Matrix::Cholesky). Sparse-matrix-class check is light: we
 # accept any object with the Matrix-package symmetry / Cholesky
 # methods. Dense matrices are accepted too (less efficient, but the
@@ -609,7 +604,7 @@
 ) {
   .validate_precision_input_structural(Q, name = name, group_var = group_var)
 
-  # v0.3.8 audit Critical Fix #2: known-matrix dim + level alignment.
+  # Known-matrix dim + level alignment (v0.3.8).
   # See .validate_chol_input() for the rationale.
   .check_known_matrix_dim(
     Q,
@@ -624,8 +619,8 @@
     fit_levels = fit_levels
   )
 
-  # v0.3.8 audit Critical Fix #3: PD check via the size-appropriate
-  # algorithm. For Matrix::dsCMatrix and other sparse symmetric
+  # PD check via the size-appropriate algorithm (v0.3.8). For
+  # Matrix::dsCMatrix and other sparse symmetric
   # inputs, route through Matrix::Cholesky(perm = TRUE) so a 1e5 x
   # 1e5 sparse precision is not dense-coerced (the pre-v0.3.8
   # chol(as.matrix(Q)) path materialised the dense matrix and would
@@ -730,7 +725,7 @@
     # Matrix::chol() (S4-dispatched to the sparse symmetric method)
     # raises a CHOLMOD warning "not positive definite" when Q is
     # indefinite, which the tryCatch traps. Critically, this does
-    # NOT dense-coerce Q -- the audit's Critical Fix #3 concern.
+    # NOT dense-coerce Q.
     # Matrix::Cholesky() (the higher-level factor-returning function)
     # is not a strict PD test -- it returns a CHMfactor with
     # non-positive pivot entries for indefinite Q rather than
@@ -778,7 +773,7 @@
 
 # Validator: user-supplied block-diagonal covariance carrier.
 #
-# Ships at v0.3.10 with ADR 0025 Decision 3. The user supplies a
+# Ships at v0.3.10. The user supplies a
 # named list `blocks = my_blocks` where `my_blocks` resolves at fit
 # time to `list(V_1, ..., V_K)` --- each V_k is the dense covariance
 # matrix for one block of the grouping factor's levels (taken in the
@@ -948,8 +943,8 @@
   )
 }
 
-# v0.3.8 audit Critical Fix #2: dim alignment between a user-supplied
-# known matrix and the inferred level count of its grouping factor.
+# Dim alignment between a user-supplied known matrix and the
+# inferred level count of its grouping factor (v0.3.8).
 # No-op when expected_n is NULL (parser-bypass test fixture, or
 # called from a dispatch site that does not yet supply the level
 # count).
@@ -990,13 +985,11 @@
   invisible(NULL)
 }
 
-# v0.3.8 audit Critical Fix #2: dimname-driven level alignment. When
-# the matrix carries dimnames, we can enforce that the rows / columns
-# correspond positionally to levels(<group>). When dimnames are
-# absent the check no-ops -- the dispatch layer surfaces an alignment
-# caution on backend_decision instead (the user-side responsibility
-# pre-v0.3.8 comment in emit_inla() was the symptom this fix
-# addresses).
+# Dimname-driven level alignment (v0.3.8). When the matrix carries
+# dimnames, we can enforce that the rows / columns correspond
+# positionally to levels(<group>). When dimnames are absent the
+# check no-ops -- the dispatch layer surfaces an alignment caution
+# on backend_decision instead.
 .check_known_matrix_dimnames <- function(M, name, group_var, fit_levels) {
   if (is.null(fit_levels)) {
     return(invisible(NULL))
@@ -1107,9 +1100,9 @@
 # args land in the condition object so callers can pattern-match on
 # format, scheme, etc.
 .stop_structured_cov_refusal <- function(reason_code, message, ...) {
-  # Phase 1C (ADR 0030 C7): route through the unified condition
-  # constructor. The message is unchanged (the call site still builds
-  # it verbatim); the constructor adds the per-code class
+  # Route through the unified condition constructor. The message is
+  # unchanged (the call site still builds it verbatim); the
+  # constructor adds the per-code class
   # flexybayes_refusal_<reason_code> above the retained family class
   # and gates the reason_code against the registry.
   stop(.fb_refusal_condition(

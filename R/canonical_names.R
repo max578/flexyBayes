@@ -1,7 +1,6 @@
 # canonical_names -- per-backend parameter-name resolver for flexyBayes.
 #
-# Implements ADR 0005 in design-notes-priors-brms-lgm.md. The
-# `canonical_names()` S3 generic returns a list `(map, transform,
+# The `canonical_names()` S3 generic returns a list `(map, transform,
 # source)` keyed by backend-native parameter names; values give the
 # canonical (brms-style) parameter names; the optional transform
 # slot carries value-transform functions (used by INLA's
@@ -166,7 +165,7 @@ canonical_names.flexybayes_direct_greta <- function(fit, drop = FALSE, ...) {
   }
   # When user supplied canonical_names, at least one name->canonical
   # pair differs from the identity; otherwise it's the verbatim
-  # fallback per ADR 0012.
+  # fallback.
   has_renames <- any(names(cm) != unname(cm))
   list(
     map = cm,
@@ -303,7 +302,7 @@ register_canonical_mapper <- function(backend, mapper) {
   list(tag = m[2], level = as.integer(m[3]), col = as.integer(m[4]))
 }
 
-# ADR 0019: parse an indexed-slope deviation name like
+# Parse an indexed-slope deviation name like
 # "slope_dev_f_x_raw[2,1]" against the slope_dev_lookup keyed by
 # `<factor>_<continuous>`. Returns NULL when the name does not look
 # like an indexed-slope draw, or when no IR term matches the parsed
@@ -385,8 +384,8 @@ register_canonical_mapper <- function(backend, mapper) {
     }
   }
 
-  # ADR 0019 (Stage 1A, v0.2.6) -- factor:continuous indexed slopes.
-  # Build a lookup keyed by `<factor>_<continuous>` carrying the
+  # Factor:continuous indexed slopes (v0.2.6). Build a lookup keyed
+  # by `<factor>_<continuous>` carrying the
   # ordered level vector so the per-level slot
   # `slope_dev_<f>_<c>_raw[i,1]` -> `slope_<f>_<c>[<level_{i+1}>]`
   # renaming can run below (note the L-1-vs-L offset: the raw
@@ -431,7 +430,7 @@ register_canonical_mapper <- function(backend, mapper) {
     if (startsWith(nm, "beta_")) {
       # beta_<term> -- continuous-slope / interaction coefficient on
       # emit_greta.R's continuous-fixed-effect surface. Canonical =
-      # bare term name (brms convention). The ADR 0005 mapping table
+      # bare term name (brms convention). The mapping table
       # documented "b_<term>" -> "<term>" but the live emit prefix is
       # "beta_"; surfaced by fb_brms() test 13 on continuous slopes
       # (asreml entries are factor-heavy and miss this row).
@@ -463,7 +462,7 @@ register_canonical_mapper <- function(backend, mapper) {
       map[nm] <- paste0(tag, lvl)
       next
     }
-    # ADR 0019: slope_dev_<fac>_<con>_raw[i,1] -- per-level slope
+    # slope_dev_<fac>_<con>_raw[i,1] -- per-level slope
     # deviation for a factor:continuous interaction. raw[i] indexes
     # into the L-1 non-reference levels; canonical is
     # `slope_<fac>_<con>[<level_{i+1}>]` (skip the reference level
@@ -560,8 +559,7 @@ register_canonical_mapper <- function(backend, mapper) {
 # v0.2 mapper: brms-via-Stan backend (Stan passthrough)             #
 # ---------------------------------------------------------------- #
 # brms parameter names are the canonical names by definition (the
-# brms convention IS the flexyBayes canonical convention -- see the
-# ADR on canonical-name registry, mapping-rule row for brms). The
+# brms convention IS the flexyBayes canonical convention). The
 # mapper is identity over the draw-matrix column names with one
 # prefix-strip rule:
 #
@@ -592,7 +590,7 @@ register_canonical_mapper <- function(backend, mapper) {
     return(list(map = character(0), transform = list()))
   }
 
-  # ADR 0019: build a {factor, continuous, levels} lookup for every
+  # Build a {factor, continuous, levels} lookup for every
   # factor_numeric_interaction term in the IR so we can map brms's
   # `b_<fac><level>:<con>` (or `b_<con>:<fac><level>`) parameters
   # to the canonical `slope_<fac>_<con>[<level>]` slot.
@@ -612,7 +610,7 @@ register_canonical_mapper <- function(backend, mapper) {
       map[nm] <- "(Intercept)"
       next
     }
-    # ADR 0019: factor:continuous indexed-slope translation.
+    # Factor:continuous indexed-slope translation.
     # brms emits these as `b_<term1>:<term2>` where `<term1>` is
     # `<fac><level>` for the non-reference level. Try both
     # (factor-first, continuous-first) orientations.
@@ -630,10 +628,10 @@ register_canonical_mapper <- function(backend, mapper) {
       bare <- sub("^sd_", "", nm)
       # brms emits sd_<g>__<x> for uncorrelated random slopes
       # ((x || g) / (1 + x || g)) and sd_<g>__Intercept for the
-      # corresponding intercept-deviation. ADR 0020 §Decision 3:
-      # canonical name is sd_<x>_<g> for slopes; sd_<g> for the
-      # intercept. The __Intercept rule comes first because it is a
-      # subset of the __<x> rule.
+      # corresponding intercept-deviation. Canonical name is
+      # sd_<x>_<g> for slopes; sd_<g> for the intercept. The
+      # __Intercept rule comes first because it is a subset of the
+      # __<x> rule.
       if (grepl("__Intercept$", bare)) {
         bare <- sub("__Intercept$", "", bare)
         if (nzchar(bare)) {
@@ -643,7 +641,7 @@ register_canonical_mapper <- function(backend, mapper) {
       }
       m <- regmatches(bare, regexec("^([^_]+(?:_[^_]+)*?)__(.+)$", bare))[[1]]
       if (length(m) == 3L && nzchar(m[2L]) && nzchar(m[3L])) {
-        # bare matched <g>__<x>; canonicalise to sd_<x>_<g> per ADR 0020.
+        # bare matched <g>__<x>; canonicalise to sd_<x>_<g>.
         g_part <- m[2L]
         x_part <- m[3L]
         map[nm] <- paste0("sd_", x_part, "_", g_part)
@@ -666,7 +664,7 @@ register_canonical_mapper <- function(backend, mapper) {
   list(map = map, transform = list())
 }
 
-# ADR 0019 helper. Translate a brms parameter name like
+# Helper. Translate a brms parameter name like
 # `b_fb:x` or `b_x:fb` (treatment-coded factor:continuous interaction)
 # to the canonical `slope_<fac>_<con>[<level>]` slot. Returns NULL
 # when the name does not match any factor_numeric_interaction term

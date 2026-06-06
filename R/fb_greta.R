@@ -1,6 +1,6 @@
 # fb_greta() -- the greta engine pin, plus the native-greta fitting core.
 #
-# ADR 0031 Phase 3.6 (v0.5.0 backend-axis recovery). `fb_greta()` is one
+# v0.5.0 backend-axis recovery. `fb_greta()` is one
 # of the three engine pins (alongside `fb_inla()` and `fb_brms()`): sugar
 # over the universal entry with the engine fixed --- `fb_greta(...)` ==
 # `fb(..., backend = "greta")`. It accepts every grammar the universal
@@ -9,7 +9,7 @@
 # `greta::mcmc()` via `.fit_native_greta()`.
 #
 # Before v0.5.0 `fb_greta(model = <greta_model>)` was a distinct
-# native-graph verb (ADR 0012). That signature is removed here; the
+# native-graph verb. That signature is removed here; the
 # native-graph fitting body it owned is extracted into the internal
 # `.fit_native_greta()`, which the universal-entry dispatch
 # (`.dispatch_native_greta()` in R/dispatch.R) now drives whenever the IR
@@ -24,8 +24,8 @@
 # helper is self-contained. Internal -- reached via the universal entry's
 # native-greta dispatch, never called directly by users.
 #
-# This is the verbatim body of the pre-v0.5.0 fb_greta() native path
-# (ADR 0012 Sec.5): no emit_greta() lowering, a minimal GLM-compatible
+# This is the verbatim body of the pre-v0.5.0 fb_greta() native path:
+# no emit_greta() lowering, a minimal GLM-compatible
 # shim built from the posterior summary, and the
 # c("flexybayes_direct_greta", "flexybayes", "list") class.
 .fit_native_greta <- function(
@@ -130,7 +130,7 @@
   )
 
   # ------- 5. Minimal $glm shim. ---------------------------------- #
-  # ADR 0012 Sec.5: a minimal GLM-shaped shim built from the posterior
+  # A minimal GLM-shaped shim built from the posterior
   # summary so that emmeans / marginaleffects see *something*. The
   # shim carries posterior means under canonical names as
   # `coefficients`; the family is the inferred likelihood family.
@@ -224,11 +224,10 @@
     )
   )
   # S3 dispatch order: subclass first (most-specific), then parent.
-  # ADR 0012 Sec.5 specified the reverse, but that breaks R's S3 dispatch
-  # (the leftmost match wins): `print.flexybayes` would always shadow
+  # The reverse order breaks R's S3 dispatch (the leftmost match wins):
+  # `print.flexybayes` would always shadow
   # `print.flexybayes_direct_greta`. The implementation uses the
-  # R-correct order; ADR 0012 Sec.5 amended in the 2026-05-22 PROJECT_LOG
-  # entry.
+  # R-correct order.
   class(result) <- c("flexybayes_direct_greta", "flexybayes", "list")
   result
 }
@@ -302,7 +301,7 @@ fb_greta <- function(...) {
 
 
 # ---------------------------------------------------------------- #
-# backend_decision() -- trivial-trace helper (ADR 0012 Sec.6)         #
+# backend_decision() -- trivial-trace helper                          #
 # ---------------------------------------------------------------- #
 
 #' Backend dispatch trace for a flexyBayes fit
@@ -348,7 +347,7 @@ backend_decision <- function(fit) {
   }
   decision <- fit$extras$backend_decision
   if (is.null(decision)) {
-    # Pre-ADR-0006 fit (no recorded decision): synthesise a minimal
+    # Older fit (no recorded decision): synthesise a minimal
     # legacy trace so downstream tooling never sees NULL.
     return(list(
       backend = if (inherits(fit, "flexybayes_inla")) "inla" else "greta",
@@ -364,9 +363,9 @@ backend_decision <- function(fit) {
       routing_policy_version = NA_character_
     ))
   }
-  # Stage 4 (ADR 0024) v0.3.6+: surface the four new fields with
-  # NULL defaults so pre-Stage-4 fits (those that recorded the
-  # 4-field ADR-0006 trace before v0.3.6 landed) read out with the
+  # v0.3.6+: surface the four new fields with
+  # NULL defaults so earlier fits (those that recorded the
+  # 4-field trace before v0.3.6 landed) read out with the
   # same shape downstream tooling sees on v0.3.6+ fits. Construct
   # a fresh canonical 8-field list with explicit NULL values --
   # `decision[["x"]] <- NULL` removes the slot rather than setting
