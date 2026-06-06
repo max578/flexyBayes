@@ -40,3 +40,5 @@
 ^dev-narrative/.*$
 ^inst/backend_contract\.md$
 ^inst/skip-ledger\.md$
+^paper$
+^paper/.*$
