@@ -26,7 +26,7 @@ greta_ok   <- requireNamespace("greta",   quietly = TRUE)
 agridat_ok <- requireNamespace("agridat", quietly = TRUE)
 ggplot2_ok <- requireNamespace("ggplot2", quietly = TRUE)
 set.seed(1400)
-mcmc_small <- list(n_samples = 200, warmup = 200, chains = 1)
+mcmc_small <- list(n_samples = 1000, warmup = 2000, chains = 2)
 ```
 
 # 1. Why spatio-temporal models?
@@ -75,6 +75,17 @@ with $\tau_i$ replicate effects, $g_j \sim \mathcal{N}(0,
 \sigma_g^2)$ random genotype effects, and $\{e_{ijk}\}$ residuals
 that are *correlated in space* — separable autoregressive on row and
 column.
+
+> **A note on the fits below — read first.** The spatial AR1×AR1 and the
+> temporal AR1 models here are structured-covariance models -- the
+> hardest case for Hamiltonian Monte Carlo, and greta-only (INLA refuses
+> the AR1×AR1 route in v0.1). At the modest MCMC budgets used to keep the
+> vignette fast, these fits **frequently fail to mix** (large
+> $\widehat{R}$, near-zero ESS). Treat this vignette as a guide to
+> *specifying* spatial and temporal correlation structures, not as a
+> demonstration of inference; for a real analysis raise the budget
+> substantially and verify convergence as the *getting started* vignette
+> describes before interpreting anything.
 
 ```{r stroup-data, eval = agridat_ok}
 library(flexyBayes)
