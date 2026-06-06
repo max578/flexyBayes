@@ -49,7 +49,11 @@
       mu_atg <- normal(0, 100)
       tau_env <- normal(0, 100, dim = n_env)
       # -- Random effects ------------------------------------------
-      Lambda_geno_env_fa2 <- normal(0, 1, dim = c(n_env, 2L))
+      .fa_lmask_geno_env_fa2 <- (row(matrix(0, n_env, 2L)) > col(matrix(0, n_env, 2L))) * 1
+      .fa_dmask_geno_env_fa2 <- (row(matrix(0, n_env, 2L)) == col(matrix(0, n_env, 2L))) * 1
+      Lambda_low_geno_env_fa2 <- normal(0, 1, dim = c(n_env, 2L))
+      Lambda_dvec_geno_env_fa2 <- greta::lognormal(0, 1, dim = 2L)
+      Lambda_geno_env_fa2 <- Lambda_low_geno_env_fa2 * .fa_lmask_geno_env_fa2 + sweep(.fa_dmask_geno_env_fa2, 2, Lambda_dvec_geno_env_fa2, "*")
       psi_geno_env_fa2    <- greta::lognormal(0, 1, dim = n_env)
       F_geno_env_fa2      <- normal(0, 1, dim = c(n_geno, 2L))
       delta_geno_env_fa2  <- normal(0, 1, dim = c(n_geno, n_env))

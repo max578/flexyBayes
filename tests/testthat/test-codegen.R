@@ -153,6 +153,31 @@ test_that("CG-4c: fa(env,2):id(geno) generates FA structure", {
   expect_true(check_code(code, must_contain = c("Lambda_", "psi_", "F_")))
 })
 
+test_that("CG-4c-id: fa loadings are identified (lower-tri, positive diagonal)", {
+  # B8 regression guard. The factor-analytic loadings Lambda must be emitted with
+  # the lower-triangular + positive-diagonal identification (Lopes & West 2004),
+  # NOT as a free normal() matrix -- a free Lambda is rotation/sign/label-switch
+  # unidentified for k > 1, so its posterior summaries are meaningless. The
+  # strict-lower mask plus the positive-diagonal sweep ARE the identification.
+  skip_if_not_installed("greta")
+  dat <- make_test_data()
+  code <- flexybayes(
+    fixed = yield ~ 1,
+    random = ~ fa(env, 2):id(geno),
+    data = dat,
+    return_code = TRUE,
+    verbose = FALSE
+  )
+  expect_true(check_code(
+    code,
+    must_contain = c(
+      ".fa_lmask_", ".fa_dmask_", "Lambda_dvec_", "sweep(.fa_dmask_"
+    )
+  ))
+  # the assembled Lambda is the masked construction, not a free normal()
+  expect_false(grepl("Lambda_geno_env_fa2 <- normal\\(0, 1, dim", code))
+})
+
 test_that("CG-5: ar1(row):id(col) generates spatial terms", {
   skip_if_not_installed("greta")
   dat <- make_test_data()

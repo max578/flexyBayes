@@ -527,15 +527,69 @@
         inner <- term$inner
         k <- term$k
         tag <- paste0(inner, "_", outer, "_fa", k)
+        no <- paste0("n_", outer)
+        kk <- paste0(k, "L")
+        m0 <- paste0("matrix(0, ", no, ", ", kk, ")")
+        # Identified factor-analytic loadings: lower-triangular with a positive
+        # diagonal (Lopes & West 2004; the standard MET factor-analytic
+        # identification). The strict upper triangle is zeroed (removes the
+        # rotational freedom) and the diagonal is forced positive (removes the
+        # sign freedom), so the Lambda posterior is interpretable. Predictions
+        # are unchanged: F %*% t(Lambda) is rotation-invariant, so the BLUPs and
+        # the g-side covariance do not depend on this constraint.
+        ctx <- .add(
+          ctx,
+          ".fa_lmask_",
+          tag,
+          " <- (row(",
+          m0,
+          ") > col(",
+          m0,
+          ")) * 1"
+        )
+        ctx <- .add(
+          ctx,
+          ".fa_dmask_",
+          tag,
+          " <- (row(",
+          m0,
+          ") == col(",
+          m0,
+          ")) * 1"
+        )
+        ctx <- .add(
+          ctx,
+          "Lambda_low_",
+          tag,
+          " <- normal(0, 1, dim = c(",
+          no,
+          ", ",
+          kk,
+          "))"
+        )
+        ctx <- .add(
+          ctx,
+          "Lambda_dvec_",
+          tag,
+          " <- greta::lognormal(0, ",
+          pvc,
+          ", dim = ",
+          kk,
+          ")"
+        )
         ctx <- .add(
           ctx,
           "Lambda_",
           tag,
-          " <- normal(0, 1, dim = c(n_",
-          outer,
-          ", ",
-          k,
-          "L))"
+          " <- Lambda_low_",
+          tag,
+          " * .fa_lmask_",
+          tag,
+          " + sweep(.fa_dmask_",
+          tag,
+          ", 2, Lambda_dvec_",
+          tag,
+          ", \"*\")"
         )
         ctx <- .add(
           ctx,

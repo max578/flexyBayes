@@ -17,6 +17,17 @@
   field, so the package installs cleanly from CRAN-like repositories. The
   `gretaR` backend remains a dormant, opt-in R-native engine.
 
+## Methodology
+
+* **Identified factor-analytic loadings.** `fa(x, k)` now emits the loadings
+  matrix `Lambda` with the standard lower-triangular, positive-diagonal
+  identification (Lopes & West 2004): the strict upper triangle is zeroed and the
+  diagonal is constrained positive. Previously `Lambda` was a free `normal(0, 1)`
+  matrix, which is unidentified up to rotation, sign, and column permutation for
+  `k > 1`, so its posterior summaries were not interpretable. Predictions and the
+  g-side covariance are unchanged -- the product `F %*% t(Lambda)` is
+  rotation-invariant -- so only the loadings interpretation is affected.
+
 # flexyBayes 0.7.0
 
 This release reconciles three parallel development streams onto the engine, data,
