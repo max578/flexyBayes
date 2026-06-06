@@ -307,16 +307,20 @@ exported `spl` function. The correct invocation puts smoothers in
    model on `met_example`. The two should give identical
    posteriors — confirm.
 
-# 13. Companion entry: `fb_brms()` for brms-shaped formulas
+# 13. Companion: brms-shaped formulas
 
-`fb_brms()` is the brms-shaped alternative entry. It accepts a
-single two-sided formula in the lme4 / brms idiom, with the random
-structure carried in `(1 | g)` blocks:
+Every model above is specified in the asreml grammar
+(`fixed` / `random`). The same models can equally be written in the
+lme4 / brms idiom, with the random structure carried in `(1 | g)`
+blocks; the universal entry accepts either grammar and auto-detects
+which one you used:
 
 ```{r fb-brms-shape, eval=greta_ok}
-fit_b <- fb_brms(
-  yield ~ env + (1 | geno),
+fit_b <- flexybayes(
+  yield ~ env + (1 | geno),     # brms-shaped; the same model as
+                                # fixed = yield ~ env, random = ~ geno
   data         = dat,
+  backend      = "greta",
   n_samples    = 100,
   warmup       = 100,
   chains       = 1,
@@ -349,12 +353,14 @@ asreml-style form `random = ~ g + g:x`; for the others, the *LGM
 feasibility* and *cross-engine triangulation* vignettes catalogue
 the principled boundaries.
 
-`fb_brms()` shares the `backend = c("greta", "inla", "auto")`
-argument with `flexybayes()` (see the *hierarchical models* vignette
-for the dispatch flow) and the cross-engine post-fit surface
-including `triangulate()` and the registry-driven canonical
-parameter-name resolver (no `name_map` is needed for the common
-fixed-effect + random-intercept cases).
+Backend choice is orthogonal to grammar. The universal entries
+`flexybayes()` / `fb()` take a `backend = c("auto", "greta", "inla",
+"brms")` argument (see the *hierarchical models* vignette for the
+dispatch flow); the engine pins `fb_greta()`, `fb_inla()`, and
+`fb_brms()` fix the backend instead. Either grammar reaches the same
+cross-engine post-fit surface -- `triangulate()` and the
+registry-driven canonical parameter-name resolver (no `name_map` is
+needed for the common fixed-effect + random-intercept cases).
 
 # 14. Session information
 

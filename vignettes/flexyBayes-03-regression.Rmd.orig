@@ -51,9 +51,10 @@ Throughout this tutorial we use the asreml-style API:
 * `random` — random effects (`~ subject`, `~ s(time)`, `~ block`).
 * `rcov`  — residual covariance (default `~ units`, i.e. iid).
 
-`fb_brms()` is the brms-shaped alternative entry; it covers the
-random-intercept subset of the term-type surface and is introduced
-in the *getting started* and *hierarchical models* vignettes.
+`fb_brms()` is the Stan (brms) engine pin; with a brms-shaped
+formula it covers the random-intercept subset of the term-type
+surface, and is introduced in the *getting started* and
+*hierarchical models* vignettes.
 
 # 2. One-way analysis of variance: `PlantGrowth`
 

@@ -113,14 +113,14 @@ class(res)
 res$capabilities
 ```
 
-The IR carries `lgm_compatible`. Internally,
-`fb_brms(..., backend = "inla")` uses this flag to decide whether to
-call `emit_inla()` (it does), or refuse with a structured error (it
-does not).
+The IR carries `lgm_compatible`. Internally, `fb_inla()` (the INLA
+engine pin, sugar for `flexybayes(..., backend = "inla")`) uses this
+flag to decide whether to call `emit_inla()` (it does), or refuse
+with a structured error (it does not).
 
 ```{r pass-fit, eval=inla_ok}
-fit <- fb_brms(Reaction ~ Days + (1 | Subject), data = sleepstudy,
-               backend = "inla", verbose = FALSE)
+fit <- fb_inla(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+               verbose = FALSE)
 fit$num_check       # post-fit check 7
 ```
 
@@ -141,8 +141,7 @@ fb_terms IR is ever built. The error message names the v0.1
 limitation directly:
 
 ```{r ref-random-slope, error=TRUE}
-fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy,
-        backend = "inla")
+fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy)
 ```
 
 The asreml-format entry `flexybayes(fixed = ..., random = ...)`
@@ -167,9 +166,9 @@ ref
 
 The structured refusal names the rule that fired (`family_allowlist`),
 the diagnostic (`fb$family = "imaginary_invented_family"`), the
-suggested re-route (`backend = "brms"` via `fb_brms()` for the Stan
-passthrough; `backend = "greta"` for the broader flexyBayes formula
-path), and the override path. Note that *the package never silently
+suggested re-route (`fb_brms()` for the Stan passthrough; `fb_greta()`
+-- equivalently `flexybayes(..., backend = "greta")` -- for the
+broader flexyBayes formula path), and the override path. Note that *the package never silently
 approximates*: the user always sees why INLA refused.
 
 ## 4.3 Refusal pattern C — non-Gaussian RE prior (check 4)
@@ -279,11 +278,11 @@ then, `gretaR_status()` is the canonical discoverability surface
 for users who see the flag in `fb_terms$capabilities` or in the
 print method of a fitted model.
 
-User-facing `backend` arguments on `flexybayes()` / `fb_brms()` do
-*not* advertise `"gretaR"` while the slot is dormant; the
-`match.arg(backend, c("greta", "inla", "auto"))` set keeps the
-selection surface honest. Once activated, the slot will widen the
-`match.arg` set to include `"gretaR"`, swap the canonical-name
+The user-facing `backend` argument on `flexybayes()` / `fb()` does
+*not* advertise `"gretaR"` while the slot is dormant; the selection
+set `c("auto", "greta", "inla", "brms")` keeps the surface honest.
+Once activated, the slot will widen the set to include `"gretaR"`,
+swap the canonical-name
 mapper stub for the production mapper, and replace the
 dispatch-helper branch with the real emit step.
 

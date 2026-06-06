@@ -278,9 +278,10 @@ expects. greta receives a direct standard-deviation prior; INLA
 receives a `pc.prec` block tuned to match the same upper-tail
 statement. Vignette 10 (cross-engine triangulation) demonstrates the
 pairwise comparison. Direct INLA dispatch on brms-shaped formulas is
-available via `fb_brms(..., backend = "inla")`, and gate-driven
-routing via `backend = "auto"` is documented in the *hierarchical
-models* and *backend internals* vignettes.
+available via `fb_inla()` (equivalently `flexybayes(..., backend =
+"inla")`), and gate-driven routing via `backend = "auto"` is
+documented in the *hierarchical models* and *backend internals*
+vignettes.
 
 # 7. Penalised-complexity priors (advanced appendix)
 

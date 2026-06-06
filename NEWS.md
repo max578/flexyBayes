@@ -57,7 +57,19 @@
   vignettes). The default behaviour is unchanged; `fb_prior(half_cauchy(...))`
   remains the documented choice for small `J` (see the priors vignette).
 
-# flexyBayes 0.7.0
+## Documentation
+
+* **Vignettes migrated to the engine-pin API.** Eight vignettes still showed
+  the pre-0.5.0 universal `fb_brms(..., backend = "greta" / "inla" / "auto")`
+  call surface, which the 0.5.0 engine-pin refactor removed (`fb_brms()` now
+  pins to Stan and rejects a conflicting `backend`). Every example is updated to
+  the current surface: `fb_greta()` / `fb_inla()` for a fixed engine,
+  `flexybayes()` / `fb()` for the universal entry that takes a `backend`
+  argument. The brms-style *grammar* is unchanged and still accepted by every
+  entry; only the engine selection moved. Stale prose is corrected accordingly
+  (the `backend` default is `"auto"`, not `"greta"`; the Stan/brms emit backend
+  is live, not "queued"; the native-greta canonical-name map is supplied via
+  `fb_from_greta(model, canonical_names = ...)`). Vignettes were re-precompiled.
 
 This release reconciles three parallel development streams onto the engine, data,
 and surrogate axes: gretaR activated as a fourth inference engine (the engine

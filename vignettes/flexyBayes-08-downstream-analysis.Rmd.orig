@@ -54,10 +54,9 @@ vignette and retain it for the rest of this vignette.
 ```{r fit-base, eval=greta_ok}
 library(flexyBayes)
 data(sleepstudy, package = "lme4")
-fit <- fb_brms(
+fit <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  backend      = "greta",
   n_samples    = 500,
   warmup       = 500,
   chains       = 2,

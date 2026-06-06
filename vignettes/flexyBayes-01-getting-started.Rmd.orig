@@ -53,8 +53,9 @@ without leaning on quadratic approximations.
 `flexyBayes` is built around one principle: switching from REML to
 Bayesian inference should not change the formula you write. If you
 can express the model in ASReml-style syntax, `flexybayes()` fits
-it. If you prefer brms-style notation, `fb_brms()` fits the same
-model. Both routes go through a shared internal representation, and
+it. If you prefer brms-style notation, `fb()` fits the same model
+(it auto-detects which grammar you used). Both routes go through a
+shared internal representation, and
 the same fitted object supports `summary()`, `predict()`,
 `emmeans::emmeans()`, `marginaleffects::predictions()`, and the
 `bayesplot::*` family.
@@ -112,18 +113,19 @@ implicitly changes the choice of backend.
 
 | Verb | When to use |
 |---|---|
-| `flexybayes()` | Principal entry. Asreml-style formulas (`fixed = ..., random = ~ g, rcov = ~ ...`). Full term-type surface (`fa`, `us`, `at`, `ar1`, `vm`, `ped`, `spl`, `pol`). |
-| `fb_brms()` | brms-style formulas (`response ~ x + (1 \| g)`). Fixed effects; single or crossed random intercepts; Gaussian, binomial, and Poisson likelihoods. |
-| `fb_greta()` | A user-built `greta_model` — the expert / power-user entry for models already written in native greta primitives. |
+| `flexybayes()` / `fb()` | Principal / universal entry. Asreml-style (`fixed = ..., random = ~ g, rcov = ~ ...`) or brms-style (`response ~ x + (1 \| g)`) formulas; auto-detects the grammar and takes a `backend` argument to choose the engine. Full term-type surface (`fa`, `us`, `at`, `ar1`, `vm`, `ped`, `spl`, `pol`). |
+| `fb_greta()` / `fb_inla()` / `fb_brms()` | Engine pins: fix the backend to greta (HMC), INLA (Laplace), or Stan (brms). Each accepts the same two formula grammars; `fb_greta()` also accepts a user-built native `greta_model`. |
 | `triangulate()` | Cross-engine posterior comparison. Takes two fits from different backends and reports per-parameter agreement metrics. |
 
-`flexybayes()` and `fb_brms()` share a `backend` argument with three
-settings: `"greta"` (the default — HMC), `"inla"` (explicit LGM fast
-path; refuses non-LGM models with a structured message), and
-`"auto"` (gate-driven routing: INLA on accept, greta on refuse, with
-a silenceable note carrying the reason). The dispatch trace is
-available post-fit via `backend_decision()`. The *backend internals*
-vignette walks through the dispatch flow end-to-end.
+The universal entries `flexybayes()` / `fb()` take a `backend`
+argument: `"auto"` (the default — gate-driven routing: INLA on
+accept, greta on refuse, with a silenceable note carrying the
+reason), `"greta"` (HMC), `"inla"` (explicit LGM fast path; refuses
+non-LGM models with a structured message), and `"brms"` (Stan). The
+engine pins `fb_greta()` / `fb_inla()` / `fb_brms()` fix the backend
+instead of taking the argument. The dispatch trace is available
+post-fit via `backend_decision()`. The *backend internals* vignette
+walks through the dispatch flow end-to-end.
 
 # 4. Your first model
 
@@ -138,15 +140,14 @@ data(sleepstudy, package = "lme4")
 str(sleepstudy)
 ```
 
-We start with the brms-style entry, `fb_brms()`. The formula reads
-exactly as in `lme4::lmer()` or `brms::brm()`:
-`Reaction ~ Days + (1 | Subject)`.
+We start with a brms-style formula -- it reads exactly as in
+`lme4::lmer()` or `brms::brm()`: `Reaction ~ Days + (1 | Subject)` --
+and fit it with the greta engine pin `fb_greta()`:
 
 ```{r sleepstudy-fb-greta, eval=greta_ok}
-fit_greta <- fb_brms(
+fit_greta <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  backend      = "greta",
   n_samples    = 500,
   warmup       = 500,
   chains       = 2,
@@ -159,13 +160,12 @@ fit_greta
 ### A note on random *intercepts* versus random *slopes*
 
 The same data also supports `Reaction ~ Days + (Days | Subject)` — a
-per-subject slope on top of the intercept. `fb_brms()` accepts random
-intercepts only (single or crossed); random slopes raise a structured
-refusal naming the offending construct:
+per-subject slope on top of the intercept. The brms-style grammar
+accepts random intercepts only (single or crossed); random slopes
+raise a structured refusal naming the offending construct:
 
 ```r
-fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy,
-        backend = "greta")
+fb_greta(Reaction ~ Days + (Days | Subject), data = sleepstudy)
 #> Error: random slopes (Days | Subject) are not in the supported
 #>   brms-style corpus. Express the random structure in asreml-style
 #>   form via flexybayes(fixed = Reaction ~ Days,
@@ -209,8 +209,8 @@ plot(fit_greta)
 
 ### Variance-component priors
 
-When you call `fb_brms()` or `flexybayes()` without specifying a
-prior, `flexyBayes` announces the default it uses on every
+When you call any entry (`flexybayes()` / `fb()` or an engine pin)
+without specifying a prior, `flexyBayes` announces the default it uses on every
 random-effect SD and the residual SD: a **bounded uniform on the SD
 scale**, $\sigma \sim \mathrm{Uniform}(0, U)$, with a family-aware
 upper bound (Gelman, 2006). The announcement names $U$, the scale
@@ -238,10 +238,9 @@ fundamentally different algorithm — a Laplace approximation over a
 small set of hyperparameters — and finishes almost instantly:
 
 ```{r sleepstudy-fb-inla, eval=inla_ok}
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   Reaction ~ Days + (1 | Subject),
   data    = sleepstudy,
-  backend = "inla",
   verbose = FALSE
 )
 summary(fit_inla)
@@ -288,7 +287,7 @@ common patterns and the protocol for diagnosing each.
 INLA on accept, greta on refuse:
 
 ```{r sleepstudy-auto, eval=greta_ok}
-fit_auto <- fb_brms(
+fit_auto <- flexybayes(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
   backend      = "auto",
@@ -363,7 +362,7 @@ Try the following while the package is loaded:
    by the asreml-style call
    `flexybayes(fixed = Reaction ~ Days, random = ~ Subject,
    data = sleepstudy, ...)`.
-3. Pass `prior_vc_sd = 1` to `fb_brms()` and refit. The default-prior
+3. Pass `prior_vc_sd = 1` to `fb_greta()` and refit. The default-prior
    announcement disappears (you have opted into the legacy
    lognormal). Does the posterior on `sigma_Subject` change
    appreciably?

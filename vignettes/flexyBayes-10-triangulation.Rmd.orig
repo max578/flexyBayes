@@ -233,12 +233,11 @@ priors
 ```
 
 ```{r fit-greta, eval=greta_ok}
-fit_greta <- fb_brms(
+fit_greta <- fb_greta(
   y ~ x + (1 | group),
   data         = dat,
   family       = "poisson",
   prior        = priors,
-  backend      = "greta",
   n_samples    = 500,
   warmup       = 500,
   chains       = 2,
@@ -249,12 +248,11 @@ summary(fit_greta)
 ```
 
 ```{r fit-inla, eval=inla_ok}
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   y ~ x + (1 | group),
   data    = dat,
   family  = "poisson",
   prior   = priors,
-  backend = "inla",
   verbose = FALSE
 )
 summary(fit_inla)
@@ -361,14 +359,14 @@ re-triangulate. `flexyBayes` in v0.1 supports `family = "negative_binomial"`
 on both backends:
 
 ```r
-fit_greta_nb <- fb_brms(y ~ x + (1 | group), data = dat,
+fit_greta_nb <- fb_greta(y ~ x + (1 | group), data = dat,
+                         family = "negative_binomial", prior = priors,
+                         n_samples = 500,
+                         warmup = 500, chains = 2,
+                         verbose = FALSE, mcmc_verbose = FALSE)
+fit_inla_nb  <- fb_inla(y ~ x + (1 | group), data = dat,
                         family = "negative_binomial", prior = priors,
-                        backend = "greta", n_samples = 500,
-                        warmup = 500, chains = 2,
-                        verbose = FALSE, mcmc_verbose = FALSE)
-fit_inla_nb  <- fb_brms(y ~ x + (1 | group), data = dat,
-                        family = "negative_binomial", prior = priors,
-                        backend = "inla", verbose = FALSE)
+                        verbose = FALSE)
 triangulate(fit_greta_nb, fit_inla_nb)
 ```
 

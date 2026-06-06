@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 03: Foundational regression: linear models, random effects, and mgcv smooths"
-date: "2026-05-23"
+date: "2026-06-06"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -35,9 +35,10 @@ Throughout this tutorial we use the asreml-style API:
 * `random` — random effects (`~ subject`, `~ s(time)`, `~ block`).
 * `rcov`  — residual covariance (default `~ units`, i.e. iid).
 
-`fb_brms()` is the brms-shaped alternative entry; it covers the
-random-intercept subset of the term-type surface and is introduced
-in the *getting started* and *hierarchical models* vignettes.
+`fb_brms()` is the Stan (brms) engine pin; with a brms-shaped
+formula it covers the random-intercept subset of the term-type
+surface, and is introduced in the *getting started* and
+*hierarchical models* vignettes.
 
 # 2. One-way analysis of variance: `PlantGrowth`
 
@@ -63,27 +64,25 @@ fit_g <- flexybayes(
   n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
 )
 summary(fit_g)
-#> Bayesian mixed model summary  [flexyBayes]
-#> ============================================================ 
-#>   Fixed  : weight ~ group 
-#>   Family : gaussian / identity 
-#>   N = 30 , chains = 2 , samples = 500 
+#> Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]
+#> ================================================================= 
+#>   family:     gaussian / identity 
+#>   N = 30 , K = 3 
+#>   backend:    inla 
+#>   exactness:  aggregated_exact 
+#>   priors:     custom (explicit prior supplied; see prior_summary()) 
+#>   aggregation: N = 30 rows -> K = 3 cells (ratio 10:1)
 #> 
-#> -- Fixed effects (posterior)  --------------------------------- 
-#>             Estimate Post.SD     2.5%   97.5%
-#> (Intercept)  20.7808  5.8311  10.9358 31.2034
-#> groupctrl   -15.7327  5.8360 -26.0708 -5.8788
-#> grouptrt1   -16.1127  5.8285 -26.3799 -6.3268
-#> grouptrt2   -15.2472  5.8212 -25.5022 -5.4452
+#> -- Fixed effects (posterior)  ----------------------------------- 
+#>             Estimate Post.SD
+#> (Intercept)    5.032  0.1959
+#> grouptrt1     -0.371  0.2770
+#> grouptrt2      0.494  0.2770
 #> 
-#> -- Variance components  -------------------------------------- 
-#>     Component Estimate     SD   2.5%  97.5%
-#> 1 sigma_e_atg   0.6577 0.0972 0.5201 0.9092
+#> -- Variance components  ---------------------------------------- 
+#>   sigma (residual SD): 0.6016
 #> 
-#> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.024 - 1.295 
-#>   ESS  range: 5 - 112 
-#>   Run time  : 4.6 sec
+#>   Run time: 2.32 sec
 ```
 
 The fixed-effect block reports the baseline (control) mean as the
@@ -147,35 +146,32 @@ fit_barley <- flexybayes(
   n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
 )
 summary(fit_barley)
-#> Bayesian mixed model summary  [flexyBayes]
-#> ============================================================ 
-#>   Fixed  : yield ~ gen + env 
-#>   Family : gaussian / identity 
-#>   N = 60 , chains = 2 , samples = 500 
+#> Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]
+#> ================================================================= 
+#>   family:     gaussian / identity 
+#>   N = 60 , K = 30 
+#>   backend:    inla 
+#>   exactness:  aggregated_exact 
+#>   priors:     custom (explicit prior supplied; see prior_summary()) 
+#>   aggregation: N = 60 rows -> K = 30 cells (ratio 2:1)
 #> 
-#> -- Fixed effects (posterior)  --------------------------------- 
-#>                   Estimate Post.SD     2.5%    97.5%
-#> (Intercept)       117.2311 50.3775  12.7558 200.5538
-#> genManchuria      -22.5297 36.4302 -92.0925  48.8818
-#> genPeatland       -15.4315 36.0613 -82.3459  54.9088
-#> genSvansota       -25.8297 36.2463 -96.7570  43.7630
-#> genTrebi            0.9286 36.2063 -66.7235  71.2548
-#> genVelvet         -18.0659 36.1415 -86.5305  50.2107
-#> envCrookston        7.7535 23.9862 -32.9659  48.8152
-#> envDuluth         -17.9050 23.1978 -58.3629  22.2618
-#> envGrandRapids    -20.5665 23.7488 -61.3877  20.5800
-#> envMorris           4.5015 23.2569 -36.9330  44.6837
-#> envUniversityFarm  -8.1720 22.9149 -49.0034  30.5762
-#> envWaseca          34.7416 23.5467  -7.9484  76.5127
+#> -- Fixed effects (posterior)  ----------------------------------- 
+#>                   Estimate Post.SD
+#> (Intercept)       101.6939  7.1481
+#> genPeatland         7.0738  7.3537
+#> genSvansota        -4.0042  7.3523
+#> genTrebi           22.2787  7.3564
+#> genVelvet           3.8127  7.3532
+#> envDuluth         -23.8349  7.9345
+#> envGrandRapids    -26.0362  7.9352
+#> envMorris          -2.1411  7.9287
+#> envUniversityFarm -14.1321  7.9316
+#> envWaseca          27.5275  7.9255
 #> 
-#> -- Variance components  -------------------------------------- 
-#>     Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_e_atg  19.6328 2.0083 15.9881 23.8185
+#> -- Variance components  ---------------------------------------- 
+#>   sigma (residual SD): 18.6454
 #> 
-#> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.012 - 4.691 
-#>   ESS  range: 3 - 106 
-#>   Run time  : 2.5 sec
+#>   Run time: 2.38 sec
 ```
 
 The two factor blocks are reported relative to the (alphabetically
@@ -216,25 +212,22 @@ fit_pool <- flexybayes(
   n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
 )
 summary(fit_pool)
-#> Bayesian mixed model summary  [flexyBayes]
-#> ============================================================ 
-#>   Fixed  : Reaction ~ Days 
-#>   Family : gaussian / identity 
-#>   N = 180 , chains = 2 , samples = 500 
+#> Bayesian fit summary  [flexybayes_inla / INLA backend]
+#> ------------------------------------------------------------ 
+#> Fixed effects:
+#>                 mean     sd 0.025quant 0.5quant 0.975quant     mode kld
+#> (Intercept) 251.4782 6.6538   238.4168 251.4778   264.5420 251.4778   0
+#> Days         10.4510 1.2461     8.0045  10.4511    12.8971  10.4511   0
 #> 
-#> -- Fixed effects (posterior)  --------------------------------- 
-#>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 250.2426  6.6212 238.0011 263.3437
-#> Days         10.6803  1.2809   8.2486  13.2324
+#> Hyperparameters:
+#>                                          mean sd 0.025quant 0.5quant 0.975quant
+#> Precision for the Gaussian observations 4e-04  0      4e-04    4e-04      5e-04
+#>                                          mode
+#> Precision for the Gaussian observations 4e-04
 #> 
-#> -- Variance components  -------------------------------------- 
-#>     Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_e_atg  48.0099 2.2815 43.9775 53.0741
-#> 
-#> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 0.999 - 1.003 
-#>   ESS  range: 399 - 907 
-#>   Run time  : 1.9 sec
+#> Random effects:
+#>   (none)
+#> ------------------------------------------------------------
 ```
 
 The slope on `Days` is the average per-day increase in reaction
@@ -258,27 +251,24 @@ fit_re <- flexybayes(
   n_samples = 500, warmup = 500, chains = 2, verbose = FALSE
 )
 summary(fit_re)
-#> Bayesian mixed model summary  [flexyBayes]
-#> ============================================================ 
-#>   Fixed  : Reaction ~ Days 
-#>   Random : ~Subject 
-#>   Family : gaussian / identity 
-#>   N = 180 , chains = 2 , samples = 500 
+#> Bayesian fit summary  [flexybayes_inla / INLA backend]
+#> ------------------------------------------------------------ 
+#> Fixed effects:
+#>                 mean      sd 0.025quant 0.5quant 0.975quant     mode kld
+#> (Intercept) 251.4357 10.9164   229.9965 251.4356   272.8750 251.4356   0
+#> Days         10.4605  0.8055     8.8792  10.4605    12.0416  10.4605   0
 #> 
-#> -- Fixed effects (posterior)  --------------------------------- 
-#>             Estimate Post.SD    2.5%    97.5%
-#> (Intercept) 159.8145 63.3813 50.5927 240.8208
-#> Days         10.7506  0.8290  9.1792  12.4631
+#> Hyperparameters:
+#>                                           mean     sd 0.025quant 0.5quant
+#> Precision for the Gaussian observations 0.0010 0.0001      8e-04   0.0010
+#> Precision for Subject                   0.0019 0.0019      6e-04   0.0012
+#>                                         0.975quant  mode
+#> Precision for the Gaussian observations     0.0013 1e-03
+#> Precision for Subject                       0.0070 7e-04
 #> 
-#> -- Variance components  -------------------------------------- 
-#>       Component Estimate      SD    2.5%    97.5%
-#> 1 sigma_Subject 123.4530 73.3639 34.8814 267.1262
-#> 2   sigma_e_atg  31.0839  1.7572 27.6828  34.4775
-#> 
-#> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.021 - 3.852 
-#>   ESS  range: 6 - 433 
-#>   Run time  : 3.1 sec
+#> Random effects:
+#>   groups: Subject
+#> ------------------------------------------------------------
 ```
 
 Two things change relative to the pooled fit in §4.
@@ -334,20 +324,22 @@ summary(fit_smooth)
 #>   Random : ~s(x) 
 #>   Family : gaussian / identity 
 #>   N = 80 , chains = 2 , samples = 500 
+#>   Representation: exact
+#>   Engine:         greta MCMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD   2.5%  97.5%
-#> (Intercept)   0.1634  0.0365 0.0905 0.2308
+#> (Intercept)   0.2948  0.0363 0.2219 0.3639
 #> 
 #> -- Variance components  -------------------------------------- 
 #>     Component Estimate     SD   2.5%  97.5%
-#> 1   sigma_s_x   1.0466 0.2126 0.6851 1.4820
-#> 2 sigma_e_atg   0.3635 0.0315 0.3088 0.4396
+#> 1   sigma_s_x   1.7848 0.4769 1.0524 2.8698
+#> 2 sigma_e_atg   0.3139 0.0281 0.2627 0.3716
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.003 - 1.114 
-#>   ESS  range: 34 - 365 
-#>   Run time  : 2.5 sec
+#>   Rhat range: 1 - 2.482 
+#>   ESS  range: 17 - 203 
+#>   Run time  : 5.1 sec
 ```
 
 The fixed block has only an intercept; the random block names the
@@ -475,14 +467,14 @@ refusal — re-fit on the current package version to enable
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -491,31 +483,46 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3         flexyBayes_0.2.5.9000 testthat_3.3.2       
+#> [1] ggplot2_4.0.3    flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] tidyselect_1.2.1   viridisLite_0.4.3  dplyr_1.2.1        farver_2.1.2      
-#>  [5] tensorflow_2.20.0  S7_0.2.2           fastmap_1.2.0      TH.data_1.1-5     
-#>  [9] digest_0.6.39      estimability_1.5.1 lifecycle_1.0.5    ellipsis_0.3.2    
-#> [13] survival_3.8-3     agridat_1.26       processx_3.9.0     magrittr_2.0.5    
-#> [17] compiler_4.5.2     rlang_1.2.0        progress_1.2.3     tools_4.5.2       
-#> [21] knitr_1.51         prettyunits_1.2.0  labeling_0.4.3     pkgbuild_1.4.8    
-#> [25] reticulate_1.45.0  RColorBrewer_1.1-3 pkgload_1.5.2      multcomp_1.4-29   
-#> [29] abind_1.4-8        withr_3.0.2        purrr_1.2.2        desc_1.4.3        
-#> [33] grid_4.5.2         xtable_1.8-8       future_1.70.0      globals_0.19.1    
-#> [37] emmeans_2.0.2      scales_1.4.0       MASS_7.3-65        dichromat_2.0-0.1 
-#> [41] cli_3.6.6          mvtnorm_1.3-6      crayon_1.5.3       generics_0.1.4    
-#> [45] remotes_2.5.0      otel_0.2.0         rstudioapi_0.18.0  sessioninfo_1.2.3 
-#> [49] tfruns_1.5.4       cachem_1.1.0       splines_4.5.2      parallel_4.5.2    
-#> [53] base64enc_0.1-6    vctrs_0.7.3        devtools_2.4.6     Matrix_1.7-4      
-#> [57] sandwich_3.1-1     jsonlite_2.0.0     greta_0.5.1        callr_3.7.6       
-#> [61] hms_1.1.4          listenv_0.10.1     glue_1.8.1         parallelly_1.47.0 
-#> [65] codetools_0.2-20   gtable_0.3.6       tibble_3.3.1       pillar_1.11.1     
-#> [69] brio_1.1.5         R6_2.6.1           rprojroot_2.1.1    evaluate_1.0.5    
-#> [73] lattice_0.22-7     png_0.1-9          backports_1.5.1    tfautograph_0.3.2 
-#> [77] memoise_2.0.1      Rcpp_1.1.1-1.1     coda_0.19-4.1      nlme_3.1-168      
-#> [81] mgcv_1.9-3         whisker_0.4.1      xfun_0.57          fs_2.1.0          
-#> [85] zoo_1.8-15         usethis_3.2.1      pkgconfig_2.0.3
+#>   [1] DBI_1.3.0              mnormt_2.1.2           tfautograph_0.3.2     
+#>   [4] sandwich_3.1-1         rlang_1.2.0            magrittr_2.0.5        
+#>   [7] multcomp_1.4-29        otel_0.2.0             matrixStats_1.5.0     
+#>  [10] e1071_1.7-17           compiler_4.5.2         mgcv_1.9-3            
+#>  [13] loo_2.9.0              png_0.1-9              callr_3.7.6           
+#>  [16] vctrs_0.7.3            reshape2_1.4.5         stringr_1.6.0         
+#>  [19] pkgconfig_2.0.3        crayon_1.5.3           backports_1.5.1       
+#>  [22] labeling_0.4.3         MatrixModels_0.5-4     torch_0.17.0          
+#>  [25] bit_4.6.0              INLA_25.10.19          xfun_0.57             
+#>  [28] jsonlite_2.0.0         progress_1.2.3         parallel_4.5.2        
+#>  [31] prettyunits_1.2.0      tensorflow_2.20.0      R6_2.6.1              
+#>  [34] stringi_1.8.7          RColorBrewer_1.1-3     reticulate_1.45.0     
+#>  [37] parallelly_1.47.0      numDeriv_2016.8-1.1    estimability_1.5.1    
+#>  [40] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
+#>  [43] base64enc_0.1-6        bayesplot_1.15.0       Matrix_1.7-4          
+#>  [46] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
+#>  [49] abind_1.4-8            agridat_1.26           codetools_0.2-20      
+#>  [52] processx_3.9.0         listenv_0.10.1         gretaR_0.2.0          
+#>  [55] lattice_0.22-7         tibble_3.3.1           plyr_1.8.9            
+#>  [58] withr_3.0.2            bridgesampling_1.2-1   S7_0.2.2              
+#>  [61] posterior_1.7.0        coda_0.19-4.1          evaluate_1.0.5        
+#>  [64] marginaleffects_0.32.0 future_1.70.0          survival_3.8-3        
+#>  [67] sf_1.1-0               units_1.0-1            proxy_0.4-29          
+#>  [70] RcppParallel_5.1.11-2  pillar_1.11.1          tensorA_0.36.2.1      
+#>  [73] whisker_0.4.1          KernSmooth_2.23-26     checkmate_2.3.4       
+#>  [76] stats4_4.5.2           sn_2.1.3               distributional_0.7.0  
+#>  [79] generics_0.1.4         hms_1.1.4              rstantools_2.6.0      
+#>  [82] scales_1.4.0           coro_1.1.0             globals_0.19.1        
+#>  [85] xtable_1.8-8           class_7.3-23           glue_1.8.1            
+#>  [88] emmeans_2.0.2          tools_4.5.2            data.table_1.18.2.1   
+#>  [91] mvtnorm_1.3-6          grid_4.5.2             nlme_3.1-168          
+#>  [94] cli_3.6.6              tfruns_1.5.4           viridisLite_0.4.3     
+#>  [97] fmesher_0.7.0          Brobdingnag_1.2-9      dplyr_1.2.1           
+#> [100] gtable_0.3.6           greta_0.5.1            digest_0.6.39         
+#> [103] classInt_0.4-11        TH.data_1.1-5          brms_2.23.0           
+#> [106] farver_2.1.2           lifecycle_1.0.5        bit64_4.8.0           
+#> [109] MASS_7.3-65
 ```
 
 # References

@@ -150,9 +150,8 @@ confirm gate.
 The literal greta program is available after a fit:
 
 ```{r greta-code, eval=greta_ok}
-fit <- fb_brms(
+fit <- fb_greta(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
-  backend      = "greta",
   n_samples    = 200, warmup = 200, chains = 1,
   verbose      = FALSE,
   mcmc_verbose = FALSE
@@ -168,9 +167,8 @@ For INLA, the formula passed to `INLA::inla()` is in
 `fit_inla$inla$.args$formula`:
 
 ```{r inla-formula, eval=inla_ok}
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
-  backend = "inla",
   verbose = FALSE
 )
 fit_inla$inla$.args$formula
@@ -197,8 +195,8 @@ The return value is one of three:
   `emit_inla()` despite a refusal, on user authorisation;
 - a structured `lgm_refusal` object — `print` and stop.
 
-Inside `flexybayes(..., backend = "auto")` (and likewise
-`fb_brms(..., backend = "auto")`), the dispatch logic is literally:
+Inside `flexybayes(..., backend = "auto")` (equivalently `fb(...)`,
+whose default backend is `"auto"`), the dispatch logic is literally:
 
 ```r
 if (inherits(res, "fb_terms"))
@@ -218,7 +216,7 @@ The full trace is available on every fit through
 [backend_decision()]:
 
 ```{r backend-decision, eval=greta_ok}
-fit_auto <- fb_brms(
+fit_auto <- flexybayes(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
   backend      = "auto",
   n_samples    = 200, warmup = 200, chains = 1,
@@ -276,10 +274,11 @@ distribution(y) <- normal(mu, sigma)
 m <- model(b0, b1, sigma)
 
 fit_dg <- fb_greta(
-  m,
-  data            = sleepstudy,
-  canonical_names = c(b0 = "(Intercept)", b1 = "Days",
-                      sigma = "sigma"),
+  fb_from_greta(
+    m,
+    canonical_names = c(b0 = "(Intercept)", b1 = "Days",
+                        sigma = "sigma")
+  ),
   n_samples       = 200,
   warmup          = 200,
   chains          = 1,
@@ -289,8 +288,8 @@ fit_dg <- fb_greta(
 coef(fit_dg)
 ```
 
-The `canonical_names` argument maps each greta target-array name to
-the canonical brms-style name `flexyBayes` uses elsewhere
+The `canonical_names` argument of `fb_from_greta()` maps each greta
+target-array name to the canonical brms-style name `flexyBayes` uses elsewhere
 (`(Intercept)`, `Days`, `sigma`, `sd_<group>`, …). The mapping
 unlocks `triangulate()` against any other `flexyBayes` fit of the
 same model without a user-supplied `name_map`. When
@@ -343,8 +342,10 @@ reticulate; …) follows a five-step recipe:
 1. **Implement an `emit_<backend>()` function** that takes an
    `fb_terms` IR plus the user-facing arguments and returns a
    fitted-model object.
-2. **Register the new backend** in the `match.arg(backend, …)` list
-   on `flexybayes()` and `fb_brms()`.
+2. **Register the new backend** in the `match.arg(backend, …)` set
+   on the universal entries `flexybayes()` / `fb()` (the engine pins
+   `fb_greta()` / `fb_inla()` / `fb_brms()` fix a single backend and
+   take no `backend` argument).
 3. **Decide the gating policy** — does the new backend require
    `lgm_compatible`? Add the check at the entry of `emit_<backend>`.
 4. **Implement an `fb_as_draws_simple` method** for the fitted-model
@@ -357,13 +358,13 @@ reticulate; …) follows a five-step recipe:
 6. **Write tests + a vignette** demonstrating the new path. The
    *cross-engine triangulation* vignette pattern is the template.
 
-Three further backends are scaffolded or planned: a Stan
-passthrough via brms (`fb_brms(..., backend = "brms")` — the
-emitter is queued and the canonical-name mapper is identity through
-brms), gretaR (slot provisioned and dormant at the current release;
-see §9 above), and NIMBLE (for hidden Markov, multistate, and
-partial-LGM models that INLA refuses and that benefit from NIMBLE's
-specialised samplers).
+A third emit backend is already live: the Stan passthrough via brms
+(`fb_brms()`, or `flexybayes(..., backend = "brms")`), whose
+canonical-name mapper is identity through brms. Two more are
+provisioned or planned: gretaR (slot provisioned and dormant at the
+current release; see §9 above), and NIMBLE (for hidden Markov,
+multistate, and partial-LGM models that INLA refuses and that
+benefit from NIMBLE's specialised samplers).
 
 # 11. Posterior unification
 
