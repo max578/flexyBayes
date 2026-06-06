@@ -560,15 +560,6 @@
     return(fit)
   }
 
-  # koine backend (dormant slot): the provisioned 4th-backend / lens-axis slot
-  # for the synthesised fourth opinion (CONSTELLATION.md C1 + C3). Not in any
-  # user-facing match.arg yet, so reachable only from internal callers / tests;
-  # it refuses with a structured dormancy condition until koine's builder is
-  # confirmed against the C1 contract. See R/koine_slot.R.
-  if (identical(backend, "koine")) {
-    .koine_dormant_refusal(call = the_call)
-  }
-
   # Stage 2 MVP design-memory preflight (ADR 0021). Runs only above
   # the 1e5-row threshold so the v0.2 user surface is unchanged at
   # small scales -- the existing test suite never trips this branch.

@@ -127,34 +127,12 @@
   )
 }
 
-# koine -- the synthesised fourth opinion (lens axis). A DORMANT descriptor: its
-# slot is provisioned (R/koine_slot.R) but not activated, so every clause skips
-# with the dormancy reason. This is the proof that the battery is genuinely
-# parameterised -- a second engine is wired in by adding one descriptor. When
-# koine's programmatic builder is confirmed against clause 1, `skip_reason()`
-# returns NULL and `fit` is swapped for the real call; nothing else changes.
-.conformance_koine <- function() {
-  list(
-    name = "koine",
-    skip_reason = function() {
-      paste0(
-        "koine slot dormant (",
-        .koine_dormancy_reason(),
-        ") -- confirm its builder against C1 clause 1 to activate"
-      )
-    },
-    prepare = function() function() invisible(NULL),
-    fit = function(formula, data) .koine_dormant_refusal(),
-    capability = NULL
-  )
-}
-
 # The registry. A backend joins the constellation conformance surface by adding
-# one entry here -- gretaR is active, koine is wired dormant.
+# one entry here -- gretaR is active. (koine moved to flexyBayesOrchestra in the
+# lean-core split, 2026-06-06; it is no longer a core dormant backend.)
 .conformance_backends <- function() {
   list(
-    gretaR = .conformance_gretaR(),
-    koine = .conformance_koine()
+    gretaR = .conformance_gretaR()
   )
 }
 

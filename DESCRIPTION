@@ -80,9 +80,8 @@ Suggests:
     vdiffr,
     withr
 Additional_repositories:
-    https://inla.r-inla-download.org/R/stable
-Remotes:
-    max578/gretaR@v0.4.0
+    https://inla.r-inla-download.org/R/stable,
+    https://max578.r-universe.dev
 Encoding: UTF-8
 Language: en-AU
 Roxygen: list(markdown = TRUE, roclets = c("rd", "namespace", "collate"))
