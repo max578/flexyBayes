@@ -75,8 +75,8 @@
 
 This release reconciles three parallel development streams onto the engine, data,
 and surrogate axes: gretaR activated as a fourth inference engine (the engine
-axis), the C5 ensemble-source data contract and its first consumers (the data
-axis), and the C7 surrogate carried end-to-end from a reference emulator to a
+axis), the ensemble-source data contract and its first consumers (the data
+axis), and the surrogate carried end-to-end from a reference emulator to a
 distribution-preserving predictive check (the surrogate axis).
 
 ## New features
@@ -85,12 +85,12 @@ distribution-preserving predictive check (the surrogate axis).
   "gretaR")` fits supported hierarchical models through an out-of-process
   torch-NUTS worker, returning canonical parameter names and a `draws_array` that
   flows into `triangulate()` like any other engine. The integration is governed by
-  a versioned backend contract (constellation C1) with an **executable
+  a versioned backend contract with an **executable
   conformance battery** -- a new engine onboards by adding one descriptor, gated on
   `triangulate()`-agreement within an SBC-calibrated threshold. A **dormant koine
   backend slot** is provisioned (scaffolded and correct, switched on when koine's
   programmatic model builder is confirmed against the contract).
-- **`fb_ensemble()` and the `ensemble_source` data contract (constellation C5).**
+- **`fb_ensemble()` and the `ensemble_source` data contract.**
   A canonical ingest shape for calibrated parameter ensembles, with PESTO (via its
   manifest), raw `apsimx`, and file as conforming producers -- so flexyBayes is
   standalone-functional for methods work without depending on any one producer's
@@ -125,7 +125,7 @@ distribution-preserving predictive check (the surrogate axis).
   the grid (the MMD machinery stays kernR's) and composes with `project`. Returns
   an `fb_mmd_agg` object.
 - **New vignette: distribution-preserving surrogates (emulate, invert, check).**
-  A self-contained walkthrough of the C7 surrogate workflow -- ingest an
+  A self-contained walkthrough of the surrogate workflow -- ingest an
   ensemble, fit a surrogate, read its predictive distribution, invert it with
   `fb_surrogate_ies()`, and check it with `fb_surrogate_ppc()` -- runnable on the
   built-in reference surrogate with no other package.
@@ -171,7 +171,7 @@ distribution-preserving predictive check (the surrogate axis).
   over-shorten lengthscales; `"cv"` instead maximises the held-out predictive
   log-density on a train/validation split, keeping the relevance sharpening
   without the in-sample over-shortening.
-- **`fb_surrogate_ppc()` gains a joint draw path (contract C7 v1.2).** With
+- **`fb_surrogate_ppc()` gains a joint draw path.** With
   `joint = TRUE` (default) the predictive-check draws are sampled from the full
   cross-output predictive covariance (`predict(cov = TRUE)` + a per-row
   Cholesky), so the emulator's cross-output correlation is exercised -- the
@@ -206,7 +206,7 @@ distribution-preserving predictive check (the surrogate axis).
   recover the isotropic, per-output fit. The per-output `<o>_sd` contract is
   unchanged.
 - **`predict(<fb_surrogate>, newdata, cov = TRUE)` returns the joint
-  predictive distribution** (contract C7 clause 4): an
+  predictive distribution**: an
   `fb_surrogate_prediction` with the predictive mean matrix and a per-row
   cross-output covariance array. A marginals-only surrogate (independent
   `rff`, or a conformer reporting only `<o>_sd`) returns a diagonal
@@ -216,7 +216,7 @@ distribution-preserving predictive check (the surrogate axis).
   ES-MDA data covariance (`use_surrogate_cov = TRUE`, default), so correlated
   emulator errors are assimilated coherently; a marginals-only surrogate
   falls back to the diagonal path, identical to before.
-- **Sibling surrogate backends register as C7 conformers.** PESTO's GP
+- **Sibling surrogate backends register as conformers.** PESTO's GP
   surrogate (`method = "gp"`) and kernR's conditional mean embedding
   (`method = "cme"`) are available to `fit_surrogate()` when the member
   package is installed, registered through the existing surrogate
@@ -579,18 +579,18 @@ validation procedure.
   errors on a multi-line `deparse()`; a long unsupported term now
   surfaces the intended clean refusal.
 
-## C5 approximation-registry scaffold (ADR 0030 + ADR 0027, v0.4.0 Wave 1 Phase 1A substrate)
+## Approximation registry
 
 Ships the approximation-scheme registry *infrastructure* --- a single
 locked `.approximation_registry` environment populated at `.onLoad()`
 and locked via `.lock_approximation_registry()`, with the
-`.register_approximation()` (five-field ADR 0027 Decision 2 schema:
+`.register_approximation()` (five-field schema:
 `scheme`, `bias_bound`, `validation_fn`, `fallback_hint`,
 `registered_in_adr`), `.lookup_approximation()`, and
 `.approximation_scheme()` helpers. Empty at this step by design.
 
 - The container ships ahead of its first scheme, mirroring the v0.3.8
-  C7 refusal-registry scaffold (container at v0.3.8, first population
+  refusal-registry scaffold (container at v0.3.8, first population
   at v0.3.10). The first approximation scheme (`low_rank_smooth`)
   registers together with its emit path and the exported
   `validate_approximation()` surface, because the scheme's
@@ -601,8 +601,8 @@ and locked via `.lock_approximation_registry()`, with the
   every registered scheme carries a working validation procedure.
 - No user-facing API change at this step. `validate_approximation()`,
   the `low_rank_smooth` scheme, the `[APPROX: <scheme>]` print badge,
-  and the three-tier `exactness` controlled vocabulary land in the
-  Phase 1B completion change.
+  and the three-tier `exactness` controlled vocabulary land in a
+  later completion change.
 - Nine acceptance criteria in
   `tests/testthat/test-approximation-registry.R` (container exists +
   locked; empty at the scaffold step; five-field input validation;
@@ -611,10 +611,10 @@ and locked via `.lock_approximation_registry()`, with the
   `.approximation_scheme()` refusal delegation; user-side `assign()`
   raises; empty-vocabulary snapshot for vocab-lock gating).
 
-## C4 representation registry formalised (ADR 0030, v0.4.0 Wave 1 Phase 1A)
+## Representation registry
 
-Phase 1A ratifies ADR 0030 contract C4 (closed-vocabulary representation
-classes) end-to-end. The representation-class vocabulary previously spread
+This version formalises the closed-vocabulary representation
+classes end-to-end. The representation-class vocabulary previously spread
 informally across `R/fb_preflight.R`, `R/fb_plan.R`, and
 `R/methods_truth_display.R` as inline string literals now lives in a single
 locked `.representation_registry` environment populated at `.onLoad()` and
@@ -628,11 +628,11 @@ through preflight / planning / display.
   `block_diagonal`, `dense_smooth`, `sparse_smooth`, `banded_smooth`,
   `indexed_structured_known`, `indexed_structured_estimate`) plus five
   additional classes load-bearing in the v0.3.10 source and surfaced
-  during the Phase 1A producer-site sweep (`indexed_random_intercept`,
+  during the producer-site sweep (`indexed_random_intercept`,
   `dense_baseline`, `indexed_fixed_numeric`, `indexed_fixed_factor`,
-  `indexed_fixed_factor_numeric`). `low_rank` registers in Phase 1B
-  alongside the ADR 0027 approximation registry; the `axis_*` reservation
-  lands in Phase 2B with the backend-independence axis vocabulary.
+  `indexed_fixed_factor_numeric`). `low_rank` registers later
+  alongside the approximation registry; the `axis_*` reservation
+  lands later with the backend-independence axis vocabulary.
 - Internal helpers: `.register_representation(name, description, category,
   registered_in_adr, since_version)` validates inputs, refuses duplicate
   names, and refuses any attempt to register after the registry locks.
@@ -656,15 +656,15 @@ through preflight / planning / display.
 
 # flexyBayes 0.3.10
 
-## Stage 5A blocks emit + low_rank refusal-stub upgrade (ADR 0025 Decisions 3 + 4)
+## Block-structured covariance emit + low_rank refusal-stub upgrade
 
-Phase A closes two of the three v0.3.8-deferred items that v0.3.9
+This version closes two of the three v0.3.8-deferred items that v0.3.9
 did not absorb. The block-diagonal carrier `vm(group, blocks = ...)`
 ships end-to-end on greta + INLA; the low-rank refusal upgrades to
 name the v0.4.0 `validate_approximation()` forward export by
-reference, and three new reason codes register into the v0.3.8 C7
+reference, and three new reason codes register into the v0.3.8
 refusal-registry scaffold as the first migration (forward-pattern
-demonstration for the v0.4.0 Wave 1 Phase 1C bulk migration).
+demonstration for the later bulk migration).
 
 - `vm(group, blocks = my_blocks)` --- where `my_blocks` resolves to
   `list(V_1, ..., V_K)` --- is active on greta + INLA. The greta path
@@ -676,8 +676,8 @@ demonstration for the v0.4.0 Wave 1 Phase 1C bulk migration).
   calls; per-block integer index columns + per-block precision
   matrices are pre-computed in `data_inla`.
 - `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` refuses
-  with the upgraded message naming **ADR 0027** + `validate_approximation()`
-  (v0.4.0 Wave 1 Phase 1B) and the actionable workaround
+  with the upgraded message naming the forthcoming `validate_approximation()`
+  export and the actionable workaround
   `vm(group, V = U %*% t(U))` for the dense materialisation path.
 - Two new structured refusals: `block_partition_incomplete` (sum of
   block sizes does not match the grouping factor's level count) and
@@ -693,15 +693,15 @@ demonstration for the v0.4.0 Wave 1 Phase 1C bulk migration).
   `cov_representation$format == "blocks"`; the refusal text for
   `format %in% c("dense", "chol")` extends to mention the blocks
   carrier as a third structurally-INLA-eligible representation.
-- The refusal-registry scaffold (ADR 0030 C7, shipped at v0.3.8 with
+- The refusal-registry scaffold (shipped at v0.3.8 with
   zero entries) gains its first three entries via
   `.populate_refusal_registry_v0310()` --- registered at `.onLoad()`
   before the registry locks. The full ~28-site migration follows the
-  same `.register_refusal()` shape at v0.4.0 Wave 1 Phase 1C.
+  same `.register_refusal()` shape at v0.4.0.
 
-## Per-term INLA memory estimator (ADR 0024 §Consequences amendments (a) + (c))
+## Per-term INLA memory estimator
 
-Phase B replaces the v0.3.6 single-multiplier INLA memory check with
+This version replaces the v0.3.6 single-multiplier INLA memory check with
 a per-term decomposition keyed on representation class.
 
 - `<fb_preflight>` gains a `memory_estimate` slot carrying an
@@ -709,7 +709,7 @@ a per-term decomposition keyed on representation class.
   overhead constant; default 2x; configurable via
   `flexyBayes.preflight_inla_overhead_factor`), `$breakdown` (a
   stable-shape data.frame with rows `term_label`, `representation`,
-  `bytes`, `share` --- ADR 0030 §C4 closed-vocabulary discipline), and
+  `bytes`, `share` --- closed-vocabulary discipline), and
   the pre-overhead `$raw_total`. `as.numeric(pf$memory_estimate)`
   returns the total, so existing scalar-numeric consumers keep
   working unchanged.
@@ -732,7 +732,7 @@ a per-term decomposition keyed on representation class.
 
 ## Test-isolation pass -- three v0.3.8-deferred stochastic flakes closed
 
-Four themed Phase commits close the three v0.3.8-deferred stochastic
+Four themed commits close the three v0.3.8-deferred stochastic
 flakes (`test-smooth.R:88`, `test-validation-lmer.R:31`,
 `test-emit-gaussian-aggregated.R:299`) and consolidate the test-
 isolation contract under a single-call umbrella. The
@@ -741,7 +741,7 @@ in `inst/skip-ledger.md` drop to zero residual entries; the
 replacement entries under the Stress-only class are opt-in via
 `FLEXYBAYES_RUN_STRESS=true` by design.
 
-**Phase A `fix:` (emit-state latch encapsulation + bare-options
+**`fix:` (emit-state latch encapsulation + bare-options
 leak repair).**
 
 - The once-per-session message latches (default-prior note,
@@ -758,12 +758,12 @@ leak repair).**
   calls (one in `test-inla-verification-simple-slope-uncor.R`, five
   in `test-random-slopes-uncor.R`) migrate to
   `withr::local_options()` so the silence flag does not leak across
-  files in `tools/tally.R`'s single-process loop. Bisection during
-  Phase A traced the v0.3.8 flake at `test-smooth.R:88` through
+  files in `tools/tally.R`'s single-process loop. Bisection
+  traced the v0.3.8 flake at `test-smooth.R:88` through
   the env migration to this leak as the upstream cause; either fix
   alone is insufficient.
 
-**Phase B `fix:` (TF-RNG containment + hybrid sleepstudy
+**`fix:` (TF-RNG containment + hybrid sleepstudy
 validation).**
 
 - New test helper `tests/testthat/helper-rng.R` exposes
@@ -782,20 +782,20 @@ validation).**
   entry. The stress-gated companion joins the existing stress-
   only blocks under `tools/profiles/stress.R`.
 
-**Phase B' `fix:` (aggregated INLA bit-exact identity tolerance
+**`fix:` (aggregated INLA bit-exact identity tolerance
 amendment).**
 
 - The `INLA per-row + aggregated agree on beta` assertion
   (`test-emit-gaussian-aggregated.R:284`) splits: always-on band
   at `5e-3` (10x the spike's `1e-4` theoretical bit-exact claim,
-  1.5x the v0.3.8 Phase D worst-case observation of `3.4e-3`)
+  1.5x the v0.3.8 worst-case observation of `3.4e-3`)
   with a stress-gated companion at the original `1e-3` floor.
-  Same shape as the v0.3.5 BLAS-non-associativity amendment on
-  ADR 0023 and the v0.3.7 subtest (d) loosening on ADR 0025;
+  Same shape as the v0.3.5 BLAS-non-associativity amendment
+  and the v0.3.7 subtest (d) loosening;
   the algebraic-identity claim documented at
   `R/emit_gaussian_aggregated.R:30-41` is unchanged.
 
-**Phase C `feat:` (single-call test-isolation umbrella).**
+**`feat:` (single-call test-isolation umbrella).**
 
 - New helper `tests/testthat/helper-isolation.R` exposes
   `local_flexybayes_clean_state(seed = NULL, .local_envir,
@@ -803,7 +803,7 @@ amendment).**
   `local_clean_emit_state()` unconditionally and `local_tf_seed()`
   when a `seed` is provided. The umbrella file header
   consolidates the three cross-helper discipline rules learned
-  during Phase A + B + B': never bare `options(flexyBayes.*)`
+  during this pass: never bare `options(flexyBayes.*)`
   without `withr::local_options()`; greta-MCMC numerical-
   agreement tests must call `local_tf_seed()`; emit-state-
   dependent tests must call `local_clean_emit_state()`. Each
@@ -829,13 +829,13 @@ release-rehearsal probe.
 
 ## Audit-close hardening + planner + truth display
 
-Four themed Phase commits close the 2026-05-25 audit
+Four themed commits close the 2026-05-25 audit
 (`feedback_v0.3.7_to_v0.4.0_2026-05-25.md`, five Critical Fixes
-and thirteen sub-recommendations) and ratify ADR 0030 contracts
-C1 (planner verb) + C7 (refusal-registry scaffold) + Decision 4
-(`Representation:` / `Engine:` two-line truth display).
+and thirteen sub-recommendations) and ship the planner verb, the
+refusal-registry scaffold, and the
+`Representation:` / `Engine:` two-line truth display.
 
-**Phase A `fix:` (shared prediction kernel + alignment validators
+**`fix:` (shared prediction kernel + alignment validators
 + sparse-precision policy).**
 
 - File-backed prediction and the in-memory path now share a
@@ -856,7 +856,7 @@ C1 (planner verb) + C7 (refusal-registry scaffold) + Decision 4
   `flexyBayes.trust_pd` option allows callers who have already
   verified PD externally to skip the probe. Audit Critical Fix #3.
 
-**Phase B `feat:` (planner + truth display + refusal registry
+**`feat:` (planner + truth display + refusal registry
 scaffold).**
 
 - New exported verb `fb_plan(formula, data, backend, priors,
@@ -869,7 +869,7 @@ scaffold).**
   preflight detail; `as.data.frame()` coerces to a wide single
   row for tabular aggregation across plans. `flexybayes()` and
   `fb_brms()` accept `plan = FALSE` (default) -> `TRUE` to
-  short-circuit to the plan. ADR 0030 contract C1.
+  short-circuit to the plan.
 - `print.flexybayes()` / `summary.flexybayes()` /
   `print.flexybayes_aggregated()` replace the single `Exact.:`
   line with two adjacent lines `Representation:` (the IR's
@@ -878,16 +878,15 @@ scaffold).**
   engine name -- `greta_MCMC`, `INLA_Laplace`,
   `stan_brms_HMC` -- distinct from `Representation:` because
   several representations can run on the same engine). Closes
-  audit Critical Fix #4. ADR 0030 Decision 4.
+  audit Critical Fix #4.
 - New `.refusal_registry` environment + `.register_refusal()` /
   `.lookup_refusal()` helpers, empty + locked at end of
   `.onLoad()`. Per-site migration of the ~30 existing `stop()`
   refusals to registry-backed messages is deferred to v0.4.0 per
   `feedback_staged_release_pattern`; the v0.3.8 scaffold is
   forward-architecture for the v0.4.0 export of `fb_refusals()`.
-  ADR 0030 contract C7.
 
-**Phase C `docs:` (audit-drift close + selective vignette
+**`docs:` (audit-drift close + selective vignette
 refresh).**
 
 - Workspace `README.md` replaced (the 2026-04-26 pre-implementation
@@ -898,20 +897,19 @@ refresh).**
   `remotes::install_github("AAGI-AUS/flexyBayes")` with
   `R CMD INSTALL release_tarballs/flexyBayes_0.3.8.tar.gz` plus a
   "will resume after D8" forward-pointer.
-- `AMBITION_STAGE.md` §8.6: `v0.3.6` mis-label corrected (Stage 4
-  ADR 0024, not Stage 5B ADR 0026); `v0.3.7` + `v0.3.8` rows
-  added.
-- ADR 0024 §Consequences amendments (a) per-term INLA estimator
-  + (c) vignette companion both updated to reflect the v0.3.7 ->
+- `AMBITION_STAGE.md` §8.6: the `v0.3.6` mis-label is corrected;
+  `v0.3.7` + `v0.3.8` rows added.
+- The per-term INLA estimator and vignette-companion notes are
+  both updated to reflect the v0.3.7 ->
   v0.3.8 -> follow-on deferral chain.
 - Selective vignette re-precompile -- only vignettes whose
   printed code chunks render `print(fit)` / `summary(fit)` and
   therefore show the new `Representation:` / `Engine:` lines.
   Full sweep deferred to v0.4.0 alongside the vignette deck
-  restructure (per the v0.3.8 plan §12.3 ratification).
+  restructure.
 - `cran-comments.md`: v0.3.8 bump + 3-NOTE-sub-item reframing.
 
-**Phase D `test:` (skip ledger + benchmark profiles).**
+**`test:` (skip ledger + benchmark profiles).**
 
 - New `tools/skip_ledger.R` parses every `tests/testthat/test-*.R`
   for `skip()` / `skip_if_not()` / `skip_on_cran()` /
@@ -944,11 +942,10 @@ refresh).**
   backend shapes. The greta path stays at the two-element
   `c("flexybayes_aggregated", "flexybayes")` (no `flexybayes_greta`
   class is introduced; `fb_as_draws_simple.flexybayes` is the
-  greta extractor). Decision recorded at
-  `ledger/r-package/2026-05-26-aggregated-inla-dispatch-fix-class-vector.cairn.md`.
+  greta extractor).
 - `tests/testthat/test-fb-brms.R:284` `backend_decision()` shape
-  expectation updated from the 4-field ADR-0006 baseline to the
-  8-field ADR-0024 shape (`backend` / `path` / `gate_checks` /
+  expectation updated from the 4-field baseline to the
+  8-field shape (`backend` / `path` / `gate_checks` /
   `reason` / `preflight_summary` / `representation_plan` /
   `rejected_routes` / `routing_policy_version`). The test
   silently failed under `NOT_CRAN=true` since the v0.3.6 close.
@@ -956,7 +953,7 @@ refresh).**
 
 # flexyBayes 0.3.7
 
-## Stage 5A -- known-covariance input formats
+## Known-covariance input formats
 
 `vm()` and `ped()` now accept user-supplied covariance carriers
 beyond the dense $V$ matrix. Three new formats activate in v0.3.7;
@@ -1014,7 +1011,7 @@ default to `format = "dense"`.
 Two more formats reserve their input slots in v0.3.7 but refuse
 cleanly with forward-pointer messages: `blocks = list(V1, V2, ...)`
 defers to v0.3.8 with `route_not_yet_emitted`; `low_rank_factor =`
-+ `low_rank_scheme = "pca"` defers to v0.4.0 (ADR 0027 approximation
++ `low_rank_scheme = "pca"` defers to v0.4.0 (the approximation
 registry) with `approximate_route_not_yet_registered`. Reserving the
 input vocabulary now lets future releases ship without changing the
 `vm()` / `ped()` call shape.
@@ -1042,12 +1039,12 @@ Mutual exclusion across `V` / `chol` / `precision` / `blocks` /
 `vm_redundant_specification` refusal.
 
 **Routing audit anchor.** `backend_decision(fit)$routing_policy_version`
-bumps from `"stage4_v1"` to `"stage5a_v1"` (per ADR 0024) to record
+bumps from `"stage4_v1"` to `"stage5a_v1"` to record
 that INLA's allowlist behaviour materially changed at v0.3.7.
 
 # flexyBayes 0.3.6
 
-## Stage 4 -- backend routing trace + preflight metadata consumption
+## Backend routing trace + preflight metadata consumption
 
 Two architectural additions complete the v0.2.6 -> v0.3.x dispatch
 story. The existing four-backend surface (`greta` / `inla` /
@@ -1056,7 +1053,7 @@ and reports its decisions reproducibly.
 
 **`backend_decision(fit)` gains four new fields.** Every fit
 produced under v0.3.6 carries the existing four fields (`backend`
-/ `path` / `gate_checks` / `reason`, per ADR 0006) plus:
+/ `path` / `gate_checks` / `reason`) plus:
 
 - `preflight_summary` -- the `.fb_preflight()` return value when
   preflight ran (>1e5-row path); NULL on the small-data fast path
@@ -1085,18 +1082,18 @@ calling convention), the gate behaves exactly as today -- 10
 structural rules. When `preflight` is supplied, the gate runs an
 11th rule, `.lgm_check_memory_feasibility_inla(fb, preflight)`,
 that refuses when the INLA path's projected memory exceeds the
-active ceiling. The Stage 4 ship is a single-multiplier
+active ceiling. The shipped form is a single-multiplier
 approximation: INLA memory ~= 3x the indexed preflight total (the
 INLA dense intermediate inflation rule of thumb). Per-term
 estimators are queued for a follow-on release alongside the
 LGM-feasibility vignette; deferred at v0.3.6 close, deferred again
-at v0.3.7 close to keep the Stage 5A known-covariance work the
+at v0.3.7 close to keep the known-covariance work the
 focus, and deferred again at v0.3.8 close (audit hardening was
 prioritised). The multiplier is configurable via
 `options(flexyBayes.inla_memory_multiplier = <value>)`. **The new
 refusal reason code is `memory_infeasibility_inla`** -- distinct
 from the existing structural reason codes (`fixed_term_type_inla`
-/ `random_term_type_inla` / `rcov_term_type_inla` from ADR 0017,
+/ `random_term_type_inla` / `rcov_term_type_inla`,
 the six original family / predictor / distributional / re_prior
 / latent_class / hyperparam_budget). The structural-vs-memory
 distinction is the central new piece of dispatch information --
@@ -1116,10 +1113,9 @@ policy is a table-edit, not a control-flow surgery.
 approximate-scheme exactness label (e.g.,
 `"inla_pardiso_approximate"`, `"variational_advi"`) now refuse at
 the entry function with `approximate_route_not_yet_registered`,
-pointing to ADR 0027 (the future approximation registry). The
-package's identity rests on exactness labelling (per Stage 3A /
-ADR 0022); silently routing an approximate request would violate
-that contract.
+pointing to the future approximation registry. The
+package's identity rests on exactness labelling; silently routing
+an approximate request would violate that contract.
 
 Worked example -- a memory-infeasible model on `backend = "auto"`
 now produces a trace like:
@@ -1148,10 +1144,10 @@ staged for v0.3.7 alongside the per-term INLA memory estimator.
 
 # flexyBayes 0.3.5
 
-## Stage 3B (file-output) -- file-backed prediction + sample activation
+## File-backed prediction + sample activation
 
 Two additions to `predict.flexybayes(newdata, ...)` complete the
-Stage 3B scope opened at 0.3.4.
+file-output scope opened at 0.3.4.
 
 **File-backed prediction output.** Three new arguments --
 `output_file`, `format`, `interop` -- route `predict()` to a
@@ -1251,7 +1247,7 @@ was 1262/0/73; +55 expectations across 22 new blocks).
 
 # flexyBayes 0.3.4
 
-## Stage 3B (core) -- chunked indexed prediction + factor-dictionary handling
+## Chunked indexed prediction + factor-dictionary handling
 
 Three new pieces on the `predict.flexybayes(newdata, ...)` surface
 for prediction grids large enough to warrant chunked iteration and
@@ -1294,7 +1290,7 @@ The file-backed prediction output formats (`format = c("auto",
 
 # flexyBayes 0.3.3
 
-## Stage 3A -- Gaussian aggregated emit (greta path)
+## Gaussian aggregated emit (greta path)
 
 Completes the aggregated-gaussian path by activating the greta
 backend alongside INLA. `fb_brms(..., backend = "greta", aggregate
@@ -1329,7 +1325,7 @@ aggregated path remains queued.
 
 # flexyBayes 0.3.2
 
-## Stage 3A -- Gaussian aggregated emit (INLA path)
+## Gaussian aggregated emit (INLA path)
 
 Wires the sufficient-statistics aggregation foundation (introduced
 in 0.3.0 as `<fb_aggregated>` + `<fb_aggregation_plan>`) into the
@@ -1428,7 +1424,7 @@ random intercept, uncorrelated random slope, fixed factor, factor
 :numeric interaction) now treats an unresolvable level count as the
 signal to escalate to an unknown-representation refusal.
 
-**Aggregation refusal codes.** The Stage 3A out-of-scope taxonomy was
+**Aggregation refusal codes.** The aggregation out-of-scope taxonomy was
 renamed and aligned across the two emitters that report it:
 `.assert_aggregate_in_scope()` (the runtime gate) and
 `.fb_aggregation_plan()` (the model-level planner) now produce the
@@ -1465,7 +1461,7 @@ split and the renamed aggregation taxonomy; 8 ordered cases pin the
 
 # flexyBayes 0.3.0.9000
 
-## Stage 3A foundation -- exact Gaussian aggregation via sufficient statistics
+## Foundation -- exact Gaussian aggregation via sufficient statistics
 
 Internal `.fb_aggregate_gaussian()` collapses a per-row Gaussian-identity
 mixed model into one row per cell, where a cell is the maximal subset of
@@ -1490,9 +1486,9 @@ all of which break the cell-constant linear predictor.
 Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
 the greta / INLA aggregated emit path and the `$exactness` slot.
 
-## Stage 3A foundation -- memory shape correction + model-level plan
+## Foundation -- memory shape correction + model-level plan
 
-Two follow-up changes to the Stage 3A foundation surfaced by the
+Two follow-up changes to the aggregation foundation surfaced by the
 2026-05-23 audit:
 
 - `<fb_aggregated>$design_matrix` (the full `N x p` per-row design
@@ -1525,7 +1521,7 @@ Two follow-up changes to the Stage 3A foundation surfaced by the
 
 ## Preflight hardening -- smooth/spline estimators + unknown-term refusal
 
-The Stage 2 preflight layer now characterises every term class the
+The preflight layer now characterises every term class the
 asreml and brms parsers can emit. Five new branches:
 
 - Mgcv smooth terms (`s(x)`, `smooth_mgcv` in the IR) on either side
@@ -1538,7 +1534,7 @@ asreml and brms parsers can emit. Five new branches:
   matching the codegen default.
 - Factor:factor interactions: dense treatment-coded `N x (prod(L) - 1)`
   estimate; the audit-named high-cardinality scary case.
-- Factor:continuous interactions (ADR 0019 indexed slope): integer
+- Factor:continuous interactions (indexed slope): integer
   index column + continuous column + `(L - 1)` per-level slope
   coefficients.
 - Polynomial terms (`pol(x, d)`): dense `N x d` basis.
@@ -1578,7 +1574,7 @@ floor.
 
 # flexyBayes 0.3.0
 
-## Stage 2 design-memory preflight
+## Design-memory preflight
 
 flexyBayes now estimates the design-representation memory of a model
 upstream of the backend dispatch and refuses with a structured
@@ -1616,7 +1612,7 @@ aggregation runs yet) but is consumed by later stages.
 
 # flexyBayes 0.2.6
 
-## Correctness fix -- factor:continuous interaction (ADR 0019)
+## Correctness fix -- factor:continuous interaction
 
 `flexybayes(y ~ x * f, data = ...)` where `f` is a factor and `x`
 is numeric previously emitted the interaction term using a
@@ -1654,7 +1650,7 @@ passes on the host; on hosts where INLA verification cannot
 complete the gate refuses INLA dispatch with a v0.3 deferral
 message rather than silently shipping an unverified translation.
 
-## Feature -- uncorrelated random slopes (x || g) (ADR 0020)
+## Feature -- uncorrelated random slopes (x || g)
 
 `fb_brms(y ~ x + (x || g), ...)` now parses and emits the
 uncorrelated random-effect form -- in lme4 / brms semantics each
@@ -1664,8 +1660,8 @@ normal priors (no correlation parameter shared between intercept
 and slope). The explicit `(1 + x || g)` shape is equivalent;
 `(0 + x || g)` suppresses the intercept block, yielding a slope-
 only random effect. The correlated form `(x | g)` continues to
-refuse with a v0.3 deferral message pointing to ADR 0025
-(Stage 5A known-covariance inputs), which will admit the user-
+refuse with a v0.3 deferral message pointing to the
+forthcoming known-covariance inputs, which will admit the user-
 supplied Cholesky factor that makes the correlated form
 tractable; the refusal raises a typed condition
 (`flexybayes_correlated_slope_unsupported`) carrying
@@ -1677,17 +1673,17 @@ backends -- the brms-side `sd_<g>__<x>` parameter (brms's
 double-underscore Stan convention) maps to the canonical
 `sd_<x>_<g>`. INLA mapping is gated by a three-arbitrator
 verification test (INLA vs greta vs lme4) on a simple fixture
-following the §3.4 verification policy in
-`plan-indexing-bigdata-merged-2026-05-23-v2.md`; until the
+following the package's three-arbitrator verification policy;
+until the
 verification artefact records pass, the INLA backend refuses
 `(x || g)` with a v0.3 deferral message naming `backend = "greta"`
 as the workaround. Triangulation between greta and brms on
 `(x || g)` fits agrees on slope-variance posteriors within
-`W_1 <= 0.20 * tau_true` (the loosened envelope per merged-v2
-§5.6 risk 3 -- slope-variance posteriors are intrinsically less
+`W_1 <= 0.20 * tau_true` (the loosened envelope --
+slope-variance posteriors are intrinsically less
 identified than intercept-variance ones at modest J).
 
-## Representation benchmarks (Stage 1C per merged-v2 plan section 4.2.3)
+## Representation benchmarks
 
 The benchmark harness gains three new rows per term class:
 `generated_code_size_bytes`, `pre_fit_object_size_bytes`, and
@@ -1704,7 +1700,7 @@ directory accordingly at run time).
 
 # flexyBayes 0.2.5.9000
 
-## Correctness fix -- predict(newdata) on smooths (ADR 0018)
+## Correctness fix -- predict(newdata) on smooths
 
 `predict.flexybayes(..., newdata = ...)` on fits containing one or
 more `s()` smooth terms now uses retained `mgcv` `Smooth` objects via
@@ -1730,7 +1726,7 @@ references `as_data(B_s_<varname>)` instead.
 `nchar(return_code(fit))` for `s(x)` at `n = 10000` dropped from
 ~10 MB to under 10 kB.
 
-## Gate truth = emit truth (ADR 0017)
+## Gate truth = emit truth
 
 `lgm_gate(fb) == accept` is now a sufficient condition for the
 INLA emit path to succeed structurally. Three new gate rules
@@ -1741,7 +1737,7 @@ invoked. `backend = "auto"` no longer carries a separate emit-time
 fall-back path; dispatch trace's auto-non-LGM path is uniformly
 `"auto_lgm_refuse"`.
 
-## Visual-regression test tier upgraded (AMBITION_STAGE §1.1)
+## Visual-regression test tier upgraded
 
 The `vdiffr` SVG-snapshot tests in `test-plot-vdiffr.R` (which had
 been skipped unconditionally due to MCMC-float-drift fragility) are
@@ -1751,7 +1747,7 @@ the SVG-diff fragility.
 
 ## Structured-cov default priors -- vm() + ped() now uniform-on-SD
 
-`.default_uniform_prior()` (extending ADR 0004) now fires on `vm()`
+`.default_uniform_prior()` now fires on `vm()`
 and `ped()` random-term inputs, closing the documented inconsistency
 where `simple`/`ide`/`id` RE SDs defaulted to uniform-on-SD while
 `vm`/`ped` fell back to legacy lognormal. The other structured forms
@@ -1948,8 +1944,8 @@ Stan passthrough; greta for the broader flexyBayes formula path), and
 a two-key-armed override path.
 
 The structural refusals currently live in two places (the gate plus
-`emit_inla()`); folding the emit-time refusals into the gate is the
-ADR 0017 v0.2.5 work.
+`emit_inla()`); folding the emit-time refusals into the gate is
+scheduled for v0.2.5.
 
 ## `gretaR` slot
 
