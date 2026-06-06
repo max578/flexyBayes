@@ -57,30 +57,6 @@ test_that(".wasserstein1_1d() handles edge case with empty samples", {
 })
 
 # ---------------------------------------------------------------- #
-# R-hat-on-means                                                   #
-# ---------------------------------------------------------------- #
-
-test_that(".rhat_means_2() is ~1 when posteriors are nearly identical", {
-  set.seed(3L)
-  x <- rnorm(500)
-  y <- rnorm(500) # same parent distribution
-  rh <- flexyBayes:::.rhat_means_2(x, y)
-  expect_true(rh < 1.1)
-})
-
-test_that(".rhat_means_2() grows when posterior means differ", {
-  set.seed(4L)
-  x <- rnorm(500, mean = 0, sd = 1)
-  y <- rnorm(500, mean = 5, sd = 1)
-  rh <- flexyBayes:::.rhat_means_2(x, y)
-  expect_true(rh > 2)
-})
-
-test_that(".rhat_means_2() returns NA when within-variance is zero", {
-  expect_true(is.na(flexyBayes:::.rhat_means_2(rep(1, 5), rep(1, 5))))
-})
-
-# ---------------------------------------------------------------- #
 # triangulate() integration via synthetic fits                     #
 # ---------------------------------------------------------------- #
 
@@ -150,7 +126,6 @@ test_that("triangulate() metrics agree with hand calculation", {
     tolerance = 1e-10
   )
   expect_true(m$wasserstein_1 > 0.1 && m$wasserstein_1 < 0.4)
-  expect_true(m$rhat_means > 1)
 })
 
 test_that("triangulate() errors when no fb_as_draws_simple method exists", {

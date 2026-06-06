@@ -331,18 +331,17 @@ if (!is.null(tri)) tri
 #> 2        Days  10.5691 1.053870e+01  3.030000e-02  0.8116 1.21360e+00
 #> 3  sd_Subject  43.3434 1.734126e+10 -1.734126e+10  8.5259 5.99785e+09
 #> 4       sigma  31.3205 4.000000e-04  3.132010e+01  1.7396 0.00000e+00
-#>     sd_ratio     q025_diff     q975_diff wasserstein_1 rhat_means
-#> 1     1.8142 -1.075040e+01  1.299940e+01   4.51720e+00     1.0131
-#> 2     0.6688  7.471000e-01 -8.129000e-01   3.13100e-01     1.0002
-#> 3     0.0000 -1.202472e+10 -2.843011e+10   1.73427e+10     3.0593
-#> 4 37772.2922  2.823030e+01  3.493040e+01   3.13142e+01    18.0317
+#>     sd_ratio     q025_diff     q975_diff wasserstein_1
+#> 1     1.8142 -1.075040e+01  1.299940e+01   4.51720e+00
+#> 2     0.6688  7.471000e-01 -8.129000e-01   3.13100e-01
+#> 3     0.0000 -1.202472e+10 -2.843011e+10   1.73427e+10
+#> 4 37772.2922  2.823030e+01  3.493040e+01   3.13142e+01
 ```
 
-The output is a per-parameter readout. The two columns to focus on
-first are `wasserstein_1` — a scale-respecting distance between the
-two posterior marginals — and `rhat_means`, a rank-normalised
-$\widehat{R}$ applied across the two engines' posterior means. Values
-near unity indicate agreement.
+The output is a per-parameter readout. The column to focus on first is
+`wasserstein_1` — a scale-respecting distance between the two posterior
+marginals — read alongside the SD ratio and the tail-quantile
+differences. Values near zero indicate agreement.
 
 For a well-behaved Gaussian random-intercept model the two engines
 should agree to at least the second decimal on the fixed effects and

@@ -125,9 +125,7 @@ you and computes, per scalar parameter:
 - mean shift in posterior-SD units;
 - 1D empirical Wasserstein-1 distance;
 - ratio of posterior SDs;
-- tail-quantile differences (2.5 % and 97.5 %);
-- `rhat_means`, the rank-normalised $\widehat{R}$ between engines'
-  posterior means.
+- tail-quantile differences (2.5 % and 97.5 %).
 
 Threshold: flag any parameter with |mean shift| > 0.1 SD *or*
 Wasserstein-1 > 0.1 SD *or* SD ratio outside [0.9, 1.1].
@@ -324,10 +322,10 @@ if (!is.null(tri)) tri
 #> 1 (Intercept) 0.6050 0.5936    0.0114 0.1337 0.1337   1.0004    0.0307
 #> 2           x 0.4221 0.4166    0.0055 0.0451 0.0442   1.0216   -0.0038
 #> 3    sd_group 0.6500 2.4814   -1.8314 0.0981 0.6878   0.1427   -0.8997
-#>   q975_diff wasserstein_1 rhat_means
-#> 1    0.0033        0.0118     1.0018
-#> 2    0.0061        0.0060     1.0038
-#> 3   -3.3065        1.8291     2.8193
+#>   q975_diff wasserstein_1
+#> 1    0.0033        0.0118
+#> 2    0.0061        0.0060
+#> 3   -3.3065        1.8291
 ```
 
 The print method highlights the columns that breach the

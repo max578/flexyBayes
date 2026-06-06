@@ -27,6 +27,15 @@
   `k > 1`, so its posterior summaries were not interpretable. Predictions and the
   g-side covariance are unchanged -- the product `F %*% t(Lambda)` is
   rotation-invariant -- so only the loadings interpretation is affected.
+* **Removed the `rhat_means` triangulation metric.** `triangulate()` no longer
+  reports `rhat_means`. It pooled two *different* engines' posteriors as if they
+  were chains of a single sampler, which conflates genuine between-engine
+  approximation bias with within-sampler non-convergence -- so it was not a valid
+  convergence diagnostic, and it was mislabelled "rank-normalised R-hat" although
+  it applied no rank-normalisation. Cross-engine discrepancy is reported by the
+  distributional metrics: `wasserstein_1`, `sd_ratio`, `mean_diff`, and the
+  quantile differences. (The per-fit, within-engine rank-normalised R-hat used as
+  a convergence diagnostic is unaffected.)
 
 # flexyBayes 0.7.0
 

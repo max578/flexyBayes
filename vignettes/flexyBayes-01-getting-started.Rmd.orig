@@ -270,11 +270,10 @@ tri <- tryCatch(
 if (!is.null(tri)) tri
 ```
 
-The output is a per-parameter readout. The two columns to focus on
-first are `wasserstein_1` — a scale-respecting distance between the
-two posterior marginals — and `rhat_means`, a rank-normalised
-$\widehat{R}$ applied across the two engines' posterior means. Values
-near unity indicate agreement.
+The output is a per-parameter readout. The column to focus on first is
+`wasserstein_1` — a scale-respecting distance between the two posterior
+marginals — read alongside the SD ratio and the tail-quantile
+differences. Values near zero indicate agreement.
 
 For a well-behaved Gaussian random-intercept model the two engines
 should agree to at least the second decimal on the fixed effects and

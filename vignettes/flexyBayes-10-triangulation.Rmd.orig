@@ -140,9 +140,7 @@ you and computes, per scalar parameter:
 - mean shift in posterior-SD units;
 - 1D empirical Wasserstein-1 distance;
 - ratio of posterior SDs;
-- tail-quantile differences (2.5 % and 97.5 %);
-- `rhat_means`, the rank-normalised $\widehat{R}$ between engines'
-  posterior means.
+- tail-quantile differences (2.5 % and 97.5 %).
 
 Threshold: flag any parameter with |mean shift| > 0.1 SD *or*
 Wasserstein-1 > 0.1 SD *or* SD ratio outside [0.9, 1.1].

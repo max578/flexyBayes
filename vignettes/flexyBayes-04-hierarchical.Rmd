@@ -393,10 +393,10 @@ if (!is.null(tri)) tri
 #> 1  (Intercept) 0.8723  1.7696   -0.8973 2.5208 0.1823  13.8281   -3.1411
 #> 2 trtprogabide 0.6372 -0.2904    0.9276 2.4644 0.2527   9.7524   -1.1425
 #> 3   sd_subject 0.9236  1.1343   -0.2107 0.0592 0.2282   0.2594    0.0645
-#>   q975_diff wasserstein_1 rhat_means
-#> 1    1.3097        2.3605     1.0612
-#> 2    3.0113        2.2505     1.0678
-#> 3   -0.6348        0.2158     1.3413
+#>   q975_diff wasserstein_1
+#> 1    1.3097        2.3605
+#> 2    3.0113        2.2505
+#> 3   -0.6348        0.2158
 ```
 
 If the planted-extreme example from the *cross-engine triangulation*

@@ -339,8 +339,7 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
     sd_ratio = if (is.finite(s_b) && s_b > 0) s_a / s_b else NA_real_,
     q025_diff = q025_a - q025_b,
     q975_diff = q975_a - q975_b,
-    wasserstein_1 = .wasserstein1_1d(a, b),
-    rhat_means = .rhat_means_2(a, b)
+    wasserstein_1 = .wasserstein1_1d(a, b)
   )
 }
 
@@ -356,7 +355,6 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
     q025_diff = numeric(0),
     q975_diff = numeric(0),
     wasserstein_1 = numeric(0),
-    rhat_means = numeric(0),
     stringsAsFactors = FALSE
   )
 }
@@ -374,24 +372,12 @@ is_triangulate_result <- function(x) inherits(x, "triangulate_result")
   mean(abs(qa - qb))
 }
 
-# R-hat-on-means: with two backends, treat each backend's posterior
-# as a single "chain". Compute sqrt((W + B) / W) where W is the
-# average within-engine variance and B is the squared between-
-# engine mean spread. Returns ~1 when posteriors agree and grows
-# with disagreement.
-.rhat_means_2 <- function(a, b) {
-  m_a <- mean(a, na.rm = TRUE)
-  m_b <- mean(b, na.rm = TRUE)
-  v_a <- stats::var(a, na.rm = TRUE)
-  v_b <- stats::var(b, na.rm = TRUE)
-
-  W <- mean(c(v_a, v_b), na.rm = TRUE)
-  if (!is.finite(W) || W <= 0) {
-    return(NA_real_)
-  }
-  B <- (m_a - m_b)^2 / 2
-  sqrt((W + B) / W)
-}
+# (An "R-hat-on-means" between-engine statistic was removed in the development
+# version: pooling two different engines' posteriors as "chains" conflates
+# genuine between-engine approximation bias with within-sampler non-convergence,
+# so it is not a valid convergence diagnostic. Cross-engine discrepancy is
+# reported by the distributional metrics -- wasserstein_1, sd_ratio, mean_diff,
+# and the quantile differences.)
 
 .triangulate_source <- function(fit) {
   if (inherits(fit, "flexybayes_brms")) {

@@ -105,12 +105,12 @@ fit_i <- flexybayes(Reaction ~ Days, random = ~ Subject,
 
 triangulate(fit_g, fit_i)
 #> Common parameters: 3
-#> # A tibble: 3 × 6
-#>   parameter   mean_diff sd_ratio tail_drift wasserstein_1 rhat_means
-#>   <chr>           <dbl>    <dbl>      <dbl>         <dbl>      <dbl>
-#> 1 (Intercept)    -0.04     0.997     0.012          0.04      1.002
-#> 2 Days            0.001    1.001     0.003          0.001     1.000
-#> 3 sigma           0.12     1.004     0.020          0.12      1.001
+#> # A tibble: 3 × 5
+#>   parameter   mean_diff sd_ratio tail_drift wasserstein_1
+#>   <chr>           <dbl>    <dbl>      <dbl>         <dbl>
+#> 1 (Intercept)    -0.04     0.997     0.012          0.04
+#> 2 Days            0.001    1.001     0.003          0.001
+#> 3 sigma           0.12     1.004     0.020          0.12
 ```
 
 Add a third engine via brms / Stan:
