@@ -58,6 +58,17 @@ across four environments with three replicates per cell, plus
 genotype-level kinship (`G_mat`) and pedigree-derived (`A_mat`)
 matrices.
 
+> **A note on the fits below.** This is a *syntax* reference. Each fit
+> exists to show that a term type parses, emits valid engine code, and
+> returns the expected structure -- not to produce publication-grade
+> inference. The fits use modest MCMC budgets to keep the vignette fast,
+> and the structured-covariance terms (`vm`, `fa`, `us`, `ar1`) mix
+> slowly, so the convergence diagnostics printed here are deliberately
+> **not** tuned and should not be read as inference. The *getting
+> started* vignette shows production budgets and how to read
+> $\widehat{R}$ and ESS; the *hierarchical models* and *cross-engine
+> triangulation* vignettes develop inference quality.
+
 ```{r met-data}
 library(flexyBayes)
 data(met_example, package = "flexyBayes")
@@ -87,7 +98,7 @@ alone.
 ```{r fixed-factor, eval = greta_ok}
 fit_fix <- flexybayes(
   fixed = yield ~ env, data = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_fix
 ```
@@ -95,7 +106,7 @@ fit_fix
 ```{r fixed-interaction, eval = greta_ok}
 fit_int <- flexybayes(
   fixed = yield ~ env + x_cov + I(x_cov^2), data = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_int
 ```
@@ -116,7 +127,7 @@ fit_rand <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ geno,                       # 'simple' on a bare factor
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_rand
 ```
@@ -137,7 +148,7 @@ fit_vm <- flexybayes(
   random    = ~ vm(geno, Gmat),
   data      = dat,
   known_matrices = list(Gmat = G_mat),      # name in formula
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_vm
 ```
@@ -175,7 +186,7 @@ fit_fa <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ fa(env, 2):geno,
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_fa
 ```
@@ -201,7 +212,7 @@ fit_nested <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ rep + rep:block,            # blocks-within-rep nested
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_nested
 ```
@@ -321,9 +332,9 @@ fit_b <- flexybayes(
                                 # fixed = yield ~ env, random = ~ geno
   data         = dat,
   backend      = "greta",
-  n_samples    = 100,
-  warmup       = 100,
-  chains       = 1,
+  n_samples    = 1000,
+  warmup       = 2000,
+  chains       = 2,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )

@@ -45,6 +45,17 @@ across four environments with three replicates per cell, plus
 genotype-level kinship (`G_mat`) and pedigree-derived (`A_mat`)
 matrices.
 
+> **A note on the fits below.** This is a *syntax* reference. Each fit
+> exists to show that a term type parses, emits valid engine code, and
+> returns the expected structure -- not to produce publication-grade
+> inference. The fits use modest MCMC budgets to keep the vignette fast,
+> and the structured-covariance terms (`vm`, `fa`, `us`, `ar1`) mix
+> slowly, so the convergence diagnostics printed here are deliberately
+> **not** tuned and should not be read as inference. The *getting
+> started* vignette shows production budgets and how to read
+> $\widehat{R}$ and ESS; the *hierarchical models* and *cross-engine
+> triangulation* vignettes develop inference quality.
+
 
 ``` r
 library(flexyBayes)
@@ -88,7 +99,7 @@ alone.
 ``` r
 fit_fix <- flexybayes(
   fixed = yield ~ env, data = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_fix
 #> Bayesian mixed model  [flexyBayes / aggregated-gaussian]
@@ -99,7 +110,7 @@ fit_fix
 #>   fixed:      2 
 #>   random:     0 
 #>   backend:    inla (path = aggregated_gaussian )
-#>   runtime:    2.45 sec
+#>   runtime:    2.05 sec
 #>   Representation: aggregated_exact (compression 30:1)
 #>   Engine:         INLA Laplace
 #>   aggregation: N = 120 rows -> K = 4 cells (ratio 30:1)
@@ -114,7 +125,7 @@ fit_fix
 ``` r
 fit_int <- flexybayes(
   fixed = yield ~ env + x_cov + I(x_cov^2), data = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_int
 #> Bayesian fit  [flexybayes_inla / INLA backend]
@@ -125,7 +136,7 @@ fit_int
 #>   fixed:   6
 #>   random:  0
 #>   hyper:   1
-#>   runtime: 2.3 sec
+#>   runtime: 2.15 sec
 #>   numerical confirm: PASS
 #> ------------------------------------------------------- 
 #>   $inla -- raw INLA fit (use INLA's summary, plot, etc.)
@@ -149,7 +160,7 @@ fit_rand <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ geno,                       # 'simple' on a bare factor
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_rand
 #> Bayesian mixed model  [flexyBayes / aggregated-gaussian]
@@ -160,7 +171,7 @@ fit_rand
 #>   fixed:      2 
 #>   random:     1 
 #>   backend:    inla (path = aggregated_gaussian )
-#>   runtime:    2.44 sec
+#>   runtime:    2.14 sec
 #>   Representation: aggregated_exact (compression 3:1)
 #>   Engine:         INLA Laplace
 #>   aggregation: N = 120 rows -> K = 40 cells (ratio 3:1)
@@ -188,7 +199,7 @@ fit_vm <- flexybayes(
   random    = ~ vm(geno, Gmat),
   data      = dat,
   known_matrices = list(Gmat = G_mat),      # name in formula
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_vm
 #> Bayesian mixed model  [flexyBayes]
@@ -196,12 +207,12 @@ fit_vm
 #>   Fixed  : yield ~ env 
 #>   Random : ~vm(geno, Gmat) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 6.4 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 18.6 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 119.133  [!] 
-#>   Min ESS: 2 
+#>   Max Rhat: 4.73  [!] 
+#>   Min ESS: 17 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -242,7 +253,7 @@ fit_fa <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ fa(env, 2):geno,
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_fa
 #> Bayesian mixed model  [flexyBayes]
@@ -250,11 +261,11 @@ fit_fa
 #>   Fixed  : yield ~ env 
 #>   Random : ~fa(env, 2):geno 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 3.9 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 13.2 sec
 #>   Params : 5 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 331.703  [!] 
+#>   Max Rhat: 16.094  [!] 
 #>   Min ESS: 0 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
@@ -284,7 +295,7 @@ fit_nested <- flexybayes(
   fixed     = yield ~ env,
   random    = ~ rep + rep:block,            # blocks-within-rep nested
   data      = dat,
-  n_samples = 100, warmup = 100, chains = 2, verbose = FALSE
+  n_samples = 1000, warmup = 2000, chains = 2, verbose = FALSE
 )
 fit_nested
 #> Bayesian mixed model  [flexyBayes]
@@ -292,12 +303,12 @@ fit_nested
 #>   Fixed  : yield ~ env 
 #>   Random : ~rep + rep:block 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 3.5 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 12 sec
 #>   Params : 5 monitored; 2 fixed, 2 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: Inf  [!] 
-#>   Min ESS: 2 
+#>   Max Rhat: 15.211  [!] 
+#>   Min ESS: 10 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -420,9 +431,9 @@ fit_b <- flexybayes(
                                 # fixed = yield ~ env, random = ~ geno
   data         = dat,
   backend      = "greta",
-  n_samples    = 100,
-  warmup       = 100,
-  chains       = 1,
+  n_samples    = 1000,
+  warmup       = 2000,
+  chains       = 2,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
@@ -431,11 +442,12 @@ fit_b
 #> ------------------------------------------------------- 
 #>   Fixed  : yield ~ env + (1 | geno) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 1 chain(s) x 100 samples (warmup = 100 ) -- 1.8 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Min ESS: 2 
+#>   Max Rhat: 1.161  [!] 
+#>   Min ESS: 8 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -505,37 +517,35 @@ sessionInfo()
 #>   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         
 #>  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       
 #>  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        
-#>  [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       
+#>  [16] processx_3.9.0         posterior_1.7.0        magrittr_2.0.5        
 #>  [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        
-#>  [22] tools_4.5.2            data.table_1.18.2.1    sn_2.1.3              
-#>  [25] knitr_1.51             labeling_0.4.3         prettyunits_1.2.0     
-#>  [28] bridgesampling_1.2-1   mnormt_2.1.2           bit_4.6.0             
-#>  [31] classInt_0.4-11        reticulate_1.45.0      plyr_1.8.9            
-#>  [34] RColorBrewer_1.1-3     multcomp_1.4-29        abind_1.4-8           
-#>  [37] KernSmooth_2.23-26     numDeriv_2016.8-1.1    withr_3.0.2           
-#>  [40] stats4_4.5.2           grid_4.5.2             xtable_1.8-8          
-#>  [43] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         
-#>  [46] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
-#>  [49] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
-#>  [52] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
-#>  [55] RcppParallel_5.1.11-2  otel_0.2.0             reshape2_1.4.5        
-#>  [58] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          
-#>  [61] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      
-#>  [64] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     
-#>  [67] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           
-#>  [70] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        
-#>  [73] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           
-#>  [76] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        
-#>  [79] units_1.0-1            glue_1.8.1             parallelly_1.47.0     
-#>  [82] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         
-#>  [85] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         
-#>  [88] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              
-#>  [91] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        
-#>  [94] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     
-#>  [97] MatrixModels_0.5-4     rstantools_2.6.0       class_7.3-23          
-#> [100] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
-#> [103] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
-#> [106] zoo_1.8-15             pkgconfig_2.0.3
+#>  [22] tools_4.5.2            data.table_1.18.2.1    knitr_1.51            
+#>  [25] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             
+#>  [28] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    
+#>  [31] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    
+#>  [34] withr_3.0.2            grid_4.5.2             xtable_1.8-8          
+#>  [37] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         
+#>  [40] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
+#>  [43] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
+#>  [46] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
+#>  [49] RcppParallel_5.1.11-2  otel_0.2.0             tfruns_1.5.4          
+#>  [52] DBI_1.3.0              proxy_0.4-29           stringr_1.6.0         
+#>  [55] splines_4.5.2          bayesplot_1.15.0       parallel_4.5.2        
+#>  [58] coro_1.1.0             matrixStats_1.5.0      base64enc_0.1-6       
+#>  [61] marginaleffects_0.32.0 brms_2.23.0            vctrs_0.7.3           
+#>  [64] Matrix_1.7-4           sandwich_3.1-1         jsonlite_2.0.0        
+#>  [67] greta_0.5.1            callr_3.7.6            hms_1.1.4             
+#>  [70] bit64_4.8.0            listenv_0.10.1         units_1.0-1           
+#>  [73] glue_1.8.1             parallelly_1.47.0      codetools_0.2-20      
+#>  [76] distributional_0.7.0   stringi_1.8.7          gtable_0.3.6          
+#>  [79] tibble_3.3.1           pillar_1.11.1          Brobdingnag_1.2-9     
+#>  [82] torch_0.17.0           R6_2.6.1               fmesher_0.7.0         
+#>  [85] evaluate_1.0.5         lattice_0.22-7         png_0.1-9             
+#>  [88] backports_1.5.1        tfautograph_0.3.2      rstantools_2.6.0      
+#>  [91] class_7.3-23           MatrixModels_0.5-4     Rcpp_1.1.1-1.1        
+#>  [94] checkmate_2.3.4        coda_0.19-4.1          nlme_3.1-168          
+#>  [97] whisker_0.4.1          xfun_0.57              zoo_1.8-15            
+#> [100] pkgconfig_2.0.3
 ```
 
 # References
