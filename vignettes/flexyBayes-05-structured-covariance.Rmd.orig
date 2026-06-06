@@ -59,7 +59,7 @@ components (nested random effects). The autoregressive case lives in
 the *spatio-temporal* vignette; the factor-analytic biplot lives in
 the *MET and genomic selection* vignette.
 
-INLA cannot fit these structures in v0.1 (the hyperparameter budget
+INLA cannot fit these structures (the hyperparameter budget
 exceeds the gate's hard limit even at modest environment counts).
 The greta backend handles them all.
 
@@ -68,12 +68,12 @@ The greta backend handles them all.
 > MCMC budgets used here (kept small so the vignette builds quickly), the
 > fits below **frequently fail to mix** -- you will see large
 > $\widehat{R}$ and near-zero ESS, sometimes severely so. That is
-> expected for these models at a vignette-scale budget on the v0.1 greta
+> expected for these models at a vignette-scale budget on the greta
 > sampler, and it is shown rather than hidden. **Treat this vignette
 > purely as a guide to *specifying* each covariance structure, not as a
 > demonstration of inference.** Reliable inference on these structures
 > needs a much larger budget (and, for the hardest of them, a more
-> specialised sampler than v0.1 ships); always verify convergence as the
+> specialised sampler than flexyBayes ships); always verify convergence as the
 > *getting started* vignette describes before interpreting anything, and
 > treat a non-mixing variance component as a signal to simplify the
 > structure or supply an explicit prior.

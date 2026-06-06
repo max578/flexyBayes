@@ -157,6 +157,17 @@ fit_greta <- fb_greta(
 fit_greta
 ```
 
+The printed summary includes a `Representation: exact` line. This reports that
+the model was emitted to the backend without structural approximation: every
+term in the formula is represented as written, with no low-rank or sparse
+truncation. It describes the model *representation*, not the *inference*. The
+greta and brms (Stan) backends draw from the posterior by MCMC, so their only
+inferential error is Monte Carlo sampling error, whereas the INLA backend
+always performs *approximate* inference (integrated nested Laplace
+approximation) whether or not its representation is exact. flexyBayes treats
+"exact representation" and "exact inference" as separate claims and makes only
+the first (see `API_STABILITY.md`, section "Inference semantics").
+
 ### A note on random *intercepts* versus random *slopes*
 
 The same data also supports `Reaction ~ Days + (Days | Subject)` — a

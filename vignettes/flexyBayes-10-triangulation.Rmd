@@ -75,7 +75,7 @@ not noise.
 
 ## Reading the independence-axis label
 
-Agreement is not one thing. From v0.4.0 each `triangulate()` report
+Agreement is not one thing. Each `triangulate()` report
 carries an `independence` label naming *what kind* of convergence the
 agreement underwrites, drawn from a closed three-axis vocabulary that
 follows Gelman et al.'s (2020) *Bayesian Workflow* taxonomy of
@@ -420,7 +420,7 @@ zero-inflated negative-binomial.
 
 In this example, the diagnosis is *likelihood mis-specification*.
 The next move is to refit with a heavier-tailed likelihood and
-re-triangulate. `flexyBayes` in v0.1 supports `family = "negative_binomial"`
+re-triangulate. `flexyBayes` supports `family = "negative_binomial"`
 on both backends:
 
 ```r

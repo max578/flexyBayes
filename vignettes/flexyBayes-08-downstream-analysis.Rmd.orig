@@ -144,7 +144,7 @@ summaries.
 - `slopes()` evaluates *partial derivatives* of predictions with
   respect to a continuous predictor.
 
-As of v0.4.0 `marginaleffects` works directly on `flexyBayes` fits on
+`marginaleffects` works directly on `flexyBayes` fits on
 both the greta and INLA backends. The functions dispatch through the
 package's `get_predict()` / `get_coef()` / `get_vcov()` accessors and
 return population-level (fixed-effect) predictions on the identity
@@ -186,7 +186,7 @@ the entire posterior — the manual draws-based route stays useful.
 `marginaleffects` and `emmeans` overlap in scope. The rule of thumb:
 `emmeans` for grouped means and pairwise contrasts on factors;
 `marginaleffects` for derivative-based summaries and complex
-counterfactuals (when v0.2 lands).
+counterfactuals.
 
 # 5. `bayesplot` — diagnostic and posterior plots
 

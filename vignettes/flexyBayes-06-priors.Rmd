@@ -34,14 +34,14 @@ which a default does most of the work:
   all) reflects this honestly; a prior with a mode away from zero
   introduces an artefactual bump.
 
-`flexyBayes` v0.1 ships a *bounded uniform* prior on the SD scale as
+`flexyBayes` ships a *bounded uniform* prior on the SD scale as
 the default for every variance component (Gelman, 2006), and exposes
 a domain-specific language (DSL), `fb_prior()`, for cases where you
 want something more informative or more constrained.
 
-# 2. The v0.1 default: bounded uniform on the SD scale
+# 2. The default: bounded uniform on the SD scale
 
-When neither `prior` nor `prior_vc_sd` is supplied, `flexyBayes` v0.1
+When neither `prior` nor `prior_vc_sd` is supplied, `flexyBayes`
 fires a one-time announcement message describing the chosen default:
 
 $$
@@ -67,7 +67,7 @@ This default applies on the simple / `id()` / `ide()` random branches
 and on the residual sigma. Structured-covariance branches
 (unstructured, factor-analytic, autoregressive, genomic kernels)
 keep the legacy lognormal default; broadening the uniform default to
-those branches is queued for a subsequent release.
+those branches is deferred to a subsequent release.
 
 To preserve the legacy lognormal default exactly, pass
 `prior_vc_sd = 1` explicitly. To silence the announcement message,
@@ -137,7 +137,7 @@ priors
 #>   b("Days") ~ normal(mean = 0, sd = 50)
 ```
 
-Targets supported in v0.1:
+Targets supported:
 
 | Target | Meaning |
 |---|---|
@@ -147,11 +147,11 @@ Targets supported in v0.1:
 | `cor(group = "g")` | correlation matrix of grouped random effects (LKJ) |
 | `smooth("var", basis = "ps")` | spline / smooth penalty on `var` |
 
-Families supported in v0.1:
+Families supported:
 
 | Family | Closed-form on $\sigma$ |
 |---|---|
-| `uniform(lower, upper)` | bounded uniform on SD (the v0.1 default for variance components) |
+| `uniform(lower, upper)` | bounded uniform on SD (the default for variance components) |
 | `pc(upper, prob)` | Exponential$(-\log(\text{prob})/\text{upper})$ — penalised complexity (Simpson et al., 2017) |
 | `half_normal(scale)` | half-normal $\mathcal{HN}(0, \text{scale})$ |
 | `half_cauchy(scale)` | half-Cauchy $\mathcal{HC}(0, \text{scale})$ |
@@ -166,7 +166,7 @@ Sleep-study reaction times provide a clean substrate for prior
 sensitivity. With 18 subjects, the prior on the subject-level
 $\sigma$ does meaningful work. We compare three priors:
 
-1. The v0.1 uniform default.
+1. The uniform default.
 2. A half-Cauchy(2.5) — a more informative weakly-informative prior
    recommended for very small $J$ (Gelman, 2006, §4).
 3. The legacy lognormal(0, 1).
@@ -348,7 +348,7 @@ realistic mixed-model applications.
 # 9. Pitfalls
 
 **Confusing prior on $\sigma$ with prior on $\sigma^2$ or precision.**
-PC priors and the v0.1 uniform default are stated on the *standard
+PC priors and the uniform default are stated on the *standard
 deviation* scale. INLA's internal parameterisation is precision;
 `priors_to_inla()` handles the change of variables, and the
 `fb_prior()` user does not need to think about it. If you write

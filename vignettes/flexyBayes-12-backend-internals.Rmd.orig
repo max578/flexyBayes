@@ -115,7 +115,7 @@ fb_a$random_terms[[1]]$k         # number of factor-analytic loadings
 
 `fb_from_brms()` walks a single brms-style formula via
 `brms::brmsterms()` when `brms` is loaded; otherwise it parses a
-v0.1 minimum subset directly:
+minimum subset directly:
 
 ```{r fb-from-brms, eval = TRUE}
 fb_b <- flexyBayes:::fb_from_brms(
@@ -141,7 +141,7 @@ build_glm` pipeline (the legacy flexyBayes engine, retained verbatim
 for compatibility). Its job is to *unwrap* the IR back into the
 shape the legacy code expects, run the fit, and wrap the result.
 
-`emit_inla()` is new in v0.1: it builds an INLA formula with
+`emit_inla()` builds an INLA formula with
 `f(group, model = "iid", hyper = ...)` for each random effect,
 plumbs `priors_to_inla()` into the hyperparameter slot, calls
 `INLA::inla()`, and then runs *check 7* — the post-fit numerical-

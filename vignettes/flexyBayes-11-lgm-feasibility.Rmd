@@ -134,7 +134,7 @@ the gloss, the re-route, and the override path.
 ## 4.1 Refusal pattern A — random slopes (caught by `fb_from_brms`, before the gate)
 
 A brms-formula random slope is rejected at *parse* time, before the
-fb_terms IR is ever built. The error message names the v0.1
+fb_terms IR is ever built. The error message names the
 limitation directly:
 
 
@@ -202,7 +202,7 @@ approximates*: the user always sees why INLA refused.
 The latent field of an LGM is Gaussian by construction. A horseshoe,
 Cauchy, or Student-$t$ prior on the *random-effect field* (not on the
 random-effect *standard deviation*, which is always a hyperparameter)
-violates the assumption. The v0.1 `fb_prior()` DSL does not expose a
+violates the assumption. The `fb_prior()` DSL does not expose a
 target for the latent field directly, so this refusal is constructed
 by setting an explicit non-Gaussian RE-prior entry on the IR:
 
@@ -230,7 +230,7 @@ ref_h
 ```
 
 Real horseshoe-on-latent-field shrinkage is best handled with the
-greta backend; v0.2 will add a horseshoe target to the DSL on the
+greta backend; a future release will add a horseshoe target to the DSL on the
 greta side.
 
 ## 4.4 Refusal pattern D — hyperparameter-budget exhaustion (check 6)
@@ -334,7 +334,7 @@ cat(gs$activation_procedure, sep = "\n")
 #> Run options(flexyBayes.gretaR_activated = TRUE) in the session.
 ```
 
-The slot is dormant under v0.2 because the gretaR package is not
+The slot is dormant because the gretaR package is not
 yet publicly available and the package's audit process for new
 backends has not yet been wired into the registry. Activation will
 land in a subsequent release when both conditions are met. Until
@@ -356,7 +356,7 @@ dispatch-helper branch with the real emit step.
 field.** A Student-$t$ prior on `sigma` (the random-effect standard
 deviation) is fine and does not trigger refusal — `sigma` is a
 hyperparameter, not part of the latent field. A Student-$t$ prior on
-the random-effect *coefficient vector* (not exposed in the v0.1 DSL,
+the random-effect *coefficient vector* (not exposed in the DSL,
 constructed manually here) does trigger refusal, correctly.
 
 **Reading "lgm_compatible" as "the model is correct".** The flag

@@ -44,7 +44,7 @@ matrix.
 > shown rather than hidden. **Read the loadings, biplots, and predictions
 > below as illustrations of the *workflow*, not as inference.** A real
 > analysis needs a much larger budget (and, for the hardest structures, a
-> more specialised sampler than v0.1 ships); always verify convergence as
+> more specialised sampler than flexyBayes ships); always verify convergence as
 > the *getting started* and *structured covariance* vignettes describe
 > before interpreting anything.
 

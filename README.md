@@ -39,6 +39,25 @@ greta; it never routes to Stan, because brms's first-call Stan compile
 (typically 30–60 s) is incompatible with the auto-fast-path promise.
 Reach Stan explicitly with `fb_brms()` or `fb(..., backend = "brms")`.
 
+## Backend support
+
+flexyBayes is standalone-functional with any one backend installed, and the
+planner (see *Quick start*) needs none at all. The backends differ in install
+burden and in what they offer.
+
+| Backend | On CRAN? | Install burden | Inference | In flexyBayes |
+|---|---|---|---|---|
+| INLA | No (own repository) | Moderate — binary, no compiler | Approximate (nested Laplace) | Supported |
+| brms (Stan) | Yes | Heavy — first-call Stan compile (~30–60 s) | MCMC (sampling error only) | Supported |
+| greta | No (greta-dev R-universe) | Heavy — Python + TensorFlow stack | MCMC (sampling error only) | Supported |
+| gretaR | No (opt-in) | Heavy — torch | MCMC (out-of-process NUTS) | Dormant, opt-in |
+
+Every export carries a `lifecycle::badge("experimental")`; see
+`API_STABILITY.md` for what that guarantees. The fastest way to explore the
+package without any backend is the planner; for a worked fit with production
+sampling settings and honest diagnostics, follow the *getting started*
+vignette.
+
 ## Installation
 
 ```r
@@ -68,16 +87,34 @@ install rather than failing obscurely.
 
 ## Quick start
 
+The planner needs no inference backend and is the fastest way to see what
+flexyBayes will do with a model: it builds the intermediate representation,
+chooses a backend, and reports the plan without fitting.
+
 ```r
 library(flexyBayes)
 data(sleepstudy, package = "lme4")
 
-# Fit a mixed model with ASReml-style syntax
+# Inspect the routing decision and representation plan -- no backend needed
+plan <- flexybayes(
+  fixed  = Reaction ~ Days,
+  random = ~ Subject,
+  data   = sleepstudy,
+  plan   = TRUE
+)
+plan
+```
+
+To fit, install at least one backend (see *Backend support* above). The
+following uses production sampling settings; the *getting started* vignette
+walks through the same fit with its convergence diagnostics.
+
+```r
 fit <- flexybayes(
   fixed  = Reaction ~ Days,
   random = ~ Subject,
   data   = sleepstudy,
-  n_samples = 2000, warmup = 2000, chains = 2
+  n_samples = 2000, warmup = 5000, chains = 4
 )
 
 # Standard R output
@@ -220,6 +257,19 @@ that ships in the package tarball is the pre-evaluated static output.
   around the claim that *evidence of cross-engine agreement* is the
   signature flexyBayes deliverable, not "one more Bayesian mixed-
   model frontend".
+
+## Correctness
+
+flexyBayes ships an extensive `testthat` suite (`devtools::test()`) covering
+the paths most likely to hide errors: fixed-effect and factor models against
+`lm()` / `lme4::lmer()` references, random intercepts and the asreml-route
+random slopes, structured-covariance terms, streaming-aggregation equivalence
+to the per-row fit, weights, offsets, missing-response handling, backend
+routing and the structured refusal taxonomy, prior translation, and
+cross-engine `triangulate()` agreement. The *cross-engine triangulation* and
+per-family vignettes show clean reproducible checks; the structured-covariance
+reference vignettes are explicitly marked non-inferential where a model does
+not mix at vignette-scale budgets.
 
 ## Known limitations
 

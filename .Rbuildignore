@@ -34,6 +34,7 @@
 ^flexyBayes\.Rcheck$
 ^\.\.Rcheck$
 ^flexyBayes_.*\.tar\.gz$
+^NEWS_ARCHIVE\.md$
 Rplots\.pdf$
 \.DS_Store$
 ^tools$

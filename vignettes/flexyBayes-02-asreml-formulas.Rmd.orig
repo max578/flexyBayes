@@ -40,7 +40,7 @@ effects covariance structure, and the residual covariance structure —
 plus a named list of pre-computed matrices (kinship, pedigree-derived
 numerator relationship, design covariance) and an optional weights
 vector. This vignette catalogues every term type the asreml-format
-parser accepts in v0.1.
+parser accepts.
 
 The companion `fb_brms()` entry — covered in the *getting started*,
 *hierarchical models*, and *foundational regression* vignettes —
@@ -120,7 +120,7 @@ factor:
 |---|---|
 | `simple` (bare factor name in the random formula) | iid normal random effect on a factor |
 | `ide(g)` | identical-distribution random effect (synonym of simple) |
-| `id(g)` | identity-covariance — the same as simple in v0.1 |
+| `id(g)` | identity-covariance — the same as simple |
 
 ```{r random-simple, eval = greta_ok}
 fit_rand <- flexybayes(
@@ -176,7 +176,7 @@ this section gives the call shapes.
 | Term | Semantics |
 |---|---|
 | `at(env, simple):geno` | diagonal: independent genotype variances per environment |
-| `at(env, ide):geno` | identical to `at_simple` in v0.1 |
+| `at(env, ide):geno` | identical to `at_simple` |
 | `us(env):geno` | unstructured: full $n \times n$ env covariance for genotype effects |
 | `fa(env, k):geno` | factor-analytic with `k` latent factors (Smith, Cullis, & Thompson, 2001) |
 | `ar1(env):geno` | first-order autoregressive in environment ordering |

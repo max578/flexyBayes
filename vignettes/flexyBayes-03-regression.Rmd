@@ -274,7 +274,7 @@ summary(fit_re)
 Two things change relative to the pooled fit in §4.
 
 * A second variance component appears: the standard deviation of the
-  `Subject`-level random intercepts. Under the v0.1 default this is
+  `Subject`-level random intercepts. Under the default this is
   given a bounded uniform prior — `sd(Subject) ~ uniform(0, 5*sd(y))`
   — a weakly-informative choice for this moderate group count (for
   very small `J`, Gelman (2006) recommends a half-Cauchy instead).
@@ -422,7 +422,7 @@ training-data quantile structure.
 The legacy ASReml-style spline term `spl(x, type = "ps", df = m)`
 remains supported for backward compatibility with prior code; `s()`
 is the recommended path going forward. Tensor-product smooths
-`te()`, `ti()`, and `t2()` are queued for a future release.
+`te()`, `ti()`, and `t2()` are deferred to a future release.
 
 # 7. Pitfalls
 
@@ -440,14 +440,11 @@ write `fixed = y ~ x + s(x)`. That fails — smooths belong in the
 levels, R will throw an error or produce an `NA`. Pre-process
 `newdata` to set factor levels explicitly.
 
-**Smooth prediction at new x's.** As of v0.2.5,
+**Smooth prediction at new x's.**
 `predict.flexybayes(fit, newdata = ...)` correctly re-evaluates the
 spline basis on the new `x` positions via `mgcv::PredictMat()` on
 the retained basis object. See section 6.1 above for the overlay
-against the `mgcv::predict.gam()` reference. Legacy fits saved
-before v0.2.5 cannot use the new path and receive a structured
-refusal — re-fit on the current package version to enable
-`predict(newdata)`.
+against the `mgcv::predict.gam()` reference.
 
 # 8. Active prompts
 

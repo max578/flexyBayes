@@ -29,7 +29,7 @@ Ignoring either kind of correlation has the same effect: standard
 errors are biased downward, posterior credible intervals are too
 narrow, and inferences look more confident than the data warrant.
 
-`flexyBayes` v0.1 covers two correlation structures:
+`flexyBayes` covers two correlation structures:
 
 - **first-order autoregressive** (`ar1`) on a regular ordered factor
   — for time, columns, or rows;
@@ -63,7 +63,7 @@ column.
 > **A note on the fits below — read first.** The spatial AR1×AR1 and the
 > temporal AR1 models here are structured-covariance models -- the
 > hardest case for Hamiltonian Monte Carlo, and greta-only (INLA refuses
-> the AR1×AR1 route in v0.1). At the modest MCMC budgets used to keep the
+> the AR1×AR1 route). At the modest MCMC budgets used to keep the
 > vignette fast, these fits **frequently fail to mix** (large
 > $\widehat{R}$, near-zero ESS). Treat this vignette as a guide to
 > *specifying* spatial and temporal correlation structures, not as a
@@ -230,7 +230,7 @@ the agronomy-textbook decomposition (Gilmour, Cullis, & Verbyla,
 
 # 5. Limitations of the current spatial coverage
 
-`flexyBayes` v0.2 covers regular grids with AR1 correlation. It does
+`flexyBayes` covers regular grids with AR1 correlation. It does
 *not* cover:
 
 - **irregular geography** — the SPDE / Matérn approach (Lindgren,
@@ -238,7 +238,7 @@ the agronomy-textbook decomposition (Gilmour, Cullis, & Verbyla,
 - **areal data** — the BYM2 model (Riebler, Sørbye, Simpson, & Rue,
   2016) is on the roadmap;
 - **continuous-time temporal correlation** — the
-  Ornstein–Uhlenbeck and continuous-AR processes are on the v0.3
+  Ornstein–Uhlenbeck and continuous-AR processes are on the
   roadmap;
 - **spatio-temporal interaction** — separable space-time covariance
   is on the roadmap.
@@ -268,11 +268,11 @@ random-effect variance component — the data have insufficient degrees
 of freedom. Convergence diagnostics will flag this; refit without
 the AR1 and accept the simpler model.
 
-**INLA refuses AR1×AR1 in v0.1.** The `lgm_gate()` filter refuses
-spatial-AR1 dispatch to INLA via the structured-covariance route in
-v0.1; the greta backend handles it natively. v0.2 adds INLA-side
-support for separable AR1 via `f(row, model = "ar1")` plus group
-indices.
+**INLA refuses AR1×AR1.** The `lgm_gate()` filter refuses spatial-AR1
+dispatch to INLA via the structured-covariance route, and the greta
+backend handles it natively. If you need the INLA approximation for a
+separable AR1 structure, route directly through `R-INLA` with
+`f(row, model = "ar1")` plus group indices (see the limitations above).
 
 # 7. Active prompts
 

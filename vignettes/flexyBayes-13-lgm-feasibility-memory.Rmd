@@ -20,17 +20,15 @@ knitr::opts_chunk$set(
 
 # 1. Why a per-term memory estimator?
 
-The v0.3.6 release shipped `lgm_gate()` rule 11
-(`memory_feasibility_inla`) with a single multiplier on the
-preflight's indexed estimate. That multiplier was a useful safety
-net but coarse: a model whose memory profile is dominated by one
-structured-covariance term could refuse for the wrong reason, and
-the diagnostic message named neither the binding term nor the
-representation class driving the projection.
+`lgm_gate()` rule 11 (`memory_feasibility_inla`) originally used a
+single multiplier on the preflight's indexed estimate. That multiplier
+was a useful safety net but coarse: a model whose memory profile is
+dominated by one structured-covariance term could refuse for the wrong
+reason, and the diagnostic message named neither the binding term nor
+the representation class driving the projection.
 
-The v0.3.10 release replaces the multiplier with a per-term
-decomposition. Each random-effect term contributes bytes according
-to its representation class:
+The gate now uses a per-term decomposition instead. Each random-effect
+term contributes bytes according to its representation class:
 
 | Representation | Bytes per term | Notes |
 |---|---|---|
@@ -91,17 +89,17 @@ Four common patterns resolve the refusal:
 
 # 4. What the per-term estimator does not capture
 
-The v0.3.10 estimator covers the four exact representations
+The per-term estimator covers the four exact representations
 flexyBayes supports today (dense, chol, precision/pedigree-sparse,
 blocks) plus the indexed random-effect and dense-basis fixed-effect
 shapes. Two surfaces are explicitly out of scope:
 
 - **SPDE meshes.** INLA's `model = "spde2"` mesh allocations are
-  workflow-specific and not modelled here; a future release (v0.4.1)
+  workflow-specific and not modelled here; a future release
   ships a tensor-smooth estimator that covers the relevant shapes.
 - **Approximate schemes** (low-rank covariance carriers, variational
   stage-2). These refuse at the routing layer until validated
-  through `validate_approximation()` (added in v0.4.0).
+  through `validate_approximation()`.
 
 # 5. References
 
