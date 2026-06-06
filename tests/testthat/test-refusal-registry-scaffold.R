@@ -124,7 +124,7 @@ test_that(".refusal_registry carries the v0.3.10 first-migration entries", {
 # reasons and the internal aggregate-out-of-scope control-flow
 # signals are deliberately excluded (see fb_refusals() docs).
 
-test_that(".refusal_registry holds the complete 53-code vocabulary", {
+test_that(".refusal_registry holds the complete 54-code vocabulary", {
   reg <- flexyBayes:::.refusal_registry
   entries <- ls(envir = reg, all.names = TRUE)
   # 31 from the Phase 1C bulk migration + the family-support refusal,
@@ -147,12 +147,17 @@ test_that(".refusal_registry holds the complete 53-code vocabulary", {
   # gretaR_not_installed, gretaR_below_version_floor,
   # gretaR_family_unsupported, gretaR_random_group_not_in_data,
   # gretaR_random_term_type_unsupported,
-  # gretaR_cannot_represent_structured_cov (= 53).
-  expect_equal(length(entries), 53L)
+  # gretaR_cannot_represent_structured_cov (= 53). At v0.7.0 the
+  # data-aware factor-analytic rank upper bound is added:
+  # fa_rank_exceeds_dim (fa(x, k) refused for k >= n_outer), the
+  # identifiability complement of the data-free fa_rank_invalid floor
+  # (= 54).
+  expect_equal(length(entries), 54L)
   expect_true("stan_cannot_represent_structured_cov" %in% entries)
   expect_true("grammar_brms_with_asreml_terms" %in% entries)
   expect_true("native_greta_requires_greta_backend" %in% entries)
   expect_true("engine_pin_backend_conflict" %in% entries)
+  expect_true("fa_rank_exceeds_dim" %in% entries)
   expect_false("grammar_greta_via_fb_deferred" %in% entries)
 
   # spot-check a representative new code from each family

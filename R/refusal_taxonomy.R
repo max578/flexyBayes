@@ -886,6 +886,27 @@
     since_version = "0.4.0"
   )
   .register_refusal(
+    reason_code = "fa_rank_exceeds_dim",
+    description = paste0(
+      "A factor-analytic term fa(x, k) was given a rank k that is not ",
+      "strictly below the number of levels of the outer factor. A ",
+      "factor-analytic covariance is identifiable only for k < n_outer: ",
+      "at k = n_outer the loadings and specific variances form an ",
+      "over-parameterised reparameterisation of the unstructured form, ",
+      "and at k > n_outer the lower-triangular loadings carry empty ",
+      "columns. This is a data-aware preflight (n_outer is known only ",
+      "after the term is matched against the data), complementing the ",
+      "data-free fa_rank_invalid (k < 1) check."
+    ),
+    message_template = paste0(
+      "fa() requires k < the number of levels of the outer factor; ",
+      "got k = %s with %s level(s)."
+    ),
+    registered_in_adr = "audit-2026-06-06",
+    plan_field = NA_character_,
+    since_version = "0.7.0"
+  )
+  .register_refusal(
     reason_code = "smooth_variable_not_in_data",
     description = paste0(
       "The variable inside a smooth term s(x) is not a column of ",

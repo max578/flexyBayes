@@ -431,6 +431,22 @@
       if (term$outer %in% names(data)) {
         f <- factor(data[[term$outer]])
         term$n_outer <- nlevels(f)
+        # Data-aware identifiability preflight: a factor-analytic
+        # covariance is identifiable only for k < n_outer. The data-free
+        # k < 1 floor is enforced earlier in .classify_interaction(); the
+        # upper bound needs n_outer, which is known only here.
+        if (!is.null(term$k) && term$k >= term$n_outer) {
+          stop(.fb_refusal_condition(
+            reason_code = "fa_rank_exceeds_dim",
+            message = paste0(
+              "fa() requires k < the number of levels of \"",
+              term$outer, "\"; got k = ", term$k, " with ",
+              term$n_outer, " level(s). Use k <= ",
+              term$n_outer - 1L, ", or us(", term$outer,
+              ") for a full unstructured covariance."
+            )
+          ))
+        }
       }
       if (term$inner %in% names(data)) {
         f <- factor(data[[term$inner]])

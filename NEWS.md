@@ -27,6 +27,16 @@
   `k > 1`, so its posterior summaries were not interpretable. Predictions and the
   g-side covariance are unchanged -- the product `F %*% t(Lambda)` is
   rotation-invariant -- so only the loadings interpretation is affected.
+* **Factor-analytic rank upper bound.** `fa(x, k)` is now refused at fit time
+  when `k` is not strictly below the number of levels of `x` (new refusal
+  `fa_rank_exceeds_dim`). A factor-analytic covariance is identifiable only for
+  `k < n_outer`: at `k = n_outer` the loadings and specific variances are an
+  over-parameterised reparameterisation of the unstructured form, and at
+  `k > n_outer` the lower-triangular loadings carry empty columns. The check is
+  data-aware (the number of levels is known only once the term is matched against
+  the data), complementing the existing data-free `k >= 1` floor
+  (`fa_rank_invalid`). The refusal message points to `us(x)` for a full
+  unstructured covariance.
 * **Removed the `rhat_means` triangulation metric.** `triangulate()` no longer
   reports `rhat_means`. It pooled two *different* engines' posteriors as if they
   were chains of a single sampler, which conflates genuine between-engine
