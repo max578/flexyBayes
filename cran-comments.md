@@ -121,6 +121,23 @@ a working Stan toolchain. Stan-dependent tests gate via
 `skip_on_ci()` because brms's first-call Stan compile (typically
 30–60 s) exceeds the CRAN check budget.
 
+## Test-suite behaviour on CRAN
+
+The tests that exercise a *live* inference fit (greta HMC, INLA
+Laplace, brms/Stan) gate behind `skip_if_not_installed()` /
+`skip_on_cran()` and therefore skip on CRAN's clean check machine,
+since none of the three engines is a hard dependency. What runs in
+full on CRAN is the engine-independent core, which is the bulk of the
+package's logic and its test surface: the ASReml and brms formula
+parsers, the term classifier and intermediate representation, the
+`lgm_gate()` feasibility checks, the backend-dispatch policy table,
+the refusal registry, the canonical parameter-name registry, the
+prior DSL, and the `triangulate()` metric computations (run against
+fixture draws rather than live fits). The skipped portion is the
+thin engine-call layer, not the package's modelling logic; the live
+engine paths are exercised on the maintainer's machine and on the CI
+legs that install the engines (see the GitHub Actions matrix above).
+
 ## Vignette compute
 
 Sixteen vignettes ship with the package. Heavy MCMC fits inside

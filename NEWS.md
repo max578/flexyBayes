@@ -71,6 +71,8 @@
   is live, not "queued"; the native-greta canonical-name map is supplied via
   `fb_from_greta(model, canonical_names = ...)`). Vignettes were re-precompiled.
 
+# flexyBayes 0.7.0
+
 This release reconciles three parallel development streams onto the engine, data,
 and surrogate axes: gretaR activated as a fourth inference engine (the engine
 axis), the C5 ensemble-source data contract and its first consumers (the data
