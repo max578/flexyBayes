@@ -760,7 +760,7 @@ emit_inla <- function(
 
   msg <- paste0(
     "INLA mapping for uncorrelated random slopes (x || g) is ",
-    "deferred to v0.3.\n",
+    "deferred to a future release.\n",
     "The INLA mapper is registered ",
     "only when the\nthree-arbitrator verification test (INLA vs ",
     "greta vs lme4 on a simple fixture\nat J = 20 groups) passes ",
@@ -789,7 +789,7 @@ emit_inla <- function(
     list(
       message = msg,
       call = NULL,
-      deferral_target = "v0.3",
+      deferral_target = "a future release",
       workaround = "backend = \"greta\""
     )
   )

@@ -842,7 +842,6 @@ test_that("low_rank path with registered-looking scheme refuses with approximate
   # (materialise U %*% t(U)).
   expect_match(err$message, "reserved type")
   expect_match(err$message, "fb_cov\\(")
-  expect_match(err$message, "v0\\.4\\.0")
   expect_match(err$message, "F_mat %\\*% t\\(F_mat\\)")
 })
 

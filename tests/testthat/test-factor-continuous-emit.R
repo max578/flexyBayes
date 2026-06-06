@@ -249,9 +249,9 @@ test_that("contr.helmert raises flexybayes_contrast_unsupported", {
   expect_s3_class(cond, "flexybayes_contrast_unsupported")
   expect_identical(cond$contrast, "contr.helmert")
   expect_identical(cond$factor_name, "f")
-  expect_match(cond$deferral_target, "v0\\.3")
+  expect_match(cond$deferral_target, "representation IR")
   expect_match(conditionMessage(cond), "contr\\.helmert")
-  expect_match(conditionMessage(cond), "v0\\.3")
+  expect_match(conditionMessage(cond), "representation IR")
 })
 
 # ---------------------------------------------------------------- #
@@ -273,7 +273,7 @@ test_that("contr.sum raises flexybayes_contrast_unsupported", {
   )
   expect_s3_class(cond, "flexybayes_contrast_unsupported")
   expect_identical(cond$contrast, "contr.sum")
-  expect_match(cond$deferral_target, "v0\\.3")
+  expect_match(cond$deferral_target, "representation IR")
 })
 
 # ---------------------------------------------------------------- #
@@ -295,7 +295,7 @@ test_that("ordered factor raises flexybayes_contrast_unsupported", {
   expect_s3_class(cond, "flexybayes_contrast_unsupported")
   expect_identical(cond$contrast, "ordered")
   expect_identical(cond$factor_name, "f")
-  expect_match(cond$deferral_target, "v0\\.3")
+  expect_match(cond$deferral_target, "representation IR")
 })
 
 # ---------------------------------------------------------------- #
@@ -323,7 +323,7 @@ test_that("custom contrast matrix raises flexybayes_contrast_unsupported", {
   )
   expect_s3_class(cond, "flexybayes_contrast_unsupported")
   expect_identical(cond$contrast, "<custom_matrix>")
-  expect_match(cond$deferral_target, "v0\\.3")
+  expect_match(cond$deferral_target, "representation IR")
 })
 
 # ---------------------------------------------------------------- #
@@ -407,7 +407,7 @@ test_that("lgm_gate accepts factor_numeric_interaction structurally", {
   r10 <- flexyBayes:::.lgm_check_factor_numeric_interaction_inla_verified(fb)
   if (!flexyBayes:::.factor_numeric_interaction_inla_verified()) {
     expect_false(r10$pass)
-    expect_match(r10$reason, "deferred to v0\\.3")
+    expect_match(r10$reason, "INLA mapping deferred")
   } else {
     expect_true(r10$pass)
   }

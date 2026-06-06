@@ -137,7 +137,7 @@ test_that("(h) malformed `include` raises predict_kernel_invalid_include", {
       newdata = data.frame(x = 1),
       include = c("fixed", "random_known")
     ),
-    "v0.3.8 kernel vocabulary"
+    "kernel vocabulary"
   )
   expect_s3_class(err1, "flexybayes_predict_kernel_refusal")
   expect_identical(err1$reason_code, "predict_kernel_invalid_include")

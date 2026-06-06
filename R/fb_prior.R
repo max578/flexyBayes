@@ -287,7 +287,7 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
     stop(
       "Unsupported prior distribution: ",
       fn,
-      ". v0.1 supports: ",
+      ". Supported distributions: ",
       paste(supported, collapse = ", "),
       call. = FALSE
     )
@@ -666,10 +666,10 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   }
   message(
     "flexyBayes: uniform() prior on a variance component is ",
-    "approximated as PC(upper, 0.01) for the INLA backend in ",
-    "v0.1.x. The support is matched but the density inside ",
+    "approximated as PC(upper, 0.01) for the INLA backend. ",
+    "The support is matched but the density inside ",
     "differs (PC concentrates at sigma = 0; uniform is flat). ",
-    "Exact bounded-uniform support lands in v0.2 -- see ",
+    "Exact bounded-uniform support is deferred to a future release -- see ",
     "?fb_prior. Silence this notice via ",
     "options(flexyBayes.silence_uniform_inla_approx = TRUE)."
   )

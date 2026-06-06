@@ -808,7 +808,7 @@ print.lgm_refusal <- function(x, ...) {
       paste0(
         "INLA's f() machinery does not currently represent ",
         "this structured-covariance class without an SPDE / ",
-        "kronecker expansion that the v0.2 emit does not ",
+        "kronecker expansion that the current INLA emit does not ",
         "produce. Re-route via backend = \"greta\"."
       )
     }
@@ -952,10 +952,10 @@ print.lgm_refusal <- function(x, ...) {
     rule_id,
     paste0(
       "factor:continuous indexed interaction INLA mapping ",
-      "deferred to v0.3 (no successful three-arbitrator ",
+      "deferred (no successful three-arbitrator ",
       "verification artefact on this host). Re-route via ",
-      "backend = \"greta\" (treatment-coded indexed-slope emit ",
-      "ships in v0.2.6) or backend = \"brms\" (Stan ",
+      "backend = \"greta\" (which provides the treatment-coded ",
+      "indexed-slope emit) or backend = \"brms\" (Stan ",
       "passthrough)."
     ),
     diagnostic = paste0(

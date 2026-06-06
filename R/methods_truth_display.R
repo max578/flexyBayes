@@ -92,7 +92,7 @@
     return("INLA Laplace")
   }
   if (identical(backend, "gretaR")) {
-    return("gretaR (R-native; dormant at v0.3.x)")
+    return("gretaR (R-native; dormant)")
   }
   backend
 }

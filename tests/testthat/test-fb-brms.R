@@ -209,13 +209,13 @@ test_that("fb_brms() refuses correlated random slopes (x | g) with ADR 0020 stru
     error = function(e) e
   )
   expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
-  expect_identical(err$deferral_target, "v0.3")
+  expect_identical(err$deferral_target, "a future release")
   expect_identical(err$workaround, "(x || g)")
   expect_identical(err$grouping_factor, "g1")
   expect_identical(err$slope_variable, "x")
   msg <- conditionMessage(err)
   expect_true(grepl("Correlated random slopes", msg))
-  expect_true(grepl("v0\\.3", msg))
+  expect_true(grepl("future release", msg))
   expect_true(grepl("\\(x \\|\\| g\\)", msg))
 })
 

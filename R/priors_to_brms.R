@@ -378,7 +378,7 @@
     family,
     "` priors on ",
     target_label,
-    ". v0.2.6 supports: ",
+    ". Supported targets: ",
     "b()/Intercept ~ normal(mean, sd) | student_t(df, scale); ",
     "sigma ~ uniform(lower, upper) | half_normal(scale) | pc(upper, prob); ",
     "sd(group) ~ uniform | half_normal | pc (intercept-variance row); ",
@@ -404,9 +404,9 @@
   stop(
     "Stan-passthrough emit does not yet handle prior target `",
     label,
-    "`. v0.2 supports b()/Intercept/sigma/sd(group) ",
-    "targets; smoothers and structured covariances are queued ",
-    "for v0.2.5 hardening. For full brms-side control, pass a ",
+    "`. Supported targets: b()/Intercept/sigma/sd(group); ",
+    "smoothers and structured covariances are deferred ",
+    "to a future release. For full brms-side control, pass a ",
     "brms `prior` object via `...` on the Stan-passthrough call.",
     call. = FALSE
   )

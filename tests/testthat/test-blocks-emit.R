@@ -289,7 +289,6 @@ test_that("low_rank refusal message names the reserved fb_cov() carrier, v0.4.0,
   )
   expect_match(err$message, "reserved type")
   expect_match(err$message, "fb_cov\\(")
-  expect_match(err$message, "v0\\.4\\.0")
   expect_match(err$message, "U %\\*% t\\(U\\)")
 })
 

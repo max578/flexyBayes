@@ -635,14 +635,14 @@
         message = paste0(
           "ordered factor \"",
           factor_name,
-          "\" not supported in factor:continuous interaction at v0.2.6 ",
+          "\" not supported in factor:continuous interaction ",
           "(treatment contrasts only). Polynomial-contrast support for ",
-          "ordered factors is deferred to v0.3 representation IR."
+          "ordered factors is deferred to the representation IR."
         ),
         call = NULL,
         contrast = "ordered",
         factor_name = factor_name,
-        deferral_target = "v0.3 representation IR"
+        deferral_target = "the representation IR"
       )
     )
     stop(cond)
@@ -677,14 +677,14 @@
             ctr_name,
             "\" on factor \"",
             factor_name,
-            "\" not supported in factor:continuous interaction at ",
-            "v0.2.6 (treatment contrasts only). General contrast ",
-            "support is deferred to v0.3 representation IR."
+            "\" not supported in factor:continuous interaction ",
+            "(treatment contrasts only). General contrast ",
+            "support is deferred to the representation IR."
           ),
           call = NULL,
           contrast = ctr_name,
           factor_name = factor_name,
-          deferral_target = "v0.3 representation IR"
+          deferral_target = "the representation IR"
         )
       )
       stop(cond)
@@ -716,9 +716,9 @@
           opt[[1L]],
           "\" applies to unordered factor \"",
           factor_name,
-          "\" in factor:continuous interaction; v0.2.6 ships only ",
-          "the treatment-coded emit. General contrast support is ",
-          "deferred to v0.3 representation IR. Workaround: ",
+          "\" in factor:continuous interaction; only ",
+          "the treatment-coded emit is shipped. General contrast support is ",
+          "deferred to the representation IR. Workaround: ",
           "`contrasts(",
           factor_name,
           ") <- contr.treatment(",
@@ -729,7 +729,7 @@
         call = NULL,
         contrast = opt[[1L]],
         factor_name = factor_name,
-        deferral_target = "v0.3 representation IR"
+        deferral_target = "the representation IR"
       )
     )
     stop(cond)

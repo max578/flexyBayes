@@ -89,7 +89,7 @@ test_that("emit_inla() consults the verification artefact for (x || g) admission
       error = function(e) e
     )
     expect_s3_class(err, "flexybayes_inla_simple_slope_uncor_deferred")
-    expect_identical(err$deferral_target, "v0.3")
+    expect_identical(err$deferral_target, "a future release")
     expect_identical(err$workaround, "backend = \"greta\"")
   } else {
     art <- readRDS(artefact_path)
@@ -202,5 +202,5 @@ test_that("INLA verification refusal points users to greta as the workaround", {
   msg <- conditionMessage(err)
   expect_true(grepl("backend = \"greta\"", msg, fixed = TRUE))
   expect_true(grepl("three-arbitrator verification test", msg, fixed = TRUE))
-  expect_true(grepl("v0\\.3", msg))
+  expect_true(grepl("future release", msg))
 })

@@ -288,8 +288,8 @@ fb_greta <- function(...) {
   if (!is.null(nm) && "model" %in% nm) {
     if ("fixed" %in% nm) {
       stop(
-        "fb_greta(): pass the model once -- `model` (removed at ",
-        "v0.5.0) and `fixed` name the same model-spec slot.",
+        "fb_greta(): pass the model once -- `model` (no longer ",
+        "accepted) and `fixed` name the same model-spec slot.",
         call. = FALSE
       )
     }

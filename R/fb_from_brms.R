@@ -197,7 +197,7 @@ fb_from_brms <- function(
       identical(formula[[2L]][[1L]], as.name("|"))
   ) {
     stop(
-      "v0.2 brms ingest does not yet support LHS addition forms ",
+      "brms ingest does not yet support LHS addition forms ",
       "(`y | trials(n) ~ ...`, `y | cens(c) ~ ...`, etc.). The ",
       "supported brms corpus is single-column responses only ",
       "(use `family = \"binomial\"` for Bernoulli with a 0/1 ",
@@ -247,7 +247,7 @@ fb_from_brms <- function(
       character(1)
     )
     stop(
-      "v0.1 brms ingest does not yet support: ",
+      "brms ingest does not yet support: ",
       paste(classes, collapse = ", "),
       ". These features will be added in subsequent iterations.",
       call. = FALSE
@@ -282,10 +282,10 @@ fb_from_brms <- function(
     }
     if (identical(rt$type, "brms_re_unsupported")) {
       stop(
-        "v0.2 brms ingest does not yet support this random-effect ",
+        "brms ingest does not yet support this random-effect ",
         "specification. Found: ",
         rt$deparse,
-        ". Supported in v0.2.6: (1 | g), (1 || g), (x || g), ",
+        ". Supported: (1 | g), (1 || g), (x || g), ",
         "(1 + x || g). Other forms (factor random slopes, ",
         "multi-variable uncorrelated slopes, group-of-coefficients ",
         "shorthand) are queued for later expansion of the brms ",
@@ -678,12 +678,12 @@ fb_from_brms <- function(
   slope_variable
 ) {
   msg <- paste0(
-    "Correlated random slopes (x | g) are not yet supported in v0.2.6.\n",
+    "Correlated random slopes (x | g) are not yet supported.\n",
     "Uncorrelated random slopes (x || g) are supported -- they fit the\n",
     "marginal slope and intercept variances independently and are equivalent\n",
     "to the correlated form when the correlation is small.\n\n",
-    "If your model needs the correlation parameter, defer to v0.3\n",
-    "(structured-covariance representation).\n\n",
+    "If your model needs the correlation parameter, defer to a\n",
+    "future release (structured-covariance representation).\n\n",
     "Workaround: re-fit as (x || g) if the correlation is not of inferential\n",
     "interest, or use backend = \"greta\" via fb_brms() with a hand-rolled\n",
     "covariance prior.\n\n",
@@ -700,7 +700,7 @@ fb_from_brms <- function(
       call = NULL,
       grouping_factor = grouping_factor,
       slope_variable = slope_variable,
-      deferral_target = "v0.3",
+      deferral_target = "a future release",
       workaround = "(x || g)"
     )
   )

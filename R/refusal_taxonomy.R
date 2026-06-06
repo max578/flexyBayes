@@ -335,13 +335,13 @@
   .register_refusal(
     reason_code = "approximate_route_not_yet_registered",
     description = paste0(
-      "Approximate covariance / dispatch carriers refuse until the ",
-      "approximation registry ships at v0.4.0 ",
+      "Approximate covariance / dispatch carriers refuse until an ",
+      "approximation scheme is registered ",
       "(validate_approximation())."
     ),
     message_template = paste0(
       "vm(%s, low_rank_factor = %s, low_rank_scheme = '%s'): ",
-      "low-rank carriers require validate_approximation() (v0.4.0)."
+      "low-rank carriers require validate_approximation()."
     ),
     registered_in_adr = "ADR 0025+0027",
     plan_field = "representation_plan",

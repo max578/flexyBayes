@@ -312,8 +312,8 @@
     name = "indexed_structured_estimate",
     description = paste0(
       "Indexed structured term with cov/precision parameters ",
-      "estimated from data (reserved for v0.4.x extensions; no ",
-      "active emit path at v0.4.0 open)."
+      "estimated from data (reserved for future extensions; no ",
+      "active emit path yet)."
     ),
     category = "indexed_structured",
     registered_in_adr = "ADR 0030 (C4)",

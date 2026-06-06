@@ -121,11 +121,11 @@
       reason_code = "predict_kernel_invalid_include",
       message = paste0(
         ".predict_linear_draws(): `include` value(s) not in the ",
-        "v0.3.8 kernel vocabulary: ",
+        "kernel vocabulary: ",
         paste(shQuote(bad), collapse = ", "),
         ". Allowed: ",
         paste(shQuote(allowed), collapse = ", "),
-        ". (random_known is reserved for v0.4.0.)"
+        ". (random_known is reserved for a future release.)"
       ),
       family_class = "flexybayes_predict_kernel_refusal",
       supplied = include,
@@ -199,7 +199,7 @@
       stop(
         ".predict_linear_draws(): no fixed-effect draw columns ",
         "found on the fit. The fit may have no fixed effects or ",
-        "have been built under a pre-v0.2 codegen.",
+        "have been built under an older codegen.",
         call. = FALSE
       )
     }

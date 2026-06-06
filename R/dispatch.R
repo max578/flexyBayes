@@ -365,8 +365,8 @@
         "\": approximate-scheme dispatch is ",
         "not yet registered (reason_code = ",
         "approximate_route_not_yet_registered).\n",
-        "The approximation registry ships at v0.4.0; ",
-        "until that lands, the routing layer refuses any backend ",
+        "The approximation registry does not yet register this ",
+        "scheme; the routing layer refuses any backend ",
         "name carrying an exactness label of \"approximate_<scheme>\".\n",
         "The package's identity rests on exactness labelling; ",
         "silently routing an approximate ",
@@ -1123,7 +1123,7 @@
       stop(
         "`aggregate = TRUE` with backend = \"inla\" refused: ",
         "heterogeneous residual at_units on INLA requires the ",
-        "multi-likelihood INLA stack (deferred at v0.3.3). Pass ",
+        "multi-likelihood INLA stack (deferred to a future release). Pass ",
         "backend = \"greta\" with aggregate = TRUE, or aggregate ",
         "= FALSE for per-row INLA.",
         call. = FALSE

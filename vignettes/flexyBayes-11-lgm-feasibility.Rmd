@@ -141,13 +141,13 @@ limitation directly:
 ``` r
 fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy)
 #> Error:
-#> ! Correlated random slopes (x | g) are not yet supported in v0.2.6.
+#> ! Correlated random slopes (x | g) are not yet supported.
 #> Uncorrelated random slopes (x || g) are supported -- they fit the
 #> marginal slope and intercept variances independently and are equivalent
 #> to the correlated form when the correlation is small.
-#> 
-#> If your model needs the correlation parameter, defer to v0.3
-#> (structured-covariance representation).
+#>
+#> If your model needs the correlation parameter, defer to a
+#> future release (structured-covariance representation).
 #> 
 #> Workaround: re-fit as (x || g) if the correlation is not of inferential
 #> interest, or use backend = "greta" via fb_brms() with a hand-rolled
@@ -256,7 +256,7 @@ ref_us
 #> Reasons (2 structural failures):
 #>   - [hyperparam_budget] hyperparameter count = 46 exceeds hard limit 15 (CCD/grid integration intractable; INLA Laplace approximation deteriorates).
 #>     Diagnostic: count = likelihood (1) + random + rcov contributions
-#>   - [random_term_type_inla] random term type "us_gxe" (unstructured G×E) is outside the INLA emit allowlist. INLA's f() machinery does not currently represent this structured-covariance class without an SPDE / kronecker expansion that the v0.2 emit does not produce. Re-route via backend = "greta".
+#>   - [random_term_type_inla] random term type "us_gxe" (unstructured G×E) is outside the INLA emit allowlist. INLA's f() machinery does not currently represent this structured-covariance class without an SPDE / kronecker expansion that the current INLA emit does not produce. Re-route via backend = "greta".
 #>     Diagnostic: fb$random_terms type(s): us_gxe
 #> Re-route: try backend = "brms" via fb_brms() for the Stan passthrough
 #>   (model must be in the brms corpus), or backend = "greta" for the broader

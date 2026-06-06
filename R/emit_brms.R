@@ -500,9 +500,9 @@ emit_brms <- function(
   stop(
     "emit_brms() does not yet translate family = \"",
     fam,
-    "\". v0.2 supports: gaussian, binomial (single-column ",
+    "\". Supported families: gaussian, binomial (single-column ",
     "Bernoulli), poisson, negative_binomial, gamma, lognormal, ",
-    "beta. Other families are queued for v0.2.5+.",
+    "beta. Other families are deferred to a future release.",
     call. = FALSE
   )
 }

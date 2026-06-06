@@ -154,7 +154,7 @@ test_that("fb_from_brms() refuses correlated random slopes (x | g) per ADR 0020"
     error = function(e) e
   )
   expect_s3_class(err, "flexybayes_correlated_slope_unsupported")
-  expect_identical(err$deferral_target, "v0.3")
+  expect_identical(err$deferral_target, "a future release")
   expect_identical(err$workaround, "(x || g)")
   expect_true(grepl("Correlated random slopes", conditionMessage(err)))
 })
