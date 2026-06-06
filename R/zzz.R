@@ -85,19 +85,6 @@
     )
   }
 
-  # Constellation C7: register the sibling surrogate conformers when their
-  # member packages are installed (PESTO's GP, kernR's CME). This only makes
-  # fit_surrogate(method = "gp" / "cme") discoverable when the member is
-  # present; the explicit helpers register_pesto_surrogates() /
-  # register_kernr_surrogates() do the same on demand. Guarded so flexyBayes
-  # stays standalone (the built-in "rff" reference needs no sibling).
-  if (requireNamespace("PESTO", quietly = TRUE)) {
-    tryCatch(register_pesto_surrogates(), error = function(e) NULL)
-  }
-  if (requireNamespace("kernR", quietly = TRUE)) {
-    tryCatch(register_kernr_surrogates(), error = function(e) NULL)
-  }
-
   # Initialise the emit-once message latches into their fresh state.
   # The store lives in R/emit_state.R inside a package-private env so
   # it cannot be read or mutated via getOption() / options(); test

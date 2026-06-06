@@ -78,10 +78,7 @@ Suggests:
     sn,
     tensorflow,
     vdiffr,
-    withr,
-    kernR,
-    PESTO,
-    S7
+    withr
 Additional_repositories:
     https://inla.r-inla-download.org/R/stable
 Remotes:
