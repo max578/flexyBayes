@@ -103,6 +103,7 @@ reference:
       - backend_decision
       - canonical_names
       - fb_backend_status
+      - fb_structured_cov
       - fb_refusals
       - prior_summary
       - gretaR_status
@@ -152,10 +153,13 @@ reference:
       - predict.flexybayes_direct_greta
       - predict.flexybayes_inla
       - fitted.flexybayes
+      - fitted.flexybayes_inla
       - residuals.flexybayes
+      - residuals.flexybayes_inla
       - plot.flexybayes
       - anova.flexybayes
       - logLik.flexybayes
+      - logLik.flexybayes_inla
       - logLik.flexybayes_brms
       - nobs.flexybayes
       - family.flexybayes

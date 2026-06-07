@@ -187,6 +187,11 @@ fb_structured_cov <- function(fit) {
   dimnames(cor_mean) <- list(levels, levels)
   dimnames(rhat) <- list(levels, levels)
 
+  max_rhat <- if (all(is.na(rhat_vec))) {
+    NA_real_
+  } else {
+    max(rhat_vec, na.rm = TRUE)
+  }
   list(
     levels = levels,
     k = k,
@@ -195,6 +200,6 @@ fb_structured_cov <- function(fit) {
     cov_upper = cov_upper,
     cor_mean = cor_mean,
     rhat = rhat,
-    max_rhat = if (all(is.na(rhat_vec))) NA_real_ else max(rhat_vec, na.rm = TRUE)
+    max_rhat = max_rhat
   )
 }

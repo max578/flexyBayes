@@ -344,12 +344,15 @@ test_that("default ceiling resolves to a positive byte count", {
   pf <- .fb_preflight(fb, .fb_dataset(df))
 
   expect_true(pf$ceiling_bytes > 0)
-  # On any host with a successful RAM probe and >=8 GiB RAM, the
-  # default 60% fraction yields >= 4.8 GiB; on the fallback path the
-  # raw 8 GiB ceiling also clears 4.8 GiB. Audit P2.3 (2026-05-23)
-  # lowered the default fraction from 0.8 to 0.6 -- 80% was too high
-  # for shared workstations / CI / interactive laptops.
-  expect_true(pf$ceiling_bytes >= 8 * 1024^3 * 0.6 - 1)
+  # Host-robust: the default ceiling is the documented formula -- 60% of
+  # probed RAM, or an 8 GiB fallback when the probe returns NA -- so
+  # assert against the actual probe rather than assuming the host has
+  # >= 8 GiB (CI runners may have less). Audit P2.3 (2026-05-23) lowered
+  # the default fraction from 0.8 to 0.6.
+  ram <- flexyBayes:::.fb_probe_system_ram()
+  frac <- getOption("flexyBayes.preflight_ram_fraction", 0.6)
+  expected <- if (is.na(ram)) 8 * 1024^3 else as.numeric(frac) * ram
+  expect_equal(pf$ceiling_bytes, expected, tolerance = 1)
 })
 
 test_that("ceiling fallback returns 8 GiB when probes return NA", {

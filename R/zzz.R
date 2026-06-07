@@ -220,7 +220,8 @@
     packageStartupMessage(
       "  Note: no inference backend is installed. Install at least one of:\n",
       "    install.packages('greta',\n",
-      "      repos = c('https://greta-dev.r-universe.dev', getOption('repos')))\n",
+      "      repos = c('https://greta-dev.r-universe.dev', ",
+      "getOption('repos')))\n",
       "      ; greta::install_greta_deps()\n",
       "    install.packages('INLA', repos = c(getOption('repos'),\n",
       "      INLA = 'https://inla.r-inla-download.org/R/stable'))\n",
