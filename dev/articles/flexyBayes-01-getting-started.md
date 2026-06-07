@@ -28,10 +28,10 @@ Bayesian inference should not change the formula you write. If you can
 express the model in ASReml-style syntax,
 [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
 fits it. If you prefer brms-style notation,
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
-fits the same model. Both routes go through a shared internal
-representation, and the same fitted object supports
-[`summary()`](https://rdrr.io/r/base/summary.html),
+[`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+fits the same model (it auto-detects which grammar you used). Both
+routes go through a shared internal representation, and the same fitted
+object supports [`summary()`](https://rdrr.io/r/base/summary.html),
 [`predict()`](https://rdrr.io/r/stats/predict.html),
 `emmeans::emmeans()`, `marginaleffects::predictions()`, and the
 `bayesplot::*` family.
@@ -92,19 +92,26 @@ changes the choice of backend.
 
 | Verb | When to use |
 |----|----|
-| [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md) | Principal entry. Asreml-style formulas (`fixed = ..., random = ~ g, rcov = ~ ...`). Full term-type surface (`fa`, `us`, `at`, `ar1`, `vm`, `ped`, `spl`, `pol`). |
-| [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md) | brms-style formulas (`response ~ x + (1 \| g)`). Fixed effects; single or crossed random intercepts; Gaussian, binomial, and Poisson likelihoods. |
-| [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md) | A user-built `greta_model` — the expert / power-user entry for models already written in native greta primitives. |
+| [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md) / [`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md) | Principal / universal entry. Asreml-style (`fixed = ..., random = ~ g, rcov = ~ ...`) or brms-style (`response ~ x + (1 \| g)`) formulas; auto-detects the grammar and takes a `backend` argument to choose the engine. Full term-type surface (`fa`, `us`, `at`, `ar1`, `vm`, `ped`, `spl`, `pol`). |
+| [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md) / [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_inla.md) / [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md) | Engine pins: fix the backend to greta (HMC), INLA (Laplace), or Stan (brms). Each accepts the same two formula grammars; [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md) also accepts a user-built native `greta_model`. |
 | [`triangulate()`](https://aagi-aus.github.io/flexyBayes/dev/reference/triangulate.md) | Cross-engine posterior comparison. Takes two fits from different backends and reports per-parameter agreement metrics. |
 
+The universal entries
 [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
-and
+/
+[`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+take a `backend` argument: `"auto"` (the default — gate-driven routing:
+INLA on accept, greta on refuse, with a silenceable note carrying the
+reason), `"greta"` (HMC), `"inla"` (explicit LGM fast path; refuses
+non-LGM models with a structured message), and `"brms"` (Stan). The
+engine pins
+[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md)
+/
+[`fb_inla()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_inla.md)
+/
 [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
-share a `backend` argument with three settings: `"greta"` (the default —
-HMC), `"inla"` (explicit LGM fast path; refuses non-LGM models with a
-structured message), and `"auto"` (gate-driven routing: INLA on accept,
-greta on refuse, with a silenceable note carrying the reason). The
-dispatch trace is available post-fit via
+fix the backend instead of taking the argument. The dispatch trace is
+available post-fit via
 [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/dev/reference/backend_decision.md).
 The *backend internals* vignette walks through the dispatch flow
 end-to-end.
@@ -126,51 +133,62 @@ str(sleepstudy)
 #>  $ Subject : Factor w/ 18 levels "308","309","310",..: 1 1 1 1 1 1 1 1 1 1 ...
 ```
 
-We start with the brms-style entry,
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md).
-The formula reads exactly as in `lme4::lmer()` or `brms::brm()`:
-`Reaction ~ Days + (1 | Subject)`.
+We start with a brms-style formula – it reads exactly as in
+`lme4::lmer()` or `brms::brm()`: `Reaction ~ Days + (1 | Subject)` – and
+fit it with the greta engine pin
+[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md):
 
 ``` r
 
-fit_greta <- fb_brms(
+fit_greta <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  backend      = "greta",
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
 fit_greta
 #> Bayesian mixed model  [flexyBayes]
 #> ------------------------------------------------------- 
-#>   Fixed  : Reaction ~ Days 
-#>   Random : ~Subject 
+#>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 500 samples (warmup = 500 ) -- 6.8 sec
+#>   MCMC   : 4 chain(s) x 2000 samples (warmup = 5000 ) -- 30.3 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
-#>   Max Rhat: 2.817  [!] 
-#>   Min ESS: 10 
+#>   Representation: exact
+#>   Engine:         greta MCMC
+#>   Max Rhat: 1.213  [!] 
+#>   Min ESS: 87 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
 #>   $extras -- diagnostics, BLUPs, variance components
 ```
 
+The printed summary includes a `Representation: exact` line. This
+reports that the model was emitted to the backend without structural
+approximation: every term in the formula is represented as written, with
+no low-rank or sparse truncation. It describes the model
+*representation*, not the *inference*. The greta and brms (Stan)
+backends draw from the posterior by MCMC, so their only inferential
+error is Monte Carlo sampling error, whereas the INLA backend always
+performs *approximate* inference (integrated nested Laplace
+approximation) whether or not its representation is exact. flexyBayes
+treats “exact representation” and “exact inference” as separate claims
+and makes only the first (see `API_STABILITY.md`, section “Inference
+semantics”).
+
 #### A note on random *intercepts* versus random *slopes*
 
 The same data also supports `Reaction ~ Days + (Days | Subject)` — a
-per-subject slope on top of the intercept.
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
+per-subject slope on top of the intercept. The brms-style grammar
 accepts random intercepts only (single or crossed); random slopes raise
 a structured refusal naming the offending construct:
 
 ``` r
 
-fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy,
-        backend = "greta")
+fb_greta(Reaction ~ Days + (Days | Subject), data = sleepstudy)
 #> Error: random slopes (Days | Subject) are not in the supported
 #>   brms-style corpus. Express the random structure in asreml-style
 #>   form via flexybayes(fixed = Reaction ~ Days,
@@ -196,25 +214,26 @@ full posterior digest:
 summary(fit_greta)
 #> Bayesian mixed model summary  [flexyBayes]
 #> ============================================================ 
-#>   Fixed  : Reaction ~ Days 
-#>   Random : ~Subject 
+#>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian / identity 
-#>   N = 180 , chains = 2 , samples = 500 
+#>   N = 180 , chains = 4 , samples = 2000 
+#>   Representation: exact
+#>   Engine:         greta MCMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 253.4231 11.8276 227.6631 276.6649
-#> Days         10.5691  0.8116   8.9657  12.1516
+#> (Intercept) 249.7999  9.3448 231.0464 267.0576
+#> Days         10.5319  0.8207   8.9420  12.1814
 #> 
 #> -- Variance components  -------------------------------------- 
 #>       Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_Subject  43.3434 8.5259 27.6680 61.1253
-#> 2   sigma_e_atg  31.3205 1.7396 28.2306 34.9309
+#> 1 sigma_Subject  39.7569 8.1246 27.3758 57.4825
+#> 2   sigma_e_atg  31.2229 1.7749 27.9887 34.9299
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.001 - 2.817 
-#>   ESS  range: 10 - 914 
-#>   Run time  : 6.8 sec
+#>   Rhat range: 1 - 1.213 
+#>   ESS  range: 87 - 3040 
+#>   Run time  : 30.3 sec
 ```
 
 The output is laid out in three blocks.
@@ -226,9 +245,21 @@ The output is laid out in three blocks.
 2.  **Variance components.** The Subject-level SD and the residual SD,
     both on the response scale.
 3.  **Sampler diagnostics.** Effective sample size (ESS) and the
-    rank-normalised $`\widehat{R}`$ (Vehtari et al., 2021). A
-    trustworthy fit has ESS ≥ 400 and $`\widehat{R} \le 1.01`$ on every
-    parameter.
+    rank-normalised $`\widehat{R}`$ (Vehtari et al., 2021). The targets
+    for a trustworthy fit are ESS $`\ge 400`$ and
+    $`\widehat{R} \le 1.01`$ on every parameter. The fixed effects and
+    the residual SD reach them; the Subject-level variance component and
+    its latent per-subject deviations mix more slowly – variance
+    components are among the slowest-mixing quantities in hierarchical
+    MCMC – so the worst of them does not reach the strict bar at a
+    vignette-scale budget. How far above it lands varies from run to
+    run, because greta’s TensorFlow-backed sampler is not fully
+    seed-reproducible; in practice it sits in roughly the
+    $`\widehat{R} \approx 1.1`$ to $`1.4`$ range. The honest reading:
+    the quantities you interpret are reliable, while the hardest-mixing
+    nuisance parameter is not yet at the strict bar. Two moves address
+    it – run longer (more warmup and draws), or cross-check against a
+    different algorithm, which the next section does with INLA.
 
 A density plot of the posteriors is one line:
 
@@ -244,20 +275,20 @@ plot of chunk sleepstudy-plot
 
 #### Variance-component priors
 
-When you call
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
-or
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
-without specifying a prior, `flexyBayes` announces the default it uses
-on every random-effect SD and the residual SD: a **bounded uniform on
-the SD scale**, $`\sigma \sim \mathrm{Uniform}(0, U)`$, with a
-family-aware upper bound (Gelman, 2006). The announcement names $`U`$,
-the scale basis, and the override knobs, and fires once per session.
-Passing `prior_vc_sd = m` opts back into the legacy
-$`\sigma \sim \mathrm{Lognormal}(0, m)`$ default; passing a structured
-`prior = fb_prior(...)` overrides both. The *priors and regularisation*
-vignette articulates the choice in detail and shows how to set priors
-deliberately.
+When you call any entry
+([`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+/
+[`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+or an engine pin) without specifying a prior, `flexyBayes` announces the
+default it uses on every random-effect SD and the residual SD: a
+**bounded uniform on the SD scale**,
+$`\sigma \sim \mathrm{Uniform}(0, U)`$, with a family-aware upper bound
+(Gelman, 2006). The announcement names $`U`$, the scale basis, and the
+override knobs, and fires once per session. Passing `prior_vc_sd = m`
+opts back into the legacy $`\sigma \sim \mathrm{Lognormal}(0, m)`$
+default; passing a structured `prior = fb_prior(...)` overrides both.
+The *priors and regularisation* vignette articulates the choice in
+detail and shows how to set priors deliberately.
 
 Fixed-effect coefficients carry a separate weakly-informative default:
 $`\beta \sim \mathcal{N}(0, 100)`$, applied uniformly to the intercept,
@@ -278,10 +309,9 @@ set of hyperparameters — and finishes almost instantly:
 
 ``` r
 
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   Reaction ~ Days + (1 | Subject),
   data    = sleepstudy,
-  backend = "inla",
   verbose = FALSE
 )
 summary(fit_inla)
@@ -289,16 +319,16 @@ summary(fit_inla)
 #> ------------------------------------------------------------ 
 #> Fixed effects:
 #>                 mean     sd 0.025quant 0.5quant 0.975quant     mode kld
-#> (Intercept) 251.4773 6.6118   238.5005 251.4770   264.4561 251.4770   0
-#> Days         10.4512 1.2382     8.0206  10.4513    12.8814  10.4513   0
+#> (Intercept) 251.4779 6.6394   238.4465 251.4776   264.5113 251.4776   0
+#> Days         10.4511 1.2434     8.0102  10.4512    12.8915  10.4512   0
 #> 
 #> Hyperparameters:
-#>                                                 mean         sd   0.025quant
-#> Precision for the Gaussian observations 4.000000e-04          0 4.000000e-04
-#> Precision for Subject                   1.658427e+10 2257931055 1.345796e+10
-#>                                            0.5quant   0.975quant         mode
-#> Precision for the Gaussian observations 4.00000e-04 5.000000e-04 4.000000e-04
-#> Precision for Subject                   1.61847e+10 2.211318e+10 1.486987e+10
+#>                                                 mean           sd   0.025quant
+#> Precision for the Gaussian observations 4.000000e-04 0.000000e+00 4.000000e-04
+#> Precision for Subject                   7.373782e+15 1.721297e+15 5.131056e+15
+#>                                             0.5quant   0.975quant         mode
+#> Precision for the Gaussian observations 4.000000e-04 5.000000e-04 4.000000e-04
+#> Precision for Subject                   7.023968e+15 1.172617e+16 6.107567e+15
 #> 
 #> Random effects:
 #>   groups: Subject
@@ -331,35 +361,47 @@ if (!is.null(tri)) tri
 #> <triangulate_result>
 #>   source_a: greta
 #>   source_b: inla
+#>   independence: algorithmic + implementation
+#>     (HMC (greta on TensorFlow) versus Laplace approximation (INLA on C): different inference paradigms and different code bases.)
 #>   n_common: 4
 #>   only_a:   0 parameters
 #>   only_b:   198 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
 #> 
 #> Metrics (per common parameter):
-#>         param   mean_a       mean_b     mean_diff    sd_a        sd_b
-#> 1 (Intercept) 253.4231 2.512323e+02  2.190900e+00 11.8276 6.51940e+00
-#> 2        Days  10.5691 1.053870e+01  3.030000e-02  0.8116 1.21360e+00
-#> 3  sd_Subject  43.3434 1.734126e+10 -1.734126e+10  8.5259 5.99785e+09
-#> 4       sigma  31.3205 4.000000e-04  3.132010e+01  1.7396 0.00000e+00
-#>     sd_ratio     q025_diff     q975_diff wasserstein_1 rhat_means
-#> 1     1.8142 -1.075040e+01  1.299940e+01   4.51720e+00     1.0131
-#> 2     0.6688  7.471000e-01 -8.129000e-01   3.13100e-01     1.0002
-#> 3     0.0000 -1.202472e+10 -2.843011e+10   1.73427e+10     3.0593
-#> 4 37772.2922  2.823030e+01  3.493040e+01   3.13142e+01    18.0317
+#>         param   mean_a   mean_b mean_diff   sd_a   sd_b     sd_ratio q025_diff
+#> 1 (Intercept) 249.7999 251.4361   -1.6363 9.3448 6.7046 1.393800e+00   -7.5065
+#> 2        Days  10.5319  10.4433    0.0886 0.8207 1.2584 6.522000e-01    0.9189
+#> 3  sd_Subject  39.7569   0.0000   39.7569 8.1246 0.0000 3.619005e+09   27.3758
+#> 4       sigma  31.2229  47.9229  -16.7000 1.7749 2.3465 7.564000e-01  -15.3356
+#>   q975_diff wasserstein_1
+#> 1    2.4795        2.3844
+#> 2   -0.8900        0.3404
+#> 3   57.4825       39.6188
+#> 4  -17.6713       16.6902
 ```
 
-The output is a per-parameter readout. The two columns to focus on first
-are `wasserstein_1` — a scale-respecting distance between the two
-posterior marginals — and `rhat_means`, a rank-normalised
-$`\widehat{R}`$ applied across the two engines’ posterior means. Values
-near unity indicate agreement.
+The output is a per-parameter readout. The column to focus on first is
+`wasserstein_1` — a scale-respecting distance between the two posterior
+marginals — read alongside the SD ratio and the tail-quantile
+differences. Values near zero indicate agreement.
 
-For a well-behaved Gaussian random-intercept model the two engines
-should agree to at least the second decimal on the fixed effects and
-within a few percent on the variance components. Disagreement of more
-than 0.1 SD on any parameter is a *finding*, not a bug — the
-*cross-engine triangulation* vignette walks through the eight common
-patterns and the protocol for diagnosing each.
+For the fixed effects the two engines agree closely – the intercept and
+the `Days` slope match to within a credible-interval width. The Subject
+variance component is where an approximate engine earns scrutiny. INLA’s
+integrated nested Laplace approximation is fast and accurate for the
+fixed-effect structure of a latent Gaussian model, but its estimate of a
+*small-group* variance component – here there are only eighteen subjects
+– is fragile: depending on the numerical optimisation it may track the
+MCMC estimate or shrink the component sharply toward zero. The
+`sd_ratio` column is where any such divergence shows. That fragility is
+the lesson, not a detail to hide: a single approximate fit of a
+small-group variance component is not trustworthy on its own.
+Triangulate it against MCMC, or supply an explicit penalised-complexity
+prior on the SD (the *priors and regularisation* vignette shows how).
+The *cross-engine triangulation* vignette catalogues this and the other
+common disagreement patterns and the protocol for diagnosing each. A
+divergence of more than 0.1 SD on a parameter you care about is a
+*finding*, not a bug.
 
 #### Letting the package choose the backend
 
@@ -368,7 +410,7 @@ INLA on accept, greta on refuse:
 
 ``` r
 
-fit_auto <- fb_brms(
+fit_auto <- flexybayes(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
   backend      = "auto",
@@ -390,6 +432,33 @@ backend_decision(fit_auto)
 #> 
 #> $reason
 #> [1] "lgm_gate() accepted; INLA dispatch."
+#> 
+#> $preflight_summary
+#> NULL
+#> 
+#> $representation_plan
+#> NULL
+#> 
+#> $rejected_routes
+#> $rejected_routes[[1]]
+#> $rejected_routes[[1]]$backend
+#> [1] "greta"
+#> 
+#> $rejected_routes[[1]]$reason
+#> [1] "not_chosen_by_policy"
+#> 
+#> 
+#> $rejected_routes[[2]]
+#> $rejected_routes[[2]]$backend
+#> [1] "gretaR"
+#> 
+#> $rejected_routes[[2]]$reason
+#> [1] "backend_not_activated"
+#> 
+#> 
+#> 
+#> $routing_policy_version
+#> [1] "stage5a_v1"
 ```
 
 [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/dev/reference/backend_decision.md)
@@ -447,15 +516,16 @@ message that names the rule violated.
 
 Try the following while the package is loaded:
 
-1.  Re-fit `fit_greta` with `chains = 4` and `n_samples = 1000`. How do
-    the ESS and $`\widehat{R}`$ values change? Does the posterior mean
-    of `Days` shift?
+1.  Re-fit `fit_greta` at a much shorter `warmup = 300` and then a much
+    longer `warmup = 12000`. How do the ESS and $`\widehat{R}`$ of
+    `sigma_Subject` respond, and which parameters are most sensitive to
+    the warmup budget? Does the posterior mean of `Days` shift at all?
 2.  Inspect `fit_greta$extras$code`: this is the literal greta program
     that `flexyBayes` generated. Compare it with the program generated
     by the asreml-style call
     `flexybayes(fixed = Reaction ~ Days, random = ~ Subject, data = sleepstudy, ...)`.
 3.  Pass `prior_vc_sd = 1` to
-    [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
+    [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md)
     and refit. The default-prior announcement disappears (you have opted
     into the legacy lognormal). Does the posterior on `sigma_Subject`
     change appreciably?
@@ -467,14 +537,14 @@ Try the following while the package is loaded:
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -483,40 +553,45 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] flexyBayes_0.2.0.9000
+#> [1] flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] tidyselect_1.2.1     dplyr_1.2.1          farver_2.1.2        
-#>  [4] tensorflow_2.20.0    S7_0.2.2             INLA_25.10.19       
-#>  [7] TH.data_1.1-5        tensorA_0.36.2.1     digest_0.6.39       
-#> [10] estimability_1.5.1   lifecycle_1.0.5      sf_1.1-0            
-#> [13] survival_3.8-3       processx_3.9.0       magrittr_2.0.5      
-#> [16] posterior_1.7.0      compiler_4.5.2       rlang_1.2.0         
-#> [19] progress_1.2.3       tools_4.5.2          sn_2.1.3            
-#> [22] knitr_1.51           prettyunits_1.2.0    labeling_0.4.3      
-#> [25] mnormt_2.1.2         classInt_0.4-11      reticulate_1.45.0   
-#> [28] plyr_1.8.9           RColorBrewer_1.1-3   multcomp_1.4-29     
-#> [31] abind_1.4-8          KernSmooth_2.23-26   numDeriv_2016.8-1.1 
-#> [34] withr_3.0.2          stats4_4.5.2         grid_4.5.2          
-#> [37] xtable_1.8-8         e1071_1.7-17         future_1.70.0       
-#> [40] ggplot2_4.0.3        globals_0.19.1       emmeans_2.0.2       
-#> [43] scales_1.4.0         MASS_7.3-65          dichromat_2.0-0.1   
-#> [46] cli_3.6.6            mvtnorm_1.3-6        crayon_1.5.3        
-#> [49] generics_0.1.4       otel_0.2.0           reshape2_1.4.5      
-#> [52] tfruns_1.5.4         DBI_1.3.0            proxy_0.4-29        
-#> [55] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    
-#> [58] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         
-#> [61] Matrix_1.7-4         sandwich_3.1-1       jsonlite_2.0.0      
-#> [64] greta_0.5.1          callr_3.7.6          hms_1.1.4           
-#> [67] listenv_0.10.1       units_1.0-1          glue_1.8.1          
-#> [70] parallelly_1.47.0    codetools_0.2-20     distributional_0.7.0
-#> [73] stringi_1.8.7        gtable_0.3.6         tibble_3.3.1        
-#> [76] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       
-#> [79] evaluate_1.0.5       lattice_0.22-7       png_0.1-9           
-#> [82] backports_1.5.1      tfautograph_0.3.2    MatrixModels_0.5-4  
-#> [85] class_7.3-23         Rcpp_1.1.1-1.1       coda_0.19-4.1       
-#> [88] checkmate_2.3.4      whisker_0.4.1        xfun_0.57           
-#> [91] zoo_1.8-15           pkgconfig_2.0.3
+#>   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          
+#>   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              
+#>   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         
+#>  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       
+#>  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        
+#>  [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       
+#>  [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        
+#>  [22] tools_4.5.2            data.table_1.18.2.1    sn_2.1.3              
+#>  [25] knitr_1.51             labeling_0.4.3         prettyunits_1.2.0     
+#>  [28] bridgesampling_1.2-1   mnormt_2.1.2           bit_4.6.0             
+#>  [31] classInt_0.4-11        reticulate_1.45.0      plyr_1.8.9            
+#>  [34] RColorBrewer_1.1-3     multcomp_1.4-29        abind_1.4-8           
+#>  [37] KernSmooth_2.23-26     numDeriv_2016.8-1.1    withr_3.0.2           
+#>  [40] stats4_4.5.2           grid_4.5.2             xtable_1.8-8          
+#>  [43] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         
+#>  [46] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
+#>  [49] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
+#>  [52] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
+#>  [55] RcppParallel_5.1.11-2  otel_0.2.0             reshape2_1.4.5        
+#>  [58] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          
+#>  [61] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      
+#>  [64] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     
+#>  [67] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           
+#>  [70] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        
+#>  [73] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           
+#>  [76] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        
+#>  [79] units_1.0-1            glue_1.8.1             parallelly_1.47.0     
+#>  [82] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         
+#>  [85] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         
+#>  [88] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              
+#>  [91] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        
+#>  [94] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     
+#>  [97] MatrixModels_0.5-4     rstantools_2.6.0       class_7.3-23          
+#> [100] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
+#> [103] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
+#> [106] zoo_1.8-15             pkgconfig_2.0.3
 ```
 
 ## References

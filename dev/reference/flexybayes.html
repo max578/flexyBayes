@@ -15,7 +15,7 @@ analyses."><meta name="robots" content="noindex"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,7 +96,7 @@ analyses.</p>
 <span>  mcmc_verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  return_code <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  review_code <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"greta"</span>, <span class="st">"inla"</span>, <span class="st">"brms"</span><span class="op">)</span>,</span>
+<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"greta"</span>, <span class="st">"inla"</span>, <span class="st">"brms"</span>, <span class="st">"gretaR"</span><span class="op">)</span>,</span>
 <span>  aggregate <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  plan <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  syntax <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"asreml"</span>, <span class="st">"brms"</span>, <span class="st">"greta"</span><span class="op">)</span></span>
@@ -121,7 +121,7 @@ analyses.</p>
 <span>  mcmc_verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  return_code <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  review_code <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"greta"</span>, <span class="st">"inla"</span>, <span class="st">"brms"</span><span class="op">)</span>,</span>
+<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"greta"</span>, <span class="st">"inla"</span>, <span class="st">"brms"</span>, <span class="st">"gretaR"</span><span class="op">)</span>,</span>
 <span>  aggregate <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  plan <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  syntax <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"asreml"</span>, <span class="st">"brms"</span>, <span class="st">"greta"</span><span class="op">)</span></span>
@@ -217,9 +217,10 @@ scale for the vast majority of agricultural / clinical responses
 without crushing the posterior toward zero), while still
 regularising at sample sizes below ~ 30 per coefficient. Set
 wider (e.g. <code>1000</code>) for responses on a larger natural scale, or
-narrower for explicit shrinkage. Rationale follows Gelman (2006)
-<em>Bayesian Analysis</em> 1(3):515-534 on weakly-informative priors for
-regression coefficients on the data scale.</p></dd>
+narrower for explicit shrinkage. A weakly-informative normal prior
+on the data scale, in the spirit of the weakly-informative-prior
+literature for regression coefficients (e.g. Gelman et al. 2008,
+<em>Annals of Applied Statistics</em> 2(4):1360-1383).</p></dd>
 
 
 <dt id="arg-prior-vc-sd">prior_vc_sd<a class="anchor" aria-label="anchor" href="#arg-prior-vc-sd"></a></dt>
@@ -230,8 +231,10 @@ v0.1 activates a bounded-uniform default on the SD scale
 (<code>uniform(0, U)</code> with family-aware <code>U</code>: <code>5 * sd(y)</code> for Gaussian;
 <code>5</code> on the logit scale for binomial / beta; <code>3</code> on the log scale
 for Poisson / negative-binomial / gamma) for <code>sigma</code> and every
-named random-effect group. Theory: Gelman (2006), <em>Bayesian
-Analysis</em> 1(3):515-534. The legacy <code>lognormal(0, 1)</code> default
+named random-effect group – a weakly-informative choice for
+moderate group counts; for very small <code>J</code>, Gelman (2006), <em>Bayesian
+Analysis</em> 1(3):515-534, recommends a half-t / half-Cauchy instead
+(see the priors vignette). The legacy <code>lognormal(0, 1)</code> default
 fires only when <code>prior_vc_sd</code> is passed explicitly. Silence the
 one-time announcement message via
 <code>options(flexyBayes.silence_default_prior_note = TRUE)</code>.</p></dd>
@@ -273,8 +276,41 @@ for "do everything except sampling". <code>review_code = TRUE</code> and
 <code>lgm_gate()</code> and routes to INLA when the model is latent-Gaussian
 feasible (deterministic and faster on that certified class), and to
 greta (full MCMC, the universal fallback) otherwise — so a
-no-<code>backend</code> call reaches every available engine the model supports.
-<code>"greta"</code> forces full MCMC; <code>"inla"</code> forces INLA and raises a
+no-<code>backend</code> call reaches every available engine the model supports.</p>
+<p><strong>Caution (small-group random effects).</strong> Both backends now apply
+the same default prior — the exact uniform-on-SD (the INLA path
+represents it faithfully via an expression-prior on the log-precision
+rather than the former PC approximation), so the two engines agree on
+the variance component far more closely than in earlier versions. A
+model with very few groups nonetheless carries a weakly-identified
+variance component (the data say little about the between-group
+spread), and INLA's Laplace approximation is less accurate there than
+full MCMC. For a flagship random-intercept model with few groups,
+prefer <code>backend = "greta"</code> or supply an explicit informative prior
+(a half-Cauchy, per Gelman 2006; see the <em>priors</em> vignette).
+<code><a href="fb_backend_status.html">fb_backend_status()</a></code> reports which engines are usable.</p>
+<p><strong>Convergence.</strong> MCMC fits (<code>"greta"</code>, <code>"brms"</code>) emit a warning when
+the sampler may not have converged (a parameter with Rhat at or above
+1.1, or a low effective sample size). Treat such a posterior with
+caution — increase <code>warmup</code> / <code>n_samples</code>, simplify the model, or
+supply a more informative prior — and inspect the full diagnostics
+with <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>. Silence the warning (for intentionally short fits)
+via <code>options(flexyBayes.silence_convergence_warning = TRUE)</code>. The INLA
+path is deterministic and carries no such warning.</p>
+<p>On the greta backend, generalised mixed models (a <code>poisson</code> or
+<code>binomial</code> family with random effects) adapt more slowly than the
+Gaussian case and need a larger <code>warmup</code> than the default — a few
+thousand iterations is typical, and the convergence warning above will
+tell you when more is needed. This is an adaptation-budget matter, not
+a parameterisation one: the random effects already use the
+non-centred form, which mixes at least as well as the centred form
+across the regimes tested. For a latent-Gaussian GLMM the <code>"auto"</code>
+route sidesteps the question entirely by fitting it with INLA.
+Factor-analytic / unstructured covariance terms (greta only) are
+harder still and may not mix at modest budgets; judge their
+convergence on the identified covariance via <code><a href="fb_structured_cov.html">fb_structured_cov()</a></code>
+rather than the rotation-/sign-ambiguous raw loadings.</p>
+<p><code>"greta"</code> forces full MCMC; <code>"inla"</code> forces INLA and raises a
 structured refusal if the model is not LGM-feasible; <code>"brms"</code> is the
 Stan passthrough via brms (refuses asreml structured-covariance
 terms — <code>vm</code>/<code>ped</code>/<code>fa</code>/<code>us</code>/<code>ar1</code> — that have no lossless Stan
@@ -380,18 +416,18 @@ diagnostics, <code>variance_comps</code>, <code>blups</code>, <code>predictions<
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -- Fixed effects (posterior)  ----------------------------------- </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Post.SD</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  47.9118  0.6619</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> envE2         2.1194  0.4599</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> envE3         3.4470  0.4599</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> envE4         6.0062  0.4599</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  47.9118  0.6870</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE2         2.1194  0.4596</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE3         3.4470  0.4596</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> envE4         6.0062  0.4596</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -- Variance components  ---------------------------------------- </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma (residual SD): 1.7654</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   tau_1  (random SD): 1.6047</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   sigma (residual SD): 1.7651</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   tau_1  (random SD): 1.6569</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Run time: 0.46 sec</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Run time: 0.49 sec</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)       envE2       envE3       envE4 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   47.911802    2.119431    3.447017    6.006215 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   47.911800    2.119432    3.447019    6.006217 </span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

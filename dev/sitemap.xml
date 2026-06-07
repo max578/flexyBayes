@@ -3,6 +3,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/CODE_OF_CONDUCT.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/CONTRIBUTING.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/LICENSE.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/NEWS_ARCHIVE.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/SECURITY.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/SUPPORT.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/articles/flexyBayes-01-getting-started.html</loc></url>
@@ -43,6 +44,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/family.flexybayes_inla.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_approx.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_as_draws_simple.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_backend_status.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_cov.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_engine.html</loc></url>
@@ -54,7 +56,9 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_plan.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_refusals.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fb_structured_cov.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fitted.flexybayes.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/fitted.flexybayes_inla.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/flexyBayes-package.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes_stream.html</loc></url>
@@ -74,6 +78,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/is_fb_engine.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes_brms.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes_inla.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/met_example.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/model.matrix.flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/nobs.flexybayes.html</loc></url>
@@ -106,6 +111,7 @@
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/proceed.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/recover_data.flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/residuals.flexybayes.html</loc></url>
+<url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/residuals.flexybayes_inla.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/set_coef.flexybayes.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/summary.fb_plan.html</loc></url>
 <url><loc>https://aagi-aus.github.io/flexyBayes/dev/reference/summary.flexybayes.html</loc></url>

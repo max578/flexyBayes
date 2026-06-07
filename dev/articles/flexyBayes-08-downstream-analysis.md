@@ -24,26 +24,26 @@ and retain it for the rest of this vignette.
 
 library(flexyBayes)
 data(sleepstudy, package = "lme4")
-fit <- fb_brms(
+fit <- fb_greta(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  backend      = "greta",
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
 fit
 #> Bayesian mixed model  [flexyBayes]
 #> ------------------------------------------------------- 
-#>   Fixed  : Reaction ~ Days 
-#>   Random : ~Subject 
+#>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 500 samples (warmup = 500 ) -- 3.3 sec
+#>   MCMC   : 4 chain(s) x 2000 samples (warmup = 5000 ) -- 26.6 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
-#>   Max Rhat: 2.817  [!] 
-#>   Min ESS: 12 
+#>   Representation: exact
+#>   Engine:         greta MCMC
+#>   Max Rhat: 1.365  [!] 
+#>   Min ESS: 66 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -57,33 +57,44 @@ method returns the posterior means of the fixed effects; its
 [`predict()`](https://rdrr.io/r/stats/predict.html) method computes
 posterior predictions on a `newdata` of your choice.
 
+> **A note on the diagnostics.** This is the same random-intercept model
+> as the *getting started* vignette, fit at a production budget (warmup
+> 5000, four chains). The fixed effects – which the `emmeans` and
+> `marginaleffects` analyses below rely on – mix well; the Subject
+> variance component mixes more slowly, so its worst $`\widehat{R}`$
+> sits above the strict 1.01 target, by an amount that varies from run
+> to run (greta’s TensorFlow sampler is not fully seed-reproducible).
+> The downstream summaries below are functions of the fixed-effect
+> posterior and are unaffected.
+
 ``` r
 
 summary(fit)
 #> Bayesian mixed model summary  [flexyBayes]
 #> ============================================================ 
-#>   Fixed  : Reaction ~ Days 
-#>   Random : ~Subject 
+#>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian / identity 
-#>   N = 180 , chains = 2 , samples = 500 
+#>   N = 180 , chains = 4 , samples = 2000 
+#>   Representation: exact
+#>   Engine:         greta MCMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 240.6139  9.7609 220.6458 257.5031
-#> Days         10.5709  0.7740   9.0495  12.1071
+#> (Intercept) 244.3110 11.4101 223.6812 266.6572
+#> Days         10.5609  0.8064   8.9998  12.1716
 #> 
 #> -- Variance components  -------------------------------------- 
 #>       Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_Subject  46.8006 7.6385 33.1607 62.5053
-#> 2   sigma_e_atg  31.1512 1.7157 27.9847 34.7769
+#> 1 sigma_Subject  38.5528 8.0052 27.5404 58.5537
+#> 2   sigma_e_atg  31.2962 1.7861 28.0325 35.0737
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.007 - 2.817 
-#>   ESS  range: 12 - 1000 
-#>   Run time  : 3.3 sec
+#>   Rhat range: 1.003 - 1.365 
+#>   ESS  range: 66 - 2243 
+#>   Run time  : 26.6 sec
 coef(fit)
 #> (Intercept)        Days 
-#>   240.61394    10.57089
+#>   244.31098    10.56085
 ```
 
 ## 3. `emmeans` — marginal means and contrasts
@@ -114,10 +125,10 @@ of the experiment:
 library(emmeans)
 em <- emmeans(fit, ~ Days, at = list(Days = c(0, 5, 9)))
 em
-#>  Days emmean   SE  df lower.CL upper.CL
-#>     0    241 6.76 178      227      254
-#>     5    293 3.69 178      286      301
-#>     9    336 6.76 178      322      349
+#>  Days emmean   SE  df asymp.LCL asymp.UCL
+#>     0    244 11.4 Inf       222       267
+#>     5    297 10.9 Inf       276       318
+#>     9    339 11.5 Inf       317       362
 #> 
 #> Confidence level used: 0.95
 ```
@@ -127,10 +138,10 @@ For pairwise contrasts:
 ``` r
 
 pairs(em)
-#>  contrast      estimate    SE  df t.ratio p.value
-#>  Days0 - Days5    -52.9  6.34 178  -8.342 <0.0001
-#>  Days0 - Days9    -95.1 11.40 178  -8.342 <0.0001
-#>  Days5 - Days9    -42.3  5.07 178  -8.342 <0.0001
+#>  contrast      estimate   SE  df z.ratio p.value
+#>  Days0 - Days5    -52.8 4.03 Inf -13.097 <0.0001
+#>  Days0 - Days9    -95.0 7.26 Inf -13.097 <0.0001
+#>  Days5 - Days9    -42.2 3.23 Inf -13.097 <0.0001
 #> 
 #> P value adjustment: tukey method for comparing a family of 3 estimates
 ```
@@ -151,9 +162,9 @@ sapply(c(0, 5, 9), function(d) {
   c(mean = mean(s), q025 = quantile(s, 0.025), q975 = quantile(s, 0.975))
 })
 #>                [,1]     [,2]     [,3]
-#> mean       240.6139 293.4684 335.7519
-#> q025.2.5%  220.6458 273.0784 313.9702
-#> q975.97.5% 257.5031 309.1911 353.4371
+#> mean       244.3110 297.1152 339.3586
+#> q025.2.5%  223.6812 277.5268 318.1806
+#> q975.97.5% 266.6572 318.2303 362.4187
 ```
 
 ## 4. `marginaleffects` — predictions, comparisons, and slopes
@@ -167,10 +178,10 @@ summaries.
 - `slopes()` evaluates *partial derivatives* of predictions with respect
   to a continuous predictor.
 
-As of v0.4.0 `marginaleffects` works directly on `flexyBayes` fits on
-both the greta and INLA backends. The functions dispatch through the
-package’s `get_predict()` / `get_coef()` / `get_vcov()` accessors and
-return population-level (fixed-effect) predictions on the identity link:
+`marginaleffects` works directly on `flexyBayes` fits on both the greta
+and INLA backends. The functions dispatch through the package’s
+`get_predict()` / `get_coef()` / `get_vcov()` accessors and return
+population-level (fixed-effect) predictions on the identity link:
 
 ``` r
 
@@ -199,15 +210,15 @@ sapply(c(0, 5, 9), function(d) {
   c(pred = mean(s), q025 = quantile(s, 0.025), q975 = quantile(s, 0.975))
 })
 #>                [,1]     [,2]     [,3]
-#> pred       240.6139 293.4684 335.7519
-#> q025.2.5%  220.6458 273.0784 313.9702
-#> q975.97.5% 257.5031 309.1911 353.4371
+#> pred       244.3110 297.1152 339.3586
+#> q025.2.5%  223.6812 277.5268 318.1806
+#> q975.97.5% 266.6572 318.2303 362.4187
 # Comparison: difference between day 9 and day 0
 diff_9_0 <- predict_pop(9) - predict_pop(0)
 c(diff = mean(diff_9_0), q025 = quantile(diff_9_0, 0.025),
   q975 = quantile(diff_9_0, 0.975))
 #>       diff  q025.2.5% q975.97.5% 
-#>   95.13797   81.44569  108.96415
+#>   95.04766   80.99842  109.54425
 ```
 
 For full posterior propagation through complex counterfactuals — where
@@ -217,7 +228,7 @@ the entire posterior — the manual draws-based route stays useful.
 `marginaleffects` and `emmeans` overlap in scope. The rule of thumb:
 `emmeans` for grouped means and pairwise contrasts on factors;
 `marginaleffects` for derivative-based summaries and complex
-counterfactuals (when v0.2 lands).
+counterfactuals.
 
 ## 5. `bayesplot` — diagnostic and posterior plots
 
@@ -301,21 +312,21 @@ for (s in seq_len(n_draws)) {
 loo_pop <- loo::loo(ll_mat)
 loo_pop
 #> 
-#> Computed from 1000 by 180 log-likelihood matrix.
+#> Computed from 8000 by 180 log-likelihood matrix.
 #> 
 #>          Estimate   SE
-#> elpd_loo  -1044.7 29.7
-#> p_loo        53.8  7.2
-#> looic      2089.4 59.3
+#> elpd_loo  -1049.2 29.9
+#> p_loo        67.6  8.9
+#> looic      2098.4 59.8
 #> ------
 #> MCSE of elpd_loo is NA.
 #> MCSE and ESS estimates assume independent draws (r_eff=1).
 #> 
 #> Pareto k diagnostic values:
-#>                           Count Pct.    Min. ESS
-#> (-Inf, 0.67]   (good)     175   97.2%   66      
-#>    (0.67, 1]   (bad)        5    2.8%   <NA>    
-#>     (1, Inf)   (very bad)   0    0.0%   <NA>    
+#>                          Count Pct.    Min. ESS
+#> (-Inf, 0.7]   (good)     171   95.0%   631     
+#>    (0.7, 1]   (bad)        8    4.4%   <NA>    
+#>    (1, Inf)   (very bad)   1    0.6%   <NA>    
 #> See help('pareto-k-diagnostic') for details.
 ```
 
@@ -354,7 +365,7 @@ c(mean = mean(beta_std),
   q025 = quantile(beta_std, 0.025),
   q975 = quantile(beta_std, 0.975))
 #>       mean  q025.2.5% q975.97.5% 
-#>  0.5405276  0.4627348  0.6190813
+#>  0.5400146  0.4601936  0.6223771
 ```
 
 The `beta_std` values are interpretable as Cohen’s $`d`$-style
@@ -422,14 +433,14 @@ queued for a subsequent release.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -438,47 +449,45 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] bayesplot_1.15.0      emmeans_2.0.2         ggplot2_4.0.3        
-#> [4] flexyBayes_0.2.0.9000
+#> [1] bayesplot_1.15.0 emmeans_2.0.2    flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
-#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
-#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
-#>  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          
-#>  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             
-#>  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           
-#>  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       
-#>  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        
-#>  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    
-#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
-#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
-#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
-#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     
-#>  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    
-#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
-#>  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          
-#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
-#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
-#>  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        
-#>  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
-#>  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       
-#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
-#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
-#>  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         
-#>  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    
-#>  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         
-#>  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  
-#>  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          
-#>  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          
-#>  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           
-#>  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         
-#>  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      
-#>  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
-#> [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           
-#> [103] gtable_0.3.6           greta_0.5.1            digest_0.6.39         
-#> [106] classInt_0.4-11        TH.data_1.1-5          farver_2.1.2          
-#> [109] lifecycle_1.0.5        MASS_7.3-65
+#>   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          
+#>   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              
+#>   [7] INLA_25.10.19          TH.data_1.1-5          tensorA_0.36.2.1      
+#>  [10] bayestestR_0.17.0      digest_0.6.39          estimability_1.5.1    
+#>  [13] lifecycle_1.0.5        sf_1.1-0               gretaR_0.2.0          
+#>  [16] survival_3.8-3         processx_3.9.0         magrittr_2.0.5        
+#>  [19] posterior_1.7.0        compiler_4.5.2         rlang_1.2.0           
+#>  [22] progress_1.2.3         tools_4.5.2            data.table_1.18.2.1   
+#>  [25] knitr_1.51             labeling_0.4.3         prettyunits_1.2.0     
+#>  [28] bridgesampling_1.2-1   classInt_0.4-11        bit_4.6.0             
+#>  [31] reticulate_1.45.0      plyr_1.8.9             RColorBrewer_1.1-3    
+#>  [34] KernSmooth_2.23-26     multcomp_1.4-29        abind_1.4-8           
+#>  [37] withr_3.0.2            grid_4.5.2             datawizard_1.3.0      
+#>  [40] e1071_1.7-17           xtable_1.8-8           future_1.70.0         
+#>  [43] ggplot2_4.0.3          ggridges_0.5.7         globals_0.19.1        
+#>  [46] scales_1.4.0           MASS_7.3-65            dichromat_2.0-0.1     
+#>  [49] insight_1.4.6          cli_3.6.6              mvtnorm_1.3-6         
+#>  [52] crayon_1.5.3           generics_0.1.4         otel_0.2.0            
+#>  [55] RcppParallel_5.1.11-2  reshape2_1.4.5         parameters_0.28.3     
+#>  [58] tfruns_1.5.4           proxy_0.4-29           DBI_1.3.0             
+#>  [61] stringr_1.6.0          splines_4.5.2          parallel_4.5.2        
+#>  [64] effectsize_1.0.2       coro_1.1.0             matrixStats_1.5.0     
+#>  [67] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           
+#>  [70] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        
+#>  [73] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           
+#>  [76] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        
+#>  [79] units_1.0-1            glue_1.8.1             parallelly_1.47.0     
+#>  [82] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         
+#>  [85] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         
+#>  [88] Brobdingnag_1.2-9      torch_0.17.0           fmesher_0.7.0         
+#>  [91] R6_2.6.1               evaluate_1.0.5         lattice_0.22-7        
+#>  [94] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     
+#>  [97] class_7.3-23           rstantools_2.6.0       Rcpp_1.1.1-1.1        
+#> [100] coda_0.19-4.1          nlme_3.1-168           checkmate_2.3.4       
+#> [103] whisker_0.4.1          xfun_0.57              zoo_1.8-15            
+#> [106] pkgconfig_2.0.3
 ```
 
 ## References

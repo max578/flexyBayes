@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 03: Foundational regression: linear models, random effects, and mgcv smooths</h1>
             
-            <h4 data-toc-skip class="date">2026-05-23</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-03-regression.Rmd" class="external-link"><code>vignettes/flexyBayes-03-regression.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-03-regression.Rmd</code></div>
@@ -118,10 +118,10 @@ formula.</li>
 <code>rcov</code> — residual covariance (default
 <code>~ units</code>, i.e. iid).</li>
 </ul>
-<p><code><a href="../reference/fb_brms.html">fb_brms()</a></code> is the brms-shaped alternative entry; it
-covers the random-intercept subset of the term-type surface and is
-introduced in the <em>getting started</em> and <em>hierarchical
-models</em> vignettes.</p>
+<p><code><a href="../reference/fb_brms.html">fb_brms()</a></code> is the Stan (brms) engine pin; with a
+brms-shaped formula it covers the random-intercept subset of the
+term-type surface, and is introduced in the <em>getting started</em> and
+<em>hierarchical models</em> vignettes.</p>
 </div>
 <div class="section level2">
 <h2 id="one-way-analysis-of-variance-plantgrowth">2. One-way analysis of variance: <code>PlantGrowth</code><a class="anchor" aria-label="anchor" href="#one-way-analysis-of-variance-plantgrowth"></a>
@@ -140,30 +140,28 @@ factor.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed     <span class="op">=</span> <span class="va">weight</span> <span class="op">~</span> <span class="va">group</span>, data <span class="op">=</span> <span class="va">PlantGrowth</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">500</span>, warmup <span class="op">=</span> <span class="fl">500</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">3000</span>, chains <span class="op">=</span> <span class="fl">4</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit_g</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ============================================================ </span></span>
-<span><span class="co">#&gt;   Fixed  : weight ~ group </span></span>
-<span><span class="co">#&gt;   Family : gaussian / identity </span></span>
-<span><span class="co">#&gt;   N = 30 , chains = 2 , samples = 500 </span></span>
+<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]</span></span>
+<span><span class="co">#&gt; ================================================================= </span></span>
+<span><span class="co">#&gt;   family:     gaussian / identity </span></span>
+<span><span class="co">#&gt;   N = 30 , K = 3 </span></span>
+<span><span class="co">#&gt;   backend:    inla </span></span>
+<span><span class="co">#&gt;   exactness:  aggregated_exact </span></span>
+<span><span class="co">#&gt;   priors:     custom (explicit prior supplied; see prior_summary()) </span></span>
+<span><span class="co">#&gt;   aggregation: N = 30 rows -&gt; K = 3 cells (ratio 10:1)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Fixed effects (posterior)  --------------------------------- </span></span>
-<span><span class="co">#&gt;             Estimate Post.SD     2.5%   97.5%</span></span>
-<span><span class="co">#&gt; (Intercept)  20.7808  5.8311  10.9358 31.2034</span></span>
-<span><span class="co">#&gt; groupctrl   -15.7327  5.8360 -26.0708 -5.8788</span></span>
-<span><span class="co">#&gt; grouptrt1   -16.1127  5.8285 -26.3799 -6.3268</span></span>
-<span><span class="co">#&gt; grouptrt2   -15.2472  5.8212 -25.5022 -5.4452</span></span>
+<span><span class="co">#&gt; -- Fixed effects (posterior)  ----------------------------------- </span></span>
+<span><span class="co">#&gt;             Estimate Post.SD</span></span>
+<span><span class="co">#&gt; (Intercept)    5.032  0.1959</span></span>
+<span><span class="co">#&gt; grouptrt1     -0.371  0.2770</span></span>
+<span><span class="co">#&gt; grouptrt2      0.494  0.2770</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Variance components  -------------------------------------- </span></span>
-<span><span class="co">#&gt;     Component Estimate     SD   2.5%  97.5%</span></span>
-<span><span class="co">#&gt; 1 sigma_e_atg   0.6577 0.0972 0.5201 0.9092</span></span>
+<span><span class="co">#&gt; -- Variance components  ---------------------------------------- </span></span>
+<span><span class="co">#&gt;   sigma (residual SD): 0.6016</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Convergence  --------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Rhat range: 1.024 - 1.295 </span></span>
-<span><span class="co">#&gt;   ESS  range: 5 - 112 </span></span>
-<span><span class="co">#&gt;   Run time  : 4.6 sec</span></span></code></pre></div>
+<span><span class="co">#&gt;   Run time: 2.1 sec</span></span></code></pre></div>
 <p>The fixed-effect block reports the baseline (control) mean as the
 intercept, and the deviations of <code>trt1</code> and <code>trt2</code>
 from baseline. The residual standard deviation block reports the
@@ -214,38 +212,35 @@ environment.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_barley</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed     <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">gen</span> <span class="op">+</span> <span class="va">env</span>, data <span class="op">=</span> <span class="va">fisher.barley</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">500</span>, warmup <span class="op">=</span> <span class="fl">500</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">3000</span>, chains <span class="op">=</span> <span class="fl">4</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit_barley</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ============================================================ </span></span>
-<span><span class="co">#&gt;   Fixed  : yield ~ gen + env </span></span>
-<span><span class="co">#&gt;   Family : gaussian / identity </span></span>
-<span><span class="co">#&gt;   N = 60 , chains = 2 , samples = 500 </span></span>
+<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes / aggregated-gaussian]</span></span>
+<span><span class="co">#&gt; ================================================================= </span></span>
+<span><span class="co">#&gt;   family:     gaussian / identity </span></span>
+<span><span class="co">#&gt;   N = 60 , K = 30 </span></span>
+<span><span class="co">#&gt;   backend:    inla </span></span>
+<span><span class="co">#&gt;   exactness:  aggregated_exact </span></span>
+<span><span class="co">#&gt;   priors:     custom (explicit prior supplied; see prior_summary()) </span></span>
+<span><span class="co">#&gt;   aggregation: N = 60 rows -&gt; K = 30 cells (ratio 2:1)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Fixed effects (posterior)  --------------------------------- </span></span>
-<span><span class="co">#&gt;                   Estimate Post.SD     2.5%    97.5%</span></span>
-<span><span class="co">#&gt; (Intercept)       117.2311 50.3775  12.7558 200.5538</span></span>
-<span><span class="co">#&gt; genManchuria      -22.5297 36.4302 -92.0925  48.8818</span></span>
-<span><span class="co">#&gt; genPeatland       -15.4315 36.0613 -82.3459  54.9088</span></span>
-<span><span class="co">#&gt; genSvansota       -25.8297 36.2463 -96.7570  43.7630</span></span>
-<span><span class="co">#&gt; genTrebi            0.9286 36.2063 -66.7235  71.2548</span></span>
-<span><span class="co">#&gt; genVelvet         -18.0659 36.1415 -86.5305  50.2107</span></span>
-<span><span class="co">#&gt; envCrookston        7.7535 23.9862 -32.9659  48.8152</span></span>
-<span><span class="co">#&gt; envDuluth         -17.9050 23.1978 -58.3629  22.2618</span></span>
-<span><span class="co">#&gt; envGrandRapids    -20.5665 23.7488 -61.3877  20.5800</span></span>
-<span><span class="co">#&gt; envMorris           4.5015 23.2569 -36.9330  44.6837</span></span>
-<span><span class="co">#&gt; envUniversityFarm  -8.1720 22.9149 -49.0034  30.5762</span></span>
-<span><span class="co">#&gt; envWaseca          34.7416 23.5467  -7.9484  76.5127</span></span>
+<span><span class="co">#&gt; -- Fixed effects (posterior)  ----------------------------------- </span></span>
+<span><span class="co">#&gt;                   Estimate Post.SD</span></span>
+<span><span class="co">#&gt; (Intercept)       101.6930  7.1560</span></span>
+<span><span class="co">#&gt; genPeatland         7.0714  7.3624</span></span>
+<span><span class="co">#&gt; genSvansota        -4.0057  7.3611</span></span>
+<span><span class="co">#&gt; genTrebi           22.2751  7.3652</span></span>
+<span><span class="co">#&gt; genVelvet           3.8105  7.3620</span></span>
+<span><span class="co">#&gt; envDuluth         -23.8300  7.9437</span></span>
+<span><span class="co">#&gt; envGrandRapids    -26.0311  7.9445</span></span>
+<span><span class="co">#&gt; envMorris          -2.1382  7.9379</span></span>
+<span><span class="co">#&gt; envUniversityFarm -14.1281  7.9408</span></span>
+<span><span class="co">#&gt; envWaseca          27.5277  7.9345</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Variance components  -------------------------------------- </span></span>
-<span><span class="co">#&gt;     Component Estimate     SD    2.5%   97.5%</span></span>
-<span><span class="co">#&gt; 1 sigma_e_atg  19.6328 2.0083 15.9881 23.8185</span></span>
+<span><span class="co">#&gt; -- Variance components  ---------------------------------------- </span></span>
+<span><span class="co">#&gt;   sigma (residual SD): 18.6458</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Convergence  --------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Rhat range: 1.012 - 4.691 </span></span>
-<span><span class="co">#&gt;   ESS  range: 3 - 106 </span></span>
-<span><span class="co">#&gt;   Run time  : 2.5 sec</span></span></code></pre></div>
+<span><span class="co">#&gt;   Run time: 2.04 sec</span></span></code></pre></div>
 <p>The two factor blocks are reported relative to the (alphabetically
 first) baseline level of each. To get <em>marginal means</em> per
 genotype and per environment, use <code>emmeans</code> — see Tutorial 08
@@ -277,28 +272,25 @@ grouping for now — a <em>pooled</em> regression of reaction on days:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">sleepstudy</span>, package <span class="op">=</span> <span class="st">"lme4"</span><span class="op">)</span></span>
 <span><span class="va">fit_pool</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed     <span class="op">=</span> <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span>, data <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">500</span>, warmup <span class="op">=</span> <span class="fl">500</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">3000</span>, chains <span class="op">=</span> <span class="fl">4</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit_pool</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ============================================================ </span></span>
-<span><span class="co">#&gt;   Fixed  : Reaction ~ Days </span></span>
-<span><span class="co">#&gt;   Family : gaussian / identity </span></span>
-<span><span class="co">#&gt;   N = 180 , chains = 2 , samples = 500 </span></span>
+<span><span class="co">#&gt; Bayesian fit summary  [flexybayes_inla / INLA backend]</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt; Fixed effects:</span></span>
+<span><span class="co">#&gt;                 mean     sd 0.025quant 0.5quant 0.975quant     mode kld</span></span>
+<span><span class="co">#&gt; (Intercept) 251.4781 6.6485   238.4270 251.4777   264.5316 251.4777   0</span></span>
+<span><span class="co">#&gt; Days         10.4511 1.2451     8.0064  10.4511    12.8952  10.4511   0</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Fixed effects (posterior)  --------------------------------- </span></span>
-<span><span class="co">#&gt;             Estimate Post.SD     2.5%    97.5%</span></span>
-<span><span class="co">#&gt; (Intercept) 250.2426  6.6212 238.0011 263.3437</span></span>
-<span><span class="co">#&gt; Days         10.6803  1.2809   8.2486  13.2324</span></span>
+<span><span class="co">#&gt; Hyperparameters:</span></span>
+<span><span class="co">#&gt;                                          mean sd 0.025quant 0.5quant 0.975quant</span></span>
+<span><span class="co">#&gt; Precision for the Gaussian observations 4e-04  0      4e-04    4e-04      5e-04</span></span>
+<span><span class="co">#&gt;                                          mode</span></span>
+<span><span class="co">#&gt; Precision for the Gaussian observations 4e-04</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Variance components  -------------------------------------- </span></span>
-<span><span class="co">#&gt;     Component Estimate     SD    2.5%   97.5%</span></span>
-<span><span class="co">#&gt; 1 sigma_e_atg  48.0099 2.2815 43.9775 53.0741</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Convergence  --------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Rhat range: 0.999 - 1.003 </span></span>
-<span><span class="co">#&gt;   ESS  range: 399 - 907 </span></span>
-<span><span class="co">#&gt;   Run time  : 1.9 sec</span></span></code></pre></div>
+<span><span class="co">#&gt; Random effects:</span></span>
+<span><span class="co">#&gt;   (none)</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------</span></span></code></pre></div>
 <p>The slope on <code>Days</code> is the average per-day increase in
 reaction time. The residual standard deviation absorbs <em>both</em>
 within-subject and between-subject variation, which is wasteful —
@@ -316,37 +308,35 @@ time. In ASReml syntax, this is one extra random term:</p>
 <code class="sourceCode R"><span><span class="va">fit_re</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed     <span class="op">=</span> <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span>, data <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="va">Subject</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">500</span>, warmup <span class="op">=</span> <span class="fl">500</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">3000</span>, chains <span class="op">=</span> <span class="fl">4</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit_re</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ============================================================ </span></span>
-<span><span class="co">#&gt;   Fixed  : Reaction ~ Days </span></span>
-<span><span class="co">#&gt;   Random : ~Subject </span></span>
-<span><span class="co">#&gt;   Family : gaussian / identity </span></span>
-<span><span class="co">#&gt;   N = 180 , chains = 2 , samples = 500 </span></span>
+<span><span class="co">#&gt; Bayesian fit summary  [flexybayes_inla / INLA backend]</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt; Fixed effects:</span></span>
+<span><span class="co">#&gt;                 mean    sd 0.025quant 0.5quant 0.975quant     mode kld</span></span>
+<span><span class="co">#&gt; (Intercept) 251.4772 6.605   238.5137 251.4768   264.4426 251.4768   0</span></span>
+<span><span class="co">#&gt; Days         10.4513 1.237     8.0231  10.4513    12.8790  10.4513   0</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Fixed effects (posterior)  --------------------------------- </span></span>
-<span><span class="co">#&gt;             Estimate Post.SD    2.5%    97.5%</span></span>
-<span><span class="co">#&gt; (Intercept) 159.8145 63.3813 50.5927 240.8208</span></span>
-<span><span class="co">#&gt; Days         10.7506  0.8290  9.1792  12.4631</span></span>
+<span><span class="co">#&gt; Hyperparameters:</span></span>
+<span><span class="co">#&gt;                                                mean           sd   0.025quant</span></span>
+<span><span class="co">#&gt; Precision for the Gaussian observations 4.00000e-04 0.000000e+00 3.000000e-04</span></span>
+<span><span class="co">#&gt; Precision for Subject                   8.51441e+52 2.233032e+52 5.572774e+52</span></span>
+<span><span class="co">#&gt;                                             0.5quant   0.975quant         mode</span></span>
+<span><span class="co">#&gt; Precision for the Gaussian observations 4.000000e-04 5.000000e-04 4.000000e-04</span></span>
+<span><span class="co">#&gt; Precision for Subject                   8.071926e+52 1.415361e+53 6.995155e+52</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Variance components  -------------------------------------- </span></span>
-<span><span class="co">#&gt;       Component Estimate      SD    2.5%    97.5%</span></span>
-<span><span class="co">#&gt; 1 sigma_Subject 123.4530 73.3639 34.8814 267.1262</span></span>
-<span><span class="co">#&gt; 2   sigma_e_atg  31.0839  1.7572 27.6828  34.4775</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; -- Convergence  --------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Rhat range: 1.021 - 3.852 </span></span>
-<span><span class="co">#&gt;   ESS  range: 6 - 433 </span></span>
-<span><span class="co">#&gt;   Run time  : 3.1 sec</span></span></code></pre></div>
+<span><span class="co">#&gt; Random effects:</span></span>
+<span><span class="co">#&gt;   groups: Subject</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------</span></span></code></pre></div>
 <p>Two things change relative to the pooled fit in §4.</p>
 <ul>
 <li>A second variance component appears: the standard deviation of the
-<code>Subject</code>-level random intercepts. Under the v0.1 default
-this is given a bounded uniform prior —
-<code>sd(Subject) ~ uniform(0, 5*sd(y))</code> — following Gelman
-(2006).</li>
+<code>Subject</code>-level random intercepts. Under the default this is
+given a bounded uniform prior —
+<code>sd(Subject) ~ uniform(0, 5*sd(y))</code> — a weakly-informative
+choice for this moderate group count (for very small <code>J</code>,
+Gelman (2006) recommends a half-Cauchy instead).</li>
 <li>The residual standard deviation drops, because between-subject
 variance is no longer absorbed into it.</li>
 </ul>
@@ -380,7 +370,7 @@ how well a flexible smoother recovers the underlying signal.</p>
 <span>  fixed     <span class="op">=</span> <span class="va">y</span> <span class="op">~</span> <span class="fl">1</span>,</span>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="fu">s</span><span class="op">(</span><span class="va">x</span><span class="op">)</span>,</span>
 <span>  data      <span class="op">=</span> <span class="va">sim_dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">500</span>, warmup <span class="op">=</span> <span class="fl">500</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">2000</span>, warmup <span class="op">=</span> <span class="fl">3000</span>, chains <span class="op">=</span> <span class="fl">4</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit_smooth</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Bayesian mixed model summary  [flexyBayes]</span></span>
@@ -388,21 +378,23 @@ how well a flexible smoother recovers the underlying signal.</p>
 <span><span class="co">#&gt;   Fixed  : y ~ 1 </span></span>
 <span><span class="co">#&gt;   Random : ~s(x) </span></span>
 <span><span class="co">#&gt;   Family : gaussian / identity </span></span>
-<span><span class="co">#&gt;   N = 80 , chains = 2 , samples = 500 </span></span>
+<span><span class="co">#&gt;   N = 80 , chains = 4 , samples = 2000 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; -- Fixed effects (posterior)  --------------------------------- </span></span>
-<span><span class="co">#&gt;             Estimate Post.SD   2.5%  97.5%</span></span>
-<span><span class="co">#&gt; (Intercept)   0.1634  0.0365 0.0905 0.2308</span></span>
+<span><span class="co">#&gt;             Estimate Post.SD   2.5% 97.5%</span></span>
+<span><span class="co">#&gt; (Intercept)   0.2617  0.0345 0.1921 0.328</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; -- Variance components  -------------------------------------- </span></span>
 <span><span class="co">#&gt;     Component Estimate     SD   2.5%  97.5%</span></span>
-<span><span class="co">#&gt; 1   sigma_s_x   1.0466 0.2126 0.6851 1.4820</span></span>
-<span><span class="co">#&gt; 2 sigma_e_atg   0.3635 0.0315 0.3088 0.4396</span></span>
+<span><span class="co">#&gt; 1   sigma_s_x   1.4479 0.3034 0.8990 1.9838</span></span>
+<span><span class="co">#&gt; 2 sigma_e_atg   0.3144 0.0271 0.2686 0.3737</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; -- Convergence  --------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Rhat range: 1.003 - 1.114 </span></span>
-<span><span class="co">#&gt;   ESS  range: 34 - 365 </span></span>
-<span><span class="co">#&gt;   Run time  : 2.5 sec</span></span></code></pre></div>
+<span><span class="co">#&gt;   Rhat range: 1.007 - 1.059 </span></span>
+<span><span class="co">#&gt;   ESS  range: 183 - 937 </span></span>
+<span><span class="co">#&gt;   Run time  : 21.8 sec</span></span></code></pre></div>
 <p>The fixed block has only an intercept; the random block names the
 mgcv smooth. The residual sigma block reports the noise standard
 deviation; in our simulation we set it to 0.3 and the posterior should
@@ -476,7 +468,7 @@ structure.</p>
 <code>spl(x, type = "ps", df = m)</code> remains supported for backward
 compatibility with prior code; <code>s()</code> is the recommended path
 going forward. Tensor-product smooths <code>te()</code>,
-<code>ti()</code>, and <code>t2()</code> are queued for a future
+<code>ti()</code>, and <code>t2()</code> are deferred to a future
 release.</p>
 </div>
 </div>
@@ -498,15 +490,12 @@ model.</p>
 predicting at unseen factor levels, R will throw an error or produce an
 <code>NA</code>. Pre-process <code>newdata</code> to set factor levels
 explicitly.</p>
-<p><strong>Smooth prediction at new x’s.</strong> As of v0.2.5,
+<p><strong>Smooth prediction at new x’s.</strong>
 <code>predict.flexybayes(fit, newdata = ...)</code> correctly
 re-evaluates the spline basis on the new <code>x</code> positions via
 <code><a href="https://rdrr.io/pkg/mgcv/man/smoothCon.html" class="external-link">mgcv::PredictMat()</a></code> on the retained basis object. See
 section 6.1 above for the overlay against the
-<code><a href="https://rdrr.io/pkg/mgcv/man/predict.gam.html" class="external-link">mgcv::predict.gam()</a></code> reference. Legacy fits saved before
-v0.2.5 cannot use the new path and receive a structured refusal — re-fit
-on the current package version to enable
-<code>predict(newdata)</code>.</p>
+<code><a href="https://rdrr.io/pkg/mgcv/man/predict.gam.html" class="external-link">mgcv::predict.gam()</a></code> reference.</p>
 </div>
 <div class="section level2">
 <h2 id="active-prompts">8. Active prompts<a class="anchor" aria-label="anchor" href="#active-prompts"></a>
@@ -530,14 +519,14 @@ how much does the residual shrink?</li>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -546,31 +535,44 @@ how much does the residual shrink?</li>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] ggplot2_4.0.3         flexyBayes_0.2.5.9000 testthat_3.3.2       </span></span>
+<span><span class="co">#&gt; [1] ggplot2_4.0.3    flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] tidyselect_1.2.1   viridisLite_0.4.3  dplyr_1.2.1        farver_2.1.2      </span></span>
-<span><span class="co">#&gt;  [5] tensorflow_2.20.0  S7_0.2.2           fastmap_1.2.0      TH.data_1.1-5     </span></span>
-<span><span class="co">#&gt;  [9] digest_0.6.39      estimability_1.5.1 lifecycle_1.0.5    ellipsis_0.3.2    </span></span>
-<span><span class="co">#&gt; [13] survival_3.8-3     agridat_1.26       processx_3.9.0     magrittr_2.0.5    </span></span>
-<span><span class="co">#&gt; [17] compiler_4.5.2     rlang_1.2.0        progress_1.2.3     tools_4.5.2       </span></span>
-<span><span class="co">#&gt; [21] knitr_1.51         prettyunits_1.2.0  labeling_0.4.3     pkgbuild_1.4.8    </span></span>
-<span><span class="co">#&gt; [25] reticulate_1.45.0  RColorBrewer_1.1-3 pkgload_1.5.2      multcomp_1.4-29   </span></span>
-<span><span class="co">#&gt; [29] abind_1.4-8        withr_3.0.2        purrr_1.2.2        desc_1.4.3        </span></span>
-<span><span class="co">#&gt; [33] grid_4.5.2         xtable_1.8-8       future_1.70.0      globals_0.19.1    </span></span>
-<span><span class="co">#&gt; [37] emmeans_2.0.2      scales_1.4.0       MASS_7.3-65        dichromat_2.0-0.1 </span></span>
-<span><span class="co">#&gt; [41] cli_3.6.6          mvtnorm_1.3-6      crayon_1.5.3       generics_0.1.4    </span></span>
-<span><span class="co">#&gt; [45] remotes_2.5.0      otel_0.2.0         rstudioapi_0.18.0  sessioninfo_1.2.3 </span></span>
-<span><span class="co">#&gt; [49] tfruns_1.5.4       cachem_1.1.0       splines_4.5.2      parallel_4.5.2    </span></span>
-<span><span class="co">#&gt; [53] base64enc_0.1-6    vctrs_0.7.3        devtools_2.4.6     Matrix_1.7-4      </span></span>
-<span><span class="co">#&gt; [57] sandwich_3.1-1     jsonlite_2.0.0     greta_0.5.1        callr_3.7.6       </span></span>
-<span><span class="co">#&gt; [61] hms_1.1.4          listenv_0.10.1     glue_1.8.1         parallelly_1.47.0 </span></span>
-<span><span class="co">#&gt; [65] codetools_0.2-20   gtable_0.3.6       tibble_3.3.1       pillar_1.11.1     </span></span>
-<span><span class="co">#&gt; [69] brio_1.1.5         R6_2.6.1           rprojroot_2.1.1    evaluate_1.0.5    </span></span>
-<span><span class="co">#&gt; [73] lattice_0.22-7     png_0.1-9          backports_1.5.1    tfautograph_0.3.2 </span></span>
-<span><span class="co">#&gt; [77] memoise_2.0.1      Rcpp_1.1.1-1.1     coda_0.19-4.1      nlme_3.1-168      </span></span>
-<span><span class="co">#&gt; [81] mgcv_1.9-3         whisker_0.4.1      xfun_0.57          fs_2.1.0          </span></span>
-<span><span class="co">#&gt; [85] zoo_1.8-15         usethis_3.2.1      pkgconfig_2.0.3</span></span></code></pre></div>
+<span><span class="co">#&gt;   [1] tidyselect_1.2.1       viridisLite_0.4.3      dplyr_1.2.1           </span></span>
+<span><span class="co">#&gt;   [4] farver_2.1.2           loo_2.9.0              tensorflow_2.20.0     </span></span>
+<span><span class="co">#&gt;   [7] S7_0.2.2               tensorA_0.36.2.1       INLA_25.10.19         </span></span>
+<span><span class="co">#&gt;  [10] TH.data_1.1-5          digest_0.6.39          estimability_1.5.1    </span></span>
+<span><span class="co">#&gt;  [13] lifecycle_1.0.5        gretaR_0.2.0           sf_1.1-0              </span></span>
+<span><span class="co">#&gt;  [16] survival_3.8-3         agridat_1.26           processx_3.9.0        </span></span>
+<span><span class="co">#&gt;  [19] posterior_1.7.0        magrittr_2.0.5         compiler_4.5.2        </span></span>
+<span><span class="co">#&gt;  [22] rlang_1.2.0            progress_1.2.3         tools_4.5.2           </span></span>
+<span><span class="co">#&gt;  [25] data.table_1.18.2.1    knitr_1.51             prettyunits_1.2.0     </span></span>
+<span><span class="co">#&gt;  [28] labeling_0.4.3         bridgesampling_1.2-1   bit_4.6.0             </span></span>
+<span><span class="co">#&gt;  [31] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    </span></span>
+<span><span class="co">#&gt;  [34] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    </span></span>
+<span><span class="co">#&gt;  [37] withr_3.0.2            grid_4.5.2             xtable_1.8-8          </span></span>
+<span><span class="co">#&gt;  [40] e1071_1.7-17           future_1.70.0          globals_0.19.1        </span></span>
+<span><span class="co">#&gt;  [43] emmeans_2.0.2          scales_1.4.0           MASS_7.3-65           </span></span>
+<span><span class="co">#&gt;  [46] dichromat_2.0-0.1      cli_3.6.6              mvtnorm_1.3-6         </span></span>
+<span><span class="co">#&gt;  [49] crayon_1.5.3           generics_0.1.4         RcppParallel_5.1.11-2 </span></span>
+<span><span class="co">#&gt;  [52] otel_0.2.0             tfruns_1.5.4           DBI_1.3.0             </span></span>
+<span><span class="co">#&gt;  [55] proxy_0.4-29           stringr_1.6.0          splines_4.5.2         </span></span>
+<span><span class="co">#&gt;  [58] bayesplot_1.15.0       parallel_4.5.2         coro_1.1.0            </span></span>
+<span><span class="co">#&gt;  [61] matrixStats_1.5.0      base64enc_0.1-6        marginaleffects_0.32.0</span></span>
+<span><span class="co">#&gt;  [64] brms_2.23.0            vctrs_0.7.3            Matrix_1.7-4          </span></span>
+<span><span class="co">#&gt;  [67] sandwich_3.1-1         jsonlite_2.0.0         greta_0.5.1           </span></span>
+<span><span class="co">#&gt;  [70] callr_3.7.6            hms_1.1.4              bit64_4.8.0           </span></span>
+<span><span class="co">#&gt;  [73] listenv_0.10.1         units_1.0-1            glue_1.8.1            </span></span>
+<span><span class="co">#&gt;  [76] parallelly_1.47.0      codetools_0.2-20       distributional_0.7.0  </span></span>
+<span><span class="co">#&gt;  [79] stringi_1.8.7          gtable_0.3.6           tibble_3.3.1          </span></span>
+<span><span class="co">#&gt;  [82] pillar_1.11.1          Brobdingnag_1.2-9      torch_0.17.0          </span></span>
+<span><span class="co">#&gt;  [85] R6_2.6.1               fmesher_0.7.0          evaluate_1.0.5        </span></span>
+<span><span class="co">#&gt;  [88] lattice_0.22-7         png_0.1-9              backports_1.5.1       </span></span>
+<span><span class="co">#&gt;  [91] tfautograph_0.3.2      rstantools_2.6.0       class_7.3-23          </span></span>
+<span><span class="co">#&gt;  [94] MatrixModels_0.5-4     Rcpp_1.1.1-1.1         checkmate_2.3.4       </span></span>
+<span><span class="co">#&gt;  [97] coda_0.19-4.1          nlme_3.1-168           mgcv_1.9-3            </span></span>
+<span><span class="co">#&gt; [100] whisker_0.4.1          xfun_0.57              zoo_1.8-15            </span></span>
+<span><span class="co">#&gt; [103] pkgconfig_2.0.3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

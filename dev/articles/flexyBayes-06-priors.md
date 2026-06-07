@@ -20,16 +20,16 @@ most of the work:
   this honestly; a prior with a mode away from zero introduces an
   artefactual bump.
 
-`flexyBayes` v0.1 ships a *bounded uniform* prior on the SD scale as the
+`flexyBayes` ships a *bounded uniform* prior on the SD scale as the
 default for every variance component (Gelman, 2006), and exposes a
 domain-specific language (DSL),
 [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.md),
 for cases where you want something more informative or more constrained.
 
-## 2. The v0.1 default: bounded uniform on the SD scale
+## 2. The default: bounded uniform on the SD scale
 
-When neither `prior` nor `prior_vc_sd` is supplied, `flexyBayes` v0.1
-fires a one-time announcement message describing the chosen default:
+When neither `prior` nor `prior_vc_sd` is supplied, `flexyBayes` fires a
+one-time announcement message describing the chosen default:
 
 ``` math
 \sigma \sim \text{Uniform}(0,\, U),
@@ -54,7 +54,7 @@ This default applies on the simple / `id()` / `ide()` random branches
 and on the residual sigma. Structured-covariance branches (unstructured,
 factor-analytic, autoregressive, genomic kernels) keep the legacy
 lognormal default; broadening the uniform default to those branches is
-queued for a subsequent release.
+deferred to a subsequent release.
 
 To preserve the legacy lognormal default exactly, pass `prior_vc_sd = 1`
 explicitly. To silence the announcement message, set
@@ -129,7 +129,7 @@ priors
 #>   b("Days") ~ normal(mean = 0, sd = 50)
 ```
 
-Targets supported in v0.1:
+Targets supported:
 
 | Target | Meaning |
 |----|----|
@@ -139,11 +139,11 @@ Targets supported in v0.1:
 | `cor(group = "g")` | correlation matrix of grouped random effects (LKJ) |
 | `smooth("var", basis = "ps")` | spline / smooth penalty on `var` |
 
-Families supported in v0.1:
+Families supported:
 
 | Family | Closed-form on $`\sigma`$ |
 |----|----|
-| `uniform(lower, upper)` | bounded uniform on SD (the v0.1 default for variance components) |
+| `uniform(lower, upper)` | bounded uniform on SD (the default for variance components) |
 | `pc(upper, prob)` | Exponential$`(-\log(\text{prob})/\text{upper})`$ — penalised complexity (Simpson et al., 2017) |
 | `half_normal(scale)` | half-normal $`\mathcal{HN}(0, \text{scale})`$ |
 | `half_cauchy(scale)` | half-Cauchy $`\mathcal{HC}(0, \text{scale})`$ |
@@ -158,7 +158,7 @@ Sleep-study reaction times provide a clean substrate for prior
 sensitivity. With 18 subjects, the prior on the subject-level $`\sigma`$
 does meaningful work. We compare three priors:
 
-1.  The v0.1 uniform default.
+1.  The uniform default.
 2.  A half-Cauchy(2.5) — a more informative weakly-informative prior
     recommended for very small $`J`$ (Gelman, 2006, §4).
 3.  The legacy lognormal(0, 1).
@@ -180,8 +180,8 @@ options(flexyBayes.silence_default_prior_note = TRUE)
 ```
 
 The announcement message lists the chosen $`U`$, the family / scale
-basis, the Gelman 2006 citation, and the override knobs. We keep this
-fit as the reference.
+basis, the small-$`J`$ half-Cauchy guidance, and the override knobs. We
+keep this fit as the reference.
 
 ``` r
 
@@ -218,10 +218,10 @@ extract_sigma <- function(fit) {
 rbind(default = extract_sigma(fit_default),
       halfcau = extract_sigma(fit_hc),
       legacy  = extract_sigma(fit_legacy))
-#>               mean  q025.2.5% q975.97.5%
-#> default  41.665719 27.3224770  60.599972
-#> halfcau   1.273848  0.2827245   3.102758
-#> legacy  112.620511 49.8061328 231.199920
+#>         mean q025.2.5% q975.97.5%
+#> default   NA        NA         NA
+#> halfcau   NA        NA         NA
+#> legacy    NA        NA         NA
 ```
 
 The uniform default and the half-Cauchy give similar posteriors — both
@@ -279,9 +279,11 @@ to the parameterisation each backend expects. greta receives a direct
 standard-deviation prior; INLA receives a `pc.prec` block tuned to match
 the same upper-tail statement. Vignette 10 (cross-engine triangulation)
 demonstrates the pairwise comparison. Direct INLA dispatch on
-brms-shaped formulas is available via `fb_brms(..., backend = "inla")`,
-and gate-driven routing via `backend = "auto"` is documented in the
-*hierarchical models* and *backend internals* vignettes.
+brms-shaped formulas is available via
+[`fb_inla()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_inla.md)
+(equivalently `flexybayes(..., backend = "inla")`), and gate-driven
+routing via `backend = "auto"` is documented in the *hierarchical
+models* and *backend internals* vignettes.
 
 ## 7. Penalised-complexity priors (advanced appendix)
 
@@ -316,7 +318,7 @@ fit_pc <- flexybayes(
 )
 extract_sigma(fit_pc)
 #>       mean  q025.2.5% q975.97.5% 
-#>  212.16281   59.18845  283.13012
+#>         NA         NA         NA
 ```
 
 The tighter PC prior pulls the posterior on
@@ -344,7 +346,7 @@ variance-component prior across realistic mixed-model applications.
 ## 9. Pitfalls
 
 **Confusing prior on $`\sigma`$ with prior on $`\sigma^2`$ or
-precision.** PC priors and the v0.1 uniform default are stated on the
+precision.** PC priors and the uniform default are stated on the
 *standard deviation* scale. INLA’s internal parameterisation is
 precision; `priors_to_inla()` handles the change of variables, and the
 [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.md)
@@ -385,14 +387,14 @@ example.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -401,43 +403,48 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> [1] ggplot2_4.0.3    flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         
-#>   [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            
-#>   [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    
-#>  [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     
-#>  [13] sf_1.1-0             agridat_1.26         survival_3.8-3      
-#>  [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     
-#>  [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      
-#>  [22] tools_4.5.2          sn_2.1.3             knitr_1.51          
-#>  [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        
-#>  [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          
-#>  [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         
-#>  [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         
-#>  [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        
-#>  [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      
-#>  [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         
-#>  [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       
-#>  [49] crayon_1.5.3         reformulas_0.4.4     generics_0.1.4      
-#>  [52] otel_0.2.0           reshape2_1.4.5       tfruns_1.5.4        
-#>  [55] minqa_1.2.8          DBI_1.3.0            proxy_0.4-29        
-#>  [58] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    
-#>  [61] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         
-#>  [64] boot_1.3-32          Matrix_1.7-4         sandwich_3.1-1      
-#>  [67] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         
-#>  [70] hms_1.1.4            listenv_0.10.1       units_1.0-1         
-#>  [73] glue_1.8.1           parallelly_1.47.0    nloptr_2.2.1        
-#>  [76] codetools_0.2-20     distributional_0.7.0 stringi_1.8.7       
-#>  [79] gtable_0.3.6         lme4_2.0-1           tibble_3.3.1        
-#>  [82] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       
-#>  [85] Rdpack_2.6.6         evaluate_1.0.5       lattice_0.22-7      
-#>  [88] rbibutils_2.4.1      png_0.1-9            backports_1.5.1     
-#>  [91] tfautograph_0.3.2    MatrixModels_0.5-4   class_7.3-23        
-#>  [94] Rcpp_1.1.1-1.1       nlme_3.1-168         coda_0.19-4.1       
-#>  [97] checkmate_2.3.4      mgcv_1.9-3           whisker_0.4.1       
-#> [100] xfun_0.57            zoo_1.8-15           pkgconfig_2.0.3
+#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
+#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
+#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
+#>  [10] matrixStats_1.5.0      e1071_1.7-17           compiler_4.5.2        
+#>  [13] mgcv_1.9-3             loo_2.9.0              png_0.1-9             
+#>  [16] callr_3.7.6            vctrs_0.7.3            reshape2_1.4.5        
+#>  [19] stringr_1.6.0          pkgconfig_2.0.3        crayon_1.5.3          
+#>  [22] backports_1.5.1        labeling_0.4.3         nloptr_2.2.1          
+#>  [25] MatrixModels_0.5-4     torch_0.17.0           bit_4.6.0             
+#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
+#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
+#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
+#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      boot_1.3-32           
+#>  [40] parallelly_1.47.0      numDeriv_2016.8-1.1    estimability_1.5.1    
+#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
+#>  [46] base64enc_0.1-6        bayesplot_1.15.0       Matrix_1.7-4          
+#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
+#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
+#>  [55] processx_3.9.0         listenv_0.10.1         gretaR_0.2.0          
+#>  [58] lattice_0.22-7         tibble_3.3.1           plyr_1.8.9            
+#>  [61] withr_3.0.2            bridgesampling_1.2-1   S7_0.2.2              
+#>  [64] posterior_1.7.0        coda_0.19-4.1          evaluate_1.0.5        
+#>  [67] marginaleffects_0.32.0 future_1.70.0          survival_3.8-3        
+#>  [70] sf_1.1-0               units_1.0-1            proxy_0.4-29          
+#>  [73] RcppParallel_5.1.11-2  pillar_1.11.1          tensorA_0.36.2.1      
+#>  [76] whisker_0.4.1          KernSmooth_2.23-26     checkmate_2.3.4       
+#>  [79] stats4_4.5.2           reformulas_0.4.4       sn_2.1.3              
+#>  [82] distributional_0.7.0   generics_0.1.4         hms_1.1.4             
+#>  [85] rstantools_2.6.0       scales_1.4.0           minqa_1.2.8           
+#>  [88] coro_1.1.0             globals_0.19.1         xtable_1.8-8          
+#>  [91] class_7.3-23           glue_1.8.1             emmeans_2.0.2         
+#>  [94] tools_4.5.2            data.table_1.18.2.1    lme4_2.0-1            
+#>  [97] mvtnorm_1.3-6          grid_4.5.2             rbibutils_2.4.1       
+#> [100] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
+#> [103] viridisLite_0.4.3      fmesher_0.7.0          Brobdingnag_1.2-9     
+#> [106] dplyr_1.2.1            gtable_0.3.6           greta_0.5.1           
+#> [109] digest_0.6.39          classInt_0.4-11        TH.data_1.1-5         
+#> [112] brms_2.23.0            farver_2.1.2           lifecycle_1.0.5       
+#> [115] bit64_4.8.0            MASS_7.3-65
 ```
 
 ## References

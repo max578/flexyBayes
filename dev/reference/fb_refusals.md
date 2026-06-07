@@ -54,12 +54,11 @@ lists only refusals a user can actually encounter.
 
 ``` r
 fb_refusals()
-#> flexyBayes refusal registry: 47 reasons
+#> flexyBayes refusal registry: 54 reasons
 #> 
 #>   [since 0.3.10] approximate_route_not_yet_registered
-#>       Approximate covariance / dispatch carriers refuse until the
-#>       approximation registry ships at v0.4.0
-#>       (validate_approximation()).
+#>       Approximate covariance / dispatch carriers refuse until an
+#>       approximation scheme is registered (validate_approximation()).
 #> 
 #>   [since 0.4.0] approximation_absent
 #>       validate_approximation(): the low_rank_smooth scheme is
@@ -124,6 +123,17 @@ fb_refusals()
 #>       An engine pin (fb_greta / fb_inla / fb_brms) was given a
 #>       `backend` argument that conflicts with the engine it pins.
 #> 
+#>   [since 0.7.0] fa_rank_exceeds_dim
+#>       A factor-analytic term fa(x, k) was given a rank k that is not
+#>       strictly below the number of levels of the outer factor. A
+#>       factor-analytic covariance is identifiable only for k < n_outer:
+#>       at k = n_outer the loadings and specific variances form an
+#>       over-parameterised reparameterisation of the unstructured form,
+#>       and at k > n_outer the lower-triangular loadings carry empty
+#>       columns. This is a data-aware preflight (n_outer is known only
+#>       after the term is matched against the data), complementing the
+#>       data-free fa_rank_invalid (k < 1) check.
+#> 
 #>   [since 0.4.0] fa_rank_invalid
 #>       A factor-analytic term fa(x, k) was given a rank k below 1; the
 #>       factor-analytic rank must be a positive integer.
@@ -147,6 +157,28 @@ fb_refusals()
 #>   [since 0.4.1] grammar_brms_with_asreml_terms
 #>       A brms-style bar-grouped formula was combined with ASReml
 #>       `random` / `rcov` arguments on the universal entry.
+#> 
+#>   [since 0.6.0.9000] gretaR_below_version_floor
+#>       gretaR backend: the installed gretaR is older than the activation
+#>       floor.
+#> 
+#>   [since 0.6.0.9000] gretaR_cannot_represent_structured_cov
+#>       gretaR backend: structured covariance (vm/ped/fa/us/ar1)
+#>       unsupported.
+#> 
+#>   [since 0.6.0.9000] gretaR_family_unsupported
+#>       gretaR backend: family outside gaussian/binomial/poisson.
+#> 
+#>   [since 0.6.0.9000] gretaR_not_installed
+#>       gretaR backend: gretaR not installed and no source home set.
+#> 
+#>   [since 0.6.0.9000] gretaR_random_group_not_in_data
+#>       gretaR backend: random-intercept grouping factor absent from
+#>       data.
+#> 
+#>   [since 0.6.0.9000] gretaR_random_term_type_unsupported
+#>       gretaR backend: only random-intercept-class random terms are
+#>       supported.
 #> 
 #>   [since 0.4.0] heterogeneous_residual_factor_not_in_cell_key
 #>       Aggregated Gaussian emit: an at(f):units heterogeneous residual

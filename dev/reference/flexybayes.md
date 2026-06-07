@@ -28,7 +28,7 @@ flexybayes(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("auto", "greta", "inla", "brms"),
+  backend = c("auto", "greta", "inla", "brms", "gretaR"),
   aggregate = "auto",
   plan = FALSE,
   syntax = c("auto", "asreml", "brms", "greta")
@@ -53,7 +53,7 @@ fb(
   mcmc_verbose = TRUE,
   return_code = FALSE,
   review_code = FALSE,
-  backend = c("auto", "greta", "inla", "brms"),
+  backend = c("auto", "greta", "inla", "brms", "gretaR"),
   aggregate = "auto",
   plan = FALSE,
   syntax = c("auto", "asreml", "brms", "greta")
@@ -149,9 +149,10 @@ fb(
   crushing the posterior toward zero), while still regularising at
   sample sizes below ~ 30 per coefficient. Set wider (e.g. `1000`) for
   responses on a larger natural scale, or narrower for explicit
-  shrinkage. Rationale follows Gelman (2006) *Bayesian Analysis*
-  1(3):515-534 on weakly-informative priors for regression coefficients
-  on the data scale.
+  shrinkage. A weakly-informative normal prior on the data scale, in the
+  spirit of the weakly-informative-prior literature for regression
+  coefficients (e.g. Gelman et al. 2008, *Annals of Applied Statistics*
+  2(4):1360-1383).
 
 - prior_vc_sd:
 
@@ -161,8 +162,10 @@ fb(
   bounded-uniform default on the SD scale (`uniform(0, U)` with
   family-aware `U`: `5 * sd(y)` for Gaussian; `5` on the logit scale for
   binomial / beta; `3` on the log scale for Poisson / negative-binomial
-  / gamma) for `sigma` and every named random-effect group. Theory:
-  Gelman (2006), *Bayesian Analysis* 1(3):515-534. The legacy
+  / gamma) for `sigma` and every named random-effect group – a
+  weakly-informative choice for moderate group counts; for very small
+  `J`, Gelman (2006), *Bayesian Analysis* 1(3):515-534, recommends a
+  half-t / half-Cauchy instead (see the priors vignette). The legacy
   `lognormal(0, 1)` default fires only when `prior_vc_sd` is passed
   explicitly. Silence the one-time announcement message via
   `options(flexyBayes.silence_default_prior_note = TRUE)`.
@@ -208,13 +211,54 @@ fb(
   INLA when the model is latent-Gaussian feasible (deterministic and
   faster on that certified class), and to greta (full MCMC, the
   universal fallback) otherwise — so a no-`backend` call reaches every
-  available engine the model supports. `"greta"` forces full MCMC;
-  `"inla"` forces INLA and raises a structured refusal if the model is
-  not LGM-feasible; `"brms"` is the Stan passthrough via brms (refuses
-  asreml structured-covariance terms — `vm`/`ped`/`fa`/`us`/`ar1` — that
-  have no lossless Stan translation). Under `"auto"`, falling back to
-  greta (gate refusal, INLA not installed, or an INLA numerical failure)
-  emits a one-time silenceable note;
+  available engine the model supports.
+
+  **Caution (small-group random effects).** Both backends now apply the
+  same default prior — the exact uniform-on-SD (the INLA path represents
+  it faithfully via an expression-prior on the log-precision rather than
+  the former PC approximation), so the two engines agree on the variance
+  component far more closely than in earlier versions. A model with very
+  few groups nonetheless carries a weakly-identified variance component
+  (the data say little about the between-group spread), and INLA's
+  Laplace approximation is less accurate there than full MCMC. For a
+  flagship random-intercept model with few groups, prefer
+  `backend = "greta"` or supply an explicit informative prior (a
+  half-Cauchy, per Gelman 2006; see the *priors* vignette).
+  [`fb_backend_status()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_backend_status.md)
+  reports which engines are usable.
+
+  **Convergence.** MCMC fits (`"greta"`, `"brms"`) emit a warning when
+  the sampler may not have converged (a parameter with Rhat at or above
+  1.1, or a low effective sample size). Treat such a posterior with
+  caution — increase `warmup` / `n_samples`, simplify the model, or
+  supply a more informative prior — and inspect the full diagnostics
+  with [`summary()`](https://rdrr.io/r/base/summary.html). Silence the
+  warning (for intentionally short fits) via
+  `options(flexyBayes.silence_convergence_warning = TRUE)`. The INLA
+  path is deterministic and carries no such warning.
+
+  On the greta backend, generalised mixed models (a `poisson` or
+  `binomial` family with random effects) adapt more slowly than the
+  Gaussian case and need a larger `warmup` than the default — a few
+  thousand iterations is typical, and the convergence warning above will
+  tell you when more is needed. This is an adaptation-budget matter, not
+  a parameterisation one: the random effects already use the non-centred
+  form, which mixes at least as well as the centred form across the
+  regimes tested. For a latent-Gaussian GLMM the `"auto"` route
+  sidesteps the question entirely by fitting it with INLA.
+  Factor-analytic / unstructured covariance terms (greta only) are
+  harder still and may not mix at modest budgets; judge their
+  convergence on the identified covariance via
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_structured_cov.md)
+  rather than the rotation-/sign-ambiguous raw loadings.
+
+  `"greta"` forces full MCMC; `"inla"` forces INLA and raises a
+  structured refusal if the model is not LGM-feasible; `"brms"` is the
+  Stan passthrough via brms (refuses asreml structured-covariance terms
+  — `vm`/`ped`/`fa`/`us`/`ar1` — that have no lossless Stan
+  translation). Under `"auto"`, falling back to greta (gate refusal,
+  INLA not installed, or an INLA numerical failure) emits a one-time
+  silenceable note;
   `options(flexyBayes.silence_auto_fallback_note = TRUE)` silences the
   gate-refusal / numerical-fallback note and
   `options(flexyBayes.silence_auto_inla_missing_note = TRUE)` the
@@ -327,17 +371,17 @@ if (requireNamespace("greta", quietly = TRUE)) {
 #> 
 #> -- Fixed effects (posterior)  ----------------------------------- 
 #>             Estimate Post.SD
-#> (Intercept)  47.9118  0.6619
-#> envE2         2.1194  0.4599
-#> envE3         3.4470  0.4599
-#> envE4         6.0062  0.4599
+#> (Intercept)  47.9118  0.6870
+#> envE2         2.1194  0.4596
+#> envE3         3.4470  0.4596
+#> envE4         6.0062  0.4596
 #> 
 #> -- Variance components  ---------------------------------------- 
-#>   sigma (residual SD): 1.7654
-#>   tau_1  (random SD): 1.6047
+#>   sigma (residual SD): 1.7651
+#>   tau_1  (random SD): 1.6569
 #> 
-#>   Run time: 0.46 sec
+#>   Run time: 0.49 sec
 #> (Intercept)       envE2       envE3       envE4 
-#>   47.911802    2.119431    3.447017    6.006215 
+#>   47.911800    2.119432    3.447019    6.006217 
 # }
 ```

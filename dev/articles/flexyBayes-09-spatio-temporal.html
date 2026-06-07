@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 09: Spatio-temporal models: AR1, spatial, temporal</h1>
             
-            <h4 data-toc-skip class="date">2026-05-22</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-09-spatio-temporal.Rmd" class="external-link"><code>vignettes/flexyBayes-09-spatio-temporal.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-09-spatio-temporal.Rmd</code></div>
@@ -108,7 +108,7 @@ tomorrow’s, even after accounting for time trend.</li>
 <p>Ignoring either kind of correlation has the same effect: standard
 errors are biased downward, posterior credible intervals are too narrow,
 and inferences look more confident than the data warrant.</p>
-<p><code>flexyBayes</code> v0.1 covers two correlation structures:</p>
+<p><code>flexyBayes</code> covers two correlation structures:</p>
 <ul>
 <li>
 <strong>first-order autoregressive</strong> (<code>ar1</code>) on a
@@ -143,6 +143,20 @@ replicate effects,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>e</mi><mrow><mi>i</mi><mi>j</mi><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\{e_{ijk}\}</annotation></semantics></math>
 residuals that are <em>correlated in space</em> — separable
 autoregressive on row and column.</p>
+<blockquote>
+<p><strong>A note on the fits below — read first.</strong> The spatial
+AR1×AR1 and the temporal AR1 models here are structured-covariance
+models – the hardest case for Hamiltonian Monte Carlo, and greta-only
+(INLA refuses the AR1×AR1 route). At the modest MCMC budgets used to
+keep the vignette fast, these fits <strong>frequently fail to
+mix</strong> (large
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{R}</annotation></semantics></math>,
+near-zero ESS). Treat this vignette as a guide to <em>specifying</em>
+spatial and temporal correlation structures, not as a demonstration of
+inference; for a real analysis raise the budget substantially and verify
+convergence as the <em>getting started</em> vignette describes before
+interpreting anything.</p>
+</blockquote>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/AAGI-AUS/flexyBayes" class="external-link">flexyBayes</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">stroup.nin</span>, package <span class="op">=</span> <span class="st">"agridat"</span><span class="op">)</span></span>
@@ -174,9 +188,12 @@ autoregressive on row and column.</p>
 <span><span class="co">#&gt;   Random : ~gen </span></span>
 <span><span class="co">#&gt;   Rcov   : ~ar1(row):ar1(col) </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2.1 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 17.7 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Min ESS: 1 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 1.539  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 11 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -246,9 +263,12 @@ on adjacent days are likely correlated.</p>
 <span><span class="co">#&gt;   Random : ~Subject </span></span>
 <span><span class="co">#&gt;   Rcov   : ~ar1(Days_f):Subject </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9.8 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Min ESS: 1 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 1.436  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 38 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -280,8 +300,8 @@ agronomy-textbook decomposition (Gilmour, Cullis, &amp; Verbyla,
 <div class="section level2">
 <h2 id="limitations-of-the-current-spatial-coverage">5. Limitations of the current spatial coverage<a class="anchor" aria-label="anchor" href="#limitations-of-the-current-spatial-coverage"></a>
 </h2>
-<p><code>flexyBayes</code> v0.2 covers regular grids with AR1
-correlation. It does <em>not</em> cover:</p>
+<p><code>flexyBayes</code> covers regular grids with AR1 correlation. It
+does <em>not</em> cover:</p>
 <ul>
 <li>
 <strong>irregular geography</strong> — the SPDE / Matérn approach
@@ -295,8 +315,7 @@ Simpson, &amp; Rue,
 </li>
 <li>
 <strong>continuous-time temporal correlation</strong> — the
-Ornstein–Uhlenbeck and continuous-AR processes are on the v0.3
-roadmap;</li>
+Ornstein–Uhlenbeck and continuous-AR processes are on the roadmap;</li>
 <li>
 <strong>spatio-temporal interaction</strong> — separable space-time
 covariance is on the roadmap.</li>
@@ -326,11 +345,13 @@ remains</em> after design accounts for the planned variation.</p>
 correlation and a random-effect variance component — the data have
 insufficient degrees of freedom. Convergence diagnostics will flag this;
 refit without the AR1 and accept the simpler model.</p>
-<p><strong>INLA refuses AR1×AR1 in v0.1.</strong> The
-<code>lgm_gate()</code> filter refuses spatial-AR1 dispatch to INLA via
-the structured-covariance route in v0.1; the greta backend handles it
-natively. v0.2 adds INLA-side support for separable AR1 via
-<code>f(row, model = "ar1")</code> plus group indices.</p>
+<p><strong>INLA refuses AR1×AR1.</strong> The <code>lgm_gate()</code>
+filter refuses spatial-AR1 dispatch to INLA via the
+structured-covariance route, and the greta backend handles it natively.
+If you need the INLA approximation for a separable AR1 structure, route
+directly through <code>R-INLA</code> with
+<code>f(row, model = "ar1")</code> plus group indices (see the
+limitations above).</p>
 </div>
 <div class="section level2">
 <h2 id="active-prompts">7. Active prompts<a class="anchor" aria-label="anchor" href="#active-prompts"></a>
@@ -356,14 +377,14 @@ Which partition of variance dominates?</li>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -372,47 +393,43 @@ Which partition of variance dominates?</li>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] bayesplot_1.15.0      emmeans_2.0.2         ggplot2_4.0.3        </span></span>
-<span><span class="co">#&gt; [4] flexyBayes_0.2.0.9000</span></span>
+<span><span class="co">#&gt; [1] ggplot2_4.0.3    flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          </span></span>
-<span><span class="co">#&gt;   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           </span></span>
-<span><span class="co">#&gt;   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            </span></span>
-<span><span class="co">#&gt;  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          </span></span>
-<span><span class="co">#&gt;  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             </span></span>
-<span><span class="co">#&gt;  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           </span></span>
-<span><span class="co">#&gt;  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       </span></span>
-<span><span class="co">#&gt;  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        </span></span>
-<span><span class="co">#&gt;  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    </span></span>
-<span><span class="co">#&gt;  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        </span></span>
-<span><span class="co">#&gt;  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     </span></span>
-<span><span class="co">#&gt;  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         </span></span>
-<span><span class="co">#&gt;  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     </span></span>
-<span><span class="co">#&gt;  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    </span></span>
-<span><span class="co">#&gt;  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            </span></span>
-<span><span class="co">#&gt;  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          </span></span>
-<span><span class="co">#&gt;  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     </span></span>
-<span><span class="co">#&gt;  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      </span></span>
-<span><span class="co">#&gt;  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        </span></span>
-<span><span class="co">#&gt;  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     </span></span>
-<span><span class="co">#&gt;  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       </span></span>
-<span><span class="co">#&gt;  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0</span></span>
-<span><span class="co">#&gt;  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              </span></span>
-<span><span class="co">#&gt;  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         </span></span>
-<span><span class="co">#&gt;  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    </span></span>
-<span><span class="co">#&gt;  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         </span></span>
-<span><span class="co">#&gt;  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  </span></span>
-<span><span class="co">#&gt;  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          </span></span>
-<span><span class="co">#&gt;  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          </span></span>
-<span><span class="co">#&gt;  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           </span></span>
-<span><span class="co">#&gt;  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         </span></span>
-<span><span class="co">#&gt;  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      </span></span>
-<span><span class="co">#&gt;  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          </span></span>
-<span><span class="co">#&gt; [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           </span></span>
-<span><span class="co">#&gt; [103] gtable_0.3.6           greta_0.5.1            digest_0.6.39         </span></span>
-<span><span class="co">#&gt; [106] classInt_0.4-11        TH.data_1.1-5          farver_2.1.2          </span></span>
-<span><span class="co">#&gt; [109] lifecycle_1.0.5        MASS_7.3-65</span></span></code></pre></div>
+<span><span class="co">#&gt;   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          </span></span>
+<span><span class="co">#&gt;   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              </span></span>
+<span><span class="co">#&gt;   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         </span></span>
+<span><span class="co">#&gt;  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       </span></span>
+<span><span class="co">#&gt;  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        </span></span>
+<span><span class="co">#&gt;  [16] agridat_1.26           processx_3.9.0         magrittr_2.0.5        </span></span>
+<span><span class="co">#&gt;  [19] posterior_1.7.0        compiler_4.5.2         rlang_1.2.0           </span></span>
+<span><span class="co">#&gt;  [22] progress_1.2.3         tools_4.5.2            data.table_1.18.2.1   </span></span>
+<span><span class="co">#&gt;  [25] knitr_1.51             labeling_0.4.3         prettyunits_1.2.0     </span></span>
+<span><span class="co">#&gt;  [28] bridgesampling_1.2-1   bit_4.6.0              classInt_0.4-11       </span></span>
+<span><span class="co">#&gt;  [31] reticulate_1.45.0      RColorBrewer_1.1-3     multcomp_1.4-29       </span></span>
+<span><span class="co">#&gt;  [34] abind_1.4-8            KernSmooth_2.23-26     withr_3.0.2           </span></span>
+<span><span class="co">#&gt;  [37] grid_4.5.2             xtable_1.8-8           e1071_1.7-17          </span></span>
+<span><span class="co">#&gt;  [40] future_1.70.0          globals_0.19.1         emmeans_2.0.2         </span></span>
+<span><span class="co">#&gt;  [43] scales_1.4.0           MASS_7.3-65            dichromat_2.0-0.1     </span></span>
+<span><span class="co">#&gt;  [46] cli_3.6.6              mvtnorm_1.3-6          crayon_1.5.3          </span></span>
+<span><span class="co">#&gt;  [49] generics_0.1.4         RcppParallel_5.1.11-2  otel_0.2.0            </span></span>
+<span><span class="co">#&gt;  [52] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          </span></span>
+<span><span class="co">#&gt;  [55] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      </span></span>
+<span><span class="co">#&gt;  [58] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     </span></span>
+<span><span class="co">#&gt;  [61] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           </span></span>
+<span><span class="co">#&gt;  [64] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        </span></span>
+<span><span class="co">#&gt;  [67] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           </span></span>
+<span><span class="co">#&gt;  [70] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        </span></span>
+<span><span class="co">#&gt;  [73] units_1.0-1            glue_1.8.1             parallelly_1.47.0     </span></span>
+<span><span class="co">#&gt;  [76] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         </span></span>
+<span><span class="co">#&gt;  [79] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         </span></span>
+<span><span class="co">#&gt;  [82] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              </span></span>
+<span><span class="co">#&gt;  [85] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        </span></span>
+<span><span class="co">#&gt;  [88] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     </span></span>
+<span><span class="co">#&gt;  [91] rstantools_2.6.0       class_7.3-23           Rcpp_1.1.1-1.1        </span></span>
+<span><span class="co">#&gt;  [94] checkmate_2.3.4        coda_0.19-4.1          nlme_3.1-168          </span></span>
+<span><span class="co">#&gt;  [97] whisker_0.4.1          xfun_0.57              zoo_1.8-15            </span></span>
+<span><span class="co">#&gt; [100] pkgconfig_2.0.3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

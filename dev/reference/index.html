@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -240,6 +240,20 @@
 
         </dt>
         <dd>Canonical parameter-name view for a flexyBayes fit</dd>
+
+        <dt>
+
+          <code><a href="fb_backend_status.html">fb_backend_status()</a></code>
+
+        </dt>
+        <dd>Report inference-backend readiness</dd>
+
+        <dt>
+
+          <code><a href="fb_structured_cov.html">fb_structured_cov()</a></code>
+
+        </dt>
+        <dd>Identified covariance for factor-analytic structured-covariance terms</dd>
 
         <dt>
 
@@ -541,10 +555,24 @@
 
         <dt>
 
+          <code><a href="fitted.flexybayes_inla.html">fitted(<i>&lt;flexybayes_inla&gt;</i>)</a></code>
+
+        </dt>
+        <dd>In-sample fitted values from a per-row INLA fit</dd>
+
+        <dt>
+
           <code><a href="residuals.flexybayes.html">residuals(<i>&lt;flexybayes&gt;</i>)</a></code>
 
         </dt>
         <dd>Extract residuals</dd>
+
+        <dt>
+
+          <code><a href="residuals.flexybayes_inla.html">residuals(<i>&lt;flexybayes_inla&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Response residuals from a per-row INLA fit</dd>
 
         <dt>
 
@@ -566,6 +594,13 @@
 
         </dt>
         <dd>Log-likelihood (approximate)</dd>
+
+        <dt>
+
+          <code><a href="logLik.flexybayes_inla.html">logLik(<i>&lt;flexybayes_inla&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Log-likelihood of a per-row INLA fit (not computed)</dd>
 
         <dt>
 
@@ -660,7 +695,7 @@
           <code><a href="flexyBayes-package.html">flexyBayes</a></code> <code><a href="flexyBayes-package.html">flexyBayes-package</a></code>
 
         </dt>
-        <dd>flexyBayes: Bayesian Mixed Models with ASReml Syntax, Powered by Greta and INLA</dd>
+        <dd>flexyBayes: Bayesian Mixed Models with ASReml Syntax via Greta and INLA</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

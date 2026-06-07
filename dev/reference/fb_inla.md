@@ -67,7 +67,6 @@ df <- data.frame(
 if (requireNamespace("INLA", quietly = TRUE)) {
   fit <- fb_inla(yield ~ env, random = ~ geno, data = df)
 }
-#> flexyBayes: variance-component prior default is uniform(0, 4.66) on every SD (residual sigma + every named random-effect group), following Gelman (2006, Bayesian Analysis 1(3):515-534). Scale basis = "identity_sd_uniform". Pass `prior_vc_sd` explicitly for the legacy lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` for full control, or options(flexyBayes.silence_default_prior_note = TRUE) to silence this notice.
-#> flexyBayes: uniform() prior on a variance component is approximated as PC(upper, 0.01) for the INLA backend in v0.1.x. The support is matched but the density inside differs (PC concentrates at sigma = 0; uniform is flat). Exact bounded-uniform support lands in v0.2 -- see ?fb_prior. Silence this notice via options(flexyBayes.silence_uniform_inla_approx = TRUE).
+#> flexyBayes: variance-component prior default is uniform(0, 4.66) on every SD (residual sigma + every named random-effect group): a weakly-informative choice for moderate group counts. For very small groups, Gelman (2006) recommends a half-Cauchy instead -- see ?fb_prior. Scale basis = "identity_sd_uniform". Pass `prior_vc_sd` explicitly for the legacy lognormal(0, prior_vc_sd) default, `prior = fb_prior(...)` for full control, or options(flexyBayes.silence_default_prior_note = TRUE) to silence this notice.
 # }
 ```

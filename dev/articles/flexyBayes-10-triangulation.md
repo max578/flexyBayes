@@ -61,7 +61,7 @@ noise.
 
 ### Reading the independence-axis label
 
-Agreement is not one thing. From v0.4.0 each
+Agreement is not one thing. Each
 [`triangulate()`](https://aagi-aus.github.io/flexyBayes/dev/reference/triangulate.md)
 report carries an `independence` label naming *what kind* of convergence
 the agreement underwrites, drawn from a closed three-axis vocabulary
@@ -113,9 +113,7 @@ does this for you and computes, per scalar parameter:
 - mean shift in posterior-SD units;
 - 1D empirical Wasserstein-1 distance;
 - ratio of posterior SDs;
-- tail-quantile differences (2.5 % and 97.5 %);
-- `rhat_means`, the rank-normalised $`\widehat{R}`$ between engines’
-  posterior means.
+- tail-quantile differences (2.5 % and 97.5 %).
 
 Threshold: flag any parameter with \|mean shift\| \> 0.1 SD *or*
 Wasserstein-1 \> 0.1 SD *or* SD ratio outside \[0.9, 1.1\].
@@ -215,50 +213,49 @@ priors
 
 ``` r
 
-fit_greta <- fb_brms(
+fit_greta <- fb_greta(
   y ~ x + (1 | group),
   data         = dat,
   family       = "poisson",
   prior        = priors,
-  backend      = "greta",
-  n_samples    = 500,
-  warmup       = 500,
-  chains       = 2,
+  n_samples    = 2000,
+  warmup       = 5000,
+  chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
 summary(fit_greta)
 #> Bayesian mixed model summary  [flexyBayes]
 #> ============================================================ 
-#>   Fixed  : y ~ x 
-#>   Random : ~group 
+#>   Fixed  : y ~ x + (1 | group) 
 #>   Family : poisson / log 
-#>   N = 240 , chains = 2 , samples = 500 
+#>   N = 240 , chains = 4 , samples = 2000 
+#>   Representation: exact
+#>   Engine:         greta MCMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD   2.5%  97.5%
-#> (Intercept)   0.6050  0.1337 0.3586 0.8543
-#> x             0.4221  0.0451 0.3349 0.5105
+#> (Intercept)   0.5859  0.1304 0.3261 0.8413
+#> x             0.4184  0.0441 0.3319 0.5043
 #> 
 #> -- Variance components  -------------------------------------- 
 #>     Component Estimate     SD   2.5%  97.5%
-#> 1 sigma_group   0.6500 0.0981 0.4914 0.8676
-#> 2 sigma_e_atg   0.3433 0.3521 0.0094 1.2670
+#> 1 sigma_group   0.6517 0.0957 0.4927 0.8708
+#> 2 sigma_e_atg   0.3264 0.3230 0.0082 1.2028
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1.006 - 1.111 
-#>   ESS  range: 109 - 943 
-#>   Run time  : 3 sec
+#>   Rhat range: 1 - 1.008 
+#>   ESS  range: 1534 - 7615 
+#>   Run time  : 26.3 sec
 ```
 
 ``` r
 
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   y ~ x + (1 | group),
   data    = dat,
   family  = "poisson",
   prior   = priors,
-  backend = "inla",
   verbose = FALSE
 )
 summary(fit_inla)
@@ -302,27 +299,43 @@ if (!is.null(tri)) tri
 #> <triangulate_result>
 #>   source_a: greta
 #>   source_b: inla
+#>   independence: algorithmic + implementation
+#>     (HMC (greta on TensorFlow) versus Laplace approximation (INLA on C): different inference paradigms and different code bases.)
 #>   n_common: 3
 #>   only_a:   1 parameter (sigma)
 #>   only_b:   270 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
 #> 
 #> Metrics (per common parameter):
 #>         param mean_a mean_b mean_diff   sd_a   sd_b sd_ratio q025_diff
-#> 1 (Intercept) 0.6050 0.5936    0.0114 0.1337 0.1337   1.0004    0.0307
-#> 2           x 0.4221 0.4166    0.0055 0.0451 0.0442   1.0216   -0.0038
-#> 3    sd_group 0.6500 2.4814   -1.8314 0.0981 0.6878   0.1427   -0.8997
-#>   q975_diff wasserstein_1 rhat_means
-#> 1    0.0033        0.0118     1.0018
-#> 2    0.0061        0.0060     1.0038
-#> 3   -3.3065        1.8291     2.8193
+#> 1 (Intercept) 0.5859 0.5838    0.0021 0.1304 0.1312   0.9938   -0.0092
+#> 2           x 0.4184 0.4206   -0.0021 0.0441 0.0439   1.0039   -0.0103
+#> 3    sd_group 0.6517 0.6463    0.0053 0.0957 0.0965   0.9918    0.0033
+#>   q975_diff wasserstein_1
+#> 1   -0.0077        0.0047
+#> 2   -0.0077        0.0022
+#> 3    0.0230        0.0155
 ```
 
-The print method highlights the columns that breach the flag-thresholds.
-In a clean run, fixed effects agree to two decimal places, variance
-components within 5–10 %, and `wasserstein_1` is modest. The planted
-extreme observation pulls the Poisson likelihood’s right tail; that
-distortion propagates to the group-level SD and is visible as a
-non-trivial Wasserstein-1 distance even when the posterior means agree.
+The print method highlights any column that breaches the
+flag-thresholds. Here the engines agree closely: the fixed effects and
+the group-level SD match to within a credible-interval width, with
+`sd_ratio`s near one and modest `wasserstein_1`. That agreement is the
+*reassuring* outcome of a triangulation – two independent algorithms
+applied to the same model land in the same place, so neither is
+misleading you about the posterior.
+
+Triangulation earns its keep on the runs where the engines do *not*
+agree. The group-level SD is the usual flashpoint, whether because a
+heavy-tailed observation distorts the likelihood or because INLA’s
+Laplace approximation of a small-group variance is itself unreliable (it
+may shrink the component, or with very few groups vary across runs); §3
+classifies the patterns and the response to each. Crucially, engine
+*agreement* does not mean the *model* is right: the planted extreme in
+this dataset is a likelihood-misspecification problem that both engines
+share, so the cross-engine table cannot reveal it. The
+posterior-predictive check in §5.3 is what surfaces that – a reminder
+that triangulation is a check on the *inference*, not a substitute for
+checking the *model*.
 
 User-supplied `name_map` and `transform_b` still take precedence over
 the registry, so a custom alignment (e.g., for an unmapped
@@ -333,7 +346,7 @@ for the per-fit map view and
 [`?triangulate`](https://aagi-aus.github.io/flexyBayes/dev/reference/triangulate.md)
 for the precedence contract.
 
-### 5.2 Visualise the disagreement
+### 5.2 Visualise the comparison
 
 ``` r
 
@@ -398,19 +411,19 @@ refit with negative-binomial or zero-inflated negative-binomial.
 
 In this example, the diagnosis is *likelihood mis-specification*. The
 next move is to refit with a heavier-tailed likelihood and
-re-triangulate. `flexyBayes` in v0.1 supports
-`family = "negative_binomial"` on both backends:
+re-triangulate. `flexyBayes` supports `family = "negative_binomial"` on
+both backends:
 
 ``` r
 
-fit_greta_nb <- fb_brms(y ~ x + (1 | group), data = dat,
+fit_greta_nb <- fb_greta(y ~ x + (1 | group), data = dat,
+                         family = "negative_binomial", prior = priors,
+                         n_samples = 500,
+                         warmup = 500, chains = 2,
+                         verbose = FALSE, mcmc_verbose = FALSE)
+fit_inla_nb  <- fb_inla(y ~ x + (1 | group), data = dat,
                         family = "negative_binomial", prior = priors,
-                        backend = "greta", n_samples = 500,
-                        warmup = 500, chains = 2,
-                        verbose = FALSE, mcmc_verbose = FALSE)
-fit_inla_nb  <- fb_brms(y ~ x + (1 | group), data = dat,
-                        family = "negative_binomial", prior = priors,
-                        backend = "inla", verbose = FALSE)
+                        verbose = FALSE)
 triangulate(fit_greta_nb, fit_inla_nb)
 ```
 
@@ -460,14 +473,14 @@ Re-triangulation on the negative-binomial fit is left as an exercise.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -476,47 +489,45 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] bayesplot_1.15.0      emmeans_2.0.2         ggplot2_4.0.3        
-#> [4] flexyBayes_0.2.0.9000
+#> [1] flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
-#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
-#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
-#>  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          
-#>  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             
-#>  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           
-#>  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       
-#>  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        
-#>  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    
-#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
-#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
-#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
-#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     
-#>  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    
-#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
-#>  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          
-#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
-#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
-#>  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        
-#>  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
-#>  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       
-#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
-#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
-#>  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         
-#>  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    
-#>  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         
-#>  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  
-#>  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          
-#>  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          
-#>  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           
-#>  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         
-#>  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      
-#>  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
-#> [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           
-#> [103] gtable_0.3.6           greta_0.5.1            digest_0.6.39         
-#> [106] classInt_0.4-11        TH.data_1.1-5          farver_2.1.2          
-#> [109] lifecycle_1.0.5        MASS_7.3-65
+#>   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          
+#>   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              
+#>   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         
+#>  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       
+#>  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        
+#>  [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       
+#>  [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        
+#>  [22] tools_4.5.2            data.table_1.18.2.1    sn_2.1.3              
+#>  [25] knitr_1.51             prettyunits_1.2.0      bridgesampling_1.2-1  
+#>  [28] mnormt_2.1.2           bit_4.6.0              classInt_0.4-11       
+#>  [31] reticulate_1.45.0      plyr_1.8.9             RColorBrewer_1.1-3    
+#>  [34] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    
+#>  [37] numDeriv_2016.8-1.1    withr_3.0.2            stats4_4.5.2          
+#>  [40] grid_4.5.2             xtable_1.8-8           e1071_1.7-17          
+#>  [43] future_1.70.0          ggplot2_4.0.3          ggridges_0.5.7        
+#>  [46] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
+#>  [49] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
+#>  [52] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
+#>  [55] RcppParallel_5.1.11-2  otel_0.2.0             reshape2_1.4.5        
+#>  [58] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          
+#>  [61] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      
+#>  [64] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     
+#>  [67] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           
+#>  [70] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        
+#>  [73] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           
+#>  [76] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        
+#>  [79] units_1.0-1            glue_1.8.1             parallelly_1.47.0     
+#>  [82] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         
+#>  [85] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         
+#>  [88] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              
+#>  [91] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        
+#>  [94] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     
+#>  [97] MatrixModels_0.5-4     rstantools_2.6.0       class_7.3-23          
+#> [100] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
+#> [103] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
+#> [106] zoo_1.8-15             pkgconfig_2.0.3
 ```
 
 ## References

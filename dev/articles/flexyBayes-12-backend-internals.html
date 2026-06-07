@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 12: Backend internals: greta, INLA, and the intermediate representation</h1>
             
-            <h4 data-toc-skip class="date">2026-05-22</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-12-backend-internals.Rmd" class="external-link"><code>vignettes/flexyBayes-12-backend-internals.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-12-backend-internals.Rmd</code></div>
@@ -198,7 +198,7 @@ an asreml-format call:</p>
 <span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
 <p><code><a href="../reference/fb_from_brms.html">fb_from_brms()</a></code> walks a single brms-style formula via
 <code>brms::brmsterms()</code> when <code>brms</code> is loaded;
-otherwise it parses a v0.1 minimum subset directly:</p>
+otherwise it parses a minimum subset directly:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fb_b</span> <span class="op">&lt;-</span> <span class="fu">flexyBayes</span><span class="fu">:::</span><span class="fu"><a href="../reference/fb_from_brms.html">fb_from_brms</a></span><span class="op">(</span></span>
 <span>  <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Subject</span><span class="op">)</span>,</span>
@@ -223,16 +223,15 @@ and return a fitted-model object.</p>
 flexyBayes engine, retained verbatim for compatibility). Its job is to
 <em>unwrap</em> the IR back into the shape the legacy code expects, run
 the fit, and wrap the result.</p>
-<p><code>emit_inla()</code> is new in v0.1: it builds an INLA formula
-with <code>f(group, model = "iid", hyper = ...)</code> for each random
+<p><code>emit_inla()</code> builds an INLA formula with
+<code>f(group, model = "iid", hyper = ...)</code> for each random
 effect, plumbs <code>priors_to_inla()</code> into the hyperparameter
 slot, calls <code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code>, and then runs <em>check 7</em> —
 the post-fit numerical- confirm gate.</p>
 <p>The literal greta program is available after a fit:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_brms.html">fb_brms</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_greta.html">fb_greta</a></span><span class="op">(</span></span>
 <span>  <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Subject</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
-<span>  backend      <span class="op">=</span> <span class="st">"greta"</span>,</span>
 <span>  n_samples    <span class="op">=</span> <span class="fl">200</span>, warmup <span class="op">=</span> <span class="fl">200</span>, chains <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  verbose      <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mcmc_verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
@@ -262,9 +261,8 @@ magic.</p>
 <p>For INLA, the formula passed to <code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code> is in
 <code>fit_inla$inla$.args$formula</code>:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit_inla</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_brms.html">fb_brms</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">fit_inla</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_inla.html">fb_inla</a></span><span class="op">(</span></span>
 <span>  <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Subject</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
-<span>  backend <span class="op">=</span> <span class="st">"inla"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_inla</span><span class="op">$</span><span class="va">inla</span><span class="op">$</span><span class="va">.args</span><span class="op">$</span><span class="va">formula</span></span>
@@ -295,9 +293,9 @@ authorisation;</li>
 <li>a structured <code>lgm_refusal</code> object — <code>print</code>
 and stop.</li>
 </ul>
-<p>Inside <code>flexybayes(..., backend = "auto")</code> (and likewise
-<code>fb_brms(..., backend = "auto")</code>), the dispatch logic is
-literally:</p>
+<p>Inside <code>flexybayes(..., backend = "auto")</code> (equivalently
+<code>fb(...)</code>, whose default backend is <code>"auto"</code>), the
+dispatch logic is literally:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">res</span>, <span class="st">"fb_terms"</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="fu">emit_inla</span><span class="op">(</span><span class="va">res</span>, data <span class="op">=</span> <span class="va">data</span>, <span class="va">...</span><span class="op">)</span><span class="op">)</span>      <span class="co"># gate accepted</span></span>
@@ -312,7 +310,7 @@ separate silenceable note
 <p>The full trace is available on every fit through
 [backend_decision()]:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit_auto</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_brms.html">fb_brms</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">fit_auto</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  <span class="va">Reaction</span> <span class="op">~</span> <span class="va">Days</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">Subject</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
 <span>  backend      <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  n_samples    <span class="op">=</span> <span class="fl">200</span>, warmup <span class="op">=</span> <span class="fl">200</span>, chains <span class="op">=</span> <span class="fl">1</span>,</span>
@@ -330,7 +328,34 @@ separate silenceable note
 <span><span class="co">#&gt; [1] "lgm_compatible"      "gretaR_slot_dormant"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $reason</span></span>
-<span><span class="co">#&gt; [1] "lgm_gate() accepted; INLA dispatch."</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "lgm_gate() accepted; INLA dispatch."</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $preflight_summary</span></span>
+<span><span class="co">#&gt; NULL</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $representation_plan</span></span>
+<span><span class="co">#&gt; NULL</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rejected_routes</span></span>
+<span><span class="co">#&gt; $rejected_routes[[1]]</span></span>
+<span><span class="co">#&gt; $rejected_routes[[1]]$backend</span></span>
+<span><span class="co">#&gt; [1] "greta"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rejected_routes[[1]]$reason</span></span>
+<span><span class="co">#&gt; [1] "not_chosen_by_policy"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rejected_routes[[2]]</span></span>
+<span><span class="co">#&gt; $rejected_routes[[2]]$backend</span></span>
+<span><span class="co">#&gt; [1] "gretaR"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $rejected_routes[[2]]$reason</span></span>
+<span><span class="co">#&gt; [1] "backend_not_activated"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $routing_policy_version</span></span>
+<span><span class="co">#&gt; [1] "stage5a_v1"</span></span></code></pre></div>
 <p>The returned list reports <code>backend</code> (which backend ran),
 <code>path</code> (<code>"direct"</code>,
 <code>"auto_inla_accepted"</code>, <code>"auto_inla_refused"</code>,
@@ -386,10 +411,11 @@ brms-style formula grammar.</p>
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/greta/man/model.html" class="external-link">model</a></span><span class="op">(</span><span class="va">b0</span>, <span class="va">b1</span>, <span class="va">sigma</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_dg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_greta.html">fb_greta</a></span><span class="op">(</span></span>
-<span>  <span class="va">m</span>,</span>
-<span>  data            <span class="op">=</span> <span class="va">sleepstudy</span>,</span>
-<span>  canonical_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>b0 <span class="op">=</span> <span class="st">"(Intercept)"</span>, b1 <span class="op">=</span> <span class="st">"Days"</span>,</span>
-<span>                      sigma <span class="op">=</span> <span class="st">"sigma"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/fb_from_greta.html">fb_from_greta</a></span><span class="op">(</span></span>
+<span>    <span class="va">m</span>,</span>
+<span>    canonical_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>b0 <span class="op">=</span> <span class="st">"(Intercept)"</span>, b1 <span class="op">=</span> <span class="st">"Days"</span>,</span>
+<span>                        sigma <span class="op">=</span> <span class="st">"sigma"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span>,</span>
 <span>  n_samples       <span class="op">=</span> <span class="fl">200</span>,</span>
 <span>  warmup          <span class="op">=</span> <span class="fl">200</span>,</span>
 <span>  chains          <span class="op">=</span> <span class="fl">1</span>,</span>
@@ -398,16 +424,16 @@ brms-style formula grammar.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_dg</span><span class="op">)</span></span>
 <span><span class="co">#&gt; (Intercept)        Days       sigma </span></span>
-<span><span class="co">#&gt;   244.75433    10.73406    47.60219</span></span></code></pre></div>
-<p>The <code>canonical_names</code> argument maps each greta
-target-array name to the canonical brms-style name
-<code>flexyBayes</code> uses elsewhere (<code>(Intercept)</code>,
-<code>Days</code>, <code>sigma</code>, <code>sd_&lt;group&gt;</code>,
-…). The mapping unlocks <code><a href="../reference/triangulate.html">triangulate()</a></code> against any other
-<code>flexyBayes</code> fit of the same model without a user-supplied
-<code>name_map</code>. When <code>canonical_names</code> is omitted the
-package falls back to the verbatim greta names with a one-time
-structured note.</p>
+<span><span class="co">#&gt;   252.12209    10.37889    48.11216</span></span></code></pre></div>
+<p>The <code>canonical_names</code> argument of
+<code><a href="../reference/fb_from_greta.html">fb_from_greta()</a></code> maps each greta target-array name to the
+canonical brms-style name <code>flexyBayes</code> uses elsewhere
+(<code>(Intercept)</code>, <code>Days</code>, <code>sigma</code>,
+<code>sd_&lt;group&gt;</code>, …). The mapping unlocks
+<code><a href="../reference/triangulate.html">triangulate()</a></code> against any other <code>flexyBayes</code> fit
+of the same model without a user-supplied <code>name_map</code>. When
+<code>canonical_names</code> is omitted the package falls back to the
+verbatim greta names with a one-time structured note.</p>
 <p><code><a href="../reference/fb_greta.html">fb_greta()</a></code> deliberately <em>never</em> re-priors the
 user’s model: the greta program is the source of truth. Pass an
 <code><a href="../reference/fb_prior.html">fb_prior()</a></code> object only as a <em>declaration</em> (for
@@ -474,8 +500,11 @@ function</strong> that takes an <code>fb_terms</code> IR plus the
 user-facing arguments and returns a fitted-model object.</li>
 <li>
 <strong>Register the new backend</strong> in the
-<code>match.arg(backend, …)</code> list on <code><a href="../reference/flexybayes.html">flexybayes()</a></code> and
-<code><a href="../reference/fb_brms.html">fb_brms()</a></code>.</li>
+<code>match.arg(backend, …)</code> set on the universal entries
+<code><a href="../reference/flexybayes.html">flexybayes()</a></code> / <code><a href="../reference/flexybayes.html">fb()</a></code> (the engine pins
+<code><a href="../reference/fb_greta.html">fb_greta()</a></code> / <code><a href="../reference/fb_inla.html">fb_inla()</a></code> /
+<code><a href="../reference/fb_brms.html">fb_brms()</a></code> fix a single backend and take no
+<code>backend</code> argument).</li>
 <li>
 <strong>Decide the gating policy</strong> — does the new backend
 require <code>lgm_compatible</code>? Add the check at the entry of
@@ -495,12 +524,14 @@ existing greta and INLA mappers without user-supplied
 path. The <em>cross-engine triangulation</em> vignette pattern is the
 template.</li>
 </ol>
-<p>Three further backends are scaffolded or planned: a Stan passthrough
-via brms (<code>fb_brms(..., backend = "brms")</code> — the emitter is
-queued and the canonical-name mapper is identity through brms), gretaR
-(slot provisioned and dormant at the current release; see §9 above), and
-NIMBLE (for hidden Markov, multistate, and partial-LGM models that INLA
-refuses and that benefit from NIMBLE’s specialised samplers).</p>
+<p>A third emit backend is already live: the Stan passthrough via brms
+(<code><a href="../reference/fb_brms.html">fb_brms()</a></code>, or
+<code>flexybayes(..., backend = "brms")</code>), whose canonical-name
+mapper is identity through brms. Two more are provisioned or planned:
+gretaR (slot provisioned and dormant at the current release; see §9
+above), and NIMBLE (for hidden Markov, multistate, and partial-LGM
+models that INLA refuses and that benefit from NIMBLE’s specialised
+samplers).</p>
 </div>
 <div class="section level2">
 <h2 id="posterior-unification">11. Posterior unification<a class="anchor" aria-label="anchor" href="#posterior-unification"></a>
@@ -570,14 +601,14 @@ reconstructed. What state would it need to populate to support
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -586,47 +617,42 @@ reconstructed. What state would it need to populate to support
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] greta_0.5.1           bayesplot_1.15.0      emmeans_2.0.2        </span></span>
-<span><span class="co">#&gt; [4] ggplot2_4.0.3         flexyBayes_0.2.0.9000</span></span>
+<span><span class="co">#&gt; [1] greta_0.5.1      flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          </span></span>
-<span><span class="co">#&gt;   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           </span></span>
-<span><span class="co">#&gt;   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            </span></span>
-<span><span class="co">#&gt;  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          </span></span>
-<span><span class="co">#&gt;  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             </span></span>
-<span><span class="co">#&gt;  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           </span></span>
-<span><span class="co">#&gt;  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       </span></span>
-<span><span class="co">#&gt;  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        </span></span>
-<span><span class="co">#&gt;  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    </span></span>
-<span><span class="co">#&gt;  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        </span></span>
-<span><span class="co">#&gt;  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     </span></span>
-<span><span class="co">#&gt;  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         </span></span>
-<span><span class="co">#&gt;  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     </span></span>
-<span><span class="co">#&gt;  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    </span></span>
-<span><span class="co">#&gt;  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            </span></span>
-<span><span class="co">#&gt;  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          </span></span>
-<span><span class="co">#&gt;  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     </span></span>
-<span><span class="co">#&gt;  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      </span></span>
-<span><span class="co">#&gt;  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        </span></span>
-<span><span class="co">#&gt;  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     </span></span>
-<span><span class="co">#&gt;  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       </span></span>
-<span><span class="co">#&gt;  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0</span></span>
-<span><span class="co">#&gt;  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              </span></span>
-<span><span class="co">#&gt;  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         </span></span>
-<span><span class="co">#&gt;  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    </span></span>
-<span><span class="co">#&gt;  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         </span></span>
-<span><span class="co">#&gt;  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  </span></span>
-<span><span class="co">#&gt;  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          </span></span>
-<span><span class="co">#&gt;  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          </span></span>
-<span><span class="co">#&gt;  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           </span></span>
-<span><span class="co">#&gt;  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         </span></span>
-<span><span class="co">#&gt;  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      </span></span>
-<span><span class="co">#&gt;  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          </span></span>
-<span><span class="co">#&gt; [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           </span></span>
-<span><span class="co">#&gt; [103] gtable_0.3.6           digest_0.6.39          classInt_0.4-11       </span></span>
-<span><span class="co">#&gt; [106] TH.data_1.1-5          farver_2.1.2           lifecycle_1.0.5       </span></span>
-<span><span class="co">#&gt; [109] MASS_7.3-65</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          </span></span>
+<span><span class="co">#&gt;  [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              </span></span>
+<span><span class="co">#&gt;  [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         </span></span>
+<span><span class="co">#&gt; [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       </span></span>
+<span><span class="co">#&gt; [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        </span></span>
+<span><span class="co">#&gt; [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       </span></span>
+<span><span class="co">#&gt; [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        </span></span>
+<span><span class="co">#&gt; [22] tools_4.5.2            data.table_1.18.2.1    knitr_1.51            </span></span>
+<span><span class="co">#&gt; [25] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             </span></span>
+<span><span class="co">#&gt; [28] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    </span></span>
+<span><span class="co">#&gt; [31] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    </span></span>
+<span><span class="co">#&gt; [34] withr_3.0.2            grid_4.5.2             xtable_1.8-8          </span></span>
+<span><span class="co">#&gt; [37] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         </span></span>
+<span><span class="co">#&gt; [40] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          </span></span>
+<span><span class="co">#&gt; [43] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             </span></span>
+<span><span class="co">#&gt; [46] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        </span></span>
+<span><span class="co">#&gt; [49] RcppParallel_5.1.11-2  otel_0.2.0             tfruns_1.5.4          </span></span>
+<span><span class="co">#&gt; [52] DBI_1.3.0              proxy_0.4-29           stringr_1.6.0         </span></span>
+<span><span class="co">#&gt; [55] splines_4.5.2          bayesplot_1.15.0       parallel_4.5.2        </span></span>
+<span><span class="co">#&gt; [58] coro_1.1.0             matrixStats_1.5.0      base64enc_0.1-6       </span></span>
+<span><span class="co">#&gt; [61] marginaleffects_0.32.0 brms_2.23.0            vctrs_0.7.3           </span></span>
+<span><span class="co">#&gt; [64] Matrix_1.7-4           sandwich_3.1-1         jsonlite_2.0.0        </span></span>
+<span><span class="co">#&gt; [67] callr_3.7.6            hms_1.1.4              bit64_4.8.0           </span></span>
+<span><span class="co">#&gt; [70] listenv_0.10.1         units_1.0-1            glue_1.8.1            </span></span>
+<span><span class="co">#&gt; [73] parallelly_1.47.0      codetools_0.2-20       distributional_0.7.0  </span></span>
+<span><span class="co">#&gt; [76] stringi_1.8.7          gtable_0.3.6           tibble_3.3.1          </span></span>
+<span><span class="co">#&gt; [79] pillar_1.11.1          Brobdingnag_1.2-9      torch_0.17.0          </span></span>
+<span><span class="co">#&gt; [82] R6_2.6.1               fmesher_0.7.0          evaluate_1.0.5        </span></span>
+<span><span class="co">#&gt; [85] lattice_0.22-7         png_0.1-9              backports_1.5.1       </span></span>
+<span><span class="co">#&gt; [88] tfautograph_0.3.2      MatrixModels_0.5-4     rstantools_2.6.0      </span></span>
+<span><span class="co">#&gt; [91] class_7.3-23           Rcpp_1.1.1-1.1         checkmate_2.3.4       </span></span>
+<span><span class="co">#&gt; [94] coda_0.19-4.1          nlme_3.1-168           whisker_0.4.1         </span></span>
+<span><span class="co">#&gt; [97] xfun_0.57              zoo_1.8-15             pkgconfig_2.0.3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

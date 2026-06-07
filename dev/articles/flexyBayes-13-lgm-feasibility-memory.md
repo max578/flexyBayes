@@ -2,17 +2,15 @@
 
 ## 1. Why a per-term memory estimator?
 
-The v0.3.6 release shipped `lgm_gate()` rule 11
-(`memory_feasibility_inla`) with a single multiplier on the preflight’s
-indexed estimate. That multiplier was a useful safety net but coarse: a
-model whose memory profile is dominated by one structured-covariance
-term could refuse for the wrong reason, and the diagnostic message named
-neither the binding term nor the representation class driving the
-projection.
+`lgm_gate()` rule 11 (`memory_feasibility_inla`) originally used a
+single multiplier on the preflight’s indexed estimate. That multiplier
+was a useful safety net but coarse: a model whose memory profile is
+dominated by one structured-covariance term could refuse for the wrong
+reason, and the diagnostic message named neither the binding term nor
+the representation class driving the projection.
 
-The v0.3.10 release replaces the multiplier with a per-term
-decomposition. Each random-effect term contributes bytes according to
-its representation class:
+The gate now uses a per-term decomposition instead. Each random-effect
+term contributes bytes according to its representation class:
 
 | Representation | Bytes per term | Notes |
 |----|----|----|
@@ -70,18 +68,17 @@ patterns resolve the refusal:
 
 ## 4. What the per-term estimator does not capture
 
-The v0.3.10 estimator covers the four exact representations flexyBayes
+The per-term estimator covers the four exact representations flexyBayes
 supports today (dense, chol, precision/pedigree-sparse, blocks) plus the
 indexed random-effect and dense-basis fixed-effect shapes. Two surfaces
 are explicitly out of scope:
 
 - **SPDE meshes.** INLA’s `model = "spde2"` mesh allocations are
-  workflow-specific and not modelled here; a future release (v0.4.1)
-  ships a tensor-smooth estimator that covers the relevant shapes.
+  workflow-specific and not modelled here; a future release ships a
+  tensor-smooth estimator that covers the relevant shapes.
 - **Approximate schemes** (low-rank covariance carriers, variational
   stage-2). These refuse at the routing layer until validated through
-  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/dev/reference/validate_approximation.md)
-  (added in v0.4.0).
+  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/dev/reference/validate_approximation.md).
 
 ## 5. References
 
@@ -117,9 +114,9 @@ approximations.” *Journal of the Royal Statistical Society, Series B*,
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39     desc_1.4.3        R6_2.6.1          fastmap_1.2.0    
-    #>  [5] xfun_0.57         cachem_1.1.0      knitr_1.51        htmltools_0.5.9  
+    #>  [5] xfun_0.58         cachem_1.1.0      knitr_1.51        htmltools_0.5.9  
     #>  [9] rmarkdown_2.31    lifecycle_1.0.5   cli_3.6.6         sass_0.4.10      
     #> [13] pkgdown_2.2.0     textshaping_1.0.5 jquerylib_0.1.4   systemfonts_1.3.2
-    #> [17] compiler_4.6.0    tools_4.6.0       ragg_1.5.2        evaluate_1.0.5   
-    #> [21] bslib_0.11.0      yaml_2.3.12       jsonlite_2.0.0    rlang_1.2.0      
-    #> [25] fs_2.1.0
+    #> [17] compiler_4.6.0    tools_4.6.0       ragg_1.5.2        bslib_0.11.0     
+    #> [21] evaluate_1.0.5    yaml_2.3.12       otel_0.2.0        jsonlite_2.0.0   
+    #> [25] rlang_1.2.0       fs_2.1.0

@@ -111,7 +111,7 @@ fb_a$random_terms[[1]]$k         # number of factor-analytic loadings
 
 [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_from_brms.md)
 walks a single brms-style formula via `brms::brmsterms()` when `brms` is
-loaded; otherwise it parses a v0.1 minimum subset directly:
+loaded; otherwise it parses a minimum subset directly:
 
 ``` r
 
@@ -141,7 +141,7 @@ engine, retained verbatim for compatibility). Its job is to *unwrap* the
 IR back into the shape the legacy code expects, run the fit, and wrap
 the result.
 
-`emit_inla()` is new in v0.1: it builds an INLA formula with
+`emit_inla()` builds an INLA formula with
 `f(group, model = "iid", hyper = ...)` for each random effect, plumbs
 `priors_to_inla()` into the hyperparameter slot, calls
 [`INLA::inla()`](https://rdrr.io/pkg/INLA/man/inla.html), and then runs
@@ -151,9 +151,8 @@ The literal greta program is available after a fit:
 
 ``` r
 
-fit <- fb_brms(
+fit <- fb_greta(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
-  backend      = "greta",
   n_samples    = 200, warmup = 200, chains = 1,
   verbose      = FALSE,
   mcmc_verbose = FALSE
@@ -190,9 +189,8 @@ For INLA, the formula passed to
 
 ``` r
 
-fit_inla <- fb_brms(
+fit_inla <- fb_inla(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
-  backend = "inla",
   verbose = FALSE
 )
 fit_inla$inla$.args$formula
@@ -225,8 +223,8 @@ The return value is one of three:
   `emit_inla()` despite a refusal, on user authorisation;
 - a structured `lgm_refusal` object — `print` and stop.
 
-Inside `flexybayes(..., backend = "auto")` (and likewise
-`fb_brms(..., backend = "auto")`), the dispatch logic is literally:
+Inside `flexybayes(..., backend = "auto")` (equivalently `fb(...)`,
+whose default backend is `"auto"`), the dispatch logic is literally:
 
 ``` r
 
@@ -246,7 +244,7 @@ The full trace is available on every fit through \[backend_decision()\]:
 
 ``` r
 
-fit_auto <- fb_brms(
+fit_auto <- flexybayes(
   Reaction ~ Days + (1 | Subject), data = sleepstudy,
   backend      = "auto",
   n_samples    = 200, warmup = 200, chains = 1,
@@ -265,6 +263,33 @@ backend_decision(fit_auto)
 #> 
 #> $reason
 #> [1] "lgm_gate() accepted; INLA dispatch."
+#> 
+#> $preflight_summary
+#> NULL
+#> 
+#> $representation_plan
+#> NULL
+#> 
+#> $rejected_routes
+#> $rejected_routes[[1]]
+#> $rejected_routes[[1]]$backend
+#> [1] "greta"
+#> 
+#> $rejected_routes[[1]]$reason
+#> [1] "not_chosen_by_policy"
+#> 
+#> 
+#> $rejected_routes[[2]]
+#> $rejected_routes[[2]]$backend
+#> [1] "gretaR"
+#> 
+#> $rejected_routes[[2]]$reason
+#> [1] "backend_not_activated"
+#> 
+#> 
+#> 
+#> $routing_policy_version
+#> [1] "stage5a_v1"
 ```
 
 The returned list reports `backend` (which backend ran), `path`
@@ -325,10 +350,11 @@ distribution(y) <- normal(mu, sigma)
 m <- model(b0, b1, sigma)
 
 fit_dg <- fb_greta(
-  m,
-  data            = sleepstudy,
-  canonical_names = c(b0 = "(Intercept)", b1 = "Days",
-                      sigma = "sigma"),
+  fb_from_greta(
+    m,
+    canonical_names = c(b0 = "(Intercept)", b1 = "Days",
+                        sigma = "sigma")
+  ),
   n_samples       = 200,
   warmup          = 200,
   chains          = 1,
@@ -337,12 +363,14 @@ fit_dg <- fb_greta(
 )
 coef(fit_dg)
 #> (Intercept)        Days       sigma 
-#>   244.75433    10.73406    47.60219
+#>   252.12209    10.37889    48.11216
 ```
 
-The `canonical_names` argument maps each greta target-array name to the
-canonical brms-style name `flexyBayes` uses elsewhere (`(Intercept)`,
-`Days`, `sigma`, `sd_<group>`, …). The mapping unlocks
+The `canonical_names` argument of
+[`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_from_greta.md)
+maps each greta target-array name to the canonical brms-style name
+`flexyBayes` uses elsewhere (`(Intercept)`, `Days`, `sigma`,
+`sd_<group>`, …). The mapping unlocks
 [`triangulate()`](https://aagi-aus.github.io/flexyBayes/dev/reference/triangulate.md)
 against any other `flexyBayes` fit of the same model without a
 user-supplied `name_map`. When `canonical_names` is omitted the package
@@ -421,10 +449,18 @@ Adding a third backend (Stan via brms passthrough; PyMC via reticulate;
 1.  **Implement an `emit_<backend>()` function** that takes an
     `fb_terms` IR plus the user-facing arguments and returns a
     fitted-model object.
-2.  **Register the new backend** in the `match.arg(backend, …)` list on
+2.  **Register the new backend** in the `match.arg(backend, …)` set on
+    the universal entries
     [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
-    and
-    [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md).
+    /
+    [`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+    (the engine pins
+    [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md)
+    /
+    [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_inla.md)
+    /
+    [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
+    fix a single backend and take no `backend` argument).
 3.  **Decide the gating policy** — does the new backend require
     `lgm_compatible`? Add the check at the entry of `emit_<backend>`.
 4.  **Implement an `fb_as_draws_simple` method** for the fitted-model
@@ -439,9 +475,10 @@ Adding a third backend (Stan via brms passthrough; PyMC via reticulate;
 6.  **Write tests + a vignette** demonstrating the new path. The
     *cross-engine triangulation* vignette pattern is the template.
 
-Three further backends are scaffolded or planned: a Stan passthrough via
-brms (`fb_brms(..., backend = "brms")` — the emitter is queued and the
-canonical-name mapper is identity through brms), gretaR (slot
+A third emit backend is already live: the Stan passthrough via brms
+([`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md),
+or `flexybayes(..., backend = "brms")`), whose canonical-name mapper is
+identity through brms. Two more are provisioned or planned: gretaR (slot
 provisioned and dormant at the current release; see §9 above), and
 NIMBLE (for hidden Markov, multistate, and partial-LGM models that INLA
 refuses and that benefit from NIMBLE’s specialised samplers).
@@ -513,14 +550,14 @@ halts the call — your fit object is not silently corrupted.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -529,47 +566,42 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] greta_0.5.1           bayesplot_1.15.0      emmeans_2.0.2        
-#> [4] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> [1] greta_0.5.1      flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
-#>   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           
-#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
-#>  [10] ggridges_0.5.7         matrixStats_1.5.0      e1071_1.7-17          
-#>  [13] compiler_4.5.2         mgcv_1.9-3             loo_2.9.0             
-#>  [16] png_0.1-9              callr_3.7.6            vctrs_0.7.3           
-#>  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       
-#>  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        
-#>  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    
-#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
-#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
-#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
-#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     
-#>  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    
-#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
-#>  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          
-#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
-#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
-#>  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        
-#>  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
-#>  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       
-#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
-#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
-#>  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         
-#>  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    
-#>  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         
-#>  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  
-#>  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          
-#>  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          
-#>  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           
-#>  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         
-#>  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      
-#>  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
-#> [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           
-#> [103] gtable_0.3.6           digest_0.6.39          classInt_0.4-11       
-#> [106] TH.data_1.1-5          farver_2.1.2           lifecycle_1.0.5       
-#> [109] MASS_7.3-65
+#>  [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          
+#>  [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              
+#>  [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         
+#> [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       
+#> [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        
+#> [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       
+#> [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        
+#> [22] tools_4.5.2            data.table_1.18.2.1    knitr_1.51            
+#> [25] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             
+#> [28] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    
+#> [31] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    
+#> [34] withr_3.0.2            grid_4.5.2             xtable_1.8-8          
+#> [37] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         
+#> [40] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
+#> [43] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
+#> [46] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
+#> [49] RcppParallel_5.1.11-2  otel_0.2.0             tfruns_1.5.4          
+#> [52] DBI_1.3.0              proxy_0.4-29           stringr_1.6.0         
+#> [55] splines_4.5.2          bayesplot_1.15.0       parallel_4.5.2        
+#> [58] coro_1.1.0             matrixStats_1.5.0      base64enc_0.1-6       
+#> [61] marginaleffects_0.32.0 brms_2.23.0            vctrs_0.7.3           
+#> [64] Matrix_1.7-4           sandwich_3.1-1         jsonlite_2.0.0        
+#> [67] callr_3.7.6            hms_1.1.4              bit64_4.8.0           
+#> [70] listenv_0.10.1         units_1.0-1            glue_1.8.1            
+#> [73] parallelly_1.47.0      codetools_0.2-20       distributional_0.7.0  
+#> [76] stringi_1.8.7          gtable_0.3.6           tibble_3.3.1          
+#> [79] pillar_1.11.1          Brobdingnag_1.2-9      torch_0.17.0          
+#> [82] R6_2.6.1               fmesher_0.7.0          evaluate_1.0.5        
+#> [85] lattice_0.22-7         png_0.1-9              backports_1.5.1       
+#> [88] tfautograph_0.3.2      MatrixModels_0.5-4     rstantools_2.6.0      
+#> [91] class_7.3-23           Rcpp_1.1.1-1.1         checkmate_2.3.4       
+#> [94] coda_0.19-4.1          nlme_3.1-168           whisker_0.4.1         
+#> [97] xfun_0.57              zoo_1.8-15             pkgconfig_2.0.3
 ```
 
 ## References

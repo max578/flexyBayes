@@ -43,50 +43,85 @@ Reach Stan explicitly with
 [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
 or `fb(..., backend = "brms")`.
 
+## Backend support
+
+flexyBayes is standalone-functional with any one backend installed, and
+the planner (see *Quick start*) needs none at all. The backends differ
+in install burden and in what they offer.
+
+| Backend | On CRAN? | Install burden | Inference | In flexyBayes |
+|----|----|----|----|----|
+| INLA | No (own repository) | Moderate — binary, no compiler | Approximate (nested Laplace) | Supported |
+| brms (Stan) | Yes | Heavy — first-call Stan compile (~30–60 s) | MCMC (sampling error only) | Supported |
+| greta | No (greta-dev R-universe) | Heavy — Python + TensorFlow stack | MCMC (sampling error only) | Supported |
+| gretaR | No (opt-in) | Heavy — torch | MCMC (out-of-process NUTS) | Dormant, opt-in |
+
+Every export carries a `lifecycle::badge("experimental")`; see
+`API_STABILITY.md` for what that guarantees. The fastest way to explore
+the package without any backend is the planner; for a worked fit with
+production sampling settings and honest diagnostics, follow the *getting
+started* vignette.
+
 ## Installation
 
 ``` r
-# Install greta (default backend)
-install.packages("greta")
+
+# greta (R-native MCMC backend) — archived from CRAN, served via the
+# greta-dev R-universe
+install.packages("greta",
+  repos = c("https://greta-dev.r-universe.dev", getOption("repos")))
 greta::install_greta_deps()
 
-# INLA (optional, second backend) — not on CRAN
+# INLA (approximate-inference backend) — not on CRAN
 install.packages("INLA",
   repos = c(getOption("repos"),
             INLA = "https://inla.r-inla-download.org/R/stable"))
 
-# brms (optional, Stan passthrough)
+# brms (Stan passthrough) — on CRAN
 install.packages("brms")
 
-# flexyBayes -- install from the local checkpoint tarball
-# (installation from the public repository will be available once
-# the package is published there).
-R CMD INSTALL release_tarballs/flexyBayes_0.5.0.tar.gz
-
-# Once published, install directly from the repository:
+# flexyBayes itself (not yet on CRAN) -- install from the repository:
 # install.packages("remotes")
-# remotes::install_github("AAGI-AUS/flexyBayes")
+remotes::install_github("AAGI-AUS/flexyBayes")
 ```
 
-`flexyBayes` degrades gracefully when optional engines are missing:
-greta-dependent code paths gate via `skip_if_no_greta()`; INLA paths
-gate via
-[`requireNamespace("INLA", quietly = TRUE)`](https://rdrr.io/r/base/ns-load.html);
-brms paths gate the same way.
+`flexyBayes` degrades gracefully when an optional engine is missing:
+each backend is detected at run time, and a model sent to an unavailable
+engine is refused with a clear message naming what to install rather
+than failing obscurely.
 
 ## Quick start
+
+The planner needs no inference backend and is the fastest way to see
+what flexyBayes will do with a model: it builds the intermediate
+representation, chooses a backend, and reports the plan without fitting.
 
 ``` r
 
 library(flexyBayes)
 data(sleepstudy, package = "lme4")
 
-# Fit a mixed model with ASReml-style syntax
+# Inspect the routing decision and representation plan -- no backend needed
+plan <- flexybayes(
+  fixed  = Reaction ~ Days,
+  random = ~ Subject,
+  data   = sleepstudy,
+  plan   = TRUE
+)
+plan
+```
+
+To fit, install at least one backend (see *Backend support* above). The
+following uses production sampling settings; the *getting started*
+vignette walks through the same fit with its convergence diagnostics.
+
+``` r
+
 fit <- flexybayes(
   fixed  = Reaction ~ Days,
   random = ~ Subject,
   data   = sleepstudy,
-  n_samples = 2000, warmup = 2000, chains = 2
+  n_samples = 2000, warmup = 5000, chains = 4
 )
 
 # Standard R output
@@ -112,20 +147,19 @@ fit_i <- flexybayes(Reaction ~ Days, random = ~ Subject,
 
 triangulate(fit_g, fit_i)
 #> Common parameters: 3
-#> # A tibble: 3 × 6
-#>   parameter   mean_diff sd_ratio tail_drift wasserstein_1 rhat_means
-#>   <chr>           <dbl>    <dbl>      <dbl>         <dbl>      <dbl>
-#> 1 (Intercept)    -0.04     0.997     0.012          0.04      1.002
-#> 2 Days            0.001    1.001     0.003          0.001     1.000
-#> 3 sigma           0.12     1.004     0.020          0.12      1.001
+#> # A tibble: 3 × 5
+#>   parameter   mean_diff sd_ratio tail_drift wasserstein_1
+#>   <chr>           <dbl>    <dbl>      <dbl>         <dbl>
+#> 1 (Intercept)    -0.04     0.997     0.012          0.04
+#> 2 Days            0.001    1.001     0.003          0.001
+#> 3 sigma           0.12     1.004     0.020          0.12
 ```
 
 Add a third engine via brms / Stan:
 
 ``` r
 
-fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy, backend = "brms")
+fit_s <- fb_brms(Reaction ~ Days + (1 | Subject), data = sleepstudy)
 
 triangulate(fit_g, fit_s)
 triangulate(fit_i, fit_s)
@@ -142,7 +176,7 @@ transform — no `name_map` argument needed in standard cases.
 | Accessor | Returns |
 |----|----|
 | `backend_decision(fit)` | The captured dispatch trace: backend, path, `lgm_gate` checks, reason. |
-| `prior_summary(fit)` | The resolved prior — auto-default (bounded uniform on SD per Gelman 2006), user-supplied [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.md), or legacy scalar bridge. |
+| `prior_summary(fit)` | The resolved prior — auto-default (weakly-informative bounded uniform on SD; half-Cauchy advised for small group counts), user-supplied [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.md), or legacy scalar bridge. |
 | `canonical_names(fit)` | The backend-native ↔︎ canonical-name table with per-row scale transforms. |
 | `review_code = TRUE` on [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md) / [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md) | Inspect-before-fit workflow; `cat_code(rev)` prints the generated backend code; `proceed(rev)` advances into the fit. Supported on the formula-entry verbs only. [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md) raises a documented refusal: the user’s model is already greta-side, so there is no flexyBayes-generated code string to inspect (model-graph pretty-printer reserved for a future release). |
 
@@ -199,7 +233,7 @@ family = "gaussian" | "binomial" | "poisson" | "negative_binomial" |
 
 ## Vignettes
 
-Fifteen numbered vignettes ship with the package:
+Sixteen numbered vignettes ship with the package:
 
 1.  Getting started
 2.  ASReml-shaped formulas
@@ -216,6 +250,7 @@ Fifteen numbered vignettes ship with the package:
 13. LGM feasibility and memory
 14. Choosing an engine: the universal entry and the engine pins
 15. Architecture: the backend registry and how a new engine joins
+16. Big-data streaming
 
 Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern; the `.Rmd`
 that ships in the package tarball is the pre-evaluated static output.
@@ -232,6 +267,22 @@ that ships in the package tarball is the pre-evaluated static output.
 - **Triangulation as first-class output**: the package is built around
   the claim that *evidence of cross-engine agreement* is the signature
   flexyBayes deliverable, not “one more Bayesian mixed- model frontend”.
+
+## Correctness
+
+flexyBayes ships an extensive `testthat` suite (`devtools::test()`)
+covering the paths most likely to hide errors: fixed-effect and factor
+models against [`lm()`](https://rdrr.io/r/stats/lm.html) /
+`lme4::lmer()` references, random intercepts and the asreml-route random
+slopes, structured-covariance terms, streaming-aggregation equivalence
+to the per-row fit, weights, offsets, missing-response handling, backend
+routing and the structured refusal taxonomy, prior translation, and
+cross-engine
+[`triangulate()`](https://aagi-aus.github.io/flexyBayes/dev/reference/triangulate.md)
+agreement. The *cross-engine triangulation* and per-family vignettes
+show clean reproducible checks; the structured-covariance reference
+vignettes are explicitly marked non-inferential where a model does not
+mix at vignette-scale budgets.
 
 ## Known limitations
 

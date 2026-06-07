@@ -21,7 +21,7 @@ distributional name."><meta name="robots" content="noindex"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,10 +103,12 @@ distributional name.</p>
 </ul><p>Supported distribution families: <code>pc</code>, <code>half_normal</code>, <code>half_cauchy</code>,
 <code>student_t</code>, <code>normal</code>, <code>exponential</code>, <code>lkj</code>, <code>cauchy</code>, <code>gamma</code>,
 <code>uniform</code>. Note that <code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">uniform()</a></code> on a variance component sits
-outside the PC-canonical interlingua: the INLA backend honours it
-exactly via an expression-prior on the log-precision; the legacy
-greta scalar bridge cannot represent it and will refuse with a
-redirect.</p></dd>
+outside the PC-canonical interlingua, but both backends represent it
+faithfully on the SD scale: the INLA backend via an expression-prior
+on the log-precision, and the greta backend as a bounded
+<code><a href="https://rdrr.io/pkg/greta/man/distributions.html" class="external-link">greta::uniform()</a></code> on each simple random-effect (and residual) SD.
+Structured-covariance terms (<code>us</code>, <code>fa</code>, <code>ar1</code>, <code>vm</code>, <code>ped</code>) on greta
+fall back to the legacy scale prior.</p></dd>
 
 </dl></div>
     <div class="section level2">

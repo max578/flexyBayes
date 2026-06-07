@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 06: Default priors and the `fb_prior()` DSL</h1>
             
-            <h4 data-toc-skip class="date">2026-05-22</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-06-priors.Rmd" class="external-link"><code>vignettes/flexyBayes-06-priors.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-06-priors.Rmd</code></div>
@@ -115,18 +115,17 @@ has most of its mass close to the boundary. A prior with a mode at zero
 (or, like a uniform, no preference at all) reflects this honestly; a
 prior with a mode away from zero introduces an artefactual bump.</li>
 </ul>
-<p><code>flexyBayes</code> v0.1 ships a <em>bounded uniform</em> prior
-on the SD scale as the default for every variance component (Gelman,
-2006), and exposes a domain-specific language (DSL),
-<code><a href="../reference/fb_prior.html">fb_prior()</a></code>, for cases where you want something more
-informative or more constrained.</p>
+<p><code>flexyBayes</code> ships a <em>bounded uniform</em> prior on the
+SD scale as the default for every variance component (Gelman, 2006), and
+exposes a domain-specific language (DSL), <code><a href="../reference/fb_prior.html">fb_prior()</a></code>, for
+cases where you want something more informative or more constrained.</p>
 </div>
 <div class="section level2">
-<h2 id="the-v0-1-default-bounded-uniform-on-the-sd-scale">2. The v0.1 default: bounded uniform on the SD scale<a class="anchor" aria-label="anchor" href="#the-v0-1-default-bounded-uniform-on-the-sd-scale"></a>
+<h2 id="the-default-bounded-uniform-on-the-sd-scale">2. The default: bounded uniform on the SD scale<a class="anchor" aria-label="anchor" href="#the-default-bounded-uniform-on-the-sd-scale"></a>
 </h2>
 <p>When neither <code>prior</code> nor <code>prior_vc_sd</code> is
-supplied, <code>flexyBayes</code> v0.1 fires a one-time announcement
-message describing the chosen default:</p>
+supplied, <code>flexyBayes</code> fires a one-time announcement message
+describing the chosen default:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>σ</mi><mo>∼</mo><mtext mathvariant="normal">Uniform</mtext><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><mspace width="0.167em"></mspace><mi>U</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \sigma \sim \text{Uniform}(0,\, U),
 </annotation></semantics></math></p>
@@ -180,7 +179,7 @@ see the half-Cauchy / half-normal override in §4 below.</p>
 <code>ide()</code> random branches and on the residual sigma.
 Structured-covariance branches (unstructured, factor-analytic,
 autoregressive, genomic kernels) keep the legacy lognormal default;
-broadening the uniform default to those branches is queued for a
+broadening the uniform default to those branches is deferred to a
 subsequent release.</p>
 <p>To preserve the legacy lognormal default exactly, pass
 <code>prior_vc_sd = 1</code> explicitly. To silence the announcement
@@ -263,7 +262,7 @@ or <code><a href="../reference/fb_greta.html">fb_greta()</a></code> call can con
 <span><span class="co">#&gt;   sigma ~ uniform(lower = 0, upper = 281.6438)</span></span>
 <span><span class="co">#&gt;   sd(group = "Subject") ~ uniform(lower = 0, upper = 281.6438)</span></span>
 <span><span class="co">#&gt;   b("Days") ~ normal(mean = 0, sd = 50)</span></span></code></pre></div>
-<p>Targets supported in v0.1:</p>
+<p>Targets supported:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -298,7 +297,7 @@ or <code><a href="../reference/fb_greta.html">fb_greta()</a></code> call can con
 </tr>
 </tbody>
 </table>
-<p>Families supported in v0.1:</p>
+<p>Families supported:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -313,8 +312,7 @@ or <code><a href="../reference/fb_greta.html">fb_greta()</a></code> call can con
 <tbody>
 <tr class="odd">
 <td><code>uniform(lower, upper)</code></td>
-<td>bounded uniform on SD (the v0.1 default for variance
-components)</td>
+<td>bounded uniform on SD (the default for variance components)</td>
 </tr>
 <tr class="even">
 <td><code>pc(upper, prob)</code></td>
@@ -365,7 +363,7 @@ sensitivity. With 18 subjects, the prior on the subject-level
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
 does meaningful work. We compare three priors:</p>
 <ol style="list-style-type: decimal">
-<li>The v0.1 uniform default.</li>
+<li>The uniform default.</li>
 <li>A half-Cauchy(2.5) — a more informative weakly-informative prior
 recommended for very small
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
@@ -384,8 +382,10 @@ recommended for very small
 <span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>flexyBayes.silence_default_prior_note <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <p>The announcement message lists the chosen
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>,
-the family / scale basis, the Gelman 2006 citation, and the override
-knobs. We keep this fit as the reference.</p>
+the family / scale basis, the
+small-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>J</mi><annotation encoding="application/x-tex">J</annotation></semantics></math>
+half-Cauchy guidance, and the override knobs. We keep this fit as the
+reference.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">priors_hc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_prior.html">fb_prior</a></span><span class="op">(</span></span>
 <span>  <span class="va">sigma</span>                 <span class="op">~</span> <span class="fu">half_cauchy</span><span class="op">(</span>scale <span class="op">=</span> <span class="fl">2.5</span><span class="op">)</span>,</span>
@@ -413,10 +413,10 @@ knobs. We keep this fit as the reference.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>default <span class="op">=</span> <span class="fu">extract_sigma</span><span class="op">(</span><span class="va">fit_default</span><span class="op">)</span>,</span>
 <span>      halfcau <span class="op">=</span> <span class="fu">extract_sigma</span><span class="op">(</span><span class="va">fit_hc</span><span class="op">)</span>,</span>
 <span>      legacy  <span class="op">=</span> <span class="fu">extract_sigma</span><span class="op">(</span><span class="va">fit_legacy</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;               mean  q025.2.5% q975.97.5%</span></span>
-<span><span class="co">#&gt; default  41.665719 27.3224770  60.599972</span></span>
-<span><span class="co">#&gt; halfcau   1.273848  0.2827245   3.102758</span></span>
-<span><span class="co">#&gt; legacy  112.620511 49.8061328 231.199920</span></span></code></pre></div>
+<span><span class="co">#&gt;         mean q025.2.5% q975.97.5%</span></span>
+<span><span class="co">#&gt; default   NA        NA         NA</span></span>
+<span><span class="co">#&gt; halfcau   NA        NA         NA</span></span>
+<span><span class="co">#&gt; legacy    NA        NA         NA</span></span></code></pre></div>
 <p>The uniform default and the half-Cauchy give similar posteriors —
 both are weakly informative. The legacy lognormal pulls the posterior
 toward smaller
@@ -472,10 +472,10 @@ expects. greta receives a direct standard-deviation prior; INLA receives
 a <code>pc.prec</code> block tuned to match the same upper-tail
 statement. Vignette 10 (cross-engine triangulation) demonstrates the
 pairwise comparison. Direct INLA dispatch on brms-shaped formulas is
-available via <code>fb_brms(..., backend = "inla")</code>, and
-gate-driven routing via <code>backend = "auto"</code> is documented in
-the <em>hierarchical models</em> and <em>backend internals</em>
-vignettes.</p>
+available via <code><a href="../reference/fb_inla.html">fb_inla()</a></code> (equivalently
+<code>flexybayes(..., backend = "inla")</code>), and gate-driven routing
+via <code>backend = "auto"</code> is documented in the <em>hierarchical
+models</em> and <em>backend internals</em> vignettes.</p>
 </div>
 <div class="section level2">
 <h2 id="penalised-complexity-priors-advanced-appendix">7. Penalised-complexity priors (advanced appendix)<a class="anchor" aria-label="anchor" href="#penalised-complexity-priors-advanced-appendix"></a>
@@ -510,7 +510,7 @@ Use it via <code>pc(upper = U, prob = alpha)</code> in
 <span><span class="op">)</span></span>
 <span><span class="fu">extract_sigma</span><span class="op">(</span><span class="va">fit_pc</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       mean  q025.2.5% q975.97.5% </span></span>
-<span><span class="co">#&gt;  212.16281   59.18845  283.13012</span></span></code></pre></div>
+<span><span class="co">#&gt;         NA         NA         NA</span></span></code></pre></div>
 <p>The tighter PC prior pulls the posterior on
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mrow><mi mathvariant="normal">S</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">b</mi><mi mathvariant="normal">j</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">c</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">\sigma_{\mathrm{Subject}}</annotation></semantics></math>
 toward smaller values, making the analyst’s commitment to “small random
@@ -541,12 +541,12 @@ applications.</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
 with prior on
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>σ</mi><mn>2</mn></msup><annotation encoding="application/x-tex">\sigma^2</annotation></semantics></math>
-or precision.</strong> PC priors and the v0.1 uniform default are stated
-on the <em>standard deviation</em> scale. INLA’s internal
-parameterisation is precision; <code>priors_to_inla()</code> handles the
-change of variables, and the <code><a href="../reference/fb_prior.html">fb_prior()</a></code> user does not need
-to think about it. If you write priors directly into
-<code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code>, <em>do</em> think about it.</p>
+or precision.</strong> PC priors and the uniform default are stated on
+the <em>standard deviation</em> scale. INLA’s internal parameterisation
+is precision; <code>priors_to_inla()</code> handles the change of
+variables, and the <code><a href="../reference/fb_prior.html">fb_prior()</a></code> user does not need to think
+about it. If you write priors directly into <code><a href="https://rdrr.io/pkg/INLA/man/inla.html" class="external-link">INLA::inla()</a></code>,
+<em>do</em> think about it.</p>
 <p><strong>Setting the upper bound of a uniform / PC prior to a multiple
 of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">d</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>y</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mathrm{sd}(y)</annotation></semantics></math>
@@ -599,14 +599,14 @@ half-Cauchy(2.5) prior on the group SD.</li>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -615,43 +615,48 @@ half-Cauchy(2.5) prior on the group SD.</li>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000</span></span>
+<span><span class="co">#&gt; [1] ggplot2_4.0.3    flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;   [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         </span></span>
-<span><span class="co">#&gt;   [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            </span></span>
-<span><span class="co">#&gt;   [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    </span></span>
-<span><span class="co">#&gt;  [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     </span></span>
-<span><span class="co">#&gt;  [13] sf_1.1-0             agridat_1.26         survival_3.8-3      </span></span>
-<span><span class="co">#&gt;  [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     </span></span>
-<span><span class="co">#&gt;  [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      </span></span>
-<span><span class="co">#&gt;  [22] tools_4.5.2          sn_2.1.3             knitr_1.51          </span></span>
-<span><span class="co">#&gt;  [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        </span></span>
-<span><span class="co">#&gt;  [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          </span></span>
-<span><span class="co">#&gt;  [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         </span></span>
-<span><span class="co">#&gt;  [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         </span></span>
-<span><span class="co">#&gt;  [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        </span></span>
-<span><span class="co">#&gt;  [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      </span></span>
-<span><span class="co">#&gt;  [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         </span></span>
-<span><span class="co">#&gt;  [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       </span></span>
-<span><span class="co">#&gt;  [49] crayon_1.5.3         reformulas_0.4.4     generics_0.1.4      </span></span>
-<span><span class="co">#&gt;  [52] otel_0.2.0           reshape2_1.4.5       tfruns_1.5.4        </span></span>
-<span><span class="co">#&gt;  [55] minqa_1.2.8          DBI_1.3.0            proxy_0.4-29        </span></span>
-<span><span class="co">#&gt;  [58] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    </span></span>
-<span><span class="co">#&gt;  [61] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         </span></span>
-<span><span class="co">#&gt;  [64] boot_1.3-32          Matrix_1.7-4         sandwich_3.1-1      </span></span>
-<span><span class="co">#&gt;  [67] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         </span></span>
-<span><span class="co">#&gt;  [70] hms_1.1.4            listenv_0.10.1       units_1.0-1         </span></span>
-<span><span class="co">#&gt;  [73] glue_1.8.1           parallelly_1.47.0    nloptr_2.2.1        </span></span>
-<span><span class="co">#&gt;  [76] codetools_0.2-20     distributional_0.7.0 stringi_1.8.7       </span></span>
-<span><span class="co">#&gt;  [79] gtable_0.3.6         lme4_2.0-1           tibble_3.3.1        </span></span>
-<span><span class="co">#&gt;  [82] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       </span></span>
-<span><span class="co">#&gt;  [85] Rdpack_2.6.6         evaluate_1.0.5       lattice_0.22-7      </span></span>
-<span><span class="co">#&gt;  [88] rbibutils_2.4.1      png_0.1-9            backports_1.5.1     </span></span>
-<span><span class="co">#&gt;  [91] tfautograph_0.3.2    MatrixModels_0.5-4   class_7.3-23        </span></span>
-<span><span class="co">#&gt;  [94] Rcpp_1.1.1-1.1       nlme_3.1-168         coda_0.19-4.1       </span></span>
-<span><span class="co">#&gt;  [97] checkmate_2.3.4      mgcv_1.9-3           whisker_0.4.1       </span></span>
-<span><span class="co">#&gt; [100] xfun_0.57            zoo_1.8-15           pkgconfig_2.0.3</span></span></code></pre></div>
+<span><span class="co">#&gt;   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          </span></span>
+<span><span class="co">#&gt;   [4] tfautograph_0.3.2      sandwich_3.1-1         rlang_1.2.0           </span></span>
+<span><span class="co">#&gt;   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            </span></span>
+<span><span class="co">#&gt;  [10] matrixStats_1.5.0      e1071_1.7-17           compiler_4.5.2        </span></span>
+<span><span class="co">#&gt;  [13] mgcv_1.9-3             loo_2.9.0              png_0.1-9             </span></span>
+<span><span class="co">#&gt;  [16] callr_3.7.6            vctrs_0.7.3            reshape2_1.4.5        </span></span>
+<span><span class="co">#&gt;  [19] stringr_1.6.0          pkgconfig_2.0.3        crayon_1.5.3          </span></span>
+<span><span class="co">#&gt;  [22] backports_1.5.1        labeling_0.4.3         nloptr_2.2.1          </span></span>
+<span><span class="co">#&gt;  [25] MatrixModels_0.5-4     torch_0.17.0           bit_4.6.0             </span></span>
+<span><span class="co">#&gt;  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        </span></span>
+<span><span class="co">#&gt;  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     </span></span>
+<span><span class="co">#&gt;  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         </span></span>
+<span><span class="co">#&gt;  [37] RColorBrewer_1.1-3     reticulate_1.45.0      boot_1.3-32           </span></span>
+<span><span class="co">#&gt;  [40] parallelly_1.47.0      numDeriv_2016.8-1.1    estimability_1.5.1    </span></span>
+<span><span class="co">#&gt;  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            </span></span>
+<span><span class="co">#&gt;  [46] base64enc_0.1-6        bayesplot_1.15.0       Matrix_1.7-4          </span></span>
+<span><span class="co">#&gt;  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     </span></span>
+<span><span class="co">#&gt;  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      </span></span>
+<span><span class="co">#&gt;  [55] processx_3.9.0         listenv_0.10.1         gretaR_0.2.0          </span></span>
+<span><span class="co">#&gt;  [58] lattice_0.22-7         tibble_3.3.1           plyr_1.8.9            </span></span>
+<span><span class="co">#&gt;  [61] withr_3.0.2            bridgesampling_1.2-1   S7_0.2.2              </span></span>
+<span><span class="co">#&gt;  [64] posterior_1.7.0        coda_0.19-4.1          evaluate_1.0.5        </span></span>
+<span><span class="co">#&gt;  [67] marginaleffects_0.32.0 future_1.70.0          survival_3.8-3        </span></span>
+<span><span class="co">#&gt;  [70] sf_1.1-0               units_1.0-1            proxy_0.4-29          </span></span>
+<span><span class="co">#&gt;  [73] RcppParallel_5.1.11-2  pillar_1.11.1          tensorA_0.36.2.1      </span></span>
+<span><span class="co">#&gt;  [76] whisker_0.4.1          KernSmooth_2.23-26     checkmate_2.3.4       </span></span>
+<span><span class="co">#&gt;  [79] stats4_4.5.2           reformulas_0.4.4       sn_2.1.3              </span></span>
+<span><span class="co">#&gt;  [82] distributional_0.7.0   generics_0.1.4         hms_1.1.4             </span></span>
+<span><span class="co">#&gt;  [85] rstantools_2.6.0       scales_1.4.0           minqa_1.2.8           </span></span>
+<span><span class="co">#&gt;  [88] coro_1.1.0             globals_0.19.1         xtable_1.8-8          </span></span>
+<span><span class="co">#&gt;  [91] class_7.3-23           glue_1.8.1             emmeans_2.0.2         </span></span>
+<span><span class="co">#&gt;  [94] tools_4.5.2            data.table_1.18.2.1    lme4_2.0-1            </span></span>
+<span><span class="co">#&gt;  [97] mvtnorm_1.3-6          grid_4.5.2             rbibutils_2.4.1       </span></span>
+<span><span class="co">#&gt; [100] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          </span></span>
+<span><span class="co">#&gt; [103] viridisLite_0.4.3      fmesher_0.7.0          Brobdingnag_1.2-9     </span></span>
+<span><span class="co">#&gt; [106] dplyr_1.2.1            gtable_0.3.6           greta_0.5.1           </span></span>
+<span><span class="co">#&gt; [109] digest_0.6.39          classInt_0.4-11        TH.data_1.1-5         </span></span>
+<span><span class="co">#&gt; [112] brms_2.23.0            farver_2.1.2           lifecycle_1.0.5       </span></span>
+<span><span class="co">#&gt; [115] bit64_4.8.0            MASS_7.3-65</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

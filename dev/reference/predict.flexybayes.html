@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -115,7 +115,8 @@ memory profile. A typical setting at large <code>newdata</code> is
 <dt id="arg-allow-new-levels">allow_new_levels<a class="anchor" aria-label="anchor" href="#arg-allow-new-levels"></a></dt>
 <dd><p>One of <code>"population"</code> (default), <code>"sample"</code>,
 or <code>"refuse"</code>. Policy for handling factor levels in <code>newdata</code>
-that are not in the fit-time dictionary. <code>"population"</code> sets unknown-level rows to NA on the
+that are not in the fit-time dictionary. <code>"population"</code> sets
+unknown-level rows to NA on the
 affected column and emits a warning naming the count; downstream
 prediction returns NA for these rows. <code>"refuse"</code> raises a
 structured stop on the first unknown level. <code>"sample"</code> (active

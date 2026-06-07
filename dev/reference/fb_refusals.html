@@ -23,7 +23,7 @@ tryCatch(fit, flexybayes_refusal_precision_not_symmetric = handler)."><meta name
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,12 +129,11 @@ actually encounter.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">fb_refusals</span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> flexyBayes refusal registry: 47 reasons</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> flexyBayes refusal registry: 54 reasons</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.3.10] approximate_route_not_yet_registered</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       Approximate covariance / dispatch carriers refuse until the</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       approximation registry ships at v0.4.0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>       (validate_approximation()).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       Approximate covariance / dispatch carriers refuse until an</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       approximation scheme is registered (validate_approximation()).</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.4.0] approximation_absent</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       validate_approximation(): the low_rank_smooth scheme is</span>
@@ -199,6 +198,17 @@ actually encounter.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       An engine pin (fb_greta / fb_inla / fb_brms) was given a</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       `backend` argument that conflicts with the engine it pins.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.7.0] fa_rank_exceeds_dim</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       A factor-analytic term fa(x, k) was given a rank k that is not</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       strictly below the number of levels of the outer factor. A</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       factor-analytic covariance is identifiable only for k &lt; n_outer:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       at k = n_outer the loadings and specific variances form an</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       over-parameterised reparameterisation of the unstructured form,</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       and at k &gt; n_outer the lower-triangular loadings carry empty</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       columns. This is a data-aware preflight (n_outer is known only</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       after the term is matched against the data), complementing the</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       data-free fa_rank_invalid (k &lt; 1) check.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.4.0] fa_rank_invalid</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       A factor-analytic term fa(x, k) was given a rank k below 1; the</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       factor-analytic rank must be a positive integer.</span>
@@ -222,6 +232,28 @@ actually encounter.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.4.1] grammar_brms_with_asreml_terms</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       A brms-style bar-grouped formula was combined with ASReml</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       `random` / `rcov` arguments on the universal entry.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_below_version_floor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: the installed gretaR is older than the activation</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       floor.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_cannot_represent_structured_cov</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: structured covariance (vm/ped/fa/us/ar1)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       unsupported.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_family_unsupported</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: family outside gaussian/binomial/poisson.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_not_installed</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: gretaR not installed and no source home set.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_random_group_not_in_data</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: random-intercept grouping factor absent from</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       data.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.6.0.9000] gretaR_random_term_type_unsupported</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       gretaR backend: only random-intercept-class random terms are</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       supported.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   [since 0.4.0] heterogeneous_residual_factor_not_in_cell_key</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       Aggregated Gaussian emit: an at(f):units heterogeneous residual</span>

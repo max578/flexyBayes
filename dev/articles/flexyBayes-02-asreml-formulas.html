@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 02: asreml-shaped formulas: a reference</h1>
             
-            <h4 data-toc-skip class="date">2026-05-22</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-02-asreml-formulas.Rmd" class="external-link"><code>vignettes/flexyBayes-02-asreml-formulas.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-02-asreml-formulas.Rmd</code></div>
@@ -101,7 +101,7 @@ effects covariance structure, and the residual covariance structure —
 plus a named list of pre-computed matrices (kinship, pedigree-derived
 numerator relationship, design covariance) and an optional weights
 vector. This vignette catalogues every term type the asreml-format
-parser accepts in v0.1.</p>
+parser accepts.</p>
 <p>The companion <code><a href="../reference/fb_brms.html">fb_brms()</a></code> entry — covered in the
 <em>getting started</em>, <em>hierarchical models</em>, and
 <em>foundational regression</em> vignettes — covers a subset of these
@@ -118,6 +118,21 @@ referenced as a vocabulary, not invoked as a dependency.</p>
 genotypes across four environments with three replicates per cell, plus
 genotype-level kinship (<code>G_mat</code>) and pedigree-derived
 (<code>A_mat</code>) matrices.</p>
+<blockquote>
+<p><strong>A note on the fits below.</strong> This is a <em>syntax</em>
+reference. Each fit exists to show that a term type parses, emits valid
+engine code, and returns the expected structure – not to produce
+publication-grade inference. The fits use modest MCMC budgets to keep
+the vignette fast, and the structured-covariance terms (<code>vm</code>,
+<code>fa</code>, <code>us</code>, <code>ar1</code>) mix slowly, so the
+convergence diagnostics printed here are deliberately
+<strong>not</strong> tuned and should not be read as inference. The
+<em>getting started</em> vignette shows production budgets and how to
+read
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{R}</annotation></semantics></math>
+and ESS; the <em>hierarchical models</em> and <em>cross-engine
+triangulation</em> vignettes develop inference quality.</p>
+</blockquote>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/AAGI-AUS/flexyBayes" class="external-link">flexyBayes</a></span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">met_example</span>, package <span class="op">=</span> <span class="st">"flexyBayes"</span><span class="op">)</span></span>
@@ -182,39 +197,45 @@ follow R’s standard semantics: <code>A * B</code> expands to
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_fix</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span>, data <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_fix</span></span>
-<span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
-<span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.2 sec</span></span>
-<span><span class="co">#&gt;   Params : 3 monitored; 2 fixed, 0 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: 1.308  [!] </span></span>
-<span><span class="co">#&gt;   Min ESS: 5 </span></span>
-<span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
-<span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
-<span><span class="co">#&gt;   $extras -- diagnostics, BLUPs, variance components</span></span></code></pre></div>
+<span><span class="co">#&gt; Bayesian mixed model  [flexyBayes / aggregated-gaussian]</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt;   family:     gaussian ( identity link)</span></span>
+<span><span class="co">#&gt;   N obs:      120 </span></span>
+<span><span class="co">#&gt;   K cells:    4 </span></span>
+<span><span class="co">#&gt;   fixed:      2 </span></span>
+<span><span class="co">#&gt;   random:     0 </span></span>
+<span><span class="co">#&gt;   backend:    inla (path = aggregated_gaussian )</span></span>
+<span><span class="co">#&gt;   runtime:    2.05 sec</span></span>
+<span><span class="co">#&gt;   Representation: aggregated_exact (compression 30:1)</span></span>
+<span><span class="co">#&gt;   Engine:         INLA Laplace</span></span>
+<span><span class="co">#&gt;   aggregation: N = 120 rows -&gt; K = 4 cells (ratio 30:1)</span></span>
+<span><span class="co">#&gt;   priors:     custom (explicit prior supplied; see prior_summary()) </span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt;   $glm      -- per-row reconstructed fitted values + coef shim</span></span>
+<span><span class="co">#&gt;   $inla     -- raw aggregated INLA fit (use INLA's summary etc.)</span></span>
+<span><span class="co">#&gt;   $extras   -- summary, aggregation_meta, backend_decision</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_int</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  fixed <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span> <span class="op">+</span> <span class="va">x_cov</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/AsIs.html" class="external-link">I</a></span><span class="op">(</span><span class="va">x_cov</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_int</span></span>
-<span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
+<span><span class="co">#&gt; Bayesian fit  [flexybayes_inla / INLA backend]</span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Fixed  : yield ~ env + x_cov + I(x_cov^2) </span></span>
-<span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.5 sec</span></span>
-<span><span class="co">#&gt;   Params : 5 monitored; 4 fixed, 0 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: 6.591  [!] </span></span>
-<span><span class="co">#&gt;   Min ESS: 9 </span></span>
+<span><span class="co">#&gt;   formula: yield ~ 1 + env + x_cov + I(x_cov^2)</span></span>
+<span><span class="co">#&gt;   family:  gaussian</span></span>
+<span><span class="co">#&gt;   n_obs:   120</span></span>
+<span><span class="co">#&gt;   fixed:   6</span></span>
+<span><span class="co">#&gt;   random:  0</span></span>
+<span><span class="co">#&gt;   hyper:   1</span></span>
+<span><span class="co">#&gt;   runtime: 2.15 sec</span></span>
+<span><span class="co">#&gt;   numerical confirm: PASS</span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
-<span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
-<span><span class="co">#&gt;   $extras -- diagnostics, BLUPs, variance components</span></span></code></pre></div>
+<span><span class="co">#&gt;   $inla -- raw INLA fit (use INLA's summary, plot, etc.)</span></span>
+<span><span class="co">#&gt;   $fb   -- the fb_terms IR used for dispatch</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="random-effect-simple-terms">3. Random-effect simple terms<a class="anchor" aria-label="anchor" href="#random-effect-simple-terms"></a>
@@ -242,7 +263,7 @@ factor:</p>
 </tr>
 <tr class="odd">
 <td><code>id(g)</code></td>
-<td>identity-covariance — the same as simple in v0.1</td>
+<td>identity-covariance — the same as simple</td>
 </tr>
 </tbody>
 </table>
@@ -251,22 +272,26 @@ factor:</p>
 <span>  fixed     <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span>,</span>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="va">geno</span>,                       <span class="co"># 'simple' on a bare factor</span></span>
 <span>  data      <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_rand</span></span>
-<span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
-<span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
-<span><span class="co">#&gt;   Random : ~geno </span></span>
-<span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.6 sec</span></span>
-<span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: 35.862  [!] </span></span>
-<span><span class="co">#&gt;   Min ESS: 3 </span></span>
-<span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
-<span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
-<span><span class="co">#&gt;   $extras -- diagnostics, BLUPs, variance components</span></span></code></pre></div>
+<span><span class="co">#&gt; Bayesian mixed model  [flexyBayes / aggregated-gaussian]</span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt;   family:     gaussian ( identity link)</span></span>
+<span><span class="co">#&gt;   N obs:      120 </span></span>
+<span><span class="co">#&gt;   K cells:    40 </span></span>
+<span><span class="co">#&gt;   fixed:      2 </span></span>
+<span><span class="co">#&gt;   random:     1 </span></span>
+<span><span class="co">#&gt;   backend:    inla (path = aggregated_gaussian )</span></span>
+<span><span class="co">#&gt;   runtime:    2.14 sec</span></span>
+<span><span class="co">#&gt;   Representation: aggregated_exact (compression 3:1)</span></span>
+<span><span class="co">#&gt;   Engine:         INLA Laplace</span></span>
+<span><span class="co">#&gt;   aggregation: N = 120 rows -&gt; K = 40 cells (ratio 3:1)</span></span>
+<span><span class="co">#&gt;   priors:     custom (explicit prior supplied; see prior_summary()) </span></span>
+<span><span class="co">#&gt; ------------------------------------------------------------ </span></span>
+<span><span class="co">#&gt;   $glm      -- per-row reconstructed fitted values + coef shim</span></span>
+<span><span class="co">#&gt;   $inla     -- raw aggregated INLA fit (use INLA's summary etc.)</span></span>
+<span><span class="co">#&gt;   $extras   -- summary, aggregation_meta, backend_decision</span></span></code></pre></div>
 <p>The random block reports the genotype-level standard deviation. The
 companion <em>hierarchical models</em> vignette covers the scientific
 interpretation; this vignette is purely about syntax.</p>
@@ -284,7 +309,7 @@ matrix:</p>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="fu">vm</span><span class="op">(</span><span class="va">geno</span>, <span class="va">Gmat</span><span class="op">)</span>,</span>
 <span>  data      <span class="op">=</span> <span class="va">dat</span>,</span>
 <span>  known_matrices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Gmat <span class="op">=</span> <span class="va">G_mat</span><span class="op">)</span>,      <span class="co"># name in formula</span></span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_vm</span></span>
 <span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
@@ -292,10 +317,12 @@ matrix:</p>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~vm(geno, Gmat) </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 1.7 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 18.6 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: Inf  [!] </span></span>
-<span><span class="co">#&gt;   Min ESS: 0 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 4.73  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 17 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -335,7 +362,8 @@ vignette; this section gives the call shapes.</p>
 </tr>
 <tr class="even">
 <td><code>at(env, ide):geno</code></td>
-<td>identical to <code>at_simple</code> in v0.1</td>
+<td>identical to <code>at_simple</code>
+</td>
 </tr>
 <tr class="odd">
 <td><code>us(env):geno</code></td>
@@ -359,7 +387,7 @@ env covariance for genotype effects</td>
 <span>  fixed     <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span>,</span>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="fu">fa</span><span class="op">(</span><span class="va">env</span>, <span class="fl">2</span><span class="op">)</span><span class="op">:</span><span class="va">geno</span>,</span>
 <span>  data      <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_fa</span></span>
 <span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
@@ -367,10 +395,12 @@ env covariance for genotype effects</td>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~fa(env, 2):geno </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 2.1 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 13.2 sec</span></span>
 <span><span class="co">#&gt;   Params : 5 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: 155.252  [!] </span></span>
-<span><span class="co">#&gt;   Min ESS: 1 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 16.094  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 0 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -418,7 +448,7 @@ biplot.</p>
 <span>  fixed     <span class="op">=</span> <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span>,</span>
 <span>  random    <span class="op">=</span> <span class="op">~</span> <span class="va">rep</span> <span class="op">+</span> <span class="va">rep</span><span class="op">:</span><span class="va">block</span>,            <span class="co"># blocks-within-rep nested</span></span>
 <span>  data      <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples <span class="op">=</span> <span class="fl">100</span>, warmup <span class="op">=</span> <span class="fl">100</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  n_samples <span class="op">=</span> <span class="fl">1000</span>, warmup <span class="op">=</span> <span class="fl">2000</span>, chains <span class="op">=</span> <span class="fl">2</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_nested</span></span>
 <span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
@@ -426,9 +456,11 @@ biplot.</p>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~rep + rep:block </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 100 samples (warmup = 100 ) -- 2.3 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 12 sec</span></span>
 <span><span class="co">#&gt;   Params : 5 monitored; 2 fixed, 2 random terms</span></span>
-<span><span class="co">#&gt;   Max Rhat: 17.215  [!] </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 15.211  [!] </span></span>
 <span><span class="co">#&gt;   Min ESS: 10 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
@@ -604,31 +636,36 @@ two should give identical posteriors — confirm.</li>
 </ol>
 </div>
 <div class="section level2">
-<h2 id="companion-entry-fb_brms-for-brms-shaped-formulas">13. Companion entry: <code>fb_brms()</code> for brms-shaped
-formulas<a class="anchor" aria-label="anchor" href="#companion-entry-fb_brms-for-brms-shaped-formulas"></a>
+<h2 id="companion-brms-shaped-formulas">13. Companion: brms-shaped formulas<a class="anchor" aria-label="anchor" href="#companion-brms-shaped-formulas"></a>
 </h2>
-<p><code><a href="../reference/fb_brms.html">fb_brms()</a></code> is the brms-shaped alternative entry. It
-accepts a single two-sided formula in the lme4 / brms idiom, with the
-random structure carried in <code>(1 | g)</code> blocks:</p>
+<p>Every model above is specified in the asreml grammar
+(<code>fixed</code> / <code>random</code>). The same models can equally
+be written in the lme4 / brms idiom, with the random structure carried
+in <code>(1 | g)</code> blocks; the universal entry accepts either
+grammar and auto-detects which one you used:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fb_brms.html">fb_brms</a></span><span class="op">(</span></span>
-<span>  <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">geno</span><span class="op">)</span>,</span>
+<code class="sourceCode R"><span><span class="va">fit_b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
+<span>  <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">|</span> <span class="va">geno</span><span class="op">)</span>,     <span class="co"># brms-shaped; the same model as</span></span>
+<span>                                <span class="co"># fixed = yield ~ env, random = ~ geno</span></span>
 <span>  data         <span class="op">=</span> <span class="va">dat</span>,</span>
-<span>  n_samples    <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  warmup       <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  chains       <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  backend      <span class="op">=</span> <span class="st">"greta"</span>,</span>
+<span>  n_samples    <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  warmup       <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>  chains       <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  verbose      <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mcmc_verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">fit_b</span></span>
 <span><span class="co">#&gt; Bayesian mixed model  [flexyBayes]</span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
-<span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
-<span><span class="co">#&gt;   Random : ~geno </span></span>
+<span><span class="co">#&gt;   Fixed  : yield ~ env + (1 | geno) </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 100 samples (warmup = 100 ) -- 1.6 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Min ESS: 4 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 1.161  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 8 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -685,13 +722,16 @@ cleanest re-route is the asreml-style form
 <code>random = ~ g + g:x</code>; for the others, the <em>LGM
 feasibility</em> and <em>cross-engine triangulation</em> vignettes
 catalogue the principled boundaries.</p>
-<p><code><a href="../reference/fb_brms.html">fb_brms()</a></code> shares the
-<code>backend = c("greta", "inla", "auto")</code> argument with
-<code><a href="../reference/flexybayes.html">flexybayes()</a></code> (see the <em>hierarchical models</em> vignette
-for the dispatch flow) and the cross-engine post-fit surface including
-<code><a href="../reference/triangulate.html">triangulate()</a></code> and the registry-driven canonical
-parameter-name resolver (no <code>name_map</code> is needed for the
-common fixed-effect + random-intercept cases).</p>
+<p>Backend choice is orthogonal to grammar. The universal entries
+<code><a href="../reference/flexybayes.html">flexybayes()</a></code> / <code><a href="../reference/flexybayes.html">fb()</a></code> take a
+<code>backend = c("auto", "greta", "inla", "brms")</code> argument (see
+the <em>hierarchical models</em> vignette for the dispatch flow); the
+engine pins <code><a href="../reference/fb_greta.html">fb_greta()</a></code>, <code><a href="../reference/fb_inla.html">fb_inla()</a></code>, and
+<code><a href="../reference/fb_brms.html">fb_brms()</a></code> fix the backend instead. Either grammar reaches
+the same cross-engine post-fit surface – <code><a href="../reference/triangulate.html">triangulate()</a></code> and
+the registry-driven canonical parameter-name resolver (no
+<code>name_map</code> is needed for the common fixed-effect +
+random-intercept cases).</p>
 </div>
 <div class="section level2">
 <h2 id="session-information">14. Session information<a class="anchor" aria-label="anchor" href="#session-information"></a>
@@ -700,14 +740,14 @@ common fixed-effect + random-intercept cases).</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -716,40 +756,43 @@ common fixed-effect + random-intercept cases).</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] flexyBayes_0.2.0.9000</span></span>
+<span><span class="co">#&gt; [1] flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] tidyselect_1.2.1     dplyr_1.2.1          farver_2.1.2        </span></span>
-<span><span class="co">#&gt;  [4] tensorflow_2.20.0    S7_0.2.2             INLA_25.10.19       </span></span>
-<span><span class="co">#&gt;  [7] TH.data_1.1-5        tensorA_0.36.2.1     digest_0.6.39       </span></span>
-<span><span class="co">#&gt; [10] estimability_1.5.1   lifecycle_1.0.5      sf_1.1-0            </span></span>
-<span><span class="co">#&gt; [13] survival_3.8-3       processx_3.9.0       magrittr_2.0.5      </span></span>
-<span><span class="co">#&gt; [16] posterior_1.7.0      compiler_4.5.2       rlang_1.2.0         </span></span>
-<span><span class="co">#&gt; [19] progress_1.2.3       tools_4.5.2          sn_2.1.3            </span></span>
-<span><span class="co">#&gt; [22] knitr_1.51           prettyunits_1.2.0    labeling_0.4.3      </span></span>
-<span><span class="co">#&gt; [25] mnormt_2.1.2         classInt_0.4-11      reticulate_1.45.0   </span></span>
-<span><span class="co">#&gt; [28] plyr_1.8.9           RColorBrewer_1.1-3   multcomp_1.4-29     </span></span>
-<span><span class="co">#&gt; [31] abind_1.4-8          KernSmooth_2.23-26   numDeriv_2016.8-1.1 </span></span>
-<span><span class="co">#&gt; [34] withr_3.0.2          stats4_4.5.2         grid_4.5.2          </span></span>
-<span><span class="co">#&gt; [37] xtable_1.8-8         e1071_1.7-17         future_1.70.0       </span></span>
-<span><span class="co">#&gt; [40] ggplot2_4.0.3        globals_0.19.1       emmeans_2.0.2       </span></span>
-<span><span class="co">#&gt; [43] scales_1.4.0         MASS_7.3-65          dichromat_2.0-0.1   </span></span>
-<span><span class="co">#&gt; [46] cli_3.6.6            mvtnorm_1.3-6        crayon_1.5.3        </span></span>
-<span><span class="co">#&gt; [49] generics_0.1.4       otel_0.2.0           reshape2_1.4.5      </span></span>
-<span><span class="co">#&gt; [52] tfruns_1.5.4         DBI_1.3.0            proxy_0.4-29        </span></span>
-<span><span class="co">#&gt; [55] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    </span></span>
-<span><span class="co">#&gt; [58] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         </span></span>
-<span><span class="co">#&gt; [61] Matrix_1.7-4         sandwich_3.1-1       jsonlite_2.0.0      </span></span>
-<span><span class="co">#&gt; [64] greta_0.5.1          callr_3.7.6          hms_1.1.4           </span></span>
-<span><span class="co">#&gt; [67] listenv_0.10.1       units_1.0-1          glue_1.8.1          </span></span>
-<span><span class="co">#&gt; [70] parallelly_1.47.0    codetools_0.2-20     distributional_0.7.0</span></span>
-<span><span class="co">#&gt; [73] stringi_1.8.7        gtable_0.3.6         tibble_3.3.1        </span></span>
-<span><span class="co">#&gt; [76] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       </span></span>
-<span><span class="co">#&gt; [79] evaluate_1.0.5       lattice_0.22-7       png_0.1-9           </span></span>
-<span><span class="co">#&gt; [82] backports_1.5.1      tfautograph_0.3.2    MatrixModels_0.5-4  </span></span>
-<span><span class="co">#&gt; [85] class_7.3-23         Rcpp_1.1.1-1.1       coda_0.19-4.1       </span></span>
-<span><span class="co">#&gt; [88] checkmate_2.3.4      whisker_0.4.1        xfun_0.57           </span></span>
-<span><span class="co">#&gt; [91] zoo_1.8-15           pkgconfig_2.0.3</span></span></code></pre></div>
+<span><span class="co">#&gt;   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          </span></span>
+<span><span class="co">#&gt;   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              </span></span>
+<span><span class="co">#&gt;   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         </span></span>
+<span><span class="co">#&gt;  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       </span></span>
+<span><span class="co">#&gt;  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        </span></span>
+<span><span class="co">#&gt;  [16] processx_3.9.0         posterior_1.7.0        magrittr_2.0.5        </span></span>
+<span><span class="co">#&gt;  [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        </span></span>
+<span><span class="co">#&gt;  [22] tools_4.5.2            data.table_1.18.2.1    knitr_1.51            </span></span>
+<span><span class="co">#&gt;  [25] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             </span></span>
+<span><span class="co">#&gt;  [28] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    </span></span>
+<span><span class="co">#&gt;  [31] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    </span></span>
+<span><span class="co">#&gt;  [34] withr_3.0.2            grid_4.5.2             xtable_1.8-8          </span></span>
+<span><span class="co">#&gt;  [37] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         </span></span>
+<span><span class="co">#&gt;  [40] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          </span></span>
+<span><span class="co">#&gt;  [43] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             </span></span>
+<span><span class="co">#&gt;  [46] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        </span></span>
+<span><span class="co">#&gt;  [49] RcppParallel_5.1.11-2  otel_0.2.0             tfruns_1.5.4          </span></span>
+<span><span class="co">#&gt;  [52] DBI_1.3.0              proxy_0.4-29           stringr_1.6.0         </span></span>
+<span><span class="co">#&gt;  [55] splines_4.5.2          bayesplot_1.15.0       parallel_4.5.2        </span></span>
+<span><span class="co">#&gt;  [58] coro_1.1.0             matrixStats_1.5.0      base64enc_0.1-6       </span></span>
+<span><span class="co">#&gt;  [61] marginaleffects_0.32.0 brms_2.23.0            vctrs_0.7.3           </span></span>
+<span><span class="co">#&gt;  [64] Matrix_1.7-4           sandwich_3.1-1         jsonlite_2.0.0        </span></span>
+<span><span class="co">#&gt;  [67] greta_0.5.1            callr_3.7.6            hms_1.1.4             </span></span>
+<span><span class="co">#&gt;  [70] bit64_4.8.0            listenv_0.10.1         units_1.0-1           </span></span>
+<span><span class="co">#&gt;  [73] glue_1.8.1             parallelly_1.47.0      codetools_0.2-20      </span></span>
+<span><span class="co">#&gt;  [76] distributional_0.7.0   stringi_1.8.7          gtable_0.3.6          </span></span>
+<span><span class="co">#&gt;  [79] tibble_3.3.1           pillar_1.11.1          Brobdingnag_1.2-9     </span></span>
+<span><span class="co">#&gt;  [82] torch_0.17.0           R6_2.6.1               fmesher_0.7.0         </span></span>
+<span><span class="co">#&gt;  [85] evaluate_1.0.5         lattice_0.22-7         png_0.1-9             </span></span>
+<span><span class="co">#&gt;  [88] backports_1.5.1        tfautograph_0.3.2      rstantools_2.6.0      </span></span>
+<span><span class="co">#&gt;  [91] class_7.3-23           MatrixModels_0.5-4     Rcpp_1.1.1-1.1        </span></span>
+<span><span class="co">#&gt;  [94] checkmate_2.3.4        coda_0.19-4.1          nlme_3.1-168          </span></span>
+<span><span class="co">#&gt;  [97] whisker_0.4.1          xfun_0.57              zoo_1.8-15            </span></span>
+<span><span class="co">#&gt; [100] pkgconfig_2.0.3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

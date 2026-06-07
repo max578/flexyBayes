@@ -93,14 +93,15 @@ res$capabilities
 ```
 
 The IR carries `lgm_compatible`. Internally,
-`fb_brms(..., backend = "inla")` uses this flag to decide whether to
-call `emit_inla()` (it does), or refuse with a structured error (it does
-not).
+[`fb_inla()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_inla.md)
+(the INLA engine pin, sugar for `flexybayes(..., backend = "inla")`)
+uses this flag to decide whether to call `emit_inla()` (it does), or
+refuse with a structured error (it does not).
 
 ``` r
 
-fit <- fb_brms(Reaction ~ Days + (1 | Subject), data = sleepstudy,
-               backend = "inla", verbose = FALSE)
+fit <- fb_inla(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+               verbose = FALSE)
 fit$num_check       # post-fit check 7
 #> $pass
 #> [1] TRUE
@@ -122,15 +123,26 @@ gloss, the re-route, and the override path.
 ### 4.1 Refusal pattern A — random slopes (caught by `fb_from_brms`, before the gate)
 
 A brms-formula random slope is rejected at *parse* time, before the
-fb_terms IR is ever built. The error message names the v0.1 limitation
+fb_terms IR is ever built. The error message names the limitation
 directly:
 
 ``` r
 
-fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy,
-        backend = "inla")
+fb_brms(Reaction ~ Days + (Days | Subject), data = sleepstudy)
 #> Error:
-#> ! v0.1 brms ingest only supports random intercepts (1 | g) or (1 || g). Found: (Days | Subject). Random slopes will be added in subsequent iterations.
+#> ! Correlated random slopes (x | g) are not yet supported.
+#> Uncorrelated random slopes (x || g) are supported -- they fit the
+#> marginal slope and intercept variances independently and are equivalent
+#> to the correlated form when the correlation is small.
+#>
+#> If your model needs the correlation parameter, defer to a
+#> future release (structured-covariance representation).
+#> 
+#> Workaround: re-fit as (x || g) if the correlation is not of inferential
+#> interest, or use backend = "greta" via fb_brms() with a hand-rolled
+#> covariance prior.
+#> 
+#> Got: (Days | Subject)
 ```
 
 The asreml-format entry `flexybayes(fixed = ..., random = ...)` accepts
@@ -170,18 +182,20 @@ ref
 
 The structured refusal names the rule that fired (`family_allowlist`),
 the diagnostic (`fb$family = "imaginary_invented_family"`), the
-suggested re-route (`backend = "brms"` via
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
-for the Stan passthrough; `backend = "greta"` for the broader flexyBayes
-formula path), and the override path. Note that *the package never
-silently approximates*: the user always sees why INLA refused.
+suggested re-route
+([`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
+for the Stan passthrough;
+[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_greta.md)
+– equivalently `flexybayes(..., backend = "greta")` – for the broader
+flexyBayes formula path), and the override path. Note that *the package
+never silently approximates*: the user always sees why INLA refused.
 
 ### 4.3 Refusal pattern C — non-Gaussian RE prior (check 4)
 
 The latent field of an LGM is Gaussian by construction. A horseshoe,
 Cauchy, or Student-$`t`$ prior on the *random-effect field* (not on the
 random-effect *standard deviation*, which is always a hyperparameter)
-violates the assumption. The v0.1
+violates the assumption. The
 [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_prior.md)
 DSL does not expose a target for the latent field directly, so this
 refusal is constructed by setting an explicit non-Gaussian RE-prior
@@ -211,7 +225,8 @@ ref_h
 ```
 
 Real horseshoe-on-latent-field shrinkage is best handled with the greta
-backend; v0.2 will add a horseshoe target to the DSL on the greta side.
+backend; a future release will add a horseshoe target to the DSL on the
+greta side.
 
 ### 4.4 Refusal pattern D — hyperparameter-budget exhaustion (check 6)
 
@@ -233,9 +248,11 @@ fb_us <- flexyBayes:::fb_from_asreml(
 ref_us <- flexyBayes:::lgm_gate(fb_us)
 ref_us
 #> flexyBayes: INLA backend refused for this model.
-#> Reasons (1 structural failure):
+#> Reasons (2 structural failures):
 #>   - [hyperparam_budget] hyperparameter count = 46 exceeds hard limit 15 (CCD/grid integration intractable; INLA Laplace approximation deteriorates).
 #>     Diagnostic: count = likelihood (1) + random + rcov contributions
+#>   - [random_term_type_inla] random term type "us_gxe" (unstructured G×E) is outside the INLA emit allowlist. INLA's f() machinery does not currently represent this structured-covariance class without an SPDE / kronecker expansion that the current INLA emit does not produce. Re-route via backend = "greta".
+#>     Diagnostic: fb$random_terms type(s): us_gxe
 #> Re-route: try backend = "brms" via fb_brms() for the Stan passthrough
 #>   (model must be in the brms corpus), or backend = "greta" for the broader
 #>   flexyBayes formula path. NIMBLE is planned future work, not yet implemented.
@@ -311,24 +328,23 @@ cat(gs$activation_procedure, sep = "\n")
 #> Run options(flexyBayes.gretaR_activated = TRUE) in the session.
 ```
 
-The slot is dormant under v0.2 because the gretaR package is not yet
-publicly available and the package’s audit process for new backends has
-not yet been wired into the registry. Activation will land in a
-subsequent release when both conditions are met. Until then,
+The slot is dormant because the gretaR package is not yet publicly
+available and the package’s audit process for new backends has not yet
+been wired into the registry. Activation will land in a subsequent
+release when both conditions are met. Until then,
 [`gretaR_status()`](https://aagi-aus.github.io/flexyBayes/dev/reference/gretaR_status.md)
 is the canonical discoverability surface for users who see the flag in
 `fb_terms$capabilities` or in the print method of a fitted model.
 
-User-facing `backend` arguments on
+The user-facing `backend` argument on
 [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
 /
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_brms.md)
-do *not* advertise `"gretaR"` while the slot is dormant; the
-`match.arg(backend, c("greta", "inla", "auto"))` set keeps the selection
-surface honest. Once activated, the slot will widen the `match.arg` set
-to include `"gretaR"`, swap the canonical-name mapper stub for the
-production mapper, and replace the dispatch-helper branch with the real
-emit step.
+[`fb()`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexybayes.md)
+does *not* advertise `"gretaR"` while the slot is dormant; the selection
+set `c("auto", "greta", "inla", "brms")` keeps the surface honest. Once
+activated, the slot will widen the set to include `"gretaR"`, swap the
+canonical-name mapper stub for the production mapper, and replace the
+dispatch-helper branch with the real emit step.
 
 ## 7. Common pitfalls
 
@@ -336,8 +352,8 @@ emit step.
 A Student-$`t`$ prior on `sigma` (the random-effect standard deviation)
 is fine and does not trigger refusal — `sigma` is a hyperparameter, not
 part of the latent field. A Student-$`t`$ prior on the random-effect
-*coefficient vector* (not exposed in the v0.1 DSL, constructed manually
-here) does trigger refusal, correctly.
+*coefficient vector* (not exposed in the DSL, constructed manually here)
+does trigger refusal, correctly.
 
 **Reading “lgm_compatible” as “the model is correct”.** The flag means
 *only* that INLA’s structural assumptions are not violated; it does not
@@ -370,14 +386,14 @@ risk — invoke the override.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -386,8 +402,7 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] bayesplot_1.15.0      emmeans_2.0.2         ggplot2_4.0.3        
-#> [4] flexyBayes_0.2.0.9000
+#> [1] bayesplot_1.15.0 emmeans_2.0.2    ggplot2_4.0.3    flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
 #>   [1] Rdpack_2.6.6           DBI_1.3.0              mnormt_2.1.2          
@@ -399,34 +414,37 @@ sessionInfo()
 #>  [19] reshape2_1.4.5         stringr_1.6.0          pkgconfig_2.0.3       
 #>  [22] crayon_1.5.3           backports_1.5.1        labeling_0.4.3        
 #>  [25] effectsize_1.0.2       nloptr_2.2.1           MatrixModels_0.5-4    
-#>  [28] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
-#>  [31] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
-#>  [34] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
-#>  [37] RColorBrewer_1.1-3     reticulate_1.45.0      parallelly_1.47.0     
-#>  [40] boot_1.3-32            numDeriv_2016.8-1.1    estimability_1.5.1    
-#>  [43] Rcpp_1.1.1-1.1         knitr_1.51             zoo_1.8-15            
-#>  [46] parameters_0.28.3      base64enc_0.1-6        Matrix_1.7-4          
-#>  [49] splines_4.5.2          tidyselect_1.2.1       dichromat_2.0-0.1     
-#>  [52] abind_1.4-8            agridat_1.26           codetools_0.2-20      
-#>  [55] processx_3.9.0         listenv_0.10.1         lattice_0.22-7        
-#>  [58] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
-#>  [61] withr_3.0.2            S7_0.2.2               posterior_1.7.0       
-#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
-#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
-#>  [70] units_1.0-1            proxy_0.4-29           pillar_1.11.1         
-#>  [73] tensorA_0.36.2.1       whisker_0.4.1          KernSmooth_2.23-26    
-#>  [76] checkmate_2.3.4        stats4_4.5.2           insight_1.4.6         
-#>  [79] reformulas_0.4.4       sn_2.1.3               distributional_0.7.0  
-#>  [82] generics_0.1.4         hms_1.1.4              scales_1.4.0          
-#>  [85] minqa_1.2.8            globals_0.19.1         xtable_1.8-8          
-#>  [88] class_7.3-23           glue_1.8.1             tools_4.5.2           
-#>  [91] data.table_1.18.2.1    lme4_2.0-1             mvtnorm_1.3-6         
-#>  [94] grid_4.5.2             rbibutils_2.4.1        datawizard_1.3.0      
-#>  [97] nlme_3.1-168           cli_3.6.6              tfruns_1.5.4          
-#> [100] viridisLite_0.4.3      fmesher_0.7.0          dplyr_1.2.1           
-#> [103] gtable_0.3.6           greta_0.5.1            digest_0.6.39         
-#> [106] classInt_0.4-11        TH.data_1.1-5          farver_2.1.2          
-#> [109] lifecycle_1.0.5        MASS_7.3-65
+#>  [28] torch_0.17.0           bit_4.6.0              INLA_25.10.19         
+#>  [31] xfun_0.57              jsonlite_2.0.0         progress_1.2.3        
+#>  [34] parallel_4.5.2         prettyunits_1.2.0      tensorflow_2.20.0     
+#>  [37] R6_2.6.1               stringi_1.8.7          RColorBrewer_1.1-3    
+#>  [40] reticulate_1.45.0      boot_1.3-32            parallelly_1.47.0     
+#>  [43] numDeriv_2016.8-1.1    estimability_1.5.1     Rcpp_1.1.1-1.1        
+#>  [46] knitr_1.51             zoo_1.8-15             parameters_0.28.3     
+#>  [49] base64enc_0.1-6        Matrix_1.7-4           splines_4.5.2         
+#>  [52] tidyselect_1.2.1       dichromat_2.0-0.1      abind_1.4-8           
+#>  [55] agridat_1.26           codetools_0.2-20       processx_3.9.0        
+#>  [58] listenv_0.10.1         gretaR_0.2.0           lattice_0.22-7        
+#>  [61] tibble_3.3.1           plyr_1.8.9             bayestestR_0.17.0     
+#>  [64] withr_3.0.2            bridgesampling_1.2-1   S7_0.2.2              
+#>  [67] posterior_1.7.0        coda_0.19-4.1          evaluate_1.0.5        
+#>  [70] marginaleffects_0.32.0 future_1.70.0          survival_3.8-3        
+#>  [73] sf_1.1-0               units_1.0-1            proxy_0.4-29          
+#>  [76] RcppParallel_5.1.11-2  pillar_1.11.1          tensorA_0.36.2.1      
+#>  [79] whisker_0.4.1          KernSmooth_2.23-26     checkmate_2.3.4       
+#>  [82] stats4_4.5.2           insight_1.4.6          reformulas_0.4.4      
+#>  [85] sn_2.1.3               distributional_0.7.0   generics_0.1.4        
+#>  [88] hms_1.1.4              rstantools_2.6.0       scales_1.4.0          
+#>  [91] minqa_1.2.8            coro_1.1.0             globals_0.19.1        
+#>  [94] xtable_1.8-8           class_7.3-23           glue_1.8.1            
+#>  [97] tools_4.5.2            data.table_1.18.2.1    lme4_2.0-1            
+#> [100] mvtnorm_1.3-6          grid_4.5.2             rbibutils_2.4.1       
+#> [103] datawizard_1.3.0       nlme_3.1-168           cli_3.6.6             
+#> [106] tfruns_1.5.4           viridisLite_0.4.3      fmesher_0.7.0         
+#> [109] Brobdingnag_1.2-9      dplyr_1.2.1            gtable_0.3.6          
+#> [112] greta_0.5.1            digest_0.6.39          classInt_0.4-11       
+#> [115] TH.data_1.1-5          brms_2.23.0            farver_2.1.2          
+#> [118] lifecycle_1.0.5        bit64_4.8.0            MASS_7.3-65
 ```
 
 ## References

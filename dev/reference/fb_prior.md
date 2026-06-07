@@ -35,10 +35,14 @@ fb_prior(...)
   `student_t`, `normal`, `exponential`, `lkj`, `cauchy`, `gamma`,
   `uniform`. Note that
   [`uniform()`](https://rdrr.io/pkg/greta/man/distributions.html) on a
-  variance component sits outside the PC-canonical interlingua: the INLA
-  backend honours it exactly via an expression-prior on the
-  log-precision; the legacy greta scalar bridge cannot represent it and
-  will refuse with a redirect.
+  variance component sits outside the PC-canonical interlingua, but both
+  backends represent it faithfully on the SD scale: the INLA backend via
+  an expression-prior on the log-precision, and the greta backend as a
+  bounded
+  [`greta::uniform()`](https://rdrr.io/pkg/greta/man/distributions.html)
+  on each simple random-effect (and residual) SD. Structured-covariance
+  terms (`us`, `fa`, `ar1`, `vm`, `ped`) on greta fall back to the
+  legacy scale prior.
 
 ## Value
 

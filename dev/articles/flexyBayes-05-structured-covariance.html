@@ -21,7 +21,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">flexyBayes</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.6.0.9000</small>
+    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="In-development version">0.7.0.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@
 
       <h1>Tutorial 05: Structured covariance: us, fa, at, and design components</h1>
             
-            <h4 data-toc-skip class="date">2026-05-25</h4>
+            <h4 data-toc-skip class="date">2026-06-06</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/AAGI-AUS/flexyBayes/blob/main/vignettes/flexyBayes-05-structured-covariance.Rmd" class="external-link"><code>vignettes/flexyBayes-05-structured-covariance.Rmd</code></a></small>
       <div class="d-none name"><code>flexyBayes-05-structured-covariance.Rmd</code></div>
@@ -129,9 +129,33 @@ factor-analytic (<code>fa(env, k)</code>), and design variance
 components (nested random effects). The autoregressive case lives in the
 <em>spatio-temporal</em> vignette; the factor-analytic biplot lives in
 the <em>MET and genomic selection</em> vignette.</p>
-<p>INLA cannot fit these structures in v0.1 (the hyperparameter budget
-exceeds the gate’s hard limit even at modest environment counts). The
-greta backend handles them all.</p>
+<p>INLA cannot fit these structures (the hyperparameter budget exceeds
+the gate’s hard limit even at modest environment counts). The greta
+backend handles them all.</p>
+<blockquote>
+<p><strong>A note on the fits below — read first.</strong>
+Structured-covariance models are the hardest case for Hamiltonian Monte
+Carlo. At the modest MCMC budgets used here (kept small so the vignette
+builds quickly), the fits below <strong>frequently fail to mix</strong>
+– you will see large
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{R}</annotation></semantics></math>
+and near-zero ESS, sometimes severely so. That is expected for these
+models at a vignette-scale budget on the greta sampler, and it is shown
+rather than hidden. <strong>Treat this vignette purely as a guide to
+<em>specifying</em> each covariance structure, not as a demonstration of
+inference.</strong> Reliable inference on these structures needs a much
+larger budget (and, for the hardest of them, a more specialised sampler
+than flexyBayes ships); always verify convergence as the <em>getting
+started</em> vignette describes before interpreting anything, and treat
+a non-mixing variance component as a signal to simplify the structure or
+supply an explicit prior. For a factor-analytic <code>fa()</code> term,
+note that the raw loadings are identified only up to rotation and sign –
+their
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\widehat{R}</annotation></semantics></math>
+is expected to be large – so judge convergence on the identified
+covariance via <code><a href="../reference/fb_structured_cov.html">fb_structured_cov()</a></code> rather than the
+loadings.</p>
+</blockquote>
 </div>
 <div class="section level2">
 <h2 id="the-diagonal-atenv-simplegeno">2. The diagonal: <code>at(env, simple):geno</code><a class="anchor" aria-label="anchor" href="#the-diagonal-atenv-simplegeno"></a>
@@ -176,10 +200,12 @@ environments × 3 reps).</p>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~at(env, simple):geno </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 5.9 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 17.1 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Exact. : exact </span></span>
-<span><span class="co">#&gt;   Min ESS: 0 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 60.656  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 7 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -215,10 +241,12 @@ varies across some grouping factor:</p>
 <span><span class="co">#&gt;   Random : ~geno </span></span>
 <span><span class="co">#&gt;   Rcov   : ~at(env):units </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 1.9 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9.9 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Exact. : exact </span></span>
-<span><span class="co">#&gt;   Min ESS: 2 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 9.679  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 12 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -256,9 +284,11 @@ is the standard multi-environment-trial parameterisation (Smith, Cullis,
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~fa(env, 2):gen </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2.5 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 14.2 sec</span></span>
 <span><span class="co">#&gt;   Params : 5 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Exact. : exact </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 11.271  [!] </span></span>
 <span><span class="co">#&gt;   Min ESS: 0 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
@@ -305,10 +335,12 @@ free entries are estimable from the data.</p>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~us(env):geno </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2.5 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 13.2 sec</span></span>
 <span><span class="co">#&gt;   Params : 4 monitored; 2 fixed, 1 random terms</span></span>
-<span><span class="co">#&gt;   Exact. : exact </span></span>
-<span><span class="co">#&gt;   Min ESS: 0 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 13.91  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 7 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -352,10 +384,12 @@ term:</p>
 <span><span class="co">#&gt;   Fixed  : yield ~ env </span></span>
 <span><span class="co">#&gt;   Random : ~rep + rep:block + geno </span></span>
 <span><span class="co">#&gt;   Family : gaussian ( identity link )</span></span>
-<span><span class="co">#&gt;   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 3.4 sec</span></span>
+<span><span class="co">#&gt;   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 14.9 sec</span></span>
 <span><span class="co">#&gt;   Params : 6 monitored; 2 fixed, 3 random terms</span></span>
-<span><span class="co">#&gt;   Exact. : exact </span></span>
-<span><span class="co">#&gt;   Min ESS: 3 </span></span>
+<span><span class="co">#&gt;   Representation: exact</span></span>
+<span><span class="co">#&gt;   Engine:         greta MCMC</span></span>
+<span><span class="co">#&gt;   Max Rhat: 17.396  [!] </span></span>
+<span><span class="co">#&gt;   Min ESS: 5 </span></span>
 <span><span class="co">#&gt; ------------------------------------------------------- </span></span>
 <span><span class="co">#&gt;   $glm    -- GLM-compatible (summary, emmeans, etc.)</span></span>
 <span><span class="co">#&gt;   $greta  -- native greta (draws, model, calculate)</span></span>
@@ -381,10 +415,6 @@ additional formats let the caller skip a redundant factorisation, route
 through INLA’s sparse-precision interface, or declare a sparse pedigree
 precision directly. The choice changes the computational path, not the
 model.</p>
-<p><strong>Dense
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-(default; both backends).</strong> Pass a covariance matrix directly.
-flexyBayes computes its Cholesky factor at fit time:</p>
 <p>The covariance carrier is declared with the <code><a href="../reference/fb_cov.html">fb_cov()</a></code>
 constructor inside the random term:
 <code>vm(group, cov = fb_cov(M, type = ...))</code>. The
@@ -392,9 +422,14 @@ constructor inside the random term:
 <code>"dense"</code>, <code>"chol"</code>, <code>"precision"</code>,
 <code>"blocks"</code>, or <code>"low_rank"</code>. The matrix
 <code>M</code> names an entry in <code>known_matrices</code>, resolved
-at fit time. The bare <code>vm(geno, Gmat)</code> form is the dense
-default; <code>fb_cov(Gmat, type = "dense")</code> is the explicit
-equivalent.</p>
+at fit time.</p>
+<p><strong>Dense
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
+(default; both backends).</strong> Pass a covariance matrix directly.
+flexyBayes computes its Cholesky factor at fit time. The bare
+<code>vm(geno, Gmat)</code> form is the dense default;
+<code>fb_cov(Gmat, type = "dense")</code> is the explicit
+equivalent:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_dense</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/flexybayes.html">flexybayes</a></span><span class="op">(</span></span>
 <span>  <span class="va">yield</span> <span class="op">~</span> <span class="va">env</span>, random <span class="op">=</span> <span class="op">~</span> <span class="fu">vm</span><span class="op">(</span><span class="va">geno</span>, cov <span class="op">=</span> <span class="fu"><a href="../reference/fb_cov.html">fb_cov</a></span><span class="op">(</span><span class="va">Gmat</span>, type <span class="op">=</span> <span class="st">"dense"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -556,14 +591,14 @@ posteriors with four environments — confirm.</li>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; R version 4.5.2 (2025-10-31)</span></span>
 <span><span class="co">#&gt; Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">#&gt; Running under: macOS Tahoe 26.4.1</span></span>
+<span><span class="co">#&gt; Running under: macOS Tahoe 26.5.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Matrix products: default</span></span>
 <span><span class="co">#&gt; BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib </span></span>
 <span><span class="co">#&gt; LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; locale:</span></span>
-<span><span class="co">#&gt; [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8</span></span>
+<span><span class="co">#&gt; [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; time zone: Australia/Adelaide</span></span>
 <span><span class="co">#&gt; tzcode source: internal</span></span>
@@ -572,42 +607,43 @@ posteriors with four environments — confirm.</li>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] flexyBayes_0.3.6.9000 testthat_3.3.2       </span></span>
+<span><span class="co">#&gt; [1] flexyBayes_0.7.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] tidyselect_1.2.1    dplyr_1.2.1         farver_2.1.2       </span></span>
-<span><span class="co">#&gt;  [4] tensorflow_2.20.0   S7_0.2.2            fastmap_1.2.0      </span></span>
-<span><span class="co">#&gt;  [7] INLA_25.10.19       TH.data_1.1-5       digest_0.6.39      </span></span>
-<span><span class="co">#&gt; [10] estimability_1.5.1  lifecycle_1.0.5     sf_1.1-0           </span></span>
-<span><span class="co">#&gt; [13] ellipsis_0.3.2      survival_3.8-3      agridat_1.26       </span></span>
-<span><span class="co">#&gt; [16] processx_3.9.0      magrittr_2.0.5      compiler_4.5.2     </span></span>
-<span><span class="co">#&gt; [19] rlang_1.2.0         progress_1.2.3      tools_4.5.2        </span></span>
-<span><span class="co">#&gt; [22] data.table_1.18.2.1 knitr_1.51          prettyunits_1.2.0  </span></span>
-<span><span class="co">#&gt; [25] classInt_0.4-11     pkgbuild_1.4.8      reticulate_1.45.0  </span></span>
-<span><span class="co">#&gt; [28] RColorBrewer_1.1-3  abind_1.4-8         KernSmooth_2.23-26 </span></span>
-<span><span class="co">#&gt; [31] pkgload_1.5.2       multcomp_1.4-29     withr_3.0.2        </span></span>
-<span><span class="co">#&gt; [34] purrr_1.2.2         desc_1.4.3          grid_4.5.2         </span></span>
-<span><span class="co">#&gt; [37] e1071_1.7-17        xtable_1.8-8        future_1.70.0      </span></span>
-<span><span class="co">#&gt; [40] ggplot2_4.0.3       globals_0.19.1      emmeans_2.0.2      </span></span>
-<span><span class="co">#&gt; [43] scales_1.4.0        MASS_7.3-65         dichromat_2.0-0.1  </span></span>
-<span><span class="co">#&gt; [46] cli_3.6.6           mvtnorm_1.3-6       crayon_1.5.3       </span></span>
-<span><span class="co">#&gt; [49] generics_0.1.4      remotes_2.5.0       otel_0.2.0         </span></span>
-<span><span class="co">#&gt; [52] rstudioapi_0.18.0   sessioninfo_1.2.3   tfruns_1.5.4       </span></span>
-<span><span class="co">#&gt; [55] proxy_0.4-29        DBI_1.3.0           cachem_1.1.0       </span></span>
-<span><span class="co">#&gt; [58] splines_4.5.2       parallel_4.5.2      base64enc_0.1-6    </span></span>
-<span><span class="co">#&gt; [61] vctrs_0.7.3         devtools_2.4.6      Matrix_1.7-4       </span></span>
-<span><span class="co">#&gt; [64] sandwich_3.1-1      jsonlite_2.0.0      greta_0.5.1        </span></span>
-<span><span class="co">#&gt; [67] callr_3.7.6         hms_1.1.4           listenv_0.10.1     </span></span>
-<span><span class="co">#&gt; [70] units_1.0-1         glue_1.8.1          parallelly_1.47.0  </span></span>
-<span><span class="co">#&gt; [73] codetools_0.2-20    gtable_0.3.6        tibble_3.3.1       </span></span>
-<span><span class="co">#&gt; [76] pillar_1.11.1       brio_1.1.5          R6_2.6.1           </span></span>
-<span><span class="co">#&gt; [79] fmesher_0.7.0       rprojroot_2.1.1     evaluate_1.0.5     </span></span>
-<span><span class="co">#&gt; [82] lattice_0.22-7      backports_1.5.1     png_0.1-9          </span></span>
-<span><span class="co">#&gt; [85] tfautograph_0.3.2   memoise_2.0.1       class_7.3-23       </span></span>
-<span><span class="co">#&gt; [88] Rcpp_1.1.1-1.1      coda_0.19-4.1       nlme_3.1-168       </span></span>
-<span><span class="co">#&gt; [91] mgcv_1.9-3          whisker_0.4.1       xfun_0.57          </span></span>
-<span><span class="co">#&gt; [94] fs_2.1.0            zoo_1.8-15          usethis_3.2.1      </span></span>
-<span><span class="co">#&gt; [97] pkgconfig_2.0.3</span></span></code></pre></div>
+<span><span class="co">#&gt;   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          </span></span>
+<span><span class="co">#&gt;   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              </span></span>
+<span><span class="co">#&gt;   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         </span></span>
+<span><span class="co">#&gt;  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       </span></span>
+<span><span class="co">#&gt;  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        </span></span>
+<span><span class="co">#&gt;  [16] agridat_1.26           processx_3.9.0         magrittr_2.0.5        </span></span>
+<span><span class="co">#&gt;  [19] posterior_1.7.0        compiler_4.5.2         rlang_1.2.0           </span></span>
+<span><span class="co">#&gt;  [22] progress_1.2.3         tools_4.5.2            data.table_1.18.2.1   </span></span>
+<span><span class="co">#&gt;  [25] knitr_1.51             prettyunits_1.2.0      bridgesampling_1.2-1  </span></span>
+<span><span class="co">#&gt;  [28] bit_4.6.0              classInt_0.4-11        reticulate_1.45.0     </span></span>
+<span><span class="co">#&gt;  [31] RColorBrewer_1.1-3     multcomp_1.4-29        abind_1.4-8           </span></span>
+<span><span class="co">#&gt;  [34] KernSmooth_2.23-26     withr_3.0.2            grid_4.5.2            </span></span>
+<span><span class="co">#&gt;  [37] xtable_1.8-8           e1071_1.7-17           future_1.70.0         </span></span>
+<span><span class="co">#&gt;  [40] ggplot2_4.0.3          globals_0.19.1         emmeans_2.0.2         </span></span>
+<span><span class="co">#&gt;  [43] scales_1.4.0           MASS_7.3-65            dichromat_2.0-0.1     </span></span>
+<span><span class="co">#&gt;  [46] cli_3.6.6              mvtnorm_1.3-6          crayon_1.5.3          </span></span>
+<span><span class="co">#&gt;  [49] generics_0.1.4         RcppParallel_5.1.11-2  otel_0.2.0            </span></span>
+<span><span class="co">#&gt;  [52] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          </span></span>
+<span><span class="co">#&gt;  [55] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      </span></span>
+<span><span class="co">#&gt;  [58] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     </span></span>
+<span><span class="co">#&gt;  [61] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           </span></span>
+<span><span class="co">#&gt;  [64] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        </span></span>
+<span><span class="co">#&gt;  [67] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           </span></span>
+<span><span class="co">#&gt;  [70] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        </span></span>
+<span><span class="co">#&gt;  [73] units_1.0-1            glue_1.8.1             parallelly_1.47.0     </span></span>
+<span><span class="co">#&gt;  [76] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         </span></span>
+<span><span class="co">#&gt;  [79] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         </span></span>
+<span><span class="co">#&gt;  [82] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              </span></span>
+<span><span class="co">#&gt;  [85] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        </span></span>
+<span><span class="co">#&gt;  [88] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     </span></span>
+<span><span class="co">#&gt;  [91] rstantools_2.6.0       class_7.3-23           Rcpp_1.1.1-1.1        </span></span>
+<span><span class="co">#&gt;  [94] checkmate_2.3.4        coda_0.19-4.1          nlme_3.1-168          </span></span>
+<span><span class="co">#&gt;  [97] whisker_0.4.1          xfun_0.57              zoo_1.8-15            </span></span>
+<span><span class="co">#&gt; [100] pkgconfig_2.0.3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

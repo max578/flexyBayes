@@ -77,6 +77,11 @@ status.
   : Backend dispatch trace for a flexyBayes fit
 - [`canonical_names()`](https://aagi-aus.github.io/flexyBayes/dev/reference/canonical_names.md)
   : Canonical parameter-name view for a flexyBayes fit
+- [`fb_backend_status()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_backend_status.md)
+  : Report inference-backend readiness
+- [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_structured_cov.md)
+  : Identified covariance for factor-analytic structured-covariance
+  terms
 - [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_refusals.md)
   : List flexyBayes refusal reasons
 - [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/dev/reference/prior_summary.md)
@@ -213,8 +218,14 @@ here for completeness.
 - [`fitted(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/fitted.flexybayes.md)
   : Extract fitted values
 
+- [`fitted(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/fitted.flexybayes_inla.md)
+  : In-sample fitted values from a per-row INLA fit
+
 - [`residuals(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/residuals.flexybayes.md)
   : Extract residuals
+
+- [`residuals(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/residuals.flexybayes_inla.md)
+  : Response residuals from a per-row INLA fit
 
 - [`plot(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/plot.flexybayes.md)
   [`plot(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/plot.flexybayes.md)
@@ -229,6 +240,9 @@ here for completeness.
 
 - [`logLik(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes.md)
   : Log-likelihood (approximate)
+
+- [`logLik(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes_inla.md)
+  : Log-likelihood of a per-row INLA fit (not computed)
 
 - [`logLik(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/dev/reference/logLik.flexybayes_brms.md)
   : Log-likelihood on the brms path
@@ -268,5 +282,5 @@ here for completeness.
 
 - [`flexyBayes`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexyBayes-package.md)
   [`flexyBayes-package`](https://aagi-aus.github.io/flexyBayes/dev/reference/flexyBayes-package.md)
-  : flexyBayes: Bayesian Mixed Models with ASReml Syntax, Powered by
-  Greta and INLA
+  : flexyBayes: Bayesian Mixed Models with ASReml Syntax via Greta and
+  INLA

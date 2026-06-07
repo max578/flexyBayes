@@ -20,6 +20,27 @@ Crop variety evaluation poses two intertwined questions, and
 This vignette walks through both questions, fitting models on real
 agricultural data, and notes the connection through the kinship matrix.
 
+> **A note on the fits below — read first.** The factor-analytic MET
+> model and the genomic-prediction (GBLUP / pedigree) models are
+> structured-covariance models – the hardest case for Hamiltonian Monte
+> Carlo. At the modest MCMC budgets used here (kept small so the
+> vignette builds quickly), these fits **frequently fail to mix**: you
+> will see large $`\widehat{R}`$ and near-zero ESS, and the
+> factor-analytic loadings in particular do not sample reliably at this
+> budget. The output is shown rather than hidden. **Read the loadings,
+> biplots, and predictions below as illustrations of the *workflow*, not
+> as inference.** A real analysis needs a much larger budget (and, for
+> the hardest structures, a more specialised sampler than flexyBayes
+> ships); always verify convergence as the *getting started* and
+> *structured covariance* vignettes describe before interpreting
+> anything. In particular, a factor-analytic term’s raw loadings are
+> identified only up to rotation and sign, so their $`\widehat{R}`$ is
+> expected to be large even when the model has converged; judge
+> convergence on the *identified* covariance
+> $`G = \Lambda\Lambda^\top + \mathrm{diag}(\psi)`$ via
+> [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/dev/reference/fb_structured_cov.md),
+> which is rotation- and sign-invariant.
+
 ## 2. Multi-environment trials: `yan.winterwheat`
 
 `agridat::yan.winterwheat` (Yan & Tinker, 2006) records winter wheat
@@ -75,9 +96,12 @@ fit_fa
 #>   Fixed  : yield ~ env 
 #>   Random : ~fa(env, 2):gen 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2.6 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 13.9 sec
 #>   Params : 5 monitored; 2 fixed, 1 random terms
-#>   Min ESS: 1 
+#>   Representation: exact
+#>   Engine:         greta MCMC
+#>   Max Rhat: 6.428  [!] 
+#>   Min ESS: 0 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -193,9 +217,12 @@ fit_gblup
 #>   Fixed  : yield ~ env 
 #>   Random : ~vm(geno, Gmat) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 2.1 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 10.1 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
-#>   Min ESS: 5 
+#>   Representation: exact
+#>   Engine:         greta MCMC
+#>   Max Rhat: 1.695  [!] 
+#>   Min ESS: 6 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -217,7 +244,7 @@ sigma_e <- draws$sigma_e_atg
 h2 <- sigma_g^2 / (sigma_g^2 + sigma_e^2)
 c(mean = mean(h2), q025 = quantile(h2, 0.025), q975 = quantile(h2, 0.975))
 #>       mean  q025.2.5% q975.97.5% 
-#>  0.6665770  0.6535742  0.7080067
+#>  0.4345681  0.2089116  0.6704406
 ```
 
 The credible interval on $`h^2`$ is the practitioner’s first quantity of
@@ -249,9 +276,12 @@ fit_ped
 #>   Fixed  : yield ~ env 
 #>   Random : ~vm(geno, Amat) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 1 chain(s) x 200 samples (warmup = 200 ) -- 1.9 sec
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9.2 sec
 #>   Params : 4 monitored; 2 fixed, 1 random terms
-#>   Min ESS: 0 
+#>   Representation: exact
+#>   Engine:         greta MCMC
+#>   Max Rhat: 4.955  [!] 
+#>   Min ESS: 5 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -335,14 +365,14 @@ variances rather than a single genotype variance.
 sessionInfo()
 #> R version 4.5.2 (2025-10-31)
 #> Platform: aarch64-apple-darwin20
-#> Running under: macOS Tahoe 26.4.1
+#> Running under: macOS Tahoe 26.5.1
 #> 
 #> Matrix products: default
 #> BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib 
 #> LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
 #> 
 #> locale:
-#> [1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+#> [1] en_AU.UTF-8/en_AU.UTF-8/en_AU.UTF-8/C/en_AU.UTF-8/en_AU.UTF-8
 #> 
 #> time zone: Australia/Adelaide
 #> tzcode source: internal
@@ -351,43 +381,43 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3         flexyBayes_0.2.0.9000
+#> [1] ggplot2_4.0.3    flexyBayes_0.7.0
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] tidyselect_1.2.1     viridisLite_0.4.3    dplyr_1.2.1         
-#>   [4] farver_2.1.2         tensorflow_2.20.0    S7_0.2.2            
-#>   [7] INLA_25.10.19        TH.data_1.1-5        tensorA_0.36.2.1    
-#>  [10] digest_0.6.39        estimability_1.5.1   lifecycle_1.0.5     
-#>  [13] sf_1.1-0             agridat_1.26         survival_3.8-3      
-#>  [16] processx_3.9.0       magrittr_2.0.5       posterior_1.7.0     
-#>  [19] compiler_4.5.2       rlang_1.2.0          progress_1.2.3      
-#>  [22] tools_4.5.2          sn_2.1.3             knitr_1.51          
-#>  [25] prettyunits_1.2.0    labeling_0.4.3       mnormt_2.1.2        
-#>  [28] classInt_0.4-11      reticulate_1.45.0    plyr_1.8.9          
-#>  [31] RColorBrewer_1.1-3   multcomp_1.4-29      abind_1.4-8         
-#>  [34] KernSmooth_2.23-26   numDeriv_2016.8-1.1  withr_3.0.2         
-#>  [37] stats4_4.5.2         grid_4.5.2           xtable_1.8-8        
-#>  [40] e1071_1.7-17         future_1.70.0        globals_0.19.1      
-#>  [43] emmeans_2.0.2        scales_1.4.0         MASS_7.3-65         
-#>  [46] dichromat_2.0-0.1    cli_3.6.6            mvtnorm_1.3-6       
-#>  [49] crayon_1.5.3         reformulas_0.4.4     generics_0.1.4      
-#>  [52] otel_0.2.0           reshape2_1.4.5       tfruns_1.5.4        
-#>  [55] minqa_1.2.8          DBI_1.3.0            proxy_0.4-29        
-#>  [58] stringr_1.6.0        splines_4.5.2        bayesplot_1.15.0    
-#>  [61] parallel_4.5.2       base64enc_0.1-6      vctrs_0.7.3         
-#>  [64] boot_1.3-32          Matrix_1.7-4         sandwich_3.1-1      
-#>  [67] jsonlite_2.0.0       greta_0.5.1          callr_3.7.6         
-#>  [70] hms_1.1.4            listenv_0.10.1       units_1.0-1         
-#>  [73] glue_1.8.1           parallelly_1.47.0    nloptr_2.2.1        
-#>  [76] codetools_0.2-20     distributional_0.7.0 stringi_1.8.7       
-#>  [79] gtable_0.3.6         lme4_2.0-1           tibble_3.3.1        
-#>  [82] pillar_1.11.1        R6_2.6.1             fmesher_0.7.0       
-#>  [85] Rdpack_2.6.6         evaluate_1.0.5       lattice_0.22-7      
-#>  [88] rbibutils_2.4.1      png_0.1-9            backports_1.5.1     
-#>  [91] tfautograph_0.3.2    MatrixModels_0.5-4   class_7.3-23        
-#>  [94] Rcpp_1.1.1-1.1       nlme_3.1-168         coda_0.19-4.1       
-#>  [97] checkmate_2.3.4      mgcv_1.9-3           whisker_0.4.1       
-#> [100] xfun_0.57            zoo_1.8-15           pkgconfig_2.0.3
+#>   [1] tidyselect_1.2.1       viridisLite_0.4.3      dplyr_1.2.1           
+#>   [4] farver_2.1.2           tensorflow_2.20.0      loo_2.9.0             
+#>   [7] S7_0.2.2               tensorA_0.36.2.1       INLA_25.10.19         
+#>  [10] TH.data_1.1-5          digest_0.6.39          estimability_1.5.1    
+#>  [13] lifecycle_1.0.5        gretaR_0.2.0           sf_1.1-0              
+#>  [16] survival_3.8-3         agridat_1.26           processx_3.9.0        
+#>  [19] magrittr_2.0.5         posterior_1.7.0        compiler_4.5.2        
+#>  [22] rlang_1.2.0            progress_1.2.3         tools_4.5.2           
+#>  [25] data.table_1.18.2.1    knitr_1.51             labeling_0.4.3        
+#>  [28] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             
+#>  [31] classInt_0.4-11        reticulate_1.45.0      RColorBrewer_1.1-3    
+#>  [34] multcomp_1.4-29        abind_1.4-8            KernSmooth_2.23-26    
+#>  [37] withr_3.0.2            grid_4.5.2             xtable_1.8-8          
+#>  [40] e1071_1.7-17           future_1.70.0          globals_0.19.1        
+#>  [43] emmeans_2.0.2          scales_1.4.0           MASS_7.3-65           
+#>  [46] dichromat_2.0-0.1      cli_3.6.6              mvtnorm_1.3-6         
+#>  [49] crayon_1.5.3           generics_0.1.4         RcppParallel_5.1.11-2 
+#>  [52] otel_0.2.0             tfruns_1.5.4           DBI_1.3.0             
+#>  [55] proxy_0.4-29           stringr_1.6.0          splines_4.5.2         
+#>  [58] bayesplot_1.15.0       parallel_4.5.2         coro_1.1.0            
+#>  [61] matrixStats_1.5.0      base64enc_0.1-6        marginaleffects_0.32.0
+#>  [64] brms_2.23.0            vctrs_0.7.3            Matrix_1.7-4          
+#>  [67] sandwich_3.1-1         jsonlite_2.0.0         greta_0.5.1           
+#>  [70] callr_3.7.6            hms_1.1.4              bit64_4.8.0           
+#>  [73] listenv_0.10.1         units_1.0-1            glue_1.8.1            
+#>  [76] parallelly_1.47.0      codetools_0.2-20       distributional_0.7.0  
+#>  [79] stringi_1.8.7          gtable_0.3.6           tibble_3.3.1          
+#>  [82] pillar_1.11.1          Brobdingnag_1.2-9      torch_0.17.0          
+#>  [85] R6_2.6.1               fmesher_0.7.0          evaluate_1.0.5        
+#>  [88] lattice_0.22-7         png_0.1-9              backports_1.5.1       
+#>  [91] tfautograph_0.3.2      rstantools_2.6.0       class_7.3-23          
+#>  [94] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
+#>  [97] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
+#> [100] zoo_1.8-15             pkgconfig_2.0.3
 ```
 
 ## References
