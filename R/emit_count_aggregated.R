@@ -197,6 +197,14 @@ emit_count_aggregated <- function(
     "1"
   }
 
+  # In the default case the synthesised uniform-on-SD prior keys every
+  # random group, so hyper_ctrl carries the same faithful uniform
+  # expression prior the per-row emit_inla() path uses (both paths share
+  # one prior). The fallback below fires only when no fb_prior is in play
+  # (e.g. the legacy `prior_vc_sd` path) or a user supplies a partial
+  # prior that omits this group; it pins the scale-invariant
+  # loggamma(1, 5e-5) so the aggregated fit matches the per-row path,
+  # which inherits the same INLA default when hyper_ctrl is empty.
   default_iid_hyper <- list(prior = "loggamma", param = c(1, 5e-05))
   ri_pieces <- vapply(
     ri_plan,

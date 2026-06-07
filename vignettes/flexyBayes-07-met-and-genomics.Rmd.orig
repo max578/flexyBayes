@@ -62,7 +62,12 @@ matrix.
 > analysis needs a much larger budget (and, for the hardest structures, a
 > more specialised sampler than flexyBayes ships); always verify convergence as
 > the *getting started* and *structured covariance* vignettes describe
-> before interpreting anything.
+> before interpreting anything. In particular, a factor-analytic term's raw
+> loadings are identified only up to rotation and sign, so their
+> $\widehat{R}$ is expected to be large even when the model has converged;
+> judge convergence on the *identified* covariance
+> $G = \Lambda\Lambda^\top + \mathrm{diag}(\psi)$ via `fb_structured_cov()`,
+> which is rotation- and sign-invariant.
 
 # 2. Multi-environment trials: `yan.winterwheat`
 

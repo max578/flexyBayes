@@ -418,6 +418,27 @@ test_that("INLA per-row + aggregated agree on beta within 5e-3 under matched def
   expect_lt(max(abs(beta_row - beta_agg)), 5e-3)
 })
 
+test_that("intercept-only aggregated INLA fit summarises (1-coef beta_vcov guard)", {
+  testthat::skip_if_not_installed("INLA")
+  # Regression guard: diag(sd^2) on a length-one vector (intercept-only)
+  # was read as diag(n) and returned a 0 x 0 matrix, crashing
+  # .agg_inla_summarise() with a dimnames-extent mismatch.
+  dat <- mk_agg_data(seed = 7L)
+  fit <- suppressMessages(fb(
+    y ~ 1 + (1 | g),
+    data = dat,
+    backend = "inla",
+    aggregate = TRUE,
+    prior_vc_sd = 1,
+    verbose = FALSE,
+    mcmc_verbose = FALSE
+  ))
+  expect_s3_class(fit, "flexybayes")
+  bv <- fit$extras$summary$beta_vcov
+  expect_identical(dim(bv), c(1L, 1L))
+  expect_true(is.finite(bv[1, 1]))
+})
+
 test_that("INLA per-row + aggregated agree on beta within 1e-3 (stress, strict)", {
   testthat::skip_if_not_installed("INLA")
   if (!identical(Sys.getenv("FLEXYBAYES_RUN_STRESS"), "true")) {

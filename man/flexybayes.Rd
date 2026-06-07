@@ -165,13 +165,41 @@ feasible (deterministic and faster on that certified class), and to
 greta (full MCMC, the universal fallback) otherwise --- so a
 no-\code{backend} call reaches every available engine the model supports.
 
-\strong{Caution (small-group random effects).} The \code{"auto"} route prefers
-INLA when feasible, but INLA's default random-effect precision prior
-can collapse a small-group variance component to a near-zero standard
-deviation (it will not match an \code{lme4}-style estimate). For a flagship
-random-intercept model with few groups, prefer \code{backend = "greta"} or
-supply an explicit variance-component prior (see the \emph{priors} vignette);
+\strong{Caution (small-group random effects).} Both backends now apply
+the same default prior --- the exact uniform-on-SD (the INLA path
+represents it faithfully via an expression-prior on the log-precision
+rather than the former PC approximation), so the two engines agree on
+the variance component far more closely than in earlier versions. A
+model with very few groups nonetheless carries a weakly-identified
+variance component (the data say little about the between-group
+spread), and INLA's Laplace approximation is less accurate there than
+full MCMC. For a flagship random-intercept model with few groups,
+prefer \code{backend = "greta"} or supply an explicit informative prior
+(a half-Cauchy, per Gelman 2006; see the \emph{priors} vignette).
 \code{\link[=fb_backend_status]{fb_backend_status()}} reports which engines are usable.
+
+\strong{Convergence.} MCMC fits (\code{"greta"}, \code{"brms"}) emit a warning when
+the sampler may not have converged (a parameter with Rhat at or above
+1.1, or a low effective sample size). Treat such a posterior with
+caution --- increase \code{warmup} / \code{n_samples}, simplify the model, or
+supply a more informative prior --- and inspect the full diagnostics
+with \code{\link[=summary]{summary()}}. Silence the warning (for intentionally short fits)
+via \code{options(flexyBayes.silence_convergence_warning = TRUE)}. The INLA
+path is deterministic and carries no such warning.
+
+On the greta backend, generalised mixed models (a \code{poisson} or
+\code{binomial} family with random effects) adapt more slowly than the
+Gaussian case and need a larger \code{warmup} than the default --- a few
+thousand iterations is typical, and the convergence warning above will
+tell you when more is needed. This is an adaptation-budget matter, not
+a parameterisation one: the random effects already use the
+non-centred form, which mixes at least as well as the centred form
+across the regimes tested. For a latent-Gaussian GLMM the \code{"auto"}
+route sidesteps the question entirely by fitting it with INLA.
+Factor-analytic / unstructured covariance terms (greta only) are
+harder still and may not mix at modest budgets; judge their
+convergence on the identified covariance via \code{\link[=fb_structured_cov]{fb_structured_cov()}}
+rather than the rotation-/sign-ambiguous raw loadings.
 
 \code{"greta"} forces full MCMC; \code{"inla"} forces INLA and raises a
 structured refusal if the model is not LGM-feasible; \code{"brms"} is the

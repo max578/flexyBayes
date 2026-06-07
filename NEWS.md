@@ -1,14 +1,44 @@
 # flexyBayes (development version)
 
+## Engine reliability and diagnostics
+
+* **Faithful default prior on the INLA backend.** The package's default
+  `uniform(0, scale)` prior on every variance-component standard deviation (and
+  any user-supplied `uniform()` / `half_normal()` prior) is now represented
+  *exactly* on the INLA backend via an expression-prior on the log-precision,
+  replacing the former PC-prior approximation. The PC approximation concentrated
+  prior mass at zero and so shrank a small-group variance component more than
+  the greta backend's flat uniform did, producing a cross-engine prior mismatch
+  that surfaced as spurious `triangulate()` disagreement on the variance
+  components for models with few groups. The two engines now carry genuinely the
+  same default prior, so their variance-component posteriors agree far more
+  closely. This changes the default INLA variance-component posterior for
+  random-effects models fit without an explicit prior.
+* **Convergence warning.** MCMC fits (`greta`, `brms`) now emit a warning when
+  the sampler may not have converged (a parameter with Rhat at or above 1.1, or
+  a low effective sample size), rather than surfacing it only as a print-method
+  badge. Silence it for intentionally short fits with
+  `options(flexyBayes.silence_convergence_warning = TRUE)`. The deterministic
+  INLA path carries no such warning.
+* **New `fb_structured_cov()`** reports the *identified* covariance
+  \eqn{G = \Lambda\Lambda^\top + \mathrm{diag}(\psi)} for factor-analytic
+  `fa()` terms, with an entrywise Rhat. The raw loadings are identified only up
+  to rotation and sign, so their per-entry Rhat is meaningless; \eqn{G} is
+  rotation- and sign-invariant and is the quantity whose convergence is
+  interpretable. The convergence warning points to it when a factor-analytic /
+  unstructured term is present.
+* **Fixed** an intercept-only model on the aggregated INLA path
+  (`y ~ 1 + (1 | g)`, `backend = "inla"`, `aggregate = TRUE`), which crashed in
+  the fixed-effect summariser because a length-one variance vector was misread
+  by `diag()` as a dimension. The one-coefficient covariance is now built
+  correctly.
+
 ## Usability
 
 * **New `fb_backend_status()`** reports which inference backends are installed
   and usable in the current session (greta additionally needs a reachable
   Python / TensorFlow stack), with an actionable install hint per backend. It
-  is read-only and runs without any backend present. The `backend = "auto"`
-  documentation now also states plainly that INLA's default random-effect
-  precision prior can collapse a small-group variance component, and points to
-  greta or an explicit prior for flagship random-intercept models.
+  is read-only and runs without any backend present.
 
 ## Lean-core split
 

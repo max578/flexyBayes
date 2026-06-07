@@ -47,3 +47,4 @@ Rplots\.pdf$
 ^inst/examples$
 ^paper$
 ^paper/.*$
+^tests/testthat/_problems$

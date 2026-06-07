@@ -64,10 +64,12 @@
 #' Supported distribution families: `pc`, `half_normal`, `half_cauchy`,
 #' `student_t`, `normal`, `exponential`, `lkj`, `cauchy`, `gamma`,
 #' `uniform`. Note that `uniform()` on a variance component sits
-#' outside the PC-canonical interlingua: the INLA backend honours it
-#' exactly via an expression-prior on the log-precision; the legacy
-#' greta scalar bridge cannot represent it and will refuse with a
-#' redirect.
+#' outside the PC-canonical interlingua, but both backends represent it
+#' faithfully on the SD scale: the INLA backend via an expression-prior
+#' on the log-precision, and the greta backend as a bounded
+#' `greta::uniform()` on each simple random-effect (and residual) SD.
+#' Structured-covariance terms (`us`, `fa`, `ar1`, `vm`, `ped`) on greta
+#' fall back to the legacy scale prior.
 #'
 #' @return an `fb_prior` object (S3, inherits from list) with
 #'   `$specs` carrying the parsed `target` / `spec` pairs.
@@ -653,27 +655,68 @@ is_fb_prior <- function(x) inherits(x, "fb_prior")
   .emit_state_set("default_prior_note", TRUE)
 }
 
-# One-time message emitted from priors_to_inla() when a uniform()
-# spec is being approximated as a PC prior. Silenceable via
-# options(flexyBayes.silence_uniform_inla_approx = TRUE). The once-flag
-# is held in the package-internal emit-state env (see R/emit_state.R).
-.uniform_to_inla_warn_once <- function() {
-  if (isTRUE(getOption("flexyBayes.silence_uniform_inla_approx", FALSE))) {
-    return(invisible())
+# Faithful INLA expression prior for a uniform(lower, upper) prior on a
+# variance component on the SD scale. INLA parameterises the precision
+# hyperparameter internally as theta = log(precision), so sigma =
+# exp(-theta / 2). Transforming the flat density p(sigma) = 1 / (U - L)
+# on (L, U) through that change of variables gives
+#
+#   log p(theta) = -log(U - L) - log(2) - theta / 2
+#
+# on the support L < sigma < U, i.e. -2 log(U) <= theta <= -2 log(L). The
+# upper-theta bound vanishes when L = 0 (sigma may approach 0). Outside the
+# support a large negative log-density (-1e10, INLA's finite stand-in for
+# -Inf) enforces the bound. The string is emitted on a single line so it
+# splices unmodified through .inla_hyper_arg() and survives the
+# formula-as-text -> as.formula() -> INLA::inla() round trip.
+#
+# This is the exact representation of the package's uniform-on-SD default
+# (and any user-supplied uniform() prior), replacing the former lossy
+# PC-prior approximation that concentrated mass at sigma = 0 and so
+# disagreed with the greta backend's flat uniform on small group counts.
+.inla_uniform_sd_expr <- function(upper, lower = 0) {
+  if (lower <= 0) {
+    sprintf(
+      paste0(
+        "expression: U=%.16g; lb=-2*log(U);",
+        " ld=-log(U)-log(2)-theta/2;",
+        " return( theta<lb ? -1.0e10 : ld );"
+      ),
+      upper
+    )
+  } else {
+    sprintf(
+      paste0(
+        "expression: L=%.16g; U=%.16g; lo=-2*log(U); hi=-2*log(L);",
+        " ld=-log(U-L)-log(2)-theta/2;",
+        " return( (theta<lo)||(theta>hi) ? -1.0e10 : ld );"
+      ),
+      lower,
+      upper
+    )
   }
-  if (.emit_state_get("uniform_inla_approx")) {
-    return(invisible())
-  }
-  message(
-    "flexyBayes: uniform() prior on a variance component is ",
-    "approximated as PC(upper, 0.01) for the INLA backend. ",
-    "The support is matched but the density inside ",
-    "differs (PC concentrates at sigma = 0; uniform is flat). ",
-    "Exact bounded-uniform support is deferred to a future release -- see ",
-    "?fb_prior. Silence this notice via ",
-    "options(flexyBayes.silence_uniform_inla_approx = TRUE)."
+}
+
+# Faithful INLA expression prior for a half_normal(scale = s) prior on a
+# variance component on the SD scale. The half-normal density
+# p(sigma) = (2 / (s sqrt(2 pi))) exp(-sigma^2 / (2 s^2)) on (0, Inf),
+# transformed through sigma = exp(-theta / 2) (Jacobian (1/2)
+# exp(-theta / 2)), gives
+#
+#   log p(theta) = -0.5 log(2 pi) - log(s) - sigma^2 / (2 s^2) - theta / 2
+#
+# (the half-normal's log(2) cancels the Jacobian's -log(2)). Single line
+# for the same splicing reason as .inla_uniform_sd_expr(). Replaces the
+# former PC-prior approximation of half_normal().
+.inla_halfnormal_sd_expr <- function(scale) {
+  sprintf(
+    paste0(
+      "expression: s=%.16g; sig=exp(-theta/2);",
+      " return( -0.5*log(2*3.141592653589793) - log(s)",
+      " - (sig*sig)/(2*s*s) - theta/2 );"
+    ),
+    scale
   )
-  .emit_state_set("uniform_inla_approx", TRUE)
 }
 
 # ---------------------------------------------------------------- #
@@ -885,13 +928,11 @@ priors_to_inla <- function(prior) {
         "smooth" = s$target$var,
         "<unknown>"
       )
-      # Approximate half_normal(scale = s) via PC matched at
-      # u = s * qnorm(0.995), alpha = 0.005.
-      u <- scale * stats::qnorm(0.995)
+      # Exact half_normal(scale = s) via an INLA expression prior on the
+      # SD scale (no longer the lossy PC approximation).
       out[[key]] <- list(
-        prior = "pc.prec",
-        param = c(u, 0.005),
-        approx_from = "half_normal"
+        prior = .inla_halfnormal_sd_expr(scale),
+        meta = list(family = "half_normal", scale = scale)
       )
     } else if (s$spec$family == "uniform") {
       lower <- as.numeric(s$spec$args$lower %||% 0)
@@ -903,23 +944,18 @@ priors_to_inla <- function(prior) {
         "smooth" = s$target$var,
         "<unknown>"
       )
-      # v0.1.x: approximate uniform(lower, upper) on the sd scale via
-      # a PC prior with matched upper tail. Pr(sigma > upper) = 0.01
-      # (default alpha) plus suppression of mass near zero. This is
-      # an approximation -- the density inside the support differs
-      # from uniform (PC concentrates at sigma = 0; uniform is flat)
-      # -- but it preserves the user's intent of a bounded weakly-
-      # informative prior on the variance component. Exact bounded-
-      # support uniform via an INLA expression-prior is on the v0.2
-      # roadmap pending more robust integration with INLA's parser.
-      # We surface the approximation explicitly via `approx_from` so
-      # downstream tooling (and the print method) can flag it, and
-      # via a once-per-session message at construction time.
-      .uniform_to_inla_warn_once()
+      # Exact uniform(lower, upper) on the SD scale via an INLA
+      # expression prior (.inla_uniform_sd_expr). This supersedes the
+      # former lossy PC-prior approximation: the PC prior concentrated
+      # mass at sigma = 0 and so shrank a small-group variance component
+      # more than the greta backend's flat uniform did, producing a
+      # cross-engine prior mismatch that surfaced as spurious
+      # triangulation disagreement on the variance components. The
+      # expression prior is the faithful representation, so the two
+      # engines now carry genuinely the same default prior and there is
+      # no approximation to flag.
       out[[key]] <- list(
-        prior = "pc.prec",
-        param = c(upper, 0.01),
-        approx_from = "uniform",
+        prior = .inla_uniform_sd_expr(upper = upper, lower = lower),
         meta = list(family = "uniform", lower = lower, upper = upper)
       )
     }

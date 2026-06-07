@@ -668,26 +668,21 @@ emit_gaussian_aggregated <- function(
   }
 
   # When hyper_ctrl carries a translated user prior for this RI, splice
-  # it into the f(...) call. Otherwise PIN explicit `loggamma(1, 5e-5)`
-  # rather than relying on INLA's contextual default.
+  # it into the f(...) call. In the default case the synthesised
+  # uniform-on-SD prior (.default_uniform_prior() in flexybayes()) keys
+  # every random group, so hyper_ctrl carries the same faithful uniform
+  # expression prior the per-row emit_inla() path uses -- both paths
+  # share one prior (scale fixed once from the per-row data), which is
+  # what makes the per-row and aggregated INLA fits algebraically
+  # equivalent. The former per-row/aggregated divergence under defaults
+  # is resolved by that unification (priors_to_inla() now emits the exact
+  # uniform on both paths instead of a per-row PC approximation).
   #
-  # Why: INLA's iid-latent "default" is a PC-prior whose hyperparameters
-  # resolve from the data scale at fit time. The per-row data (`y`)
-  # and the aggregated data (`ybar_k`) have different effective scales
-  # so the same `f(g, model = "iid")` call produces DIFFERENT priors
-  # in the two representations -- breaking algebraic equivalence under
-  # defaults (per-row tau posterior ~ 0.095; aggregated tau posterior
-  # ~ 0.007 on the matched 500/135 example). Explicit loggamma is
-  # scale-invariant, so the aggregated path gives reproducible
-  # algebraic-equivalent fits.
-  #
-  # KNOWN v0.3.2 CAVEAT: per-row vs aggregated INLA fits under default
-  # priors will differ on the RI variance posterior because the
-  # per-row emit_inla() inherits INLA's data-scale-dependent PC
-  # default. Matched-prior comparisons require passing an explicit
-  # `prior = fb_prior(<group> = ...)` so hyper_ctrl carries the
-  # translated prior to BOTH paths. Unifying the per-row default
-  # behavior with the aggregated path is queued for v0.3.3.
+  # The fallback below fires only when no fb_prior is in play (e.g. the
+  # legacy `prior_vc_sd` path) or a user supplies a partial prior that
+  # omits this group. It pins the scale-invariant loggamma(1, 5e-5) so
+  # the aggregated fit matches the per-row path, which inherits the same
+  # INLA default when hyper_ctrl is empty.
   default_iid_hyper <- list(prior = "loggamma", param = c(1, 5e-05))
   ri_pieces <- vapply(
     ri_plan,
@@ -959,7 +954,10 @@ emit_gaussian_aggregated <- function(
   beta_means <- fixed_summary$mean
   names(beta_means) <- rownames(fixed_summary)
 
-  beta_vcov <- diag(fixed_summary$sd^2)
+  # `nrow =` guards the intercept-only case: diag() of a length-one
+  # vector is otherwise read as diag(n) and returns an n x n identity
+  # (a 0 x 0 matrix here), not a 1 x 1 covariance. Mirrors the count path.
+  beta_vcov <- diag(fixed_summary$sd^2, nrow = length(beta_means))
   dimnames(beta_vcov) <- list(names(beta_means), names(beta_means))
 
   hyper <- inla_fit$summary.hyperpar

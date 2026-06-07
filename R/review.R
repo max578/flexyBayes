@@ -238,5 +238,6 @@ proceed.flexybayes_review <- function(x, ...) {
 
   x$fit <- fit
   x$proceeded <- TRUE
+  .fb_warn_poor_convergence(fit)
   fit
 }

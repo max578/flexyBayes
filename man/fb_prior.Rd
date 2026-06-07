@@ -20,10 +20,12 @@ fb_prior(...)
 Supported distribution families: \code{pc}, \code{half_normal}, \code{half_cauchy},
 \code{student_t}, \code{normal}, \code{exponential}, \code{lkj}, \code{cauchy}, \code{gamma},
 \code{uniform}. Note that \code{uniform()} on a variance component sits
-outside the PC-canonical interlingua: the INLA backend honours it
-exactly via an expression-prior on the log-precision; the legacy
-greta scalar bridge cannot represent it and will refuse with a
-redirect.}
+outside the PC-canonical interlingua, but both backends represent it
+faithfully on the SD scale: the INLA backend via an expression-prior
+on the log-precision, and the greta backend as a bounded
+\code{greta::uniform()} on each simple random-effect (and residual) SD.
+Structured-covariance terms (\code{us}, \code{fa}, \code{ar1}, \code{vm}, \code{ped}) on greta
+fall back to the legacy scale prior.}
 }
 \value{
 an \code{fb_prior} object (S3, inherits from list) with

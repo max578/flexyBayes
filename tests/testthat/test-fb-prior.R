@@ -171,12 +171,15 @@ test_that("priors_to_inla() emits pc.prec keyed by sd group", {
   expect_named(out, "subject")
 })
 
-test_that("priors_to_inla() approximates half_normal via pc.prec", {
+test_that("priors_to_inla() emits an exact half_normal expression prior", {
   p <- fb_prior(sigma ~ half_normal(scale = 1))
   out <- flexyBayes:::priors_to_inla(p)
   expect_named(out, "sigma")
-  expect_identical(out$sigma$prior, "pc.prec")
-  expect_identical(out$sigma$approx_from, "half_normal")
+  expect_match(out$sigma$prior, "^expression:")
+  expect_null(out$sigma$param)
+  expect_null(out$sigma$approx_from)
+  expect_identical(out$sigma$meta$family, "half_normal")
+  expect_identical(out$sigma$meta$scale, 1)
 })
 
 # ---------------------------------------------------------------- #
@@ -206,16 +209,36 @@ test_that("uniform() rejects missing upper, negative lower, upper <= lower", {
   )
 })
 
-test_that("priors_to_inla() approximates uniform as pc.prec with matched upper", {
+test_that("priors_to_inla() emits an exact uniform-on-SD expression prior", {
   local_clean_emit_state()
   p <- fb_prior(sigma ~ uniform(lower = 0, upper = 4))
-  expect_message(
-    out <- flexyBayes:::priors_to_inla(p),
-    regexp = "approximated as PC"
+  # No approximation message: the uniform is now represented exactly.
+  expect_no_message(out <- flexyBayes:::priors_to_inla(p))
+  expect_match(out$sigma$prior, "^expression:")
+  expect_match(out$sigma$prior, "U=4")
+  expect_null(out$sigma$param)
+  expect_null(out$sigma$approx_from)
+  expect_identical(out$sigma$meta$family, "uniform")
+  expect_identical(out$sigma$meta$lower, 0)
+  expect_identical(out$sigma$meta$upper, 4)
+})
+
+test_that(".default_uniform_prior() maps to faithful INLA expression priors", {
+  # The synthesised default reaches all three INLA paths via
+  # priors_to_inla(); it must carry the exact uniform-on-SD expression
+  # prior (matching the greta backend's flat uniform), not the former
+  # PC approximation that disagreed with greta on small group counts.
+  dat <- data.frame(y = stats::rnorm(60), g = factor(rep(1:5, each = 12)))
+  dp <- flexyBayes:::.default_uniform_prior(
+    data = dat, response = "y", family = "gaussian", random_groups = "g"
   )
-  expect_identical(out$sigma$prior, "pc.prec")
-  expect_identical(out$sigma$param, c(4, 0.01))
-  expect_identical(out$sigma$approx_from, "uniform")
+  out <- flexyBayes:::priors_to_inla(dp)
+  expect_setequal(names(out), c("sigma", "g"))
+  expect_match(out$sigma$prior, "^expression:")
+  expect_match(out$g$prior, "^expression:")
+  expect_false(any(vapply(
+    out, function(e) identical(e$prior, "pc.prec"), logical(1)
+  )))
 })
 
 test_that("priors_to_legacy() exposes uniform-on-VC via uniform_per_vc (ADR 0004)", {

@@ -76,7 +76,10 @@ The greta backend handles them all.
 > specialised sampler than flexyBayes ships); always verify convergence as the
 > *getting started* vignette describes before interpreting anything, and
 > treat a non-mixing variance component as a signal to simplify the
-> structure or supply an explicit prior.
+> structure or supply an explicit prior. For a factor-analytic `fa()` term,
+> note that the raw loadings are identified only up to rotation and sign --
+> their $\widehat{R}$ is expected to be large -- so judge convergence on the
+> identified covariance via `fb_structured_cov()` rather than the loadings.
 
 # 2. The diagonal: `at(env, simple):geno`
 

@@ -693,9 +693,9 @@ test_that("emit_inla refuses when known_matrices entry shadows a data column", {
 # Verifies the flexyBayes INLA emit path produces a fit that        #
 # matches a direct INLA::inla() reference in structure (random-     #
 # effect count, summary shape, intercept location). flexyBayes      #
-# defaults to the uniform-on-SD prior on the precision              #
-# hyperparameter (approximated as PC for INLA per the v0.1.x        #
-# notice); the reference uses INLA's loggamma default. The two      #
+# defaults to the uniform-on-SD prior on the precision             #
+# hyperparameter (represented exactly for INLA via an expression-  #
+# prior); the reference uses INLA's loggamma default. The two      #
 # priors agree on the location-mean for the random effects but      #
 # shrink to slightly different amounts, so the RE-mean tolerance    #
 # is loosened to a sensible band rather than bit-exact. Tightening  #

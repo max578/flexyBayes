@@ -39,3 +39,6 @@ docs/
 # never ships). The stress scripts themselves are tracked; only their
 # results directory is local-only.
 tools/stress_results/
+
+# testthat transient failed-test records
+tests/testthat/_problems/
