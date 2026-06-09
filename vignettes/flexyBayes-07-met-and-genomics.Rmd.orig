@@ -31,6 +31,17 @@ mcmc_small <- list(n_samples = 1000, warmup = 2000, chains = 2)
 
 # 1. The two questions of plant breeding
 
+> **This is a syntax-and-representation catalogue.** It demonstrates how to
+> *write* models across the term surface. The fits use small sampling budgets
+> so the document builds quickly, and several printed diagnostics therefore do
+> **not** meet the package's own convergence thresholds
+> ($\widehat{R} \le 1.01$, ESS $\ge 400$); some model classes also mix poorly on
+> their backend at any budget. Read the posterior summaries here as
+> illustrations of the output *shape*, not as inferential results. For a
+> convergence-clean worked fit and the trustworthy-fit workflow, see the
+> *getting started* and *cross-engine triangulation* vignettes.
+
+
 Crop variety evaluation poses two intertwined questions, and
 `flexyBayes` provides one statistical framework for both.
 

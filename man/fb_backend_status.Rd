@@ -4,7 +4,14 @@
 \alias{fb_backend_status}
 \title{Report inference-backend readiness}
 \usage{
-fb_backend_status()
+fb_backend_status(deep = TRUE)
+}
+\arguments{
+\item{deep}{Logical; if \code{TRUE} (default) greta's readiness is probed by
+initialising its Python / TensorFlow stack (the probe's output is captured,
+never leaked). If \code{FALSE}, greta is reported as installed without touching
+Python -- a fast, non-invasive check whose \code{usable} value is \code{NA}
+("installed, not probed").}
 }
 \value{
 A data frame of class \code{fb_backend_status} with one row per backend

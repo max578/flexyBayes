@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 01: Getting started with flexyBayes"
-date: "2026-06-06"
+date: "2026-06-09"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -133,34 +133,33 @@ str(sleepstudy)
 
 We start with a brms-style formula -- it reads exactly as in
 `lme4::lmer()` or `brms::brm()`: `Reaction ~ Days + (1 | Subject)` --
-and fit it with the greta engine pin `fb_greta()`:
+and fit it with the brms (Stan) engine pin `fb_brms()`, which samples
+this small hierarchical model to clean convergence:
 
 
 ``` r
-fit_greta <- fb_greta(
+fit_brms <- fb_brms(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  n_samples    = 2000,
-  warmup       = 5000,
+  n_samples    = 1000,
+  warmup       = 1000,
   chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
-fit_greta
-#> Bayesian mixed model  [flexyBayes]
+fit_brms
+#> Bayesian mixed model  [flexyBayes / brms passthrough]
 #> ------------------------------------------------------- 
 #>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 4 chain(s) x 2000 samples (warmup = 5000 ) -- 30.3 sec
-#>   Params : 4 monitored; 2 fixed, 1 random terms
-#>   Representation: exact
-#>   Engine:         greta MCMC
-#>   Max Rhat: 1.213  [!] 
-#>   Min ESS: 87 
+#>   MCMC   : 4 chain(s) x 1000 samples (warmup = 1000 ) -- 22.3 sec (Stan via brms)
+#>   Params : 25 monitored; 2 fixed, 1 random terms
+#>   Max Rhat: 1.003  [OK] 
+#>   Min ESS: 525 
 #> ------------------------------------------------------- 
-#>   $glm    -- GLM-compatible (summary, emmeans, etc.)
-#>   $greta  -- native greta (draws, model, calculate)
-#>   $extras -- diagnostics, BLUPs, variance components
+#>   $glm    -- GLM-compatible shim (coef, vcov, fitted, etc.)
+#>   $brms   -- live brmsfit (loo, posterior_predict, summary)
+#>   $extras -- diagnostics, variance components, call info
 ```
 
 The printed summary includes a `Representation: exact` line. This reports that
@@ -198,34 +197,34 @@ random intercept.
 
 # 5. What is inside a fit?
 
-`fit_greta` is an object of class `flexybayes`. The default print method
+`fit_brms` is an object of class `flexybayes`. The default print method
 is concise; `summary()` gives the full posterior digest:
 
 
 ``` r
-summary(fit_greta)
+summary(fit_brms)
 #> Bayesian mixed model summary  [flexyBayes]
 #> ============================================================ 
 #>   Fixed  : Reaction ~ Days + (1 | Subject) 
 #>   Family : gaussian / identity 
-#>   N = 180 , chains = 4 , samples = 2000 
+#>   N = 180 , chains = 4 , samples = 1000 
 #>   Representation: exact
-#>   Engine:         greta MCMC
+#>   Engine:         brms / Stan HMC
 #> 
 #> -- Fixed effects (posterior)  --------------------------------- 
 #>             Estimate Post.SD     2.5%    97.5%
-#> (Intercept) 249.7999  9.3448 231.0464 267.0576
-#> Days         10.5319  0.8207   8.9420  12.1814
+#> (Intercept) 251.5273 10.1695 231.0889 271.1541
+#> Days         10.4903  0.8493   8.8704  12.1267
 #> 
 #> -- Variance components  -------------------------------------- 
-#>       Component Estimate     SD    2.5%   97.5%
-#> 1 sigma_Subject  39.7569 8.1246 27.3758 57.4825
-#> 2   sigma_e_atg  31.2229 1.7749 27.9887 34.9299
+#>    Component Estimate     SD    2.5%   97.5%
+#> 1 sd_Subject  39.9453 7.8968 27.4310 57.9798
+#> 2      sigma  31.2680 1.7057 28.0121 34.6908
 #> 
 #> -- Convergence  --------------------------------------------- 
-#>   Rhat range: 1 - 1.213 
-#>   ESS  range: 87 - 3040 
-#>   Run time  : 30.3 sec
+#>   Rhat range: 1 - 1.003 
+#>   ESS  range: 525 - 4536 
+#>   Run time  : 22.3 sec
 ```
 
 The output is laid out in three blocks.
@@ -253,11 +252,11 @@ The output is laid out in three blocks.
    draws), or cross-check against a different algorithm, which the next
    section does with INLA.
 
-A density plot of the posteriors is one line:
+A coefficient plot of the fixed effects is one line:
 
 
 ``` r
-plot(fit_greta)
+plot(fit_brms, type = "effects")
 ```
 
 ![plot of chunk sleepstudy-plot](flexyBayes-01-getting-started-figs/sleepstudy-plot-1.png)
@@ -288,7 +287,7 @@ coefficients, via `b("name") ~ normal(...)` in `fb_prior()`.
 
 # 6. The same model on a second engine
 
-`fit_greta` is a Markov chain Monte Carlo (MCMC) fit; INLA runs a
+`fit_brms` is a Markov chain Monte Carlo (MCMC) fit; INLA runs a
 fundamentally different algorithm — a Laplace approximation over a
 small set of hyperparameters — and finishes almost instantly:
 
@@ -304,28 +303,29 @@ summary(fit_inla)
 #> ------------------------------------------------------------ 
 #> Fixed effects:
 #>                 mean     sd 0.025quant 0.5quant 0.975quant     mode kld
-#> (Intercept) 251.4779 6.6394   238.4465 251.4776   264.5113 251.4776   0
-#> Days         10.4511 1.2434     8.0102  10.4512    12.8915  10.4512   0
+#> (Intercept) 251.4786 6.6716   238.3836 251.4783   264.5757 251.4783   0
+#> Days         10.4509 1.2494     7.9982  10.4510    12.9033  10.4510   0
 #> 
 #> Hyperparameters:
 #>                                                 mean           sd   0.025quant
 #> Precision for the Gaussian observations 4.000000e-04 0.000000e+00 4.000000e-04
-#> Precision for Subject                   7.373782e+15 1.721297e+15 5.131056e+15
+#> Precision for Subject                   2.772571e+12 1.140429e+12 1.326318e+12
 #>                                             0.5quant   0.975quant         mode
 #> Precision for the Gaussian observations 4.000000e-04 5.000000e-04 4.000000e-04
-#> Precision for Subject                   7.023968e+15 1.172617e+16 6.107567e+15
+#> Precision for Subject                   2.527563e+12 5.700903e+12 2.082286e+12
 #> 
 #> Random effects:
 #>   groups: Subject
 #> ------------------------------------------------------------
 ```
 
-Both engines have approximated the same posterior. *How well do they
+Both engines have fitted the same posterior, one by Stan's Hamiltonian
+Monte Carlo and one by INLA's Laplace approximation. *How well do they
 agree?* That is the question `triangulate()` answers. The canonical
-parameter-name registry reconciles greta's internal names
-(`mu_atg`, `beta_Days`, `sigma_Subject`, `sigma_e_atg`) and INLA's
-internal names (`(Intercept)`, `Days`, `Precision for Subject`,
-`Precision for the Gaussian observations`) automatically — no
+parameter-name registry reconciles each engine's internal names -- brms's
+`b_Intercept`, `b_Days`, `sd_Subject__Intercept`, `sigma`, and INLA's
+`(Intercept)`, `Days`, `Precision for Subject`,
+`Precision for the Gaussian observations` -- automatically; no
 `name_map` is needed for the common cases.
 
 
@@ -334,7 +334,7 @@ internal names (`(Intercept)`, `Days`, `Precision for Subject`,
 # environments (e.g., CRAN's vignette re-render). Wrap so a failure
 # is informative rather than fatal.
 tri <- tryCatch(
-  triangulate(fit_greta, fit_inla),
+  triangulate(fit_brms, fit_inla),
   error = function(e) {
     message("triangulate() unavailable in this session: ",
             conditionMessage(e))
@@ -343,25 +343,25 @@ tri <- tryCatch(
 )
 if (!is.null(tri)) tri
 #> <triangulate_result>
-#>   source_a: greta
+#>   source_a: brms
 #>   source_b: inla
 #>   independence: algorithmic + implementation
-#>     (HMC (greta on TensorFlow) versus Laplace approximation (INLA on C): different inference paradigms and different code bases.)
+#>     (HMC (brms on Stan) versus Laplace approximation (INLA on C): different inference paradigms and different code bases.)
 #>   n_common: 4
-#>   only_a:   0 parameters
+#>   only_a:   21 parameters (Intercept, r_Subject[308,Intercept], r_Subject[309,Intercept], r_Subject[310,Intercept], r_Subject[330,Intercept], ...)
 #>   only_b:   198 parameters (Predictor:1, Predictor:2, Predictor:3, Predictor:4, Predictor:5, ...)
 #> 
 #> Metrics (per common parameter):
-#>         param   mean_a   mean_b mean_diff   sd_a   sd_b     sd_ratio q025_diff
-#> 1 (Intercept) 249.7999 251.4361   -1.6363 9.3448 6.7046 1.393800e+00   -7.5065
-#> 2        Days  10.5319  10.4433    0.0886 0.8207 1.2584 6.522000e-01    0.9189
-#> 3  sd_Subject  39.7569   0.0000   39.7569 8.1246 0.0000 3.619005e+09   27.3758
-#> 4       sigma  31.2229  47.9229  -16.7000 1.7749 2.3465 7.564000e-01  -15.3356
+#>         param   mean_a   mean_b mean_diff    sd_a   sd_b     sd_ratio q025_diff
+#> 1 (Intercept) 251.5273 251.2888    0.2385 10.1695 6.8851 1.477000e+00   -6.9009
+#> 2        Days  10.4903  10.5096   -0.0192  0.8493 1.2666 6.705000e-01    0.8091
+#> 3  sd_Subject  39.9453   0.0000   39.9453  7.8968 0.0000 4.682797e+07   27.4310
+#> 4       sigma  31.2680  48.1621  -16.8941  1.7057 2.5135 6.786000e-01  -15.9653
 #>   q975_diff wasserstein_1
-#> 1    2.4795        2.3844
-#> 2   -0.8900        0.3404
-#> 3   57.4825       39.6188
-#> 4  -17.6713       16.6902
+#> 1    7.1057        2.5152
+#> 2   -0.9302        0.3095
+#> 3   57.9798       39.8564
+#> 4  -18.9459       16.8888
 ```
 
 The output is a per-parameter readout. The column to focus on first is
@@ -536,45 +536,47 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] flexyBayes_0.7.0
+#> [1] flexyBayes_0.7.0.9000
 #> 
 #> loaded via a namespace (and not attached):
-#>   [1] tidyselect_1.2.1       dplyr_1.2.1            farver_2.1.2          
-#>   [4] tensorflow_2.20.0      loo_2.9.0              S7_0.2.2              
-#>   [7] tensorA_0.36.2.1       INLA_25.10.19          TH.data_1.1-5         
-#>  [10] digest_0.6.39          estimability_1.5.1     lifecycle_1.0.5       
-#>  [13] gretaR_0.2.0           sf_1.1-0               survival_3.8-3        
-#>  [16] processx_3.9.0         magrittr_2.0.5         posterior_1.7.0       
-#>  [19] compiler_4.5.2         rlang_1.2.0            progress_1.2.3        
-#>  [22] tools_4.5.2            data.table_1.18.2.1    sn_2.1.3              
-#>  [25] knitr_1.51             labeling_0.4.3         prettyunits_1.2.0     
-#>  [28] bridgesampling_1.2-1   mnormt_2.1.2           bit_4.6.0             
-#>  [31] classInt_0.4-11        reticulate_1.45.0      plyr_1.8.9            
-#>  [34] RColorBrewer_1.1-3     multcomp_1.4-29        abind_1.4-8           
-#>  [37] KernSmooth_2.23-26     numDeriv_2016.8-1.1    withr_3.0.2           
-#>  [40] stats4_4.5.2           grid_4.5.2             xtable_1.8-8          
-#>  [43] e1071_1.7-17           future_1.70.0          ggplot2_4.0.3         
-#>  [46] globals_0.19.1         emmeans_2.0.2          scales_1.4.0          
-#>  [49] MASS_7.3-65            dichromat_2.0-0.1      cli_3.6.6             
-#>  [52] mvtnorm_1.3-6          crayon_1.5.3           generics_0.1.4        
-#>  [55] RcppParallel_5.1.11-2  otel_0.2.0             reshape2_1.4.5        
-#>  [58] tfruns_1.5.4           DBI_1.3.0              proxy_0.4-29          
-#>  [61] stringr_1.6.0          splines_4.5.2          bayesplot_1.15.0      
-#>  [64] parallel_4.5.2         coro_1.1.0             matrixStats_1.5.0     
-#>  [67] base64enc_0.1-6        marginaleffects_0.32.0 brms_2.23.0           
-#>  [70] vctrs_0.7.3            Matrix_1.7-4           sandwich_3.1-1        
-#>  [73] jsonlite_2.0.0         greta_0.5.1            callr_3.7.6           
-#>  [76] hms_1.1.4              bit64_4.8.0            listenv_0.10.1        
-#>  [79] units_1.0-1            glue_1.8.1             parallelly_1.47.0     
-#>  [82] codetools_0.2-20       distributional_0.7.0   stringi_1.8.7         
-#>  [85] gtable_0.3.6           tibble_3.3.1           pillar_1.11.1         
-#>  [88] Brobdingnag_1.2-9      torch_0.17.0           R6_2.6.1              
-#>  [91] fmesher_0.7.0          evaluate_1.0.5         lattice_0.22-7        
-#>  [94] png_0.1-9              backports_1.5.1        tfautograph_0.3.2     
-#>  [97] MatrixModels_0.5-4     rstantools_2.6.0       class_7.3-23          
-#> [100] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
-#> [103] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
-#> [106] zoo_1.8-15             pkgconfig_2.0.3
+#>   [1] mnormt_2.1.2           DBI_1.3.0              gridExtra_2.3         
+#>   [4] inline_0.3.21          sandwich_3.1-1         rlang_1.2.0           
+#>   [7] magrittr_2.0.5         multcomp_1.4-29        otel_0.2.0            
+#>  [10] matrixStats_1.5.0      e1071_1.7-17           compiler_4.5.2        
+#>  [13] loo_2.9.0              png_0.1-9              callr_3.7.6           
+#>  [16] vctrs_0.7.3            reshape2_1.4.5         stringr_1.6.0         
+#>  [19] pkgconfig_2.0.3        crayon_1.5.3           backports_1.5.1       
+#>  [22] MatrixModels_0.5-4     bit_4.6.0              torch_0.17.0          
+#>  [25] INLA_25.10.19          xfun_0.57              jsonlite_2.0.0        
+#>  [28] progress_1.2.3         parallel_4.5.2         prettyunits_1.2.0     
+#>  [31] tensorflow_2.20.0      R6_2.6.1               stringi_1.8.7         
+#>  [34] RColorBrewer_1.1-3     StanHeaders_2.32.10    reticulate_1.45.0     
+#>  [37] parallelly_1.47.0      numDeriv_2016.8-1.1    estimability_1.5.1    
+#>  [40] Rcpp_1.1.1-1.1         rstan_2.32.7           knitr_1.51            
+#>  [43] zoo_1.8-15             base64enc_0.1-6        bayesplot_1.15.0      
+#>  [46] Matrix_1.7-4           splines_4.5.2          tidyselect_1.2.1      
+#>  [49] dichromat_2.0-0.1      abind_1.4-8            codetools_0.2-20      
+#>  [52] curl_7.0.0             processx_3.9.0         listenv_0.10.1        
+#>  [55] pkgbuild_1.4.8         gretaR_0.5.0           lattice_0.22-7        
+#>  [58] tibble_3.3.1           plyr_1.8.9             withr_3.0.2           
+#>  [61] bridgesampling_1.2-1   S7_0.2.2               posterior_1.7.0       
+#>  [64] coda_0.19-4.1          evaluate_1.0.5         marginaleffects_0.32.0
+#>  [67] future_1.70.0          survival_3.8-3         sf_1.1-0              
+#>  [70] units_1.0-1            proxy_0.4-29           RcppParallel_5.1.11-2 
+#>  [73] pillar_1.11.1          tensorA_0.36.2.1       whisker_0.4.1         
+#>  [76] KernSmooth_2.23-26     checkmate_2.3.4        stats4_4.5.2          
+#>  [79] sn_2.1.3               distributional_0.7.0   generics_0.1.4        
+#>  [82] hms_1.1.4              ggplot2_4.0.3          rstantools_2.6.0      
+#>  [85] scales_1.4.0           coro_1.1.0             globals_0.19.1        
+#>  [88] xtable_1.8-8           class_7.3-23           glue_1.8.1            
+#>  [91] emmeans_2.0.2          tools_4.5.2            data.table_1.18.2.1   
+#>  [94] mvtnorm_1.3-6          grid_4.5.2             QuickJSR_1.9.0        
+#>  [97] colorspace_2.1-2       nlme_3.1-168           cli_3.6.6             
+#> [100] tfruns_1.5.4           fmesher_0.7.0          Brobdingnag_1.2-9     
+#> [103] dplyr_1.2.1            V8_8.0.1               gtable_0.3.6          
+#> [106] greta_0.5.1            digest_0.6.39          classInt_0.4-11       
+#> [109] TH.data_1.1-5          brms_2.23.0            farver_2.1.2          
+#> [112] lifecycle_1.0.5        bit64_4.8.0            MASS_7.3-65
 ```
 
 # References

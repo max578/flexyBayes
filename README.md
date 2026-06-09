@@ -58,6 +58,34 @@ package without any backend is the planner; for a worked fit with production
 sampling settings and honest diagnostics, follow the *getting started*
 vignette.
 
+### Backend support by model class
+
+What each backend does, by model class, reflecting the 2026-06 empirical
+validation. "Supported" means the syntax emits and the model is tested; it does
+not promise that every fit converges at small budgets -- convergence is
+model-specific and is always reported, so treat a high R-hat badge as a
+diagnostic, not a result.
+
+| Model class | greta | INLA | brms |
+|---|---|---|---|
+| Gaussian LMM, simple random intercepts | validated | validated | validated |
+| GLMM (binomial / Poisson / NB), simple RE | validated | validated | validated |
+| Random slopes, structured covariance, GBLUP, pedigree, separable spatial, splines | supported | supported | supported |
+| **Interaction / nested random effects (GxE)** | does **not** converge | **refused** | **refused** |
+| **Heteroscedastic / per-stratum residual** (`dsum`) | does **not** converge | **refused** | **refused** |
+| Interaction *fixed* effects, binomial path | supported | **known bug** | supported |
+
+> **Capability boundary (read before relying on flexyBayes for METs).** The
+> full multi-environment-trial model -- genotype-by-environment *interaction
+> random effects* together with a *heteroscedastic per-environment residual* --
+> is **not fittable by any flexyBayes backend in this release**. ASReml and
+> `lme4` fit it; flexyBayes does not yet. This is the package's central open
+> problem. See `inst/KNOWN_ISSUES.md` (`system.file("KNOWN_ISSUES.md", package =
+> "flexyBayes")`) for the full status, the per-backend reasons, and the intended
+> route to a fix. Until then, flexyBayes is an honest multi-backend
+> orchestration and triangulation tool for the model classes above -- not yet a
+> stand-alone Bayesian replacement for full ASReml-style MET analysis.
+
 ## Installation
 
 ```r
@@ -278,6 +306,14 @@ silently. The current release does not cover the following; each is a
 roadmap deferral, and a request that needs one is met with a
 structured refusal naming the gap, not a quiet wrong answer.
 
+- **Full multi-environment-trial (MET) models**: genotype-by-environment
+  *interaction random effects* (`gen:loc`, `gen:loc:yearf`) and
+  *heteroscedastic per-environment residuals* (`dsum(~ units | env)`) are
+  **not fittable by any trustworthy backend in this release** -- INLA and brms
+  refuse them, greta expresses but does not converge on them. This is the
+  package's central open problem; see `inst/KNOWN_ISSUES.md` for the full
+  status and the intended route to a fix. Use ASReml or `lme4` for the full MET
+  model today.
 - **Spatial structure**: only separable AR1 (`ar1(row):id(col)`) is
   supported. Intrinsic CAR and BYM2 areal models are not implemented.
   You can express a custom spatial precision by passing your own
