@@ -9,7 +9,7 @@ output:
   rmarkdown::html_vignette
 ---
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE, purl = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment  = "#>",
@@ -34,7 +34,7 @@ backend. A no-`backend` call uses `backend = "auto"`, which routes to
 INLA when the model is latent-Gaussian feasible and to greta otherwise,
 so a single call reaches whichever engine the model supports.
 
-```{r universal}
+```{r universal, purl = FALSE}
 data(sleepstudy, package = "lme4")
 
 # brms / lme4-style grammar (a bar-grouped formula): detected automatically.
@@ -55,7 +55,7 @@ is ASReml grammar. The lone ambiguous case -- a bare `y ~ x` with no
 grouping, which means the same model either way -- defaults to ASReml.
 Force the reading with `syntax`:
 
-```{r syntax}
+```{r syntax, purl = FALSE}
 # Treat a bar-free formula as brms grammar explicitly.
 fit_brms_grammar <- fb(Reaction ~ Days, data = sleepstudy, syntax = "brms")
 ```
@@ -69,7 +69,7 @@ deterministic Laplace approximation). Otherwise it falls back to greta
 decision -- including the engines considered and why each was or was not
 chosen -- is available after the fit:
 
-```{r decision}
+```{r decision, purl = FALSE}
 fit <- fb(Reaction ~ Days + (1 | Subject), data = sleepstudy,
           backend = "auto")
 backend_decision(fit)
@@ -79,7 +79,7 @@ To preview the routing without fitting, pass `plan = TRUE`, which
 returns a planning object describing the chosen backend, the
 representation plan, and the prediction plan.
 
-```{r plan}
+```{r plan, purl = FALSE}
 fb(Reaction ~ Days + (1 | Subject), data = sleepstudy, plan = TRUE)
 ```
 
@@ -95,7 +95,7 @@ grammars and arguments as the universal entry:
 | `fb_inla()`  | `fb(..., backend = "inla")`  | Laplace approximation |
 | `fb_brms()`  | `fb(..., backend = "brms")`  | Stan via brms (Hamiltonian Monte Carlo) |
 
-```{r pins}
+```{r pins, purl = FALSE}
 fit_g <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy)
 fit_i <- fb_inla(Reaction ~ Days + (1 | Subject),  data = sleepstudy)
 fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),  data = sleepstudy)
@@ -104,7 +104,7 @@ fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),  data = sleepstudy)
 A pin fits via one engine only, so a conflicting `backend` argument is a
 clear error rather than a silent override:
 
-```{r pin-conflict}
+```{r pin-conflict, purl = FALSE}
 # Refused: fb_inla() pins INLA, so it cannot also take backend = "greta".
 fb_inla(Reaction ~ Days + (1 | Subject), data = sleepstudy,
         backend = "greta")
@@ -124,7 +124,7 @@ If you have already built a model with native greta primitives, pass the
 `greta::mcmc()` and returned with the standard post-fit surface
 (`summary()`, `coef()`, `vcov()`, `triangulate()`).
 
-```{r native}
+```{r native, purl = FALSE}
 library(greta)
 y     <- as_data(sleepstudy$Reaction)
 x     <- as_data(sleepstudy$Days)
@@ -142,7 +142,7 @@ the parameters need canonical names. Attach them once by building the
 intermediate representation with `fb_from_greta()`, then pass the result
 to `fb()`:
 
-```{r native-canonical}
+```{r native-canonical, purl = FALSE}
 ir <- fb_from_greta(
   m,
   canonical_names = c(b0 = "(Intercept)", b1 = "Days", sigma = "sigma")
@@ -162,7 +162,7 @@ across an MCMC engine and a Laplace engine is evidence that the result
 does not depend on the approximation; disagreement is a signal worth
 investigating before trusting the fit.
 
-```{r triangulate}
+```{r triangulate, purl = FALSE}
 fit_inla  <- fb_inla(Reaction ~ Days + (1 | Subject), data = sleepstudy)
 fit_greta <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy)
 triangulate(fit_inla, fit_greta)

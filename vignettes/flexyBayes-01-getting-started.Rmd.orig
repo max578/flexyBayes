@@ -24,6 +24,7 @@ knitr::opts_chunk$set(
 options(flexyBayes.silence_default_prior_note = TRUE)
 greta_ok <- requireNamespace("greta", quietly = TRUE)
 inla_ok  <- requireNamespace("INLA",  quietly = TRUE)
+brms_ok  <- requireNamespace("brms",  quietly = TRUE)
 set.seed(100)
 ```
 
@@ -142,19 +143,20 @@ str(sleepstudy)
 
 We start with a brms-style formula -- it reads exactly as in
 `lme4::lmer()` or `brms::brm()`: `Reaction ~ Days + (1 | Subject)` --
-and fit it with the greta engine pin `fb_greta()`:
+and fit it with the brms (Stan) engine pin `fb_brms()`, which samples
+this small hierarchical model to clean convergence:
 
-```{r sleepstudy-fb-greta, eval=greta_ok}
-fit_greta <- fb_greta(
+```{r sleepstudy-fb-brms, eval=brms_ok}
+fit_brms <- fb_brms(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,
-  n_samples    = 2000,
-  warmup       = 5000,
+  n_samples    = 1000,
+  warmup       = 1000,
   chains       = 4,
   verbose      = FALSE,
   mcmc_verbose = FALSE
 )
-fit_greta
+fit_brms
 ```
 
 The printed summary includes a `Representation: exact` line. This reports that
@@ -192,11 +194,11 @@ random intercept.
 
 # 5. What is inside a fit?
 
-`fit_greta` is an object of class `flexybayes`. The default print method
+`fit_brms` is an object of class `flexybayes`. The default print method
 is concise; `summary()` gives the full posterior digest:
 
-```{r sleepstudy-summary, eval = greta_ok}
-summary(fit_greta)
+```{r sleepstudy-summary, eval = brms_ok}
+summary(fit_brms)
 ```
 
 The output is laid out in three blocks.
@@ -224,10 +226,10 @@ The output is laid out in three blocks.
    draws), or cross-check against a different algorithm, which the next
    section does with INLA.
 
-A density plot of the posteriors is one line:
+A coefficient plot of the fixed effects is one line:
 
-```{r sleepstudy-plot, eval = greta_ok, fig.height = 3.5}
-plot(fit_greta)
+```{r sleepstudy-plot, eval = brms_ok, fig.height = 3.5}
+plot(fit_brms, type = "effects")
 ```
 
 ### Variance-component priors
@@ -256,7 +258,7 @@ coefficients, via `b("name") ~ normal(...)` in `fb_prior()`.
 
 # 6. The same model on a second engine
 
-`fit_greta` is a Markov chain Monte Carlo (MCMC) fit; INLA runs a
+`fit_brms` is a Markov chain Monte Carlo (MCMC) fit; INLA runs a
 fundamentally different algorithm — a Laplace approximation over a
 small set of hyperparameters — and finishes almost instantly:
 
@@ -269,20 +271,21 @@ fit_inla <- fb_inla(
 summary(fit_inla)
 ```
 
-Both engines have approximated the same posterior. *How well do they
+Both engines have fitted the same posterior, one by Stan's Hamiltonian
+Monte Carlo and one by INLA's Laplace approximation. *How well do they
 agree?* That is the question `triangulate()` answers. The canonical
-parameter-name registry reconciles greta's internal names
-(`mu_atg`, `beta_Days`, `sigma_Subject`, `sigma_e_atg`) and INLA's
-internal names (`(Intercept)`, `Days`, `Precision for Subject`,
-`Precision for the Gaussian observations`) automatically — no
+parameter-name registry reconciles each engine's internal names -- brms's
+`b_Intercept`, `b_Days`, `sd_Subject__Intercept`, `sigma`, and INLA's
+`(Intercept)`, `Days`, `Precision for Subject`,
+`Precision for the Gaussian observations` -- automatically; no
 `name_map` is needed for the common cases.
 
-```{r sleepstudy-triangulate, eval=greta_ok && inla_ok}
+```{r sleepstudy-triangulate, eval=brms_ok && inla_ok}
 # INLA's posterior sampler can be flaky under restricted-process
 # environments (e.g., CRAN's vignette re-render). Wrap so a failure
 # is informative rather than fatal.
 tri <- tryCatch(
-  triangulate(fit_greta, fit_inla),
+  triangulate(fit_brms, fit_inla),
   error = function(e) {
     message("triangulate() unavailable in this session: ",
             conditionMessage(e))
@@ -320,7 +323,7 @@ parameter you care about is a *finding*, not a bug.
 `backend = "auto"` runs the model through `lgm_gate()` and routes to
 INLA on accept, greta on refuse:
 
-```{r sleepstudy-auto, eval=greta_ok}
+```{r sleepstudy-auto, eval=inla_ok}
 fit_auto <- flexybayes(
   Reaction ~ Days + (1 | Subject),
   data         = sleepstudy,

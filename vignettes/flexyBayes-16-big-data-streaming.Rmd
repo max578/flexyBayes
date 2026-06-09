@@ -9,7 +9,7 @@ output:
   rmarkdown::html_vignette
 ---
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE, purl = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment  = "#>",
@@ -62,7 +62,7 @@ sufficient statistics, and fits the $K$-cell model through INLA (or
 greta). Peak memory is one chunk plus the small cell accumulator, never
 the full table.
 
-```{r fst}
+```{r fst, purl = FALSE}
 library(fst)
 
 # A dataset already on disk (here written for illustration).
@@ -84,7 +84,7 @@ For a dataset shared as several partitioned shards -- the usual shape for
 genuinely large data -- pass the vector of shard paths and they are
 streamed in turn with the same bounded footprint.
 
-```{r shards}
+```{r shards, purl = FALSE}
 shards <- sort(list.files("trial_parts", pattern = "\\.fst$",
                           full.names = TRUE))
 fit <- flexybayes_stream(
@@ -97,7 +97,7 @@ Binomial and poisson models fit the same way. A 0/1 response is treated
 as Bernoulli (one trial per row). For poisson, name an exposure column
 with `exposure =` if the data carries one.
 
-```{r families}
+```{r families, purl = FALSE}
 fit_bin <- flexybayes_stream(
   infected ~ region, random = ~ paddock,
   source = "survey.fst", family = "binomial", backend = "inla"
@@ -112,7 +112,7 @@ fit_pois <- flexybayes_stream(
 To inspect the compression a design will achieve before committing to a
 fit, pass `fit = FALSE` and the function returns the aggregation summary.
 
-```{r inspect}
+```{r inspect, purl = FALSE}
 agg <- flexybayes_stream(
   yield ~ environment, random = ~ genotype,
   source = path, fit = FALSE
@@ -128,7 +128,7 @@ When the data does fit in memory, the ordinary entry
 gaussian, binomial, and poisson families. The two routes return the same
 posterior.
 
-```{r inmemory}
+```{r inmemory, purl = FALSE}
 fit_a <- flexybayes(yield ~ environment, random = ~ genotype,
                     data = trial_df, backend = "inla")   # auto-aggregates
 fit_b <- flexybayes(yield ~ environment, random = ~ genotype,

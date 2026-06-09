@@ -9,17 +9,42 @@
 
 # --- internal probe ------------------------------------------------- #
 
+# Absorb R-level stdout, messages, and warnings from an invasive probe so a
+# readiness check never leaks raw infrastructure noise into the console. Note:
+# output written by a *subprocess* at the OS file-descriptor level (for example
+# a Python launcher) cannot be captured from R; the `deep = FALSE` path exists
+# precisely so such a probe is never triggered.
+.fb_capture_quiet <- function(expr) {
+  out_con <- textConnection("fb_quiet_out", open = "w", local = TRUE)
+  sink(out_con)
+  sink(out_con, type = "message")
+  on.exit({
+    sink(type = "message")
+    sink()
+    close(out_con)
+  }, add = TRUE)
+  suppressWarnings(suppressMessages(force(expr)))
+}
+
 # greta's run-time usability is the R package PLUS a reachable Python /
-# TensorFlow stack. This mirrors the gate the test suite and dispatch use,
-# so the user sees the same verdict the package will act on. Probing via
-# tensorflow::tf_version() carries no greta global state.
-.greta_backend_usable <- function() {
-  requireNamespace("greta", quietly = TRUE) &&
-    requireNamespace("tensorflow", quietly = TRUE) &&
-    isTRUE(tryCatch(
-      !is.null(tensorflow::tf_version()),
-      error = function(e) FALSE
-    ))
+# TensorFlow stack. This mirrors the gate the test suite and dispatch use, so
+# the user sees the same verdict the package will act on. Probing via
+# tensorflow::tf_version() carries no greta global state, but it does initialise
+# the Python / TensorFlow stack, which can emit low-level loader noise -- so the
+# probe is wrapped in output capture, and `deep = FALSE` skips it entirely
+# (returning NA, "installed but not probed").
+.greta_backend_usable <- function(deep = TRUE) {
+  if (!requireNamespace("greta", quietly = TRUE) ||
+      !requireNamespace("tensorflow", quietly = TRUE)) {
+    return(FALSE)
+  }
+  if (!isTRUE(deep)) {
+    return(NA)
+  }
+  isTRUE(tryCatch(
+    .fb_capture_quiet(!is.null(tensorflow::tf_version())),
+    error = function(e) FALSE
+  ))
 }
 
 # --- exported diagnostic -------------------------------------------- #
@@ -54,10 +79,15 @@
 #' fb_backend_status()
 #' }
 #'
+#' @param deep Logical; if `TRUE` (default) greta's readiness is probed by
+#'   initialising its Python / TensorFlow stack (the probe's output is captured,
+#'   never leaked). If `FALSE`, greta is reported as installed without touching
+#'   Python -- a fast, non-invasive check whose `usable` value is `NA`
+#'   ("installed, not probed").
 #' @export
-fb_backend_status <- function() {
+fb_backend_status <- function(deep = TRUE) {
   greta_inst <- requireNamespace("greta", quietly = TRUE)
-  greta_use <- .greta_backend_usable()
+  greta_use <- if (greta_inst) .greta_backend_usable(deep = deep) else FALSE
   inla_inst <- requireNamespace("INLA", quietly = TRUE)
   brms_inst <- requireNamespace("brms", quietly = TRUE)
 
@@ -66,6 +96,8 @@ fb_backend_status <- function() {
       "not installed: install.packages('greta', repos = ",
       "c('https://greta-dev.r-universe.dev', getOption('repos')))"
     )
+  } else if (is.na(greta_use)) {
+    "installed; Python / TensorFlow stack not probed (call with deep = TRUE)"
   } else if (!greta_use) {
     paste0(
       "installed, but the Python / TensorFlow stack is unavailable: ",

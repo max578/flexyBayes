@@ -1,8 +1,26 @@
+<!--
+INTERNAL DRAFT -- not for submission as written.
+
+This file is a pre-submission draft for the future CRAN submission, which is
+gated on the AAGI-AUS collective conversation (decision D8). Three things are
+finalised only at the release cut and must be regenerated then:
+  - the version string (the package is currently 0.7.0.9000, a development
+    version; the release is cut as 0.7.0);
+  - the package URLs (they 404 until the public repository exists under D8);
+  - the exact `R CMD check --as-cran` status, re-run on the FINAL release
+    tarball with the release version and public URLs, with the command and date
+    recorded.
+The check status quoted below was last verified clean-room (user profiles
+disabled, tarball from a clean export, fresh library) on commit 2be3049,
+2026-06-08: `Status: 1 NOTE`. Do not submit using this file verbatim.
+-->
+
 ## Submission
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package is at version `0.7.0`.
+The package will be released at version `0.7.0` (the working tree is currently
+`0.7.0.9000`, finalised at the D8 release cut).
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and
