@@ -87,6 +87,16 @@
 #' @param n_samples integer: number of posterior samples to draw
 #'   for fits whose extractor needs sampling (e.g., INLA via
 #'   `INLA::inla.posterior.sample`).
+#' @param data_independence single logical declaring whether the two fits were
+#'   built on independently-sourced data. `triangulate()` measures inter-fit
+#'   *agreement*, and the backend-independence registry certifies code (not
+#'   data) independence -- so if both fits share the same upstream data, a
+#'   fabricated data fact is common-mode and their agreement cannot detect it.
+#'   `TRUE` declares the data independent (no caveat); `FALSE` (same data) or
+#'   `NA` (the default, undeclared) attach a `shared_upstream_caveat` field to
+#'   the result, surfaced prominently by the print method, so agreement is never
+#'   silently mistaken for corroboration of a shared data fact (Independent
+#'   Oracle Principle).
 #' @return a `triangulate_result` S3 object (list). Key fields:
 #'   `metrics` (data.frame, one row per common parameter),
 #'   `common` (character), `only_a`, `only_b`, `n_common`,
@@ -132,8 +142,13 @@ triangulate <- function(
   name_map = NULL,
   transform_a = NULL,
   transform_b = NULL,
-  n_samples = 1000L
+  n_samples = 1000L,
+  data_independence = NA
 ) {
+  if (!is.logical(data_independence) || length(data_independence) != 1L) {
+    stop("`data_independence` must be a single logical (TRUE / FALSE / NA).",
+         call. = FALSE)
+  }
   draws_a <- fb_as_draws_simple(fit_a, n_samples = n_samples)
   draws_b <- fb_as_draws_simple(fit_b, n_samples = n_samples)
 
@@ -242,6 +257,32 @@ triangulate <- function(
   src_b <- .triangulate_source(fit_b)
   indep <- .lookup_pair_independence(c(src_a, src_b))
 
+  # FX-10 (Independent Oracle Principle). triangulate measures inter-fit
+  # *agreement* only; the backend-independence registry certifies CODE
+  # independence (algorithmic / implementation / specification), never DATA-fact
+  # independence. If both fits consumed the same upstream `data`, a fabricated
+  # data fact is common-mode: every backend ingests it, every backend agrees,
+  # and tight agreement is reported as strong consensus. Unless the caller
+  # declares the fits used independently-sourced data, we attach a caveat (and
+  # warn) so agreement is not mistaken for corroboration of a shared data fact.
+  shared_upstream_caveat <- if (isTRUE(data_independence)) {
+    NA_character_
+  } else {
+    paste0(
+      "triangulate measures inter-fit agreement, not correspondence: the ",
+      "backend-independence registry certifies code independence, not ",
+      "data-fact independence. ",
+      if (identical(data_independence, FALSE)) {
+        "Both fits consumed the SAME data, so agreement is common-mode and "
+      } else {
+        "Data independence was not declared, so if both fits share the same "
+      },
+      "a fabricated upstream data fact would not be detected by their ",
+      "agreement. Declare data_independence = TRUE only when the fits used ",
+      "independently-sourced data."
+    )
+  }
+
   structure(
     list(
       metrics = metrics,
@@ -256,7 +297,9 @@ triangulate <- function(
         NA_character_
       } else {
         indep$justification
-      }
+      },
+      data_independence = data_independence,
+      shared_upstream_caveat = shared_upstream_caveat
     ),
     class = c("triangulate_result", "list")
   )
@@ -567,6 +610,13 @@ print.triangulate_result <- function(x, ...) {
   cat("  n_common: ", x$n_common, "\n", sep = "")
   .print_only(x$only_a, "only_a")
   .print_only(x$only_b, "only_b")
+  if (!is.null(x$shared_upstream_caveat) && !is.na(x$shared_upstream_caveat)) {
+    cat("  [!] common-mode caveat: agreement does NOT test a shared upstream",
+        "data fact\n")
+    cat("      (data_independence = ",
+        if (is.na(x$data_independence)) "undeclared" else
+          as.character(x$data_independence), ")\n", sep = "")
+  }
 
   if (x$n_common > 0L) {
     cat("\nMetrics (per common parameter):\n")

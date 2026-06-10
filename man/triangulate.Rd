@@ -10,7 +10,8 @@ triangulate(
   name_map = NULL,
   transform_a = NULL,
   transform_b = NULL,
-  n_samples = 1000L
+  n_samples = 1000L,
+  data_independence = NA
 )
 }
 \arguments{
@@ -36,6 +37,15 @@ so they line up with greta's \code{sigma_g}. Optional.}
 \item{n_samples}{integer: number of posterior samples to draw
 for fits whose extractor needs sampling (e.g., INLA via
 \code{INLA::inla.posterior.sample}).}
+
+\item{data_independence}{single logical declaring whether the two fits were
+built on independently-sourced data. \code{triangulate()} measures inter-fit
+\emph{agreement}, and the backend-independence registry certifies code (not
+data) independence -- so if both fits share the same upstream data, a
+fabricated data fact is common-mode and their agreement cannot detect it.
+\code{TRUE} declares the data independent (no caveat); \code{FALSE} (same data) or
+\code{NA} (the default, undeclared) attach a \code{shared_upstream_caveat} to the
+result and emit a warning (Independent Oracle Principle).}
 }
 \value{
 a \code{triangulate_result} S3 object (list). Key fields:

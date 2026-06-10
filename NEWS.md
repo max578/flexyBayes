@@ -1,5 +1,17 @@
 # flexyBayes (development version)
 
+## Triangulation honesty
+
+* `triangulate()` gained a `data_independence` argument and a
+  `shared_upstream_caveat` result field (Independent Oracle Principle). It
+  measures inter-fit *agreement*, and the backend-independence registry
+  certifies code (not data) independence -- so if both fits share the same
+  upstream data, a fabricated data fact is common-mode and their agreement
+  cannot detect it. Unless the caller declares `data_independence = TRUE`, the
+  result carries a caveat (surfaced prominently by `print()`) that agreement
+  does not test a shared upstream data fact. Pure metadata; the metrics are
+  unchanged.
+
 ## Engine reliability and diagnostics
 
 * **Faithful default prior on the INLA backend.** The package's default

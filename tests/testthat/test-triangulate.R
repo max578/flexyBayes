@@ -333,3 +333,37 @@ test_that("triangulate() runs on an aggregated INLA fit and agrees with per-row 
     info = sprintf("max fixed-effect drift = %.3f SD", max(drift))
   )
 })
+
+# --- FX-10: common-mode (shared-upstream) caveat (Independent Oracle Principle)
+
+test_that("triangulate() attaches a common-mode caveat unless data independence is declared", {
+  d_a <- data.frame(beta = rnorm(200), sigma = abs(rnorm(200)))
+  d_b <- data.frame(beta = rnorm(200), sigma = abs(rnorm(200)))
+
+  # Undeclared (default NA): caveat present, data_independence NA.
+  tri <- triangulate(mk_synthetic(d_a), mk_synthetic(d_b))
+  expect_true(is.na(tri$data_independence))
+  expect_false(is.na(tri$shared_upstream_caveat))
+  expect_match(tri$shared_upstream_caveat, "agreement")
+
+  # Declared FALSE (same data): caveat present and names the common-mode risk.
+  tri_f <- triangulate(mk_synthetic(d_a), mk_synthetic(d_a),
+                       data_independence = FALSE)
+  expect_false(is.na(tri_f$shared_upstream_caveat))
+  expect_match(tri_f$shared_upstream_caveat, "SAME data")
+
+  # Declared TRUE (independent data): no caveat.
+  tri_t <- triangulate(mk_synthetic(d_a), mk_synthetic(d_b),
+                       data_independence = TRUE)
+  expect_true(is.na(tri_t$shared_upstream_caveat))
+
+  # The caveat is metadata: the metrics are identical regardless.
+  expect_equal(tri$metrics, tri_t$metrics)
+})
+
+test_that("triangulate() validates the data_independence argument", {
+  d <- data.frame(beta = rnorm(50))
+  expect_error(triangulate(mk_synthetic(d), mk_synthetic(d),
+                           data_independence = "yes"),
+               "must be a single logical")
+})
