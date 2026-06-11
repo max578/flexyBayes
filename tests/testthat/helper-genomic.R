@@ -32,6 +32,45 @@ sim_kinship <- function(n_geno = 25L, n_markers = 200L, maf = 0.25, seed = 1L) {
   G
 }
 
+# Markers with founder relatedness: each genotype is the mid-parent of two
+# random founders plus a little mutation, so genotypes share large genomic
+# segments and the relationship matrix has real off-diagonal structure.
+# Random independent markers (sim_kinship) make genotypes ~unrelated, where
+# genomic prediction of a held-out line has no relatives to borrow from;
+# this generator is the realistic genomic-selection setting.
+sim_related_markers <- function(
+  n_geno = 150L,
+  n_markers = 600L,
+  n_founders = 12L,
+  maf = 0.25,
+  mutation = 0.02,
+  seed = 1L
+) {
+  set.seed(seed)
+  founders <- matrix(
+    stats::rbinom(n_founders * n_markers, 2L, maf), n_founders, n_markers
+  )
+  Z <- matrix(0L, n_geno, n_markers)
+  for (i in seq_len(n_geno)) {
+    par <- sample(n_founders, 2L)
+    g <- round((founders[par[1L], ] + founders[par[2L], ]) / 2)
+    flip <- stats::rbinom(n_markers, 1L, mutation)
+    step <- flip * sample(c(-1L, 1L), n_markers, replace = TRUE)
+    Z[i, ] <- pmin(2L, pmax(0L, g + step))
+  }
+  Z
+}
+
+# Genomic relationship matrix from a marker panel (VanRaden), scaled to
+# unit diagonal and labelled.
+kinship_from_markers <- function(Z) {
+  Zc <- scale(Z, center = TRUE, scale = FALSE)
+  G <- tcrossprod(Zc) / ncol(Z)
+  G <- scale_kinship_unit_diag(G + diag(nrow(Z)) * 1e-6)
+  rownames(G) <- colnames(G) <- paste0("g", seq_len(nrow(Z)))
+  G
+}
+
 # Simulate a GBLUP phenotype with known variance components.
 #
 #   y_{ij} = mu + u_i + eps_{ij},

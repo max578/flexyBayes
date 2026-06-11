@@ -2,6 +2,19 @@
 
 ## Genomics and MET expansion
 
+* **`fb_gblup_cv()` -- genomic-prediction accuracy by cross-validation.**
+  The payoff layer of genomic selection: how well does a GBLUP trained on
+  phenotyped genotypes predict the held-out performance of genotypes seen
+  only through their markers? Each fold estimates the variance components
+  by REML on the training set and predicts the held-out breeding values
+  from the relationship matrix (the exact GBLUP prediction equation,
+  evaluated through the spectral primitive), then reports prediction
+  accuracy (predicted-observed correlation), bias (the observed-on-
+  predicted slope), and the per-fold spread, with repeated-CV averaging.
+  Validated against an exact full-matrix prediction; accuracy is near zero
+  for an unrelated / non-heritable trait, rises with heritability, and is
+  substantial when genotypes are related -- the realistic selection
+  setting.
 * **`fb_gwas()` -- genome-wide association scan.** A whole-genome EMMAX /
   P3D scan (Kang et al. 2010): the polygenic null mixed model is fit once
   by REML to estimate the variance components, then every marker is tested
