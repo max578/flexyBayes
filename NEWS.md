@@ -2,6 +2,19 @@
 
 ## Genomics and MET expansion
 
+* **`fb_met_summary()` -- breeder summary of a factor-analytic MET fit.**
+  For a `fa(env, k):gen` factor-analytic genotype-by-environment fit it
+  reports the quantities a plant breeder acts on: each genotype's overall
+  performance (the across-environment mean of its realised effects) and
+  stability (the across-environment spread), the genotype-by-environment
+  BLUPs, the factor loadings, and the environment genetic-correlation
+  matrix -- the crossover structure (negative correlations are rank
+  reversals across environments). These come from the *realised* effects,
+  which are identified (invariant to the loadings' rotation and sign
+  ambiguity), so their posteriors are interpretable. The greta
+  factor-analytic fit now monitors those realised genotype-by-environment
+  effects (it previously monitored only the loadings and specific
+  variances).
 * **`fb_gblup_cv()` -- genomic-prediction accuracy by cross-validation.**
   The payoff layer of genomic selection: how well does a GBLUP trained on
   phenotyped genotypes predict the held-out performance of genotypes seen
