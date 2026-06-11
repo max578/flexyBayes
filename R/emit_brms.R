@@ -87,6 +87,9 @@ emit_brms <- function(
 
   # -- formula + family + prior ------------------------------------
   brms_form <- .fb_to_brms_formula(fb)
+  # Materialised relationship covariances for any vm() / ped() term,
+  # threaded into brms via data2 (empty list when there are none).
+  brms_data2 <- .fb_brms_data2(fb, known_matrices, data)
   brms_family <- .fb_family_to_brms(fb$family, fb$link)
   brms_prior <- .priors_to_brms(
     fb$priors %||%
@@ -102,6 +105,7 @@ emit_brms <- function(
       brms::make_stancode(
         formula = brms_form,
         data = data,
+        data2 = brms_data2,
         family = brms_family,
         prior = brms_prior,
         silent = 2L
@@ -153,6 +157,7 @@ emit_brms <- function(
       brms::brm(
         formula = brms_form,
         data = data,
+        data2 = brms_data2,
         family = brms_family,
         prior = brms_prior,
         chains = as.integer(chains),
@@ -346,13 +351,35 @@ emit_brms <- function(
 
   re_terms <- character(0)
   for (term in fb$random_terms) {
+    ttype <- term$type %||% "<unknown>"
+
+    # Genomic / pedigree relationship random effect. Emit brms's native
+    # known-covariance group term, (1 | gr(<var>, cov = <K>)). brms
+    # Cholesky-factors the supplied covariance internally -- the
+    # K = L L' decorrelation that turns a structured genetic random
+    # effect into one Stan fits cheaply -- so vm() / ped() reach the
+    # brms backend and GBLUP becomes three-engine triangulatable. The
+    # covariance matrix itself is threaded into brms's data2 by
+    # .fb_brms_data2().
+    if (ttype %in% c("vm", "ped")) {
+      grp <- term$var
+      if (is.null(grp) || !nzchar(grp)) {
+        stop("vm() / ped() term missing the group variable.", call. = FALSE)
+      }
+      covname <- .fb_brms_covname(term)
+      re_terms <- c(
+        re_terms,
+        paste0("(1 | gr(", grp, ", cov = ", covname, "))")
+      )
+      next
+    }
+
     if (
-      is.null(term$type) ||
-        !term$type %in% c("simple", "ide", "id", "simple_slope_uncor")
+      !ttype %in% c("simple", "ide", "id", "simple_slope_uncor")
     ) {
       stop(
         "emit_brms() does not yet support random term type \"",
-        term$type %||% "<unknown>",
+        ttype,
         "\". Re-route via backend = \"greta\".",
         call. = FALSE
       )
@@ -394,6 +421,85 @@ emit_brms <- function(
   }
 
   stats::as.formula(paste(response, "~", rhs))
+}
+
+# Resolve the covariance-matrix symbol a vm() / ped() term references on
+# the brms route. brms reaches GBLUP / pedigree BLUP only through an
+# exact dense-able carrier (dense / chol / precision); the block-
+# diagonal and low-rank carriers are greta / INLA-only and are refused
+# loudly rather than mis-rendered.
+.fb_brms_covname <- function(term) {
+  cov <- term$cov_representation
+  fmt <- (cov$format %||% "dense")
+  if (fmt %in% c("blocks", "low_rank")) {
+    stop(
+      "emit_brms() supports vm() / ped() only with an exact dense-able ",
+      "covariance carrier (dense / chol / precision); the \"", fmt,
+      "\" carrier is greta / INLA-only. Re-route via backend = \"greta\".",
+      call. = FALSE
+    )
+  }
+  sym <- cov$data %||% term$mat
+  if (is.null(sym) || is.na(sym) || !nzchar(sym)) {
+    stop(
+      "vm() / ped() term carries no resolvable covariance-matrix symbol ",
+      "for the brms route.",
+      call. = FALSE
+    )
+  }
+  sym
+}
+
+# Build brms's data2 list: the materialised dense covariance for every
+# vm() / ped() relationship term, keyed by the carrier symbol the
+# gr(<var>, cov = <symbol>) formula references. brms wants a covariance
+# matrix (it Cholesky-factors it and scales by the estimated group sd),
+# so each carrier is densified to K -- dense as-is, chol -> L L',
+# precision -> solve(Q). When the supplied matrix has no dimnames they
+# are set from the grouping factor's levels so brms aligns the matrix
+# positionally (the same level-alignment contract the greta / INLA
+# paths enforce); existing dimnames are preserved so brms aligns by
+# name.
+.fb_brms_data2 <- function(fb, known_matrices, data) {
+  d2 <- list()
+  for (term in fb$random_terms) {
+    if (!(term$type %||% "") %in% c("vm", "ped")) {
+      next
+    }
+    covname <- .fb_brms_covname(term)
+    cov <- term$cov_representation
+    fmt <- (cov$format %||% "dense")
+    sym <- cov$data %||% term$mat
+    M <- known_matrices[[sym]]
+    if (is.null(M)) {
+      stop(
+        "emit_brms(): the covariance matrix '", sym, "' for vm(", term$var,
+        ") is not in known_matrices. Pass it via known_matrices = list(",
+        sym, " = <your relationship matrix>).",
+        call. = FALSE
+      )
+    }
+    K <- switch(
+      fmt,
+      "dense" = as.matrix(M),
+      "chol" = tcrossprod(as.matrix(M)),
+      "precision" = solve(as.matrix(M)),
+      "pedigree_sparse_precision" = as.matrix(solve(M)),
+      stop(
+        "emit_brms(): unsupported covariance carrier '", fmt,
+        "' for the brms vm() / ped() route.",
+        call. = FALSE
+      )
+    )
+    if (is.null(rownames(K)) || is.null(colnames(K))) {
+      lev <- levels(as.factor(data[[term$var]]))
+      if (nrow(K) == length(lev)) {
+        dimnames(K) <- list(lev, lev)
+      }
+    }
+    d2[[covname]] <- K
+  }
+  d2
 }
 
 # Build a fixed-only formula from the IR's fixed_terms

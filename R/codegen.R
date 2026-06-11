@@ -397,6 +397,11 @@
           ")"
         )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
+        # Monitor the breeding-value vector u so genomic estimated
+        # breeding values (GEBVs) are recoverable from a greta GBLUP fit,
+        # matching what the brms (r_<group>) and INLA (<group>_id) paths
+        # already expose. This is the quantity genomic selection ranks on.
+        ctx <- .add_param(ctx, paste0("u_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
       },
@@ -425,6 +430,9 @@
           ")"
         )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
+        # Monitor the breeding-value vector u (GEBVs); see the vm()
+        # branch above for the rationale.
+        ctx <- .add_param(ctx, paste0("u_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
       },

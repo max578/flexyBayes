@@ -281,16 +281,32 @@
 # deliberate amendment.
 .STRUCTURED_COV_TYPES <- c("vm", "ped", "fa", "us", "ar1")
 
-# brms / Stan cannot represent the asreml structured-covariance terms or
-# a low_rank_smooth approximation (a greta-only basis truncation).
+# brms / Stan reaches the vm() / ped() relationship random effects via
+# its native known-covariance group term, (1 | gr(var, cov = K)) -- brms
+# Cholesky-factors the supplied covariance internally (the K = L L'
+# decorrelation Stan fits directly), so GBLUP / pedigree BLUP become
+# three-engine triangulatable. This holds only for an exact dense-able
+# carrier (dense / chol / precision / pedigree sparse precision); the
+# remaining asreml structured-covariance terms (fa / us / ar1), a
+# block-diagonal or low-rank vm() carrier, and a low_rank_smooth
+# approximation have no lossless brms / Stan translation.
+.BRMS_VM_DENSEABLE_CARRIERS <- c(
+  "dense", "chol", "precision", "pedigree_sparse_precision"
+)
+
 .capability_brms <- function(fb) {
   rt <- fb$random_terms %||% list()
-  has_structured <- any(vapply(
-    rt,
-    function(t) (t$type %||% "") %in% .STRUCTURED_COV_TYPES,
-    logical(1L)
-  ))
-  if (has_structured) {
+  for (t in rt) {
+    ty <- t$type %||% ""
+    if (!ty %in% .STRUCTURED_COV_TYPES) {
+      next
+    }
+    if (ty %in% c("vm", "ped")) {
+      fmt <- (t$cov_representation$format %||% "dense")
+      if (fmt %in% .BRMS_VM_DENSEABLE_CARRIERS) {
+        next
+      }
+    }
     return("stan_cannot_represent_structured_cov")
   }
   if (length(.collect_approx(rt)) > 0L) {

@@ -2,6 +2,24 @@
 
 ## Genomics and MET expansion
 
+* **Genomic BLUP is now three-engine triangulatable.** The genomic /
+  pedigree relationship random effect `vm(geno, G)` / `ped(animal, A)`
+  reaches all three backends: greta and brms via the dense relationship
+  matrix (brms's native `gr(geno, cov = G)` group term, which Cholesky-
+  factors the covariance internally), and INLA via the precision carrier
+  `vm(geno, cov = fb_cov(solve(G), type = "precision"))` (the `generic0`
+  sparse-precision path -- a dense GBLUP precision is INLA-feasible but
+  forgoes INLA's sparsity advantage, so it is opt-in by carrier rather
+  than silent). A simulated heritability is recovered on all three
+  engines with mutually-close posterior means, so `triangulate()` can
+  cross-check a GBLUP fit across paradigms.
+* **`genomic_summary()`** extracts the breeder-facing quantities from a
+  fitted relationship model on any backend: narrow-sense heritability
+  \eqn{h^2}, genomic estimated breeding values (GEBVs) with posterior
+  reliability, and the genetic / residual variances. The greta GBLUP fit
+  now also monitors the breeding-value vector, so GEBVs are available on
+  greta, brms, and INLA alike (previously the greta path reported only
+  the variance components).
 * **Spectral efficiency primitive (foundations).** A shared internal
   eigendecomposition primitive now underpins the genomics / MET work: it
   decomposes a relationship matrix \eqn{K = U \Lambda U^\top} once and exposes

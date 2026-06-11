@@ -190,6 +190,156 @@ print.fb_genomic_summary <- function(x, ...) {
   invisible(x)
 }
 
+# --- fit-level accessor (G1) -------------------------------------- #
+
+#' Genomic summary of a fitted relationship model
+#'
+#' Extract the breeder-facing genomic quantities -- narrow-sense
+#' heritability \eqn{h^2}, genomic estimated breeding values (GEBVs) with
+#' posterior reliability, and the genetic / residual variances -- from a
+#' fitted `vm()` (genomic / GBLUP) or `ped()` (pedigree) model. The
+#' quantities are read from the posterior draws engine-agnostically: a
+#' greta, INLA, or brms GBLUP fit returns the same summary object, so a
+#' multi-backend genomic analysis is directly triangulatable.
+#'
+#' The heritability is computed per draw as
+#' \eqn{h^2 = \sigma_g^2 / (\sigma_g^2 + \sigma_e^2)} on the
+#' genotype-mean basis; the kinship scaling convention is the analyst's
+#' (state it when reporting). Reliability is
+#' \eqn{1 - \mathrm{PEV}_i / \sigma_g^2} from the posterior variance of
+#' each breeding value. GEBVs are available on the brms and INLA backends
+#' natively and on the greta backend (the breeding-value vector is
+#' monitored).
+#'
+#' @param fit A fitted `flexybayes` object carrying at least one `vm()`
+#'   or `ped()` relationship term.
+#' @param term Optional grouping-factor name selecting which relationship
+#'   term to summarise when the model has more than one. Defaults to the
+#'   first.
+#'
+#' @return An `fb_genomic_summary` object: `heritability`,
+#'   `genetic_variance`, `residual_variance` (each a posterior summary),
+#'   `gebv` (data frame of breeding values with reliability), and
+#'   metadata.
+#'
+#' @seealso [fb_structured_cov()] for factor-analytic MET covariance,
+#'   [triangulate()] for cross-engine agreement.
+#' @examples
+#' \dontrun{
+#' fit <- flexybayes(
+#'   yield ~ 1, random = ~ vm(geno, Gmat), data = met,
+#'   known_matrices = list(Gmat = G), backend = "greta"
+#' )
+#' gs <- genomic_summary(fit)
+#' gs$heritability
+#' head(gs$gebv)
+#' }
+#' @export
+genomic_summary <- function(fit, term = NULL) {
+  if (!inherits(fit, "flexybayes") && !inherits(fit, "flexybayes_inla")) {
+    stop("`fit` must be a flexybayes object.", call. = FALSE)
+  }
+  rt <- fit$extras$parse_info$random %||% list()
+  vmped <- Filter(function(t) (t$type %||% "") %in% c("vm", "ped"), rt)
+  if (!length(vmped)) {
+    stop(
+      "genomic_summary(): this fit carries no vm() / ped() relationship ",
+      "term, so there is no genomic quantity to summarise. Fit a GBLUP / ",
+      "pedigree model, e.g. random = ~ vm(geno, Gmat).",
+      call. = FALSE
+    )
+  }
+  chosen <- if (is.null(term)) {
+    if (length(vmped) > 1L) {
+      message(
+        "flexyBayes: genomic_summary() found ", length(vmped),
+        " relationship terms; summarising the first ('", vmped[[1L]]$var,
+        "'). Pass term = to choose another."
+      )
+    }
+    vmped[[1L]]
+  } else {
+    hit <- Filter(function(t) identical(t$var, term), vmped)
+    if (!length(hit)) {
+      stop(
+        "genomic_summary(): '", term, "' is not a vm() / ped() term in ",
+        "this fit. Available: ",
+        paste(vapply(vmped, function(t) t$var, character(1)), collapse = ", "),
+        ".",
+        call. = FALSE
+      )
+    }
+    hit[[1L]]
+  }
+
+  d <- .fb_genomic_draws(fit, chosen$var)
+  .fb_genomic_summary(
+    d$var_g_draws, d$var_e_draws,
+    gebv_draws = d$gebv_draws, labels = d$labels
+  )
+}
+
+# Backend-aware extraction of the genetic / residual variance draws and
+# the breeding-value draw matrix from a fitted relationship model. Each
+# backend names these quantities differently; this is the one place that
+# knows the mapping (greta: sigma_<var> / sigma_e_atg / u_<var>[i,1];
+# brms: sd_<var>__Intercept / sigma / r_<var>[lev,Intercept]; INLA:
+# Precision for <var>_id / Precision for the Gaussian observations /
+# <var>_id:i). Variances are returned (SDs squared, precisions inverted).
+.fb_genomic_draws <- function(fit, var) {
+  dr <- fb_as_draws_simple(fit)
+  nm <- names(dr)
+
+  collect <- function(cols) {
+    if (!length(cols)) {
+      return(NULL)
+    }
+    as.matrix(do.call(cbind, dr[cols]))
+  }
+
+  if (inherits(fit, "flexybayes_inla")) {
+    sg <- dr[[paste0("Precision for ", var, "_id")]]
+    se <- dr[["Precision for the Gaussian observations"]]
+    var_g <- if (!is.null(sg)) 1 / sg else NULL
+    var_e <- if (!is.null(se)) 1 / se else NULL
+    gcols <- grep(paste0("^", var, "_id:[0-9]+$"), nm, value = TRUE)
+    gcols <- gcols[order(as.integer(sub(".*:", "", gcols)))]
+    labels <- sub(paste0("^", var, "_id:"), "", gcols)
+  } else if (inherits(fit, "flexybayes_brms")) {
+    sg <- dr[[paste0("sd_", var, "__Intercept")]]
+    se <- dr[["sigma"]]
+    var_g <- if (!is.null(sg)) sg^2 else NULL
+    var_e <- if (!is.null(se)) se^2 else NULL
+    gcols <- grep(paste0("^r_", var, "\\["), nm, value = TRUE)
+    labels <- sub(paste0("^r_", var, "\\[(.*),Intercept\\]$"), "\\1", gcols)
+  } else {
+    sg <- dr[[paste0("sigma_", var)]]
+    se <- dr[["sigma_e_atg"]]
+    var_g <- if (!is.null(sg)) sg^2 else NULL
+    var_e <- if (!is.null(se)) se^2 else NULL
+    gcols <- grep(paste0("^u_", var, "\\["), nm, value = TRUE)
+    gcols <- gcols[order(as.integer(sub("^.*\\[([0-9]+).*", "\\1", gcols)))]
+    labels <- paste0(var, seq_along(gcols))
+  }
+
+  if (is.null(var_g) || is.null(var_e)) {
+    stop(
+      "genomic_summary(): could not locate the genetic and residual ",
+      "variance draws for term '", var, "' on the ",
+      class(fit)[[1L]], " backend. The fit may predate the genomic ",
+      "output contract, or the term name does not match the draws.",
+      call. = FALSE
+    )
+  }
+
+  list(
+    var_g_draws = as.numeric(var_g),
+    var_e_draws = as.numeric(var_e),
+    gebv_draws = collect(gcols),
+    labels = if (length(labels)) labels else NULL
+  )
+}
+
 # --- internal helpers --------------------------------------------- #
 
 # Five-number posterior summary used across the genomic quantities.
