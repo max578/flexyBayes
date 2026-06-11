@@ -183,12 +183,16 @@ test_that("fb_gwas() under a pure polygenic null gives uniform p-values (lambda_
 # ---------------------------------------------------------------- #
 
 test_that("fb_gwas() builds K from markers when none is supplied", {
-  sim <- sim_gwas_pheno(n_geno = 120L, n_markers = 200L, seed = 43L)
+  # Fewer markers than individuals -> the auto-built relationship matrix is
+  # rank-deficient; the full eigendecomposition must still drive REML.
+  sim <- sim_gwas_pheno(n_geno = 120L, n_markers = 80L,
+    qtl_idx = c(20L, 60L), qtl_effect = c(2, -2), seed = 43L)
   dat <- data.frame(y = sim$y)
   scan_auto <- fb_gwas(y ~ 1, data = dat, markers = sim$markers)
   expect_s3_class(scan_auto, "fb_gwas")
-  expect_equal(nrow(scan_auto$results), 200L)
+  expect_equal(nrow(scan_auto$results), 80L)
   expect_true(is.finite(scan_auto$lambda_gc))
+  expect_true(is.finite(scan_auto$h2))
 })
 
 test_that("fb_gwas() joins a marker map and the results carry FDR + Bonferroni", {
@@ -208,7 +212,8 @@ test_that("fb_gwas() joins a marker map and the results carry FDR + Bonferroni",
 })
 
 test_that("fb_gwas() refuses a marker matrix with the wrong row count", {
-  sim <- sim_gwas_pheno(n_geno = 50L, n_markers = 20L, seed = 45L)
+  sim <- sim_gwas_pheno(n_geno = 50L, n_markers = 20L, qtl_idx = 5L,
+    qtl_effect = 2, seed = 45L)
   expect_error(
     fb_gwas(y ~ 1, data = data.frame(y = sim$y[1:40]), markers = sim$markers),
     "one row per individual"

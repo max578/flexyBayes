@@ -132,6 +132,10 @@ sim_gwas_pheno <- function(
   if (length(qtl_idx) != length(qtl_effect)) {
     stop("qtl_idx and qtl_effect must be the same length.")
   }
+  if (length(qtl_idx) && max(qtl_idx) > n_markers) {
+    stop("qtl_idx (max ", max(qtl_idx), ") exceeds n_markers (", n_markers,
+      "); pass an in-bounds qtl_idx.")
+  }
   Z <- matrix(stats::rbinom(n_geno * n_markers, 2L, maf), n_geno, n_markers)
   colnames(Z) <- paste0("snp", seq_len(n_markers))
   Zstd <- scale(Z)

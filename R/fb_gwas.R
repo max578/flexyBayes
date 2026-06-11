@@ -206,7 +206,18 @@ fb_gwas <- function(
   }
 
   spec <- if (is.null(K)) {
-    .fb_spectral_from_markers(markers, tol = tol, name = "markers")
+    # Build the full n x n VanRaden relationship and take its *complete*
+    # eigendecomposition. REML and the EMMAX rotation need the full
+    # n-dimensional eigenbasis -- including the zero-eigenvalue directions
+    # that exist when there are fewer markers than individuals (a
+    # rank-deficient G) -- which the marker-SVD shortcut, truncated to rank
+    # min(n, m), does not provide. The covariance V = sigma_g^2 G +
+    # sigma_e^2 I is full rank regardless, so .fb_reml_vc() needs every
+    # eigenvector.
+    Zc <- scale(markers, center = TRUE, scale = FALSE)
+    Zc[!is.finite(Zc)] <- 0
+    G <- tcrossprod(Zc) / ncol(markers)
+    .fb_spectral(G, tol = tol, name = "markers (VanRaden G)")
   } else {
     K <- as.matrix(K)
     if (nrow(K) != n || ncol(K) != n) {
