@@ -289,12 +289,20 @@ genomic_summary <- function(fit, term = NULL) {
 .fb_genomic_draws <- function(fit, var) {
   dr <- fb_as_draws_simple(fit)
   nm <- names(dr)
+  # Canonical genotype labels = the relationship-matrix dimnames, which the
+  # known-matrix alignment contract guarantees equal levels(<group>) in
+  # order. Using them makes GEBV labels identical across greta / INLA /
+  # brms, so triangulate_genomic() can match breeding values by genotype.
+  lv <- .fb_genomic_levels(fit, var)
 
   collect <- function(cols) {
     if (!length(cols)) {
       return(NULL)
     }
     as.matrix(do.call(cbind, dr[cols]))
+  }
+  label_by_level <- function(gcols, fallback) {
+    if (!is.null(lv) && length(lv) == length(gcols)) lv else fallback
   }
 
   if (inherits(fit, "flexybayes_inla")) {
@@ -304,13 +312,14 @@ genomic_summary <- function(fit, term = NULL) {
     var_e <- if (!is.null(se)) 1 / se else NULL
     gcols <- grep(paste0("^", var, "_id:[0-9]+$"), nm, value = TRUE)
     gcols <- gcols[order(as.integer(sub(".*:", "", gcols)))]
-    labels <- sub(paste0("^", var, "_id:"), "", gcols)
+    labels <- label_by_level(gcols, sub(paste0("^", var, "_id:"), "", gcols))
   } else if (inherits(fit, "flexybayes_brms")) {
     sg <- dr[[paste0("sd_", var, "__Intercept")]]
     se <- dr[["sigma"]]
     var_g <- if (!is.null(sg)) sg^2 else NULL
     var_e <- if (!is.null(se)) se^2 else NULL
     gcols <- grep(paste0("^r_", var, "\\["), nm, value = TRUE)
+    # brms already names breeding values by the factor level.
     labels <- sub(paste0("^r_", var, "\\[(.*),Intercept\\]$"), "\\1", gcols)
   } else {
     sg <- dr[[paste0("sigma_", var)]]
@@ -319,7 +328,7 @@ genomic_summary <- function(fit, term = NULL) {
     var_e <- if (!is.null(se)) se^2 else NULL
     gcols <- grep(paste0("^u_", var, "\\["), nm, value = TRUE)
     gcols <- gcols[order(as.integer(sub("^.*\\[([0-9]+).*", "\\1", gcols)))]
-    labels <- paste0(var, seq_along(gcols))
+    labels <- label_by_level(gcols, paste0(var, seq_along(gcols)))
   }
 
   if (is.null(var_g) || is.null(var_e)) {
@@ -341,6 +350,37 @@ genomic_summary <- function(fit, term = NULL) {
 }
 
 # --- internal helpers --------------------------------------------- #
+
+# Canonical genotype labels for a vm() / ped() term: the dimnames of the
+# relationship matrix it carries. The known-matrix alignment contract
+# (.check_known_matrix_dimnames) guarantees these equal levels(<group>) in
+# fit order, so they label breeding values identically on every backend.
+# Returns NULL when the matrix has no dimnames (the labels fall back to the
+# backend-native form).
+.fb_genomic_levels <- function(fit, var) {
+  rt <- fit$extras$parse_info$random %||% list()
+  term <- NULL
+  for (t in rt) {
+    if (identical(t$var, var) && (t$type %||% "") %in% c("vm", "ped")) {
+      term <- t
+      break
+    }
+  }
+  if (is.null(term)) {
+    return(NULL)
+  }
+  sym <- (term$cov_representation$data %||% term$mat)
+  km <- fit$extras$call_info$known_matrices
+  if (is.null(km) || is.null(sym) || is.na(sym)) {
+    return(NULL)
+  }
+  m <- km[[sym]]
+  if (is.null(m)) {
+    return(NULL)
+  }
+  rn <- rownames(m)
+  if (is.null(rn)) NULL else as.character(rn)
+}
 
 # Five-number posterior summary used across the genomic quantities.
 .fb_genomic_summ <- function(draws) {

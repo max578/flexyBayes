@@ -2,6 +2,21 @@
 
 ## Genomics and MET expansion
 
+* **`triangulate_genomic()` / `triangulate_gwas()` -- cross-engine and
+  field-standard genomic triangulation.** `triangulate_genomic()` compares
+  two GBLUP / pedigree analyses on heritability, the variance components,
+  and the breeding values (matched by genotype) -- either two flexyBayes
+  fits (does greta agree with brms and INLA?) or a flexyBayes fit against a
+  generic *genomic lens* (`list(h2, var_g, var_e, gebv)`), the form a
+  field-standard REML answer from sommer supplies. `triangulate_gwas()`
+  compares two genome scans by the agreement that matters -- the Jaccard
+  overlap of the significant marker sets, the top-marker overlap, and the
+  effect correlation. Both carry the same shared-upstream caveat as
+  `triangulate()` (agreement is not correspondence). flexyBayes core never
+  depends on the field tools; the lens form lets the companion build the
+  koine fourth opinion. Breeding-value labels are now the genotype factor
+  levels on every backend (previously the greta and INLA paths used
+  positional labels), so GEBVs match across engines.
 * **`fb_met_summary()` -- breeder summary of a factor-analytic MET fit.**
   For a `fa(env, k):gen` factor-analytic genotype-by-environment fit it
   reports the quantities a plant breeder acts on: each genotype's overall
