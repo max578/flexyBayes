@@ -194,10 +194,13 @@ test_that("capability predicates: greta universal, brms refuses structured-cov",
   expect_true(flexyBayes:::.capability_greta(fb_lr))
 })
 
-test_that("flexybayes(backend='brms') refuses an asreml structured-cov model", {
-  # ADR 0031 Phase 2b: flexybayes() can now select brms, so an asreml
-  # structured-covariance term must be refused structurally (no lossless
-  # Stan translation) rather than fail mid-emit.
+test_that("flexybayes(backend='brms') allows dense vm/ped but refuses non-dense-able structured carriers", {
+  # Genomics expansion (G1): vm() / ped() with an exact dense-able
+  # carrier now reach brms via its native known-covariance group term
+  # (1 | gr(var, cov = K)) -- brms Cholesky-factors K internally. The
+  # remaining structured-covariance carriers (block-diagonal, low-rank,
+  # and the fa / us / ar1 terms) still have no lossless Stan translation
+  # and are refused structurally rather than failing mid-emit.
   d <- data.frame(
     y = rnorm(40),
     env = factor(rep(letters[1:4], each = 10L)),
@@ -205,12 +208,27 @@ test_that("flexybayes(backend='brms') refuses an asreml structured-cov model", {
   )
   G <- diag(10L)
   dimnames(G) <- list(as.character(seq_len(10L)), as.character(seq_len(10L)))
+
+  # Dense GBLUP now generates Stan code (the gr(cov = K) route).
+  code <- flexybayes(
+    y ~ env,
+    random = ~ vm(geno, G),
+    data = d,
+    known_matrices = list(G = G),
+    backend = "brms",
+    return_code = TRUE,
+    verbose = FALSE
+  )
+  expect_true(grepl("Lcov", code, fixed = TRUE))
+
+  # A block-diagonal vm() carrier is still refused at the capability layer.
+  Bs <- list(diag(5L), diag(5L))
   expect_error(
     flexybayes(
       y ~ env,
-      random = ~ vm(geno, G),
+      random = ~ vm(geno, cov = fb_cov(Bs, type = "blocks")),
       data = d,
-      known_matrices = list(G = G),
+      known_matrices = list(Bs = Bs),
       backend = "brms",
       verbose = FALSE,
       mcmc_verbose = FALSE

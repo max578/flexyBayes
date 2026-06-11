@@ -358,7 +358,11 @@ emit_inla <- function(
         # (it uses INLA's own rw2 path), so this slot will normally be
         # an empty list; threaded for shape uniformity with emit_greta.
         parse_info = list(
-          smooths = .collect_smooths(fb$random_terms)
+          smooths = .collect_smooths(fb$random_terms),
+          # Threaded for shape uniformity with emit_greta / emit_brms so
+          # cross-backend accessors (genomic_summary(), fb_structured_cov())
+          # can locate the random terms the same way on every engine.
+          random = fb$random_terms
         ),
         run_time = elapsed,
         the_call = the_call,

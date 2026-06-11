@@ -44,8 +44,10 @@ built on independently-sourced data. \code{triangulate()} measures inter-fit
 data) independence -- so if both fits share the same upstream data, a
 fabricated data fact is common-mode and their agreement cannot detect it.
 \code{TRUE} declares the data independent (no caveat); \code{FALSE} (same data) or
-\code{NA} (the default, undeclared) attach a \code{shared_upstream_caveat} to the
-result and emit a warning (Independent Oracle Principle).}
+\code{NA} (the default, undeclared) attach a \code{shared_upstream_caveat} field to
+the result, surfaced prominently by the print method, so agreement is never
+silently mistaken for corroboration of a shared data fact (Independent
+Oracle Principle).}
 }
 \value{
 a \code{triangulate_result} S3 object (list). Key fields:

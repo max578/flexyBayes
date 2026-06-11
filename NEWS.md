@@ -1,5 +1,101 @@
 # flexyBayes (development version)
 
+## Genomics and MET expansion
+
+* **`triangulate_genomic()` / `triangulate_gwas()` -- cross-engine and
+  field-standard genomic triangulation.** `triangulate_genomic()` compares
+  two GBLUP / pedigree analyses on heritability, the variance components,
+  and the breeding values (matched by genotype) -- either two flexyBayes
+  fits (does greta agree with brms and INLA?) or a flexyBayes fit against a
+  generic *genomic lens* (`list(h2, var_g, var_e, gebv)`), the form a
+  field-standard REML answer from sommer supplies. `triangulate_gwas()`
+  compares two genome scans by the agreement that matters -- the Jaccard
+  overlap of the significant marker sets, the top-marker overlap, and the
+  effect correlation. Both carry the same shared-upstream caveat as
+  `triangulate()` (agreement is not correspondence). flexyBayes core never
+  depends on the field tools; the lens form lets the companion build the
+  koine fourth opinion. Breeding-value labels are now the genotype factor
+  levels on every backend (previously the greta and INLA paths used
+  positional labels), so GEBVs match across engines.
+* **`fb_met_summary()` -- breeder summary of a factor-analytic MET fit.**
+  For a `fa(env, k):gen` factor-analytic genotype-by-environment fit it
+  reports the quantities a plant breeder acts on: each genotype's overall
+  performance (the across-environment mean of its realised effects) and
+  stability (the across-environment spread), the genotype-by-environment
+  BLUPs, the factor loadings, and the environment genetic-correlation
+  matrix -- the crossover structure (negative correlations are rank
+  reversals across environments). These come from the *realised* effects,
+  which are identified (invariant to the loadings' rotation and sign
+  ambiguity), so their posteriors are interpretable. The greta
+  factor-analytic fit now monitors those realised genotype-by-environment
+  effects (it previously monitored only the loadings and specific
+  variances).
+* **`fb_gblup_cv()` -- genomic-prediction accuracy by cross-validation.**
+  The payoff layer of genomic selection: how well does a GBLUP trained on
+  phenotyped genotypes predict the held-out performance of genotypes seen
+  only through their markers? Each fold estimates the variance components
+  by REML on the training set and predicts the held-out breeding values
+  from the relationship matrix (the exact GBLUP prediction equation,
+  evaluated through the spectral primitive), then reports prediction
+  accuracy (predicted-observed correlation), bias (the observed-on-
+  predicted slope), and the per-fold spread, with repeated-CV averaging.
+  Validated against an exact full-matrix prediction; accuracy is near zero
+  for an unrelated / non-heritable trait, rises with heritability, and is
+  substantial when genotypes are related -- the realistic selection
+  setting.
+* **`fb_gwas()` -- genome-wide association scan.** A whole-genome EMMAX /
+  P3D scan (Kang et al. 2010): the polygenic null mixed model is fit once
+  by REML to estimate the variance components, then every marker is tested
+  by exact generalised least squares under those fixed components. The
+  shared spectral primitive turns the per-marker test into an `O(n)`
+  weighted least squares after a single eigendecomposition, so the scan is
+  feasible without a per-marker model fit, and it needs no MCMC backend --
+  it is a deterministic frequentist fast path (the backends enter only at
+  optional top-hit refinement). Returns marker effects, standard errors,
+  chi-square statistics, p-values, Bonferroni and Benjamini-Hochberg FDR
+  adjustments, the genomic-control inflation factor, and the null REML
+  heritability, with `print()` and `plot()` (Manhattan / QQ) methods. The
+  REML variance components are validated against an exact full-matrix
+  reference and against \pkg{sommer}'s independent REML; the per-marker
+  statistic is validated against exact per-marker GLS.
+* **Genomic BLUP is now three-engine triangulatable.** The genomic /
+  pedigree relationship random effect `vm(geno, G)` / `ped(animal, A)`
+  reaches all three backends: greta and brms via the dense relationship
+  matrix (brms's native `gr(geno, cov = G)` group term, which Cholesky-
+  factors the covariance internally), and INLA via the precision carrier
+  `vm(geno, cov = fb_cov(solve(G), type = "precision"))` (the `generic0`
+  sparse-precision path -- a dense GBLUP precision is INLA-feasible but
+  forgoes INLA's sparsity advantage, so it is opt-in by carrier rather
+  than silent). A simulated heritability is recovered on all three
+  engines with mutually-close posterior means, so `triangulate()` can
+  cross-check a GBLUP fit across paradigms.
+* **`genomic_summary()`** extracts the breeder-facing quantities from a
+  fitted relationship model on any backend: narrow-sense heritability
+  \eqn{h^2}, genomic estimated breeding values (GEBVs) with posterior
+  reliability, and the genetic / residual variances. The greta GBLUP fit
+  now also monitors the breeding-value vector, so GEBVs are available on
+  greta, brms, and INLA alike (previously the greta path reported only
+  the variance components).
+* **Spectral efficiency primitive (foundations).** A shared internal
+  eigendecomposition primitive now underpins the genomics / MET work: it
+  decomposes a relationship matrix \eqn{K = U \Lambda U^\top} once and exposes
+  the rotation that turns a structured genetic random effect into an
+  independent one. This is the machinery a genome-wide scan reuses across every
+  marker (the rotated model has a diagonal residual covariance, so each marker
+  is an `O(n)` score test rather than a fresh mixed-model fit), and that scales
+  genomic BLUP and variance-component estimation. It is positive-semidefinite
+  aware -- numerical-noise negative eigenvalues are clamped and reported, while
+  genuine indefiniteness is refused -- and validated against full-covariance
+  generalised least squares to machine tolerance. Internal at this stage; the
+  fit routes that consume it follow.
+* **Genomic output contract (foundations).** A standardised genomic summary
+  (narrow-sense heritability \eqn{h^2}, genomic estimated breeding values with
+  posterior reliability, and -- for whole-genome marker models -- marker
+  effects with posterior retention probabilities) is now computed engine-
+  agnostically from posterior draws, so the greta / INLA / brms paths all feed
+  the same triangulatable result. The fit-level accessor lands with the
+  multi-backend GBLUP route.
+
 ## Triangulation honesty
 
 * `triangulate()` gained a `data_independence` argument and a

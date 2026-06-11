@@ -397,6 +397,11 @@
           ")"
         )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
+        # Monitor the breeding-value vector u so genomic estimated
+        # breeding values (GEBVs) are recoverable from a greta GBLUP fit,
+        # matching what the brms (r_<group>) and INLA (<group>_id) paths
+        # already expose. This is the quantity genomic selection ranks on.
+        ctx <- .add_param(ctx, paste0("u_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
       },
@@ -425,6 +430,9 @@
           ")"
         )
         ctx <- .add_param(ctx, paste0("sigma_", tag))
+        # Monitor the breeding-value vector u (GEBVs); see the vm()
+        # branch above for the rationale.
+        ctx <- .add_param(ctx, paste0("u_", tag))
         ctx <- .add_pred(ctx, paste0("u_", tag, "[", tag, "_id]"))
         ctx
       },
@@ -643,6 +651,13 @@
           tag
         )
         ctx <- .add_param(ctx, paste0("Lambda_", tag), paste0("psi_", tag))
+        # Monitor the realised genotype-by-environment effects g_mat so the
+        # breeder MET quantities -- overall performance (the row mean),
+        # stability (the across-environment spread), and the G x E BLUPs --
+        # are recoverable. Unlike the raw loadings these realised effects
+        # are identified (rotation- and sign-invariant), so their posterior
+        # is interpretable; fb_met_summary() reads them.
+        ctx <- .add_param(ctx, paste0("g_mat_", tag))
         ctx <- .add_pred(
           ctx,
           paste0("g_mat_", tag, "[cbind(", inner, "_id, ", outer, "_id)]")
