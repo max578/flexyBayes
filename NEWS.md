@@ -2,6 +2,21 @@
 
 ## Genomics and MET expansion
 
+* **`fb_gwas()` -- genome-wide association scan.** A whole-genome EMMAX /
+  P3D scan (Kang et al. 2010): the polygenic null mixed model is fit once
+  by REML to estimate the variance components, then every marker is tested
+  by exact generalised least squares under those fixed components. The
+  shared spectral primitive turns the per-marker test into an `O(n)`
+  weighted least squares after a single eigendecomposition, so the scan is
+  feasible without a per-marker model fit, and it needs no MCMC backend --
+  it is a deterministic frequentist fast path (the backends enter only at
+  optional top-hit refinement). Returns marker effects, standard errors,
+  chi-square statistics, p-values, Bonferroni and Benjamini-Hochberg FDR
+  adjustments, the genomic-control inflation factor, and the null REML
+  heritability, with `print()` and `plot()` (Manhattan / QQ) methods. The
+  REML variance components are validated against an exact full-matrix
+  reference and against \pkg{sommer}'s independent REML; the per-marker
+  statistic is validated against exact per-marker GLS.
 * **Genomic BLUP is now three-engine triangulatable.** The genomic /
   pedigree relationship random effect `vm(geno, G)` / `ped(animal, A)`
   reaches all three backends: greta and brms via the dense relationship
