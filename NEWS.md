@@ -1,5 +1,27 @@
 # flexyBayes (development version)
 
+## Genomics and MET expansion
+
+* **Spectral efficiency primitive (foundations).** A shared internal
+  eigendecomposition primitive now underpins the genomics / MET work: it
+  decomposes a relationship matrix \eqn{K = U \Lambda U^\top} once and exposes
+  the rotation that turns a structured genetic random effect into an
+  independent one. This is the machinery a genome-wide scan reuses across every
+  marker (the rotated model has a diagonal residual covariance, so each marker
+  is an `O(n)` score test rather than a fresh mixed-model fit), and that scales
+  genomic BLUP and variance-component estimation. It is positive-semidefinite
+  aware -- numerical-noise negative eigenvalues are clamped and reported, while
+  genuine indefiniteness is refused -- and validated against full-covariance
+  generalised least squares to machine tolerance. Internal at this stage; the
+  fit routes that consume it follow.
+* **Genomic output contract (foundations).** A standardised genomic summary
+  (narrow-sense heritability \eqn{h^2}, genomic estimated breeding values with
+  posterior reliability, and -- for whole-genome marker models -- marker
+  effects with posterior retention probabilities) is now computed engine-
+  agnostically from posterior draws, so the greta / INLA / brms paths all feed
+  the same triangulatable result. The fit-level accessor lands with the
+  multi-backend GBLUP route.
+
 ## Triangulation honesty
 
 * `triangulate()` gained a `data_independence` argument and a
