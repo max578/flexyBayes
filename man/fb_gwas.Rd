@@ -19,9 +19,14 @@ dosages), one row per individual aligned to \code{data}, one column per
 marker. Column names are used as marker identifiers.}
 
 \item{K}{An \verb{n x n} genomic (or pedigree) relationship matrix. When
-\code{NULL} (default) it is built from \code{markers} by the VanRaden (2008)
-formula \eqn{G = Z_c Z_c^\top / m} on the centred markers. Note that
-building \code{K} from the same markers being tested causes \emph{proximal
+\code{NULL} (default) it is built from the centred markers as
+\eqn{G = Z_c Z_c^\top / m}, the average-allele-frequency genomic
+relationship (Astle & Balding 2009). This normalises by the marker
+count \code{m}, unlike VanRaden's (2008) first method, which divides by
+\eqn{2\sum_j p_j(1 - p_j)}; the two coincide only when every marker has
+minor-allele frequency 0.5 and otherwise differ by a constant scale that
+the REML variance ratio absorbs, so the scan statistics are unaffected.
+Note that building \code{K} from the same markers being tested causes \emph{proximal
 contamination}: a marker's own signal enters the polygenic term and
 deflates its test statistic (conservative, but a power loss). For a
 well-calibrated scan supply \code{K} from an independent background panel
@@ -74,7 +79,9 @@ scan$lambda_gc
 \references{
 Kang, H. M., et al. (2010). Variance component model to
 account for sample structure in genome-wide association studies.
-\emph{Nature Genetics}, 42(4), 348-354. VanRaden, P. M. (2008).
-Efficient methods to compute genomic predictions. \emph{Journal of
-Dairy Science}, 91(11), 4414-4423.
+\emph{Nature Genetics}, 42(4), 348-354. Astle, W., & Balding, D. J.
+(2009). Population structure and cryptic relatedness in genetic
+association studies. \emph{Statistical Science}, 24(4), 451-471.
+VanRaden, P. M. (2008). Efficient methods to compute genomic
+predictions. \emph{Journal of Dairy Science}, 91(11), 4414-4423.
 }
