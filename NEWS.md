@@ -1,4 +1,4 @@
-# flexyBayes (development version)
+# flexyBayes 0.8.0
 
 ## Genomics and MET expansion
 

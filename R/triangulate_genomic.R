@@ -136,6 +136,19 @@
 #'   `gebv` (the Pearson / Spearman correlation of the matched breeding
 #'   values and the number in common), the lens labels, and the caveat.
 #' @seealso [triangulate()], [genomic_summary()], [triangulate_gwas()].
+#' @examples
+#' # A Bayesian posterior (draws) against a field-standard REML point lens.
+#' set.seed(1)
+#' bv <- c(2, 1, 0, -1, -2)
+#' bayes <- list(
+#'   h2 = rnorm(500, 0.5, 0.05),
+#'   gebv = stats::setNames(bv + rnorm(5, 0, 0.2), paste0("g", 1:5))
+#' )
+#' reml <- list(
+#'   h2 = list(estimate = 0.48, se = 0.04),
+#'   gebv = stats::setNames(bv + rnorm(5, 0, 0.2), paste0("g", 1:5))
+#' )
+#' triangulate_genomic(bayes, reml)
 #' @export
 triangulate_genomic <- function(a, b, term = NULL, data_independence = NA) {
   la <- .fb_genomic_lens(a, term)
@@ -211,6 +224,10 @@ print.triangulate_genomic_result <- function(x, ...) {
     sep = "")
   for (i in seq_len(nrow(x$components))) {
     r <- x$components[i, ]
+    if (is.na(r$value_a) || is.na(r$value_b)) {
+      cat("  ", format(r$quantity, width = 18L), ": (not supplied)\n", sep = "")
+      next
+    }
     cat(
       "  ", format(r$quantity, width = 18L), ": ",
       format(round(r$value_a, 3L)), " vs ", format(round(r$value_b, 3L)),
@@ -257,6 +274,16 @@ print.triangulate_genomic_result <- function(x, ...) {
 #'   `effect_correlation` (on common markers), and `lambda_gc_a` /
 #'   `lambda_gc_b`.
 #' @seealso [fb_gwas()], [triangulate_genomic()].
+#' @examples
+#' mk <- function(sig) data.frame(
+#'   marker = paste0("snp", 1:6),
+#'   p_value = ifelse(seq_len(6) %in% sig, 1e-9, 0.5),
+#'   p_bonferroni = ifelse(seq_len(6) %in% sig, 6e-9, 1),
+#'   effect = c(2, 0, 0, -1.5, 0, 0)
+#' )
+#' a <- list(results = mk(c(1, 4)), lambda_gc = 1.01)
+#' b <- list(results = mk(c(1, 4)), lambda_gc = 0.99)
+#' triangulate_gwas(a, b)
 #' @export
 triangulate_gwas <- function(a, b, alpha = 0.05, top_k = 10L) {
   ra <- .fb_gwas_results(a)

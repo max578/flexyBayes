@@ -30,6 +30,17 @@ marker sets, the overlap among the top markers, the correlation of the
 marker effects on the markers in common, and each scan's genomic-control
 inflation factor.
 }
+\examples{
+mk <- function(sig) data.frame(
+  marker = paste0("snp", 1:6),
+  p_value = ifelse(seq_len(6) \%in\% sig, 1e-9, 0.5),
+  p_bonferroni = ifelse(seq_len(6) \%in\% sig, 6e-9, 1),
+  effect = c(2, 0, 0, -1.5, 0, 0)
+)
+a <- list(results = mk(c(1, 4)), lambda_gc = 1.01)
+b <- list(results = mk(c(1, 4)), lambda_gc = 0.99)
+triangulate_gwas(a, b)
+}
 \seealso{
 \code{\link[=fb_gwas]{fb_gwas()}}, \code{\link[=triangulate_genomic]{triangulate_genomic()}}.
 }

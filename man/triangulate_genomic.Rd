@@ -43,6 +43,20 @@ correspondence: two lenses fit to the same data share any fabricated
 upstream data fact, so the result carries a shared-upstream caveat
 unless \code{data_independence = TRUE}.
 }
+\examples{
+# A Bayesian posterior (draws) against a field-standard REML point lens.
+set.seed(1)
+bv <- c(2, 1, 0, -1, -2)
+bayes <- list(
+  h2 = rnorm(500, 0.5, 0.05),
+  gebv = stats::setNames(bv + rnorm(5, 0, 0.2), paste0("g", 1:5))
+)
+reml <- list(
+  h2 = list(estimate = 0.48, se = 0.04),
+  gebv = stats::setNames(bv + rnorm(5, 0, 0.2), paste0("g", 1:5))
+)
+triangulate_genomic(bayes, reml)
+}
 \seealso{
 \code{\link[=triangulate]{triangulate()}}, \code{\link[=genomic_summary]{genomic_summary()}}, \code{\link[=triangulate_gwas]{triangulate_gwas()}}.
 }
