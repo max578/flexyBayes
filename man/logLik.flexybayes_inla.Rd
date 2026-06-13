@@ -22,6 +22,6 @@ through \code{\link[=summary]{summary()}}), not the \emph{conditional} model log
 Returning the marginal quantity under the \code{logLik} name would conflate two
 different things, so this method honestly returns \code{NA} (with the degrees of
 freedom and observation count filled in) and a one-line note. This also
-lets downstream summaries (for example \code{\link[generics:glance]{generics::glance()}}) degrade gracefully
+lets downstream summaries (for example \code{\link[=glance]{glance()}}) degrade gracefully
 instead of erroring with "no applicable method".
 }

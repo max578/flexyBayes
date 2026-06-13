@@ -60,6 +60,29 @@
     beta = "logit"
   )
   fam <- tolower(family)
+  # The generalised extreme value and Dirichlet families are not GLM-link
+  # mixed models -- block maxima have no mean-link, and a Dirichlet response
+  # is a simplex, not a scalar -- so they are fitted through their own
+  # dedicated entry points rather than the formula emit path. Point the user
+  # there explicitly instead of refusing them as merely "unsupported".
+  if (fam %in% c("gen_extreme_value", "gev", "extreme_value")) {
+    stop(
+      "Family \"", family, "\" (generalised extreme value) is fitted via ",
+      "the dedicated `fb_gev()` entry point, not the `flexybayes()` ",
+      "formula path: block maxima have no mean-link parameterisation. See ",
+      "`?fb_gev`.",
+      call. = FALSE
+    )
+  }
+  if (fam == "dirichlet") {
+    stop(
+      "Family \"dirichlet\" is fitted via the dedicated `fb_dirichlet()` ",
+      "entry point, not the `flexybayes()` formula path: a Dirichlet ",
+      "response is a simplex (proportions summing to one), not a scalar ",
+      "with a mean-link. See `?fb_dirichlet`.",
+      call. = FALSE
+    )
+  }
   if (!fam %in% names(defaults)) {
     stop(.fb_refusal_condition(
       reason_code = "unsupported_family",
@@ -70,7 +93,9 @@
         paste(names(defaults), collapse = ", "),
         ". Other families (including survival / time-to-event and ",
         "multivariate responses) are planned future work; see ",
-        "fb_refusals()."
+        "fb_refusals(). Block-maxima (generalised extreme value) and ",
+        "compositional (Dirichlet) data have dedicated fitters: ",
+        "see `?fb_gev` and `?fb_dirichlet`."
       ),
       family_class = "flexybayes_unsupported_family"
     ))

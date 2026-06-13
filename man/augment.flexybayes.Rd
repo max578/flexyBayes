@@ -2,21 +2,33 @@
 % Please edit documentation in R/tidiers.R
 \name{augment.flexybayes}
 \alias{augment.flexybayes}
-\title{Augment a flexybayes model}
+\title{Augment a flexyBayes fit with fitted values and residuals}
 \usage{
-augment.flexybayes(x, data = NULL, ...)
+\method{augment}{flexybayes}(x, data = NULL, ...)
 }
 \arguments{
-\item{x}{A flexybayes object}
+\item{x}{A flexyBayes fit (\code{flexybayes} or \code{flexybayes_brms}).}
 
-\item{data}{Optional data frame (defaults to original data)}
+\item{data}{Optional \code{data.frame} to augment. Defaults to the data the
+model was fitted to.}
 
-\item{...}{Additional arguments (ignored)}
+\item{...}{Currently unused; present for generic compatibility.}
 }
 \value{
-A data frame with added columns: .fitted, .resid
+The supplied (or original) \code{data.frame} with \code{.fitted} and
+\code{.resid} columns appended.
 }
 \description{
-Returns the original data with fitted values, residuals, and other
-observation-level statistics.
+Returns the model frame with two observation-level columns added: the
+posterior-mean fitted value and the response residual.
+}
+\examples{
+\dontshow{if (requireNamespace("generics", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+\dontrun{
+augment(fit)
+}
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=tidy.flexybayes]{tidy.flexybayes()}}
 }

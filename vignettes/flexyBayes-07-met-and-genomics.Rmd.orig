@@ -23,6 +23,7 @@ knitr::opts_chunk$set(
 )
 options(flexyBayes.silence_default_prior_note = TRUE)
 greta_ok   <- requireNamespace("greta",   quietly = TRUE)
+inla_ok    <- requireNamespace("INLA",    quietly = TRUE)
 agridat_ok <- requireNamespace("agridat", quietly = TRUE)
 ggplot2_ok <- requireNamespace("ggplot2", quietly = TRUE)
 set.seed(1500)
@@ -61,22 +62,25 @@ This vignette walks through both questions, fitting models on real
 agricultural data, and notes the connection through the kinship
 matrix.
 
-> **A note on the fits below — read first.** The factor-analytic MET
-> model and the genomic-prediction (GBLUP / pedigree) models are
-> structured-covariance models -- the hardest case for Hamiltonian Monte
-> Carlo. At the modest MCMC budgets used here (kept small so the vignette
-> builds quickly), these fits **frequently fail to mix**: you will see
-> large $\widehat{R}$ and near-zero ESS, and the factor-analytic loadings
-> in particular do not sample reliably at this budget. The output is
-> shown rather than hidden. **Read the loadings, biplots, and predictions
-> below as illustrations of the *workflow*, not as inference.** A real
-> analysis needs a much larger budget (and, for the hardest structures, a
-> more specialised sampler than flexyBayes ships); always verify convergence as
-> the *getting started* and *structured covariance* vignettes describe
-> before interpreting anything. In particular, a factor-analytic term's raw
-> loadings are identified only up to rotation and sign, so their
-> $\widehat{R}$ is expected to be large even when the model has converged;
-> judge convergence on the *identified* covariance
+> **A note on the routes below -- read first.** This vignette fits the
+> MET model two ways. The **recommended primary route is INLA**: the
+> independent (diagonal) genotype-by-environment model refits in a couple
+> of seconds and its fixed-effect and variance-component posteriors are
+> trustworthy at default settings, so the INLA fits below *are* usable
+> inference. The **factor-analytic (structured-covariance) route runs on
+> greta** and is shown as the slower, harder alternative: it is the hardest
+> case for Hamiltonian Monte Carlo, and at the modest MCMC budgets used here
+> it **frequently fails to mix** -- large $\widehat{R}$, near-zero ESS, and
+> factor-analytic loadings that do not sample reliably. Read the greta
+> factor-analytic loadings and biplots as illustrations of the *workflow*,
+> not as inference; the genomic-prediction (GBLUP / pedigree) fits later in
+> the vignette are likewise greta structured-covariance models held to the
+> same caution. Always verify convergence as the *getting started* and
+> *structured covariance* vignettes describe before interpreting a greta
+> structured fit. In particular, a factor-analytic term's raw loadings are
+> identified only up to rotation and sign, so their $\widehat{R}$ is
+> expected to be large even when the model has converged; judge convergence
+> on the *identified* covariance
 > $G = \Lambda\Lambda^\top + \mathrm{diag}(\psi)$ via `fb_structured_cov()`,
 > which is rotation- and sign-invariant.
 
@@ -84,7 +88,7 @@ matrix.
 
 `agridat::yan.winterwheat` (Yan & Tinker, 2006) records winter wheat
 yield for 18 genotypes in 9 Ontario environments — a small, classic
-dataset that produces interpretable factor-analytic results.
+dataset that produces interpretable MET results.
 
 ```{r yw-data, eval = agridat_ok}
 library(flexyBayes)
@@ -103,15 +107,70 @@ with $e_j$ environment effects (fixed), $g_i$ genotype effects
 $\varepsilon_{ijk}$ residuals. The *parameterisation of $(ge)_{ij}$*
 is the modelling choice. Three options span the parsimony spectrum:
 
-- **diagonal**: $(ge)_{ij} \sim \mathcal{N}(0, \sigma_{e_j}^2)$,
-  independent across environments;
-- **factor-analytic** with `k = 2`: small-rank approximation;
-- **unstructured**: full $9 \times 9$ covariance.
+- **diagonal (independent GxE)**: each genotype-by-environment cell
+  $(ge)_{ij} \sim \mathcal{N}(0, \sigma_{ge}^2)$, independent across
+  cells -- the parsimonious, scalable workhorse;
+- **factor-analytic** with `k = 2`: a small-rank approximation of the
+  full GxE covariance, the standard breeder's model for *stability*;
+- **unstructured**: the full $9 \times 9$ covariance, with 45 free
+  entries -- too many for 162 observations to identify.
 
-The unstructured fit has 45 free entries — too many for 162
-observations to identify. The factor-analytic with `k = 2` reduces
-this to 18 entries (16 loadings + 2 specific variances) and is the
-recommended starting point.
+## 2.1 Recommended route: the diagonal GxE model on INLA
+
+For the *mean-performance* question -- which genotypes are best on
+average, and how large is the GxE relative to the main effects -- the
+diagonal GxE model is both sufficient and fast. INLA fits it by
+deterministic Laplace approximation in a couple of seconds, with no
+sampler to tune and no convergence to chase, so its posteriors are
+usable inference rather than a workflow sketch. **This is the
+recommended starting point.**
+
+```{r yw-inla-fit, eval = inla_ok && agridat_ok}
+yan.winterwheat$ge <- interaction(
+  yan.winterwheat$gen,
+  yan.winterwheat$env,
+  drop = TRUE
+)
+fit_inla <- flexybayes(
+  fixed   = yield ~ env,
+  random  = ~ gen + ge,
+  data    = yan.winterwheat,
+  backend = "inla",
+  verbose = FALSE
+)
+fit_inla
+```
+
+The fixed-effect environment means and the two variance components --
+the genotype main-effect variance $\sigma_g^2$ and the GxE cell
+variance $\sigma_{ge}^2$ -- read straight off the standard accessors.
+The `tidy()` method returns the fixed effects as a flat, `broom`-style
+table with the canonical `term` / `estimate` / `std.error` /
+`conf.low` / `conf.high` columns, identical in shape to what the greta
+and brms backends return -- so a cross-engine comparison table is an
+`rbind()`, not a hand-built reconciliation.
+
+```{r yw-inla-tidy, eval = inla_ok && agridat_ok}
+head(tidy(fit_inla))
+```
+
+The ratio $\sigma_{ge}^2 / (\sigma_g^2 + \sigma_{ge}^2)$ measures how
+much of the genotypic signal is environment-specific: a large ratio
+says rankings reshuffle across environments and a single
+*average-performance* number hides real GxE, which is precisely the
+case where the factor-analytic stability model below earns its extra
+parameters.
+
+## 2.2 Slower alternative: the factor-analytic model on greta
+
+The factor-analytic with `k = 2` reduces the unstructured $9 \times 9$
+covariance to 18 entries (16 loadings + 2 specific variances) and is
+the standard model for *stability* -- it decomposes each genotype's
+GxE into a few latent environmental gradients. It is a
+structured-covariance model, so it runs on the greta backend and is
+the **slower, harder-mixing** alternative to the diagonal model above:
+the loadings sample poorly at the small budget used here, and the fit
+below is a workflow illustration, not inference.
 
 ```{r yw-fa-fit, eval = greta_ok && agridat_ok}
 fit_fa <- flexybayes(
@@ -130,6 +189,11 @@ The variance-component block reports the loading variances (one per
 factor) and the specific variances (one per environment). Together
 these reconstruct the implied environment-by-environment covariance
 $\boldsymbol{\Sigma} = \boldsymbol{\Lambda}\boldsymbol{\Lambda}^\top + \boldsymbol{\Psi}$.
+Use the factor-analytic route when the *stability* decomposition is the
+scientific target and a sampling budget large enough to mix it is
+available; use the diagonal INLA route for fast, trustworthy
+mean-performance inference and as the de-risking baseline you always
+fit first.
 
 # 3. Genotype rankings and stability
 

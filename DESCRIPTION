@@ -1,6 +1,6 @@
 Package: flexyBayes
 Title: Flexible Bayesian Mixed Models with ASReml and 'brms'-Style Syntax
-Version: 0.8.0
+Version: 0.8.1
 Authors@R: c(
     person("Max", "Moldovan", email = "max.moldovan@gmail.com",
            role = c("aut", "cre"),
@@ -31,6 +31,7 @@ Imports:
     cli,
     coda,
     data.table,
+    generics,
     lifecycle,
     stats,
     methods,
@@ -46,7 +47,6 @@ Suggests:
     fst (>= 0.9.0),
     benchmarkme,
     memuse,
-    generics,
     bayesplot,
     posterior,
     ggplot2,
