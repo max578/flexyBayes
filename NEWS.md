@@ -1,3 +1,48 @@
+# flexyBayes 0.8.1
+
+## New features
+
+* **`tidy()` / `glance()` / `augment()` cover every backend the hub
+  returns.** The broom-style `tidy()` generic (re-exported from `generics`,
+  now a lightweight `Imports`) returns a flat one-row-per-term `data.frame`
+  with the canonical `term` / `estimate` / `std.error` / `conf.low` /
+  `conf.high` columns for the greta (`flexybayes`), brms
+  (`flexybayes_brms`), and INLA (`flexybayes_inla`) fit classes alike. The
+  INLA class gains its own `tidy.flexybayes_inla()` method (it does not
+  inherit from `flexybayes`). A cross-engine comparison table is now an
+  `rbind()` of two `tidy()` outputs rather than a hand-built reconciliation
+  of three different backend layouts. Mirrors the `tidy()` method kernR
+  adopted, so the orchestra speaks one tidy dialect.
+* **`fb_gev()` -- generalised extreme value (block-maxima) fitter.** Fits
+  the location, scale, and shape of a GEV distribution to block maxima
+  (annual maximum rainfall, peak yields) by dependency-free maximum
+  likelihood, and reports return levels for the requested return periods.
+  The family descriptor `fb_family_gev()` and the simulator `rgev()` ship
+  alongside. `family = "gen_extreme_value"` in `flexybayes()` now routes to
+  `fb_gev()` with an explicit pointer rather than a generic refusal -- block
+  maxima have no GLM mean-link, so they do not belong on the formula emit
+  path. (A scalable Bayesian GEV on INLA's native `gev` family is planned.)
+* **`fb_dirichlet()` -- compositional (simplex) Dirichlet fitter.** Fits the
+  concentration vector of a Dirichlet distribution to compositional rows
+  (soil texture fractions, species abundance, allele frequencies) by
+  maximum likelihood (the default, dependency-free) or via greta's native
+  `dirichlet` distribution (`method = "greta"`), and reports the fitted mean
+  composition. The family descriptor `fb_family_dirichlet()` and the
+  simulator `rdirichlet()` ship alongside; `family = "dirichlet"` in
+  `flexybayes()` routes here.
+
+## Minor improvements and fixes
+
+* The MET and genomics vignette now leads with the scalable INLA MET path
+  (the diagonal genotype-by-environment model fits in seconds with
+  trustworthy posteriors) as the recommended route, and presents the greta
+  factor-analytic route as the slower, harder-mixing alternative for the
+  stability decomposition.
+* `generics` moves from `Suggests` to `Imports`, so `tidy()` / `glance()` /
+  `augment()` are available without attaching `broom`; the runtime
+  `registerS3method()` shim in `.onLoad()` is replaced by static `S3method()`
+  registration.
+
 # flexyBayes 0.8.0
 
 ## Genomics and MET expansion

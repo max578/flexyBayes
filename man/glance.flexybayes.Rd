@@ -2,18 +2,32 @@
 % Please edit documentation in R/tidiers.R
 \name{glance.flexybayes}
 \alias{glance.flexybayes}
-\title{Glance at a flexybayes model}
+\title{Glance at a flexyBayes fit}
 \usage{
-glance.flexybayes(x, ...)
+\method{glance}{flexybayes}(x, ...)
 }
 \arguments{
-\item{x}{A flexybayes object}
+\item{x}{A flexyBayes fit (\code{flexybayes} or \code{flexybayes_brms}).}
 
-\item{...}{Additional arguments (ignored)}
+\item{...}{Currently unused; present for generic compatibility.}
 }
 \value{
-A one-row data frame
+A one-row \code{data.frame} with \code{nobs}, \code{npar}, \code{logLik}, \code{family},
+\code{link}, \code{chains}, \code{samples}, \code{max_rhat}, \code{min_ess}, and \code{run_time}.
 }
 \description{
-Returns a one-row summary of model-level statistics.
+Returns a one-row \code{data.frame} of model-level statistics: the response
+family and link, the observation and parameter counts, the
+log-likelihood, the worst convergence diagnostics across monitored
+parameters, and the wall-clock run time.
+}
+\examples{
+\dontshow{if (requireNamespace("generics", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+\dontrun{
+glance(fit)
+}
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=tidy.flexybayes]{tidy.flexybayes()}}
 }

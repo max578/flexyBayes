@@ -16,32 +16,10 @@
     .register_marginaleffects_classes()
   }
 
-  # Register broom S3 methods if generics is available
-  if (requireNamespace("generics", quietly = TRUE)) {
-    tryCatch(
-      {
-        registerS3method(
-          "tidy",
-          "flexybayes",
-          tidy.flexybayes,
-          envir = asNamespace("generics")
-        )
-        registerS3method(
-          "glance",
-          "flexybayes",
-          glance.flexybayes,
-          envir = asNamespace("generics")
-        )
-        registerS3method(
-          "augment",
-          "flexybayes",
-          augment.flexybayes,
-          envir = asNamespace("generics")
-        )
-      },
-      error = function(e) NULL
-    )
-  }
+  # The broom-style tidy / glance / augment methods are registered
+  # statically in NAMESPACE: `generics` is now an Imports dependency, so
+  # roxygen emits the `S3method()` entries directly and no runtime
+  # registerS3method() shim is needed. See R/tidiers.R.
 
   # Register greta S3 methods inside flexyBayes's namespace so the
   # `.emit_gaussian_aggregated_greta()` path can call into

@@ -2,9 +2,9 @@
 % Please edit documentation in R/tidiers.R
 \name{tidy.flexybayes}
 \alias{tidy.flexybayes}
-\title{Tidy a flexybayes model}
+\title{Tidy a flexyBayes fit into a one-row-per-term data frame}
 \usage{
-tidy.flexybayes(
+\method{tidy}{flexybayes}(
   x,
   conf.int = TRUE,
   conf.level = 0.95,
@@ -13,21 +13,65 @@ tidy.flexybayes(
 )
 }
 \arguments{
-\item{x}{A flexybayes object}
+\item{x}{A flexyBayes fit: \code{flexybayes} (greta backend) or
+\code{flexybayes_brms} (brms backend, which inherits this method).}
 
-\item{conf.int}{Logical: include credible intervals?}
+\item{conf.int}{Logical. Whether to attach credible intervals. Defaults to
+\code{TRUE}.}
 
-\item{conf.level}{Credible level (default 0.95)}
+\item{conf.level}{Numeric in \verb{(0, 1)}. The credible level for the
+intervals. Defaults to \code{0.95}.}
 
-\item{effects}{Which effects to return: \code{"fixed"} or \code{"random"}}
+\item{effects}{Character. Which effects to return: \code{"fixed"} for the
+population-level (fixed) coefficients or \code{"random"} for the
+variance-component summary. Defaults to \code{"fixed"}.}
 
-\item{...}{Additional arguments (ignored)}
+\item{...}{Currently unused; present for generic compatibility.}
 }
 \value{
-A data frame with columns: term, estimate, std.error,
-conf.low, conf.high
+A \code{data.frame} with one row per term and columns:
+\describe{
+\item{term}{Character. The coefficient or variance-component name.}
+\item{estimate}{Numeric. The posterior mean.}
+\item{std.error}{Numeric. The posterior standard deviation.}
+\item{conf.low}{Numeric. The lower credible bound (present when
+\code{conf.int = TRUE}).}
+\item{conf.high}{Numeric. The upper credible bound (present when
+\code{conf.int = TRUE}).}
+}
+An empty \code{data.frame} is returned when the requested effects are absent
+(for example \code{effects = "random"} on a fixed-effects-only fit).
 }
 \description{
-Returns a tidy data frame of fixed effect estimates with posterior
-statistics.
+Turns a flexyBayes fit into a flat, \code{broom}-style \code{data.frame}: one row
+per model term, with stable, documented columns. The method is registered
+against the \code{tidy()} generic (re-exported by \code{broom}), so
+\code{broom::tidy(fit)} and \code{generics::tidy(fit)} both dispatch here.
+}
+\details{
+This is the supported accessor for cross-engine summaries. The hub returns
+backend-specific objects -- \code{flexybayes} (greta), \code{flexybayes_brms}
+(brms), \code{flexybayes_inla} (INLA) -- whose internal layouts differ. Tidying
+through this generic yields the same columns across all three, so a
+greta-versus-INLA triangulation table can be assembled by \code{rbind}-ing two
+\code{tidy()} outputs rather than reaching into each backend's slots by hand.
+
+The credible intervals are posterior quantile-based intervals, not
+frequentist confidence intervals; they are reported in the
+\code{broom}-canonical \code{conf.low} / \code{conf.high} columns. The \code{std.error} column
+carries the posterior standard deviation of each term, again under the
+\code{broom}-canonical (dotless to the user, dotted in the column name) label.
+}
+\examples{
+\dontshow{if (requireNamespace("generics", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+\dontrun{
+fit <- flexybayes(yield ~ env, data = dat, backend = "greta")
+tidy(fit)
+tidy(fit, effects = "random")
+}
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=glance.flexybayes]{glance.flexybayes()}}, \code{\link[=augment.flexybayes]{augment.flexybayes()}},
+\code{\link[=tidy.flexybayes_inla]{tidy.flexybayes_inla()}}
 }

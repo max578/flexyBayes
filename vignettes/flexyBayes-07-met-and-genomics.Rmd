@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 07: Multi-environment trials and genomic selection"
-date: "2026-06-06"
+date: "2026-06-14"
 output:
   rmarkdown::html_vignette:
     toc: true
@@ -45,22 +45,25 @@ This vignette walks through both questions, fitting models on real
 agricultural data, and notes the connection through the kinship
 matrix.
 
-> **A note on the fits below — read first.** The factor-analytic MET
-> model and the genomic-prediction (GBLUP / pedigree) models are
-> structured-covariance models -- the hardest case for Hamiltonian Monte
-> Carlo. At the modest MCMC budgets used here (kept small so the vignette
-> builds quickly), these fits **frequently fail to mix**: you will see
-> large $\widehat{R}$ and near-zero ESS, and the factor-analytic loadings
-> in particular do not sample reliably at this budget. The output is
-> shown rather than hidden. **Read the loadings, biplots, and predictions
-> below as illustrations of the *workflow*, not as inference.** A real
-> analysis needs a much larger budget (and, for the hardest structures, a
-> more specialised sampler than flexyBayes ships); always verify convergence as
-> the *getting started* and *structured covariance* vignettes describe
-> before interpreting anything. In particular, a factor-analytic term's raw
-> loadings are identified only up to rotation and sign, so their
-> $\widehat{R}$ is expected to be large even when the model has converged;
-> judge convergence on the *identified* covariance
+> **A note on the routes below -- read first.** This vignette fits the
+> MET model two ways. The **recommended primary route is INLA**: the
+> independent (diagonal) genotype-by-environment model refits in a couple
+> of seconds and its fixed-effect and variance-component posteriors are
+> trustworthy at default settings, so the INLA fits below *are* usable
+> inference. The **factor-analytic (structured-covariance) route runs on
+> greta** and is shown as the slower, harder alternative: it is the hardest
+> case for Hamiltonian Monte Carlo, and at the modest MCMC budgets used here
+> it **frequently fails to mix** -- large $\widehat{R}$, near-zero ESS, and
+> factor-analytic loadings that do not sample reliably. Read the greta
+> factor-analytic loadings and biplots as illustrations of the *workflow*,
+> not as inference; the genomic-prediction (GBLUP / pedigree) fits later in
+> the vignette are likewise greta structured-covariance models held to the
+> same caution. Always verify convergence as the *getting started* and
+> *structured covariance* vignettes describe before interpreting a greta
+> structured fit. In particular, a factor-analytic term's raw loadings are
+> identified only up to rotation and sign, so their $\widehat{R}$ is
+> expected to be large even when the model has converged; judge convergence
+> on the *identified* covariance
 > $G = \Lambda\Lambda^\top + \mathrm{diag}(\psi)$ via `fb_structured_cov()`,
 > which is rotation- and sign-invariant.
 
@@ -68,7 +71,7 @@ matrix.
 
 `agridat::yan.winterwheat` (Yan & Tinker, 2006) records winter wheat
 yield for 18 genotypes in 9 Ontario environments — a small, classic
-dataset that produces interpretable factor-analytic results.
+dataset that produces interpretable MET results.
 
 
 ``` r
@@ -92,15 +95,92 @@ with $e_j$ environment effects (fixed), $g_i$ genotype effects
 $\varepsilon_{ijk}$ residuals. The *parameterisation of $(ge)_{ij}$*
 is the modelling choice. Three options span the parsimony spectrum:
 
-- **diagonal**: $(ge)_{ij} \sim \mathcal{N}(0, \sigma_{e_j}^2)$,
-  independent across environments;
-- **factor-analytic** with `k = 2`: small-rank approximation;
-- **unstructured**: full $9 \times 9$ covariance.
+- **diagonal (independent GxE)**: each genotype-by-environment cell
+  $(ge)_{ij} \sim \mathcal{N}(0, \sigma_{ge}^2)$, independent across
+  cells -- the parsimonious, scalable workhorse;
+- **factor-analytic** with `k = 2`: a small-rank approximation of the
+  full GxE covariance, the standard breeder's model for *stability*;
+- **unstructured**: the full $9 \times 9$ covariance, with 45 free
+  entries -- too many for 162 observations to identify.
 
-The unstructured fit has 45 free entries — too many for 162
-observations to identify. The factor-analytic with `k = 2` reduces
-this to 18 entries (16 loadings + 2 specific variances) and is the
-recommended starting point.
+## 2.1 Recommended route: the diagonal GxE model on INLA
+
+For the *mean-performance* question -- which genotypes are best on
+average, and how large is the GxE relative to the main effects -- the
+diagonal GxE model is both sufficient and fast. INLA fits it by
+deterministic Laplace approximation in a couple of seconds, with no
+sampler to tune and no convergence to chase, so its posteriors are
+usable inference rather than a workflow sketch. **This is the
+recommended starting point.**
+
+
+``` r
+yan.winterwheat$ge <- interaction(
+  yan.winterwheat$gen,
+  yan.winterwheat$env,
+  drop = TRUE
+)
+fit_inla <- flexybayes(
+  fixed   = yield ~ env,
+  random  = ~ gen + ge,
+  data    = yan.winterwheat,
+  backend = "inla",
+  verbose = FALSE
+)
+fit_inla
+#> Bayesian fit  [flexybayes_inla / INLA backend]
+#> ------------------------------------------------------- 
+#>   formula: yield ~ 1 + env + f(gen, model = "iid", hyper = list(prec = list(prior = "expression: U=4.940099638422605; lb=-2*log(U); ld=-log(U)-log(2)-theta/2; return( theta<lb ? -1.0e10 : ld );"))) +     f(ge, model = "iid", hyper = list(prec = list(prior = "expression: U=4.940099638422605; lb=-2*log(U); ld=-log(U)-log(2)-theta/2; return( theta<lb ? -1.0e10 : ld );")))
+#>   family:  gaussian
+#>   n_obs:   162
+#>   fixed:   9
+#>   random:  2
+#>   hyper:   3
+#>   runtime: 2.2 sec
+#>   numerical confirm: PASS
+#> ------------------------------------------------------- 
+#>   $inla -- raw INLA fit (use INLA's summary, plot, etc.)
+#>   $fb   -- the fb_terms IR used for dispatch
+```
+
+The fixed-effect environment means and the two variance components --
+the genotype main-effect variance $\sigma_g^2$ and the GxE cell
+variance $\sigma_{ge}^2$ -- read straight off the standard accessors.
+The `tidy()` method returns the fixed effects as a flat, `broom`-style
+table with the canonical `term` / `estimate` / `std.error` /
+`conf.low` / `conf.high` columns, identical in shape to what the greta
+and brms backends return -- so a cross-engine comparison table is an
+`rbind()`, not a hand-built reconciliation.
+
+
+``` r
+head(tidy(fit_inla))
+#>          term   estimate std.error   conf.low  conf.high
+#> 1 (Intercept)  4.3629310 0.1314894  4.1039214  4.6219402
+#> 2     envEA93  0.0752906 0.1300043 -0.1800980  0.3306798
+#> 3     envHW93 -1.2259762 0.1300043 -1.4813645 -0.9705866
+#> 4     envID93 -0.8678681 0.1300043 -1.1232565 -0.6124786
+#> 5     envKE93  1.3196134 0.1300043  1.0642246  1.5750024
+#> 6     envNN93  0.6972298 0.1300043  0.4418411  0.9526189
+```
+
+The ratio $\sigma_{ge}^2 / (\sigma_g^2 + \sigma_{ge}^2)$ measures how
+much of the genotypic signal is environment-specific: a large ratio
+says rankings reshuffle across environments and a single
+*average-performance* number hides real GxE, which is precisely the
+case where the factor-analytic stability model below earns its extra
+parameters.
+
+## 2.2 Slower alternative: the factor-analytic model on greta
+
+The factor-analytic with `k = 2` reduces the unstructured $9 \times 9$
+covariance to 18 entries (16 loadings + 2 specific variances) and is
+the standard model for *stability* -- it decomposes each genotype's
+GxE into a few latent environmental gradients. It is a
+structured-covariance model, so it runs on the greta backend and is
+the **slower, harder-mixing** alternative to the diagonal model above:
+the loadings sample poorly at the small budget used here, and the fit
+below is a workflow illustration, not inference.
 
 
 ``` r
@@ -119,11 +199,11 @@ fit_fa
 #>   Fixed  : yield ~ env 
 #>   Random : ~fa(env, 2):gen 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 13.9 sec
-#>   Params : 5 monitored; 2 fixed, 1 random terms
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 19.2 sec
+#>   Params : 6 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 6.428  [!] 
+#>   Max Rhat: 12.46  [!] 
 #>   Min ESS: 0 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
@@ -135,6 +215,11 @@ The variance-component block reports the loading variances (one per
 factor) and the specific variances (one per environment). Together
 these reconstruct the implied environment-by-environment covariance
 $\boldsymbol{\Sigma} = \boldsymbol{\Lambda}\boldsymbol{\Lambda}^\top + \boldsymbol{\Psi}$.
+Use the factor-analytic route when the *stability* decomposition is the
+scientific target and a sampling budget large enough to mix it is
+available; use the diagonal INLA route for fast, trustworthy
+mean-performance inference and as the de-risking baseline you always
+fit first.
 
 # 3. Genotype rankings and stability
 
@@ -237,12 +322,12 @@ fit_gblup
 #>   Fixed  : yield ~ env 
 #>   Random : ~vm(geno, Gmat) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 10.1 sec
-#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 7.8 sec
+#>   Params : 5 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 1.695  [!] 
-#>   Min ESS: 6 
+#>   Max Rhat: 1.988  [!] 
+#>   Min ESS: 5 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -264,7 +349,7 @@ sigma_e <- draws$sigma_e_atg
 h2 <- sigma_g^2 / (sigma_g^2 + sigma_e^2)
 c(mean = mean(h2), q025 = quantile(h2, 0.025), q975 = quantile(h2, 0.975))
 #>       mean  q025.2.5% q975.97.5% 
-#>  0.4345681  0.2089116  0.6704406
+#>  0.4481187  0.1875975  0.7756129
 ```
 
 The credible interval on $h^2$ is the practitioner's first quantity
@@ -296,12 +381,12 @@ fit_ped
 #>   Fixed  : yield ~ env 
 #>   Random : ~vm(geno, Amat) 
 #>   Family : gaussian ( identity link )
-#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 9.2 sec
-#>   Params : 4 monitored; 2 fixed, 1 random terms
+#>   MCMC   : 2 chain(s) x 1000 samples (warmup = 2000 ) -- 7.8 sec
+#>   Params : 5 monitored; 2 fixed, 1 random terms
 #>   Representation: exact
 #>   Engine:         greta MCMC
-#>   Max Rhat: 4.955  [!] 
-#>   Min ESS: 5 
+#>   Max Rhat: 15.639  [!] 
+#>   Min ESS: 6 
 #> ------------------------------------------------------- 
 #>   $glm    -- GLM-compatible (summary, emmeans, etc.)
 #>   $greta  -- native greta (draws, model, calculate)
@@ -401,16 +486,16 @@ sessionInfo()
 #> [1] stats     graphics  grDevices utils     datasets  methods   base     
 #> 
 #> other attached packages:
-#> [1] ggplot2_4.0.3    flexyBayes_0.7.0
+#> [1] ggplot2_4.0.3    flexyBayes_0.8.0
 #> 
 #> loaded via a namespace (and not attached):
 #>   [1] tidyselect_1.2.1       viridisLite_0.4.3      dplyr_1.2.1           
-#>   [4] farver_2.1.2           tensorflow_2.20.0      loo_2.9.0             
+#>   [4] farver_2.1.2           loo_2.9.0              tensorflow_2.20.0     
 #>   [7] S7_0.2.2               tensorA_0.36.2.1       INLA_25.10.19         
 #>  [10] TH.data_1.1-5          digest_0.6.39          estimability_1.5.1    
-#>  [13] lifecycle_1.0.5        gretaR_0.2.0           sf_1.1-0              
+#>  [13] lifecycle_1.0.5        gretaR_0.5.0           sf_1.1-0              
 #>  [16] survival_3.8-3         agridat_1.26           processx_3.9.0        
-#>  [19] magrittr_2.0.5         posterior_1.7.0        compiler_4.5.2        
+#>  [19] posterior_1.7.0        magrittr_2.0.5         compiler_4.5.2        
 #>  [22] rlang_1.2.0            progress_1.2.3         tools_4.5.2           
 #>  [25] data.table_1.18.2.1    knitr_1.51             labeling_0.4.3        
 #>  [28] prettyunits_1.2.0      bridgesampling_1.2-1   bit_4.6.0             
@@ -434,10 +519,10 @@ sessionInfo()
 #>  [82] pillar_1.11.1          Brobdingnag_1.2-9      torch_0.17.0          
 #>  [85] R6_2.6.1               fmesher_0.7.0          evaluate_1.0.5        
 #>  [88] lattice_0.22-7         png_0.1-9              backports_1.5.1       
-#>  [91] tfautograph_0.3.2      rstantools_2.6.0       class_7.3-23          
-#>  [94] Rcpp_1.1.1-1.1         checkmate_2.3.4        coda_0.19-4.1         
-#>  [97] nlme_3.1-168           whisker_0.4.1          xfun_0.57             
-#> [100] zoo_1.8-15             pkgconfig_2.0.3
+#>  [91] tfautograph_0.3.2      MatrixModels_0.5-4     rstantools_2.6.0      
+#>  [94] class_7.3-23           Rcpp_1.1.1-1.1         checkmate_2.3.4       
+#>  [97] nlme_3.1-168           coda_0.19-4.1          whisker_0.4.1         
+#> [100] xfun_0.57              zoo_1.8-15             pkgconfig_2.0.3
 ```
 
 # References
