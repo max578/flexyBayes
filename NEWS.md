@@ -1,6 +1,36 @@
-# flexyBayes 0.8.1
+# flexyBayes 0.8.2
 
 ## New features
+
+* **`fb_log_posterior()` -- the constellation C4 producer.** A new exported
+  generic turns a fitted flexyBayes object into a vectorised, domain-safe,
+  unnormalised log-posterior callable that `proxymix::from_fb_posterior()`
+  compresses into a closed-form Gaussian-mixture proxy. This closes the C4
+  seam, the single inference-result outflow from the hub, with a real
+  posterior rather than a mock. The returned callable takes a numeric matrix
+  (rows = parameter draws, columns = parameters on the natural / constrained
+  scale) and returns one unnormalised `log p(theta | data)` per row; it
+  carries `parameter_names`, an `NA` `log_normalizer` (a posterior's marginal
+  likelihood is generally unknown -- honest, not fabricated), the
+  parameters' `support_lower` / `support_upper` bounds, and the fit's
+  posterior `draws` to seed the consumer's proposal.
+
+  The **greta** backend is the canonical real producer: it evaluates the
+  retained model graph's unadjusted joint density at the free-state image of
+  the supplied natural-scale parameters, which is the unnormalised
+  natural-scale log-posterior exactly (validated against an analytic
+  conjugate posterior to machine precision -- correlation 1, constant
+  offset). Out-of-support rows return `-Inf` rather than erroring. The
+  **brms** and **INLA** backends abstain with an informative, classed
+  `fb_c4_unavailable` condition: brms's log-density lives on the Stan
+  unconstrained scale with a version-fragile name mapping, and INLA's
+  posterior is a deterministic Laplace / grid approximation rather than a
+  sampling log-density, so an honest abstain is preferred to a
+  plausible-but-wrong producer (the Independent Oracle Principle). flexyBayes
+  does not depend on proxymix -- the cross-package demonstration lives in the
+  ORCHESTRA integration harness, preserving the acyclic constellation graph.
+
+
 
 * **`tidy()` / `glance()` / `augment()` cover every backend the hub
   returns.** The broom-style `tidy()` generic (re-exported from `generics`,
