@@ -71,7 +71,6 @@ B., Yao, Y., Kennedy, L., Gabry, J., Bürkner, P.-C., & Modrák, M.
 Useful links:
 \itemize{
   \item \url{https://github.com/AAGI-AUS/flexyBayes}
-  \item \url{https://aagi-aus.github.io/flexyBayes/}
   \item Report bugs at \url{https://github.com/AAGI-AUS/flexyBayes/issues}
 }
 

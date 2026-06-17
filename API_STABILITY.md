@@ -190,6 +190,7 @@ fitting / triangulation surface.
 | `fb_met_summary()` | 0.8.0 | Breeder summary of a greta factor-analytic G×E fit (greta-only). |
 | `fb_gblup_cv()` | 0.8.0 | Genomic-prediction accuracy by cross-validation. |
 | `fb_gwas()` | 0.8.0 | EMMAX / P3D whole-genome scan. |
-| `tidy()` / `glance()` / `augment()` | 0.8.2 | broom-style accessors (re-exported from `generics`). `tidy()` covers all three backends; `glance()` / `augment()` cover greta + brms (INLA raises an informative refusal). |
-| `fb_gev()` / `fb_dirichlet()` | 0.8.2 | Generalised-extreme-value and Dirichlet fitters (with `fb_family_*` descriptors). |
+| `tidy()` / `glance()` / `augment()` | 0.8.1 | broom-style accessors (re-exported from `generics`). `tidy()` covers all three backends; `glance()` / `augment()` cover greta + brms. |
+| `fb_gev()` / `fb_dirichlet()` | 0.8.1 | Generalised-extreme-value and Dirichlet fitters (with `fb_family_*` descriptors). |
 | `fb_log_posterior()` | 0.8.2 | Constellation C4 producer; greta is the real producer, brms / INLA honestly abstain. |
+| `glance.flexybayes_inla()` / `augment.flexybayes_inla()` | 0.8.3 | Explicit, classed refusals for INLA fits, pointing users to `tidy()`, `summary()`, and `fb_structured_cov()` (an INLA fit previously raised a bare "no applicable method" error). |

@@ -32,8 +32,8 @@
 # The agreement statistic is T = max_j W1_j / sigma_j over the common parameters,
 # where W1_j is the 1D Wasserstein-1 distance between the two engines' marginals
 # and sigma_j is the reference engine's posterior SD for parameter j. The
-# triangulation-calibration study (PROJECT_LOG cont. 27) put the production
-# Gaussian trio's 95% agreement-null threshold at 0.327; the battery asserts
+# triangulation-calibration study put the production Gaussian trio's 95%
+# agreement-null threshold at 0.327; the battery asserts
 # against a margined ceiling so an honest fit does not flake on MCMC noise while
 # a genuinely divergent (wrong-posterior) backend still trips it.
 .CONFORMANCE_T_NULL_95 <- 0.327
