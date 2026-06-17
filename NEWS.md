@@ -66,22 +66,26 @@ release.
   does not depend on proxymix -- the cross-package demonstration lives in the
   ORCHESTRA integration harness, preserving the acyclic constellation graph.
 
+# flexyBayes 0.8.1
 
+A hub-ergonomics release: a single broom dialect across the three backends,
+two standalone maximum-likelihood fitters for distributions outside the GLM
+emit path, and an INLA-led multi-environment-trial vignette.
 
-* **`tidy()` covers all three backends; `glance()` / `augment()` cover the
-  greta and brms fit classes.** The broom-style `tidy()` generic (re-exported
-  from `generics`, now a lightweight `Imports`) returns a flat
-  one-row-per-term `data.frame` with the canonical `term` / `estimate` /
-  `std.error` / `conf.low` / `conf.high` columns for the greta
-  (`flexybayes`), brms (`flexybayes_brms`), and INLA (`flexybayes_inla`) fit
-  classes alike. The INLA class gains its own `tidy.flexybayes_inla()` method
-  (it does not inherit from `flexybayes`). `glance()` and `augment()` cover
-  the greta and brms classes; called on an INLA fit they raise an informative
-  error pointing to `tidy()` (coefficient-level) and `summary()` /
-  `fb_structured_cov()` (variance components). A cross-engine comparison table
-  is now an `rbind()` of two `tidy()` outputs rather than a hand-built
-  reconciliation of three different backend layouts. Mirrors the `tidy()`
-  method kernR adopted, so the orchestra speaks one tidy dialect.
+## New features
+
+* **`tidy()` / `glance()` / `augment()` -- one broom dialect across the
+  hub.** The broom-style `tidy()` generic (re-exported from `generics`, now a
+  lightweight `Imports`) returns a flat one-row-per-term `data.frame` with the
+  canonical `term` / `estimate` / `std.error` / `conf.low` / `conf.high`
+  columns for the greta (`flexybayes`), brms (`flexybayes_brms`), and INLA
+  (`flexybayes_inla`) fit classes alike -- the INLA class gains its own
+  `tidy.flexybayes_inla()` method (it does not inherit from `flexybayes`).
+  `glance()` and `augment()` cover the greta and brms classes; on an INLA fit
+  they error (turned into an informative refusal in 0.8.3). A cross-engine
+  comparison table is now an `rbind()` of two `tidy()` outputs rather than a
+  hand-built reconciliation of three different backend layouts. Mirrors the
+  `tidy()` method kernR adopted, so the orchestra speaks one tidy dialect.
 * **`fb_gev()` -- generalised extreme value (block-maxima) fitter.** Fits
   the location, scale, and shape of a GEV distribution to block maxima
   (annual maximum rainfall, peak yields) by dependency-free maximum
