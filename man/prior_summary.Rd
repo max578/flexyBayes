@@ -68,15 +68,14 @@ of what the user-built model graph encodes; the summary flags
 this with \code{declaration_only = TRUE}.
 }
 \examples{
-\donttest{
-if (requireNamespace("greta", quietly = TRUE)) {
-  data(sleepstudy, package = "lme4")
-  fit <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy,
-                 n_samples = 100, warmup = 100, chains = 1,
-                 verbose = FALSE, mcmc_verbose = FALSE)
-  prior_summary(fit)
-}
+\dontrun{
+# live brms (Stan) fit -- needs a working Stan toolchain
+data(sleepstudy, package = "lme4")
+fit <- fb_brms(Reaction ~ Days + (1 | Subject),
+               data = sleepstudy,
+               n_samples = 100, warmup = 100, chains = 1,
+               verbose = FALSE, mcmc_verbose = FALSE)
+prior_summary(fit)
 }
 
 }

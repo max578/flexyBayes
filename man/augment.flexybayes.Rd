@@ -2,9 +2,12 @@
 % Please edit documentation in R/tidiers.R
 \name{augment.flexybayes}
 \alias{augment.flexybayes}
+\alias{augment.flexybayes_inla}
 \title{Augment a flexyBayes fit with fitted values and residuals}
 \usage{
 \method{augment}{flexybayes}(x, data = NULL, ...)
+
+\method{augment}{flexybayes_inla}(x, data = NULL, ...)
 }
 \arguments{
 \item{x}{A flexyBayes fit (\code{flexybayes} or \code{flexybayes_brms}).}

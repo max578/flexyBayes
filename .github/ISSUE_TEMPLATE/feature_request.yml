@@ -55,11 +55,11 @@ body:
     id: stage
     attributes:
       label: Suggested stage
-      description: Which stage of the v0.1 / v0.2 / v0.3 trajectory does this belong to, in your view?
+      description: Which stage of the roadmap does this belong to, in your view?
       options:
-        - v0.1.x patch
-        - v0.2 (next minor)
-        - later (v0.3+)
+        - 0.8.x patch
+        - next minor
+        - v1.0 or later
         - not sure
     validations:
       required: false

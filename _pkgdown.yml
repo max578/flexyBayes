@@ -11,8 +11,8 @@ home:
   title: flexyBayes — Flexible Bayesian mixed models with ASReml and brms-style syntax
   description: >
     Specify mixed models using ASReml-style or brms-style formula syntax,
-    estimate them via greta or INLA, and triangulate posterior agreement
-    across engines as a robustness signal.
+    estimate them via greta, INLA, or brms (Stan), and triangulate posterior
+    agreement across engines as a robustness signal.
 
 navbar:
   structure:

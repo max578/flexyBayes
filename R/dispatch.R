@@ -57,7 +57,9 @@
 #   auto_gate_refuse_memory      -- auto + gate refuse on the
 #                                   memory_feasibility_inla rule.
 #   backend_not_activated        -- gretaR slot rejected because the
-#                                   scaffold is dormant at v0.3.x.
+#                                   backend is a dormant opt-in (enable with
+#                                   options(flexyBayes.gretaR_activated = TRUE);
+#                                   see R/backend_registry.R for lifecycle).
 #
 # The table is consulted by `.resolve_routing()`; the actual
 # backend invocation lives in `.dispatch_backend()` below. A

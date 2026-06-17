@@ -49,8 +49,8 @@ jobs:
       # We do not install greta deps here: greta is in Suggests and the
       # test suite skips greta-dependent tests via skip_if_no_greta()
       # when the runtime is unavailable. CI verifies the non-greta
-      # surface; full greta integration is exercised in the dedicated
-      # `greta-integration` workflow (separate, slow, manual trigger).
+      # surface; full greta integration is exercised locally / via a
+      # manual greta-integration check (no dedicated CI workflow exists).
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           # dependencies: "hard" keeps pak from trying to resolve the

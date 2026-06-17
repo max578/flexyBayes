@@ -314,3 +314,30 @@ augment.flexybayes <- function(x, data = NULL, ...) {
   out$.resid <- stats::residuals(x)
   out
 }
+
+# ---- INLA: glance() / augment() not available (tidy() only) ------------
+# INLA fits do not inherit "flexybayes", so without these the generic
+# raises a bare "no applicable method" error. These give an on-brand,
+# actionable refusal instead and make methods("glance"/"augment") list INLA.
+
+#' @rdname glance.flexybayes
+#' @export
+glance.flexybayes_inla <- function(x, ...) {
+  stop(
+    "glance() is not available for INLA fits (`flexybayes_inla`). ",
+    "Use tidy() for a coefficient-level summary, or summary() / ",
+    "fb_structured_cov() for variance components.",
+    call. = FALSE
+  )
+}
+
+#' @rdname augment.flexybayes
+#' @export
+augment.flexybayes_inla <- function(x, data = NULL, ...) {
+  stop(
+    "augment() is not available for INLA fits (`flexybayes_inla`). ",
+    "Use tidy() for a coefficient-level summary, or predict() for ",
+    "fitted values.",
+    call. = FALSE
+  )
+}

@@ -4,23 +4,27 @@ INTERNAL DRAFT -- not for submission as written.
 This file is a pre-submission draft for the future CRAN submission, which is
 gated on the AAGI-AUS collective conversation (decision D8). Three things are
 finalised only at the release cut and must be regenerated then:
-  - the version string (the package is currently 0.7.0.9000, a development
-    version; the release is cut as 0.7.0);
+  - the version string (the package is currently 0.8.3, on the 0.8.x
+    development line; a CRAN release version is cut at the D8 release decision);
   - the package URLs (they 404 until the public repository exists under D8);
   - the exact `R CMD check --as-cran` status, re-run on the FINAL release
     tarball with the release version and public URLs, with the command and date
     recorded.
-The check status quoted below was last verified clean-room (user profiles
-disabled, tarball from a clean export, fresh library) on commit 2be3049,
-2026-06-08: `Status: 1 NOTE`. Do not submit using this file verbatim.
+The check status quoted below was re-verified on the **vignette-built** 0.8.x
+release tarball on 2026-06-17: **Status: 1 NOTE** (0 ERRORs, 0
+WARNINGs). The single NOTE is the CRAN-incoming-feasibility item itemised
+below; its URL sub-items are the AAGI-AUS 404s, gated on D8. Building with
+vignettes removes the two vignette-directory WARNINGs that appear only under
+`--no-build-vignettes`. Re-verify on the final release-cut tarball. Do not
+submit using this file verbatim.
 -->
 
 ## Submission
 
 This is the first submission of `flexyBayes` to CRAN.
 
-The package will be released at version `0.7.0` (the working tree is currently
-`0.7.0.9000`, finalised at the D8 release cut).
+The package is on the `0.8.x` development line (working tree currently
+`0.8.3`); the CRAN release version is finalised at the D8 release cut.
 Public release is held pending the AAGI-AUS collective conversation on
 the upstream repository rename (project decision **D8**); the package
 URL declared in `DESCRIPTION` is the agreed forward destination and
@@ -65,8 +69,8 @@ This NOTE carries four sub-items:
    CRAN's incoming checks accept the upload.
 2. *Version contains large components.* This sub-NOTE fires only at
    development versions (`*.9000` tag per the R-pkgs convention); it
-   is absent at the proper release version (`0.7.0`) and reappears
-   only when checking the dev tip between releases.
+   is absent at a non-`.9000` version such as the current `0.8.3`, and
+   reappears only when checking a `*.9000` dev tip between releases.
 3. *Suggests or Enhances not in mainstream repositories: greta, INLA.*
    Neither inference backend is on CRAN, and both are declared in
    `Additional_repositories:`. `greta` was archived from CRAN and is

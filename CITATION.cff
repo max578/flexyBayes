@@ -2,10 +2,12 @@ cff-version: 1.2.0
 message: "If you use flexyBayes in your research, please cite it as below."
 title: "flexyBayes: Flexible Bayesian Mixed Models with ASReml and brms-Style Syntax"
 abstract: >-
-  Specify mixed models using familiar ASReml formula syntax and estimate
-  them via Bayesian Markov chain Monte Carlo using greta, or via
-  integrated nested Laplace approximation using INLA. Returns results in
-  formats compatible with the standard R modelling ecosystem.
+  Specify mixed models using familiar ASReml or brms-style formula syntax
+  and estimate them via Bayesian Markov chain Monte Carlo (greta),
+  integrated nested Laplace approximation (INLA), or a Stan passthrough
+  (brms), with cross-engine posterior triangulation as the signature
+  output. Returns results in formats compatible with the standard R
+  modelling ecosystem.
 type: software
 authors:
   - given-names: "Max"
@@ -20,8 +22,8 @@ authors:
     orcid: "https://orcid.org/0000-0003-0765-3533"
   - given-names: "Beata"
     family-names: "Sznajder"
-version: 0.7.0
-date-released: "2026-05-31"
+version: 0.8.3
+date-released: "2026-06-17"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/AAGI-AUS/flexyBayes"
 url: "https://github.com/AAGI-AUS/flexyBayes"

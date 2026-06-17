@@ -1,3 +1,39 @@
+# flexyBayes 0.8.3
+
+A documentation-honesty and ergonomics release on the 0.8.x line. There are no
+modelling-behaviour changes; the additions are accessor coverage, clearer
+refusals, and metadata / vignette consistency for the first public development
+release.
+
+## New features
+
+* **`glance()` / `augment()` gain explicit INLA methods.** Calling `glance()`
+  or `augment()` on an INLA fit (`flexybayes_inla`) previously raised a bare
+  "no applicable method" error, because that class does not inherit
+  `flexybayes`. They now dispatch to informative refusals pointing to `tidy()`
+  (coefficient-level summaries) and `summary()` / `fb_structured_cov()`
+  (variance components). Net: `tidy()` covers all three backends; `glance()` /
+  `augment()` cover the greta and brms classes, with a clean message on INLA.
+
+## Minor improvements and fixes
+
+* **`fb_met_summary()` distinguishes the wrong-backend case.** Passing an INLA
+  or brms fit now returns a backend-specific message (breeder summaries need a
+  greta factor-analytic fit; the INLA / brms MET path reports variance
+  components via `summary()` / `fb_structured_cov()`) rather than a generic
+  "not a flexybayes object" error.
+* **Development-release signalling and metadata reconciliation.** `.onAttach()`
+  and `README` state that all exports are experimental and the package is not
+  on CRAN. The package-level documentation, `CITATION` / `codemeta` / Zenodo
+  metadata, `_pkgdown.yml`, `API_STABILITY.md`, and the security / support /
+  contributor docs are reconciled to the 0.8.x line and the three-backend
+  (greta / INLA / brms) surface.
+* **Vignette convergence disclaimers** propagated to the remaining small-budget
+  reference vignettes; every vignette that prints a high R-hat now carries an
+  "illustration of output shape, not inference" callout.
+* `NEWS` broom-coverage wording corrected; package-level roxygen updated to
+  three engines and sixteen vignettes.
+
 # flexyBayes 0.8.2
 
 ## New features
@@ -32,17 +68,20 @@
 
 
 
-* **`tidy()` / `glance()` / `augment()` cover every backend the hub
-  returns.** The broom-style `tidy()` generic (re-exported from `generics`,
-  now a lightweight `Imports`) returns a flat one-row-per-term `data.frame`
-  with the canonical `term` / `estimate` / `std.error` / `conf.low` /
-  `conf.high` columns for the greta (`flexybayes`), brms
-  (`flexybayes_brms`), and INLA (`flexybayes_inla`) fit classes alike. The
-  INLA class gains its own `tidy.flexybayes_inla()` method (it does not
-  inherit from `flexybayes`). A cross-engine comparison table is now an
-  `rbind()` of two `tidy()` outputs rather than a hand-built reconciliation
-  of three different backend layouts. Mirrors the `tidy()` method kernR
-  adopted, so the orchestra speaks one tidy dialect.
+* **`tidy()` covers all three backends; `glance()` / `augment()` cover the
+  greta and brms fit classes.** The broom-style `tidy()` generic (re-exported
+  from `generics`, now a lightweight `Imports`) returns a flat
+  one-row-per-term `data.frame` with the canonical `term` / `estimate` /
+  `std.error` / `conf.low` / `conf.high` columns for the greta
+  (`flexybayes`), brms (`flexybayes_brms`), and INLA (`flexybayes_inla`) fit
+  classes alike. The INLA class gains its own `tidy.flexybayes_inla()` method
+  (it does not inherit from `flexybayes`). `glance()` and `augment()` cover
+  the greta and brms classes; called on an INLA fit they raise an informative
+  error pointing to `tidy()` (coefficient-level) and `summary()` /
+  `fb_structured_cov()` (variance components). A cross-engine comparison table
+  is now an `rbind()` of two `tidy()` outputs rather than a hand-built
+  reconciliation of three different backend layouts. Mirrors the `tidy()`
+  method kernR adopted, so the orchestra speaks one tidy dialect.
 * **`fb_gev()` -- generalised extreme value (block-maxima) fitter.** Fits
   the location, scale, and shape of a GEV distribution to block maxima
   (annual maximum rainfall, peak yields) by dependency-free maximum

@@ -1,6 +1,6 @@
 # API stability — flexyBayes
 
-`flexyBayes` is in the **0.7.x** development line. Every public export carries
+`flexyBayes` is in the **0.8.x** development line. Every public export carries
 a `lifecycle::badge("experimental")`, so the guarantees below are deliberately
 weaker than they will be at v1.0: bug fixes and additions never break callers,
 but renamings, default changes, and shape changes are permitted within 0.x
@@ -57,7 +57,7 @@ object so the shared diagnostics, prediction, and interop methods apply:
 
 | Export | Stage | Notes |
 |---|---|---|
-| `triangulate()` | experimental | Pairwise comparison of two posteriors from different engines on shared parameters. Metric set for 0.7.x: Wasserstein-1 distance, tail drift, SD ratio, mean difference. *(The earlier cross-engine R-hat-on-means metric was removed — R-hat across independent engines is not a valid convergence statistic; per-fit within-engine R-hat is reported on each fit.)* Metric additions are non-breaking; removals or renamings ride a deprecation cycle. |
+| `triangulate()` | experimental | Pairwise comparison of two posteriors from different engines on shared parameters. Metric set for 0.8.x: Wasserstein-1 distance, tail drift, SD ratio, mean difference. *(The earlier cross-engine R-hat-on-means metric was removed — R-hat across independent engines is not a valid convergence statistic; per-fit within-engine R-hat is reported on each fit.)* Metric additions are non-breaking; removals or renamings ride a deprecation cycle. |
 
 ## Priors
 
@@ -85,7 +85,7 @@ object so the shared diagnostics, prediction, and interop methods apply:
 
 | Export | Stage | Notes |
 |---|---|---|
-| `backend_decision()` | experimental | The captured dispatch trace: `backend`, `path`, `gate_checks`, `reason`. Shape stable across 0.7.x. |
+| `backend_decision()` | experimental | The captured dispatch trace: `backend`, `path`, `gate_checks`, `reason`. Shape stable across 0.8.x. |
 | `canonical_names()` | experimental | S3 generic returning the canonical-name registry view for a fit. Methods for every fit subclass. |
 | `fb_refusals()` | experimental | The refusal vocabulary as a table (code, message template, since-version). |
 | `gretaR_status()` | experimental | Reports whether the dormant `gretaR` R-native engine is detected at run time (see "Backends"). |
@@ -175,5 +175,21 @@ argument for the rest of the 0.x series.
 
 ## Pinning
 
-Production users who need stability should pin to a specific 0.7.x patch via
+Production users who need stability should pin to a specific 0.8.x patch via
 `renv::snapshot()` until v1.0 lands.
+
+## New in the 0.8.x line (all experimental)
+
+The 0.8.x line adds the exports below. All are **experimental** under the
+ladder above; none changes the stability posture of the lean-core
+fitting / triangulation surface.
+
+| Export | Added | Notes |
+|---|---|---|
+| `triangulate_genomic()` / `triangulate_gwas()` | 0.8.0 | Genomic / GWAS cross-engine and field-standard triangulation. |
+| `fb_met_summary()` | 0.8.0 | Breeder summary of a greta factor-analytic G×E fit (greta-only). |
+| `fb_gblup_cv()` | 0.8.0 | Genomic-prediction accuracy by cross-validation. |
+| `fb_gwas()` | 0.8.0 | EMMAX / P3D whole-genome scan. |
+| `tidy()` / `glance()` / `augment()` | 0.8.2 | broom-style accessors (re-exported from `generics`). `tidy()` covers all three backends; `glance()` / `augment()` cover greta + brms (INLA raises an informative refusal). |
+| `fb_gev()` / `fb_dirichlet()` | 0.8.2 | Generalised-extreme-value and Dirichlet fitters (with `fb_family_*` descriptors). |
+| `fb_log_posterior()` | 0.8.2 | Constellation C4 producer; greta is the real producer, brms / INLA honestly abstain. |

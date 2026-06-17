@@ -108,10 +108,10 @@ devtools::test()           # ~10-20 min; brms first-call Stan
 ```
 
 Adds the Stan passthrough round-trips and three-engine triangulation
-tests on top of Tier 2. Expected: **PASS 888+ / FAIL 0 / SKIP ≤ 5**
-relative to the v0.2 baseline; the residual SKIPs are vdiffr
-(unconditional pending the v0.2.5 numerical-snapshot replacement)
-and asreml-dependent reference comparisons.
+tests on top of Tier 2. The gate is **FAIL 0**; PASS counts grow across
+the 0.8.x line (the 90+-file suite is well above the early-release floors
+quoted above). The residual SKIPs are vdiffr snapshots and
+asreml-dependent reference comparisons.
 
 #### Full `R CMD check --as-cran` rehearsal
 
@@ -146,7 +146,7 @@ Pre-requisites: greta + TF warm, INLA installed, brms installed.
 The driver knits each `.Rmd.orig` into its sibling `.Rmd`; failures
 are reported per-vignette and the script exits non-zero on any.
 Expected wall-time on a warm M1 / M2 Mac: 10-15 minutes for the
-full 12-vignette deck.
+full 16-vignette deck.
 
 ### Documentation
 

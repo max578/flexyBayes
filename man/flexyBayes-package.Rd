@@ -4,15 +4,16 @@
 \name{flexyBayes-package}
 \alias{flexyBayes}
 \alias{flexyBayes-package}
-\title{flexyBayes: Bayesian Mixed Models with ASReml Syntax via Greta and INLA}
+\title{flexyBayes: Bayesian Mixed Models with ASReml Syntax via greta, INLA, and brms}
 \description{
 \code{flexyBayes} lets you fit Bayesian mixed models using the formula syntax
 you already know from ASReml or \code{lme4}/\code{brms}, dispatched through one of
-two inference engines: greta (Hamiltonian Monte Carlo via TensorFlow) or
+three inference engines: greta (Hamiltonian Monte Carlo via TensorFlow),
 INLA (integrated nested Laplace approximation, for the latent Gaussian
-model class). The same fitted object supports \code{summary()}, \code{predict()},
-\code{emmeans::emmeans()}, \code{marginaleffects::predictions()}, and the
-\verb{bayesplot::*} family.
+model class), or brms (a Stan passthrough). All current exports are at the
+experimental \code{lifecycle} stage. The same fitted object supports
+\code{summary()}, \code{predict()}, \code{emmeans::emmeans()},
+\code{marginaleffects::predictions()}, and the \verb{bayesplot::*} family.
 }
 \details{
 The package's signature feature is \code{triangulate()}, a cross-engine
@@ -39,14 +40,14 @@ formula, or a native \code{greta::model()}, and any \code{backend}
 
 \section{Vignettes}{
 
-Fifteen vignettes ship with the package, covering: getting started,
+Sixteen vignettes ship with the package, covering: getting started,
 asreml-shaped formulas reference, foundational regression,
 hierarchical models, structured covariance, priors and
 regularisation, multi-environment trials and genomics, downstream
 analysis, spatio-temporal models, cross-engine triangulation, LGM
 feasibility, backend internals, LGM feasibility and memory, choosing
-an engine (the universal entry and the engine pins), and the backend
-registry architecture.
+an engine (the universal entry and the engine pins), extending the
+backend registry, and big-data streaming (exact aggregation).
 }
 
 \section{References}{

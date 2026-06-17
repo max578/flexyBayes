@@ -186,7 +186,9 @@
     "flexyBayes ",
     utils::packageVersion(pkgname),
     " -- multi-backend Bayesian mixed models (greta / INLA / brms)",
-    " with cross-engine triangulation"
+    " with cross-engine triangulation\n",
+    "  Development release: all exports experimental; not on CRAN. ",
+    "See system.file(\"KNOWN_ISSUES.md\", package = \"flexyBayes\")."
   )
 
   # Backend-readiness note: only when no inference engine is available, so the

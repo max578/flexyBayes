@@ -268,14 +268,13 @@
 #'   a backend; [fb_from_greta()] for building a greta-source IR with a
 #'   canonical-name map.
 #' @examples
-#' \donttest{
-#' if (requireNamespace("greta", quietly = TRUE)) {
-#'   data(sleepstudy, package = "lme4")
-#'   fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
-#'                   n_samples = 200, warmup = 200, chains = 1,
-#'                   verbose = FALSE, mcmc_verbose = FALSE)
-#'   coef(fit)
-#' }
+#' \dontrun{
+#' # live greta fit -- needs a working Python / TensorFlow stack
+#' data(sleepstudy, package = "lme4")
+#' fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+#'                 n_samples = 200, warmup = 200, chains = 1,
+#'                 verbose = FALSE, mcmc_verbose = FALSE)
+#' coef(fit)
 #' }
 #' @export
 fb_greta <- function(...) {

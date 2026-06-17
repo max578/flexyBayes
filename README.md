@@ -9,6 +9,14 @@ greta (MCMC), INLA (integrated nested Laplace approximation), or brms
 (Stan passthrough), and tells you — with evidence — when the engines
 agree, when they differ, and why a backend was refused.
 
+> **Development release (v0.8.3).** All exports are at the experimental
+> `lifecycle` stage and the API may change within the 0.x series. Not on CRAN.
+> The full multi-environment-trial model (genotype-by-environment interaction
+> random effects together with a heteroscedastic per-environment residual) is
+> **not yet supported** by any backend. Read
+> `system.file("KNOWN_ISSUES.md", package = "flexyBayes")` before relying on
+> results.
+
 ## Which entry point do I use?
 
 | If you have… | Use | Notes |
@@ -52,8 +60,8 @@ burden and in what they offer.
 | greta | No (greta-dev R-universe) | Heavy — Python + TensorFlow stack | MCMC (sampling error only) | Supported |
 | gretaR | No (opt-in) | Heavy — torch | MCMC (out-of-process NUTS) | Dormant, opt-in |
 
-Every export carries a `lifecycle::badge("experimental")`; see
-`API_STABILITY.md` for what that guarantees. The fastest way to explore the
+All exports are at the **experimental** `lifecycle` stage; see
+`API_STABILITY.md` in the source repository for what that guarantees. The fastest way to explore the
 package without any backend is the planner; for a worked fit with production
 sampling settings and honest diagnostics, follow the *getting started*
 vignette.
@@ -85,6 +93,13 @@ diagnostic, not a result.
 > route to a fix. Until then, flexyBayes is an honest multi-backend
 > orchestration and triangulation tool for the model classes above -- not yet a
 > stand-alone Bayesian replacement for full ASReml-style MET analysis.
+
+**Breeder MET summaries.** `fb_met_summary()` (overall performance, stability,
+GxE BLUPs, factor loadings, environment genetic correlations) requires a
+**greta** factor-analytic (`fa(env, k):gen`) fit — it is computed from the
+identified *realised* effects, which fit on greta. On an INLA or brms fit it
+refuses with a pointer to the right path; the scalable INLA MET route gives
+variance components via `summary()` / `fb_structured_cov()`.
 
 ## Installation
 
@@ -271,6 +286,16 @@ Sixteen numbered vignettes ship with the package:
 
 Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern; the `.Rmd`
 that ships in the package tarball is the pre-evaluated static output.
+Browse them with `browseVignettes("flexyBayes")` **after a full install** —
+`R CMD build` then `R CMD INSTALL` the tarball, or
+`devtools::install(build_vignettes = TRUE)`. A plain `install_github()` or
+source-directory install does **not** build the vignettes into `inst/doc`.
+
+Several reference vignettes (02, 04, 05, 07) fit at small sampling budgets and
+print diagnostics that do not meet the convergence thresholds; each opens with
+an "illustration of output *shape*, not inference" disclaimer. For a
+convergence-clean workflow see the *getting started* and *cross-engine
+triangulation* vignettes.
 
 ## Design principles
 
@@ -298,6 +323,17 @@ cross-engine `triangulate()` agreement. The *cross-engine triangulation* and
 per-family vignettes show clean reproducible checks; the structured-covariance
 reference vignettes are explicitly marked non-inferential where a model does
 not mix at vignette-scale budgets.
+
+## Testing & CI
+
+Continuous integration validates the INLA, brms, and engine-independent
+surface (the ASReml / brms parsers, the intermediate representation,
+`lgm_gate()`, the dispatch policy table, the refusal registry, the prior DSL,
+and the `triangulate()` metrics). The **greta** integration path (Python +
+TensorFlow) is **not** installed on the standard CI matrix, so a green CI run
+does not include live greta fits; greta-dependent tests gate via
+`skip_if_no_greta()` and are run locally / via a manual greta-integration check. Run the
+full suite locally with `devtools::test()` after `greta::install_greta_deps()`.
 
 ## Known limitations
 

@@ -39,14 +39,13 @@ representation first and pass it on: \verb{fb_greta(fb_from_greta(model,}
 \verb{canonical_names = c(...)))}.
 }
 \examples{
-\donttest{
-if (requireNamespace("greta", quietly = TRUE)) {
-  data(sleepstudy, package = "lme4")
-  fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
-                  n_samples = 200, warmup = 200, chains = 1,
-                  verbose = FALSE, mcmc_verbose = FALSE)
-  coef(fit)
-}
+\dontrun{
+# live greta fit -- needs a working Python / TensorFlow stack
+data(sleepstudy, package = "lme4")
+fit <- fb_greta(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+                n_samples = 200, warmup = 200, chains = 1,
+                verbose = FALSE, mcmc_verbose = FALSE)
+coef(fit)
 }
 }
 \seealso{

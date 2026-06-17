@@ -59,16 +59,15 @@ str(met_example$dat)
 head(met_example$dat)
 
 # Simple model (small budget for example purposes)
-\donttest{
-if (requireNamespace("greta", quietly = TRUE)) {
-  fit <- flexybayes(
-    fixed  = yield ~ env,
-    random = ~ geno,
-    data   = met_example$dat,
-    n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
-  )
-  summary(fit)
-}
+\dontrun{
+# live fit -- needs a backend (greta Python/TF, INLA, or brms/Stan)
+fit <- flexybayes(
+  fixed  = yield ~ env,
+  random = ~ geno,
+  data   = met_example$dat,
+  n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
+)
+summary(fit)
 }
 
 }

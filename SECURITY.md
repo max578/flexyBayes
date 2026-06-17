@@ -2,16 +2,15 @@
 
 ## Supported versions
 
-Security fixes are issued against the current release (`0.3.7`) and
-the latest CRAN release (when present). Older released versions are
-not back-patched.
+Security fixes are issued against the current development release
+(`0.8.3`, on the 0.8.x line) and the latest CRAN release (when present).
+Older released versions are not back-patched.
 
 | Version | Supported |
 |---------|-----------|
-| 0.3.x   | yes       |
-| 0.2.x   | best-effort (local release tarballs only; no public release) |
-| 0.1.x   | best-effort (no public release shipped) |
-| < 0.1   | no        |
+| 0.8.x   | yes (current development line) |
+| 0.3.x – 0.7.x | best-effort (local release tarballs only; no public release) |
+| < 0.3   | no        |
 
 ## Reporting a vulnerability
 

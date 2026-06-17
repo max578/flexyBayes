@@ -2,9 +2,12 @@
 % Please edit documentation in R/tidiers.R
 \name{glance.flexybayes}
 \alias{glance.flexybayes}
+\alias{glance.flexybayes_inla}
 \title{Glance at a flexyBayes fit}
 \usage{
 \method{glance}{flexybayes}(x, ...)
+
+\method{glance}{flexybayes_inla}(x, ...)
 }
 \arguments{
 \item{x}{A flexyBayes fit (\code{flexybayes} or \code{flexybayes_brms}).}

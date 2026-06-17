@@ -202,19 +202,18 @@
 #' If `return_code = TRUE`, returns a character string of greta code instead.
 #'
 #' @examples
-#' \donttest{
-#' if (requireNamespace("greta", quietly = TRUE)) {
-#'   data(met_example, package = "flexyBayes")
-#'   # Simple random intercept model (small budget for example purposes)
-#'   fit <- flexybayes(
-#'     fixed  = yield ~ env,
-#'     random = ~ geno,
-#'     data   = met_example$dat,
-#'     n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
-#'   )
-#'   summary(fit)
-#'   coef(fit)
-#' }
+#' \dontrun{
+#' # live fit -- needs a backend (greta Python/TF, INLA, or brms/Stan)
+#' data(met_example, package = "flexyBayes")
+#' # Simple random intercept model (small budget for example purposes)
+#' fit <- flexybayes(
+#'   fixed  = yield ~ env,
+#'   random = ~ geno,
+#'   data   = met_example$dat,
+#'   n_samples = 100, warmup = 100, chains = 1, verbose = FALSE
+#' )
+#' summary(fit)
+#' coef(fit)
 #' }
 #'
 #' @importFrom stats terms model.frame model.matrix model.response

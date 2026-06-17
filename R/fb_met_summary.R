@@ -66,6 +66,18 @@ fb_met_summary <- function(
   genotype_levels = NULL,
   environment_levels = NULL
 ) {
+  if (inherits(fit, c("flexybayes_inla", "flexybayes_brms"))) {
+    stop(
+      "fb_met_summary() needs a greta factor-analytic fit; the supplied fit ",
+      "uses the ", if (inherits(fit, "flexybayes_inla")) "INLA" else "brms",
+      " backend. ",
+      "Breeder summaries are computed from the realised factor-analytic ",
+      "effects, which fit on the greta backend; the INLA / brms MET path ",
+      "reports variance components via summary() / fb_structured_cov(). ",
+      "Refit fa(env, k):gen with backend = \"greta\" for fb_met_summary().",
+      call. = FALSE
+    )
+  }
   if (!inherits(fit, "flexybayes")) {
     stop("`fit` must be a flexybayes (greta) object.", call. = FALSE)
   }

@@ -121,3 +121,20 @@ test_that("tidy.flexybayes_inla on an empty fixed-summary returns 0 rows", {
   expect_equal(nrow(td), 0L)
   expect_true(all(.canonical_tidy_cols %in% names(td)))
 })
+
+test_that("glance() / augment() on an INLA fit refuse with an informative error", {
+  # INLA fits (`flexybayes_inla`) support tidy() but not glance()/augment().
+  # The methods raise an actionable error (pointing to tidy() / summary())
+  # rather than dispatching to the greta implementation, and they appear in
+  # methods() so dispatch is explicit rather than a bare "no applicable method".
+  expect_true(
+    "glance.flexybayes_inla" %in% as.character(utils::methods("glance"))
+  )
+  expect_true(
+    "augment.flexybayes_inla" %in% as.character(utils::methods("augment"))
+  )
+
+  shell <- structure(list(), class = c("flexybayes_inla", "list"))
+  expect_error(generics::glance(shell), "not available for INLA")
+  expect_error(generics::augment(shell), "not available for INLA")
+})
