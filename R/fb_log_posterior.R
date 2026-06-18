@@ -1,19 +1,20 @@
-# fb_log_posterior() -- the C4 producer seam (flexyBayes -> proxymix).
+# fb_log_posterior() -- exposes a fitted model's log-posterior as a callable.
 #
-# C4 is the one constellation outflow from flexyBayes: a fitted flexyBayes
-# object is turned into a vectorised, domain-safe, unnormalised
-# log-posterior callable that proxymix (the C4 consumer) compresses into a
-# closed-form Gaussian-mixture proxy via `proxymix::from_fb_posterior()`.
-# flexyBayes owns the producer; proxymix never depends on flexyBayes at
-# run time (the acyclic invariant), so this file emits the *callable*, and
-# proxymix reads it as a bare callable carrying its metadata as attributes.
+# This is the one inference-result outflow from flexyBayes: a fitted
+# flexyBayes object is turned into a vectorised, domain-safe, unnormalised
+# log-posterior callable that a downstream tool (for example the proxymix
+# package, via `proxymix::from_fb_posterior()`) can compress into a
+# closed-form Gaussian-mixture proxy. flexyBayes owns the producer; the
+# consumer never depends on flexyBayes at run time (an acyclic dependency
+# invariant), so this file emits the *callable*, read by the consumer as a
+# bare callable carrying its metadata as attributes.
 #
 # The greta backend is the canonical real producer: greta retains the
 # model graph (`fit$greta$model`), whose directed acyclic graph exposes an
 # unadjusted joint-density function. Evaluated at a model's free
 # (unconstrained) state, that function returns
 # `log p(data | theta) + log p(theta)` on the *natural* (constrained) scale
-# -- exactly the unnormalised log-posterior the C4 contract asks for, with
+# -- exactly the unnormalised log-posterior the contract requires, with
 # no Jacobian adjustment (the adjustment belongs to the free-state
 # parameterisation, not the natural-scale density). This producer therefore
 # maps natural-scale inputs to the free state, calls the dag's unadjusted
@@ -33,13 +34,13 @@
 # The generic                                                      #
 # ---------------------------------------------------------------- #
 
-#' Emit a flexyBayes posterior as a C4 log-density producer
+#' Emit a flexyBayes posterior as a log-density producer
 #'
-#' Turns a fitted flexyBayes object into the constellation **C4** producer:
+#' Turns a fitted flexyBayes object into a log-posterior producer:
 #' a vectorised, domain-safe, unnormalised log-posterior callable that
 #' `proxymix::from_fb_posterior()` compresses into a closed-form
-#' Gaussian-mixture proxy. C4 is the single outflow from the flexyBayes
-#' inference hub; the contract is the *log-density*, not the draws, so the
+#' Gaussian-mixture proxy. It is the single inference-result outflow from
+#' flexyBayes; the contract is the *log-density*, not the draws, so the
 #' returned object is addressed purely through its callable.
 #'
 #' The returned value is a **bare callable**
@@ -81,10 +82,11 @@
 #' a sampling log-density; an honest abstain is preferred to a
 #' plausible-but-wrong log-density.
 #'
-#' Acyclic note. proxymix consumes this callable without depending on
-#' flexyBayes; flexyBayes does not list proxymix in `Imports` or `Suggests`.
-#' The cross-package demonstration lives in the ORCHESTRA integration
-#' harness, not in this package, preserving the acyclic constellation DAG.
+#' Acyclic note. A consumer such as proxymix uses this callable without
+#' depending on flexyBayes; flexyBayes does not list proxymix in `Imports`
+#' or `Suggests`. The cross-package demonstration lives in a separate
+#' integration harness, not in this package, preserving the acyclic
+#' dependency graph.
 #'
 #' @param fit A fitted flexyBayes object. The greta classes
 #'   (`flexybayes` / `flexybayes_direct_greta`) produce a real callable;
@@ -97,7 +99,7 @@
 #'   does not return: it raises a classed `fb_c4_unavailable` condition.
 #'
 #' @family flexyBayes interop
-#' @seealso `proxymix::from_fb_posterior()` for the C4 consumer (compresses
+#' @seealso `proxymix::from_fb_posterior()` for the consumer (compresses
 #'   the returned callable into a Gaussian-mixture proxy).
 #' @examples
 #' \dontrun{
@@ -114,7 +116,7 @@
 #' producer <- fb_log_posterior(fit)
 #' attr(producer, "parameter_names")
 #' producer(matrix(c(1.5, 2.0), nrow = 1)) # natural-scale log-posterior
-#' ## Compress with proxymix (in the ORCHESTRA integration harness):
+#' ## Compress with proxymix (in a separate integration harness):
 #' ## proxymix::from_fb_posterior(producer, N = 2)
 #' }
 #' @export

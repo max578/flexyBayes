@@ -38,11 +38,12 @@ release.
 
 ## New features
 
-* **`fb_log_posterior()` -- the constellation C4 producer.** A new exported
-  generic turns a fitted flexyBayes object into a vectorised, domain-safe,
-  unnormalised log-posterior callable that `proxymix::from_fb_posterior()`
-  compresses into a closed-form Gaussian-mixture proxy. This closes the C4
-  seam, the single inference-result outflow from the hub, with a real
+* **`fb_log_posterior()` -- a log-posterior producer for downstream tools.**
+  A new exported generic turns a fitted flexyBayes object into a vectorised,
+  domain-safe, unnormalised log-posterior callable that
+  `proxymix::from_fb_posterior()` compresses into a closed-form
+  Gaussian-mixture proxy. This is the single inference-result outflow from
+  flexyBayes, with a real
   posterior rather than a mock. The returned callable takes a numeric matrix
   (rows = parameter draws, columns = parameters on the natural / constrained
   scale) and returns one unnormalised `log p(theta | data)` per row; it
@@ -63,8 +64,8 @@ release.
   posterior is a deterministic Laplace / grid approximation rather than a
   sampling log-density, so an honest abstain is preferred to a
   plausible-but-wrong producer (the Independent Oracle Principle). flexyBayes
-  does not depend on proxymix -- the cross-package demonstration lives in the
-  ORCHESTRA integration harness, preserving the acyclic constellation graph.
+  does not depend on proxymix -- the cross-package demonstration lives in a
+  separate integration harness, preserving the acyclic dependency graph.
 
 # flexyBayes 0.8.1
 

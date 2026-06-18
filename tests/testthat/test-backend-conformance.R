@@ -1,8 +1,8 @@
 # =============================================================================
-# test-backend-conformance.R -- the C1 backend-contract conformance battery.
+# test-backend-conformance.R -- the backend-contract conformance battery.
 #
-# `inst/backend_contract.md` (contract C1 in CONSTELLATION.md) is the interface
-# any inference backend must honour to be a first-class flexyBayes engine. This
+# The backend contract is the interface any inference backend must honour to be
+# a first-class flexyBayes engine. This
 # file is the *executable* form of that contract's "Conformance + drift
 # detection" section: it asserts a backend honours the required clauses --
 #
@@ -18,8 +18,8 @@
 # The battery is BACKEND-AGNOSTIC by construction. Each backend under test is one
 # descriptor in `.conformance_backends()`; bringing koine (the synthesised fourth
 # opinion) onto the engine axis is adding one descriptor here, not a new test
-# file. That reusability is the constellation leader's contract (CONSTELLATION.md
-# invariant 4: depend on the contract, never a producer's internals).
+# file. That reusability is the backend-contract design (depend on the
+# contract, never a producer's internals).
 #
 # Heavy: each backend fits two out-of-process torch-NUTS models plus an INLA
 # reference. Gated `skip_on_cran()` + `skip_on_ci()`, and skipped when the
@@ -83,7 +83,7 @@
 #   capability  -- function(fb_terms) the backend's capability predicate
 #                  (TRUE | <reason>), or NULL to skip the clause-5 check.
 #
-# A backend joins the constellation conformance surface by adding ONE entry.
+# A backend joins the backend conformance surface by adding ONE entry.
 
 .conformance_gretaR <- function() {
   floor <- flexyBayes:::.GRETAR_VERSION_FLOOR
@@ -127,7 +127,7 @@
   )
 }
 
-# The registry. A backend joins the constellation conformance surface by adding
+# The registry. A backend joins the backend conformance surface by adding
 # one entry here -- gretaR is active. (koine moved to flexyBayesOrchestra in the
 # lean-core split, 2026-06-06; it is no longer a core dormant backend.)
 .conformance_backends <- function() {

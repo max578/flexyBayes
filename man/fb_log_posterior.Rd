@@ -6,7 +6,7 @@
 \alias{fb_log_posterior.flexybayes_brms}
 \alias{fb_log_posterior.flexybayes_inla}
 \alias{fb_log_posterior.flexybayes}
-\title{Emit a flexyBayes posterior as a C4 log-density producer}
+\title{Emit a flexyBayes posterior as a log-density producer}
 \usage{
 fb_log_posterior(fit, ...)
 
@@ -32,11 +32,11 @@ the attributes described above, ready to pass to
 does not return: it raises a classed \code{fb_c4_unavailable} condition.
 }
 \description{
-Turns a fitted flexyBayes object into the constellation \strong{C4} producer:
+Turns a fitted flexyBayes object into a log-posterior producer:
 a vectorised, domain-safe, unnormalised log-posterior callable that
 \code{proxymix::from_fb_posterior()} compresses into a closed-form
-Gaussian-mixture proxy. C4 is the single outflow from the flexyBayes
-inference hub; the contract is the \emph{log-density}, not the draws, so the
+Gaussian-mixture proxy. It is the single inference-result outflow from
+flexyBayes; the contract is the \emph{log-density}, not the draws, so the
 returned object is addressed purely through its callable.
 }
 \details{
@@ -79,10 +79,10 @@ name mapping, and INLA's posterior is a deterministic approximation, not
 a sampling log-density; an honest abstain is preferred to a
 plausible-but-wrong log-density.
 
-Acyclic note. proxymix consumes this callable without depending on
-flexyBayes; flexyBayes does not list proxymix in \code{Imports} or \code{Suggests}.
-The cross-package demonstration lives in the ORCHESTRA integration
-harness, not in this package, preserving the acyclic constellation DAG.
+Acyclic note. A consumer such as proxymix uses this callable without
+depending on flexyBayes; flexyBayes does not list proxymix in \code{Imports} or \code{Suggests}.
+The cross-package demonstration lives in a separate integration
+harness, not in this package, preserving the acyclic dependency graph.
 }
 \examples{
 \dontrun{
@@ -99,12 +99,12 @@ fit <- fb_greta(fb_from_greta(m), n_samples = 500, warmup = 500,
 producer <- fb_log_posterior(fit)
 attr(producer, "parameter_names")
 producer(matrix(c(1.5, 2.0), nrow = 1)) # natural-scale log-posterior
-## Compress with proxymix (in the ORCHESTRA integration harness):
+## Compress with proxymix (in a separate integration harness):
 ## proxymix::from_fb_posterior(producer, N = 2)
 }
 }
 \seealso{
-\code{proxymix::from_fb_posterior()} for the C4 consumer (compresses
+\code{proxymix::from_fb_posterior()} for the consumer (compresses
 the returned callable into a Gaussian-mixture proxy).
 }
 \concept{flexyBayes interop}

@@ -143,7 +143,7 @@ test_that(".refusal_registry holds the complete 54-code vocabulary", {
   # added: native_greta_requires_greta_backend (a native graph on a
   # non-greta engine) and engine_pin_backend_conflict (a pin handed a
   # conflicting backend) (= 47). At v0.6.0.9000 the gretaR backend is
-  # activated (cont. 30): six gretaR refusals are registered --
+  # activated: six gretaR refusals are registered --
   # gretaR_not_installed, gretaR_below_version_floor,
   # gretaR_family_unsupported, gretaR_random_group_not_in_data,
   # gretaR_random_term_type_unsupported,
