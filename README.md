@@ -374,6 +374,14 @@ structured refusal naming the gap, not a quiet wrong answer.
 - INLA (optional, via Additional_repositories)
 - brms (optional, for the Stan passthrough)
 
+## Contributing
+
+Contributions are welcome. See `CONTRIBUTING.md` for the development workflow
+(fork, `usethis::pr_init()`, `devtools::check()` must pass, and a `NEWS.md`
+bullet for any user-facing change) and `CODE_OF_CONDUCT.md` (Contributor
+Covenant). Please report bugs and request features at
+<https://github.com/AAGI-AUS/flexyBayes/issues>.
+
 ## Citation
 
 If you use `flexyBayes` in your research, please cite:

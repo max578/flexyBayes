@@ -15,6 +15,12 @@ revdep/
 *.so
 *.dll
 *.icloud
+
+# AI-assistant scratch dirs (also in .Rbuildignore) -- never enter git or the build
+.claude/
+.positai/
+.cursor/
+
 # Host-local INLA-mapping verification artefacts (ADR 0019 §Decision 5
 # / merged-v2 §3.4). Written by
 # tests/testthat/test-factor-continuous-inla-verification.R when INLA

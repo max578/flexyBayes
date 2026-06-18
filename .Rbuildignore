@@ -31,6 +31,10 @@
 ^API_STABILITY\.md$
 ^\.claude$
 ^\.claude/.*$
+^\.positai$
+^\.positai/.*$
+^\.cursor$
+^\.cursor/.*$
 ^flexyBayes\.Rcheck$
 ^\.\.Rcheck$
 ^flexyBayes_.*\.tar\.gz$
