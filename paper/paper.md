@@ -19,6 +19,7 @@ authors:
     orcid: 0000-0003-0765-3533
     affiliation: 3
   - name: Anabel Forte Deltell
+    orcid: 0000-0001-9534-1817
     affiliation: 4
 affiliations:
   - name: Australian Agricultural Genomics Institute (AAGI-AUS), Australia
@@ -27,7 +28,7 @@ affiliations:
     index: 2
   - name: Australian National University, Australia
     index: 3
-  - name: AFFILIATION TO CONFIRM (Anabel Forte Deltell)
+  - name: Universitat de València, Spain
     index: 4
 date: 6 June 2026
 bibliography: paper.bib
