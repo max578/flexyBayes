@@ -119,5 +119,5 @@ summary(fit)
 \code{\link[=fb_prior]{fb_prior()}} for prior specification.
 }
 \author{
-Max Moldovan, \email{max.moldovan@gmail.com}
+Max Moldovan, \email{max.moldovan@adelaide.edu.au}
 }

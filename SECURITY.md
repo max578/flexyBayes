@@ -17,7 +17,7 @@ Older released versions are not back-patched.
 Please **do not file a public GitHub issue** for security problems.
 Instead, email the maintainer privately:
 
-> **max.moldovan@gmail.com**
+> **max.moldovan@adelaide.edu.au**
 
 Use a clear subject line such as `[flexyBayes SECURITY] <one-line
 description>`.

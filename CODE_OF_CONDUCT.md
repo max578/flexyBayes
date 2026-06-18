@@ -18,7 +18,7 @@ the project.
 
 Reports of conduct that breaches the Contributor Covenant should be
 sent privately to the project maintainer at
-<max.moldovan@gmail.com>. All reports will be reviewed and
+<max.moldovan@adelaide.edu.au>. All reports will be reviewed and
 investigated promptly and fairly. The maintainer is obligated to
 respect the privacy and security of the reporter of any incident.
 

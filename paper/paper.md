@@ -18,8 +18,8 @@ authors:
   - name: Francis K. C. Hui
     orcid: 0000-0003-0765-3533
     affiliation: 3
-  - name: Beata Sznajder
-    affiliation: 2
+  - name: Anabel Forte Deltell
+    affiliation: 4
 affiliations:
   - name: Australian Agricultural Genomics Institute (AAGI-AUS), Australia
     index: 1
@@ -27,6 +27,8 @@ affiliations:
     index: 2
   - name: Australian National University, Australia
     index: 3
+  - name: AFFILIATION TO CONFIRM (Anabel Forte Deltell)
+    index: 4
 date: 6 June 2026
 bibliography: paper.bib
 ---

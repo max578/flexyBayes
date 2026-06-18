@@ -76,13 +76,13 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Max Moldovan \email{max.moldovan@gmail.com} (\href{https://orcid.org/0000-0001-9680-8474}{ORCID})
+\strong{Maintainer}: Max Moldovan \email{max.moldovan@adelaide.edu.au} (\href{https://orcid.org/0000-0001-9680-8474}{ORCID})
 
 Authors:
 \itemize{
   \item Emi Tanaka (\href{https://orcid.org/0000-0002-1455-259X}{ORCID})
   \item Francis K.C. Hui (\href{https://orcid.org/0000-0003-0765-3533}{ORCID})
-  \item Beata Sznajder
+  \item Anabel Forte Deltell
 }
 
 }

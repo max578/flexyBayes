@@ -8,7 +8,7 @@ bibentry(
            comment = c(ORCID = "0000-0002-1455-259X")),
     person("Francis K.C.", "Hui",
            comment = c(ORCID = "0000-0003-0765-3533")),
-    person("Beata", "Sznajder")
+    person("Anabel", "Forte Deltell")
   ),
   year     = "2026",
   note     = "R package version 0.8.3",

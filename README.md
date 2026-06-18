@@ -383,7 +383,7 @@ If you use `flexyBayes` in your research, please cite:
   title  = {flexyBayes: Flexible Bayesian Mixed Models with ASReml
             and brms-Style Syntax},
   author = {Moldovan, Max and Tanaka, Emi and Hui, Francis K.C. and
-            Sznajder, Beata},
+            Forte Deltell, Anabel},
   year   = {2026},
   url    = {https://github.com/AAGI-AUS/flexyBayes}
 }

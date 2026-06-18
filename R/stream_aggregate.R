@@ -111,7 +111,7 @@
 #'                          backend = "inla")
 #' summary(fit)
 #'
-#' @author Max Moldovan, \email{max.moldovan@@gmail.com}
+#' @author Max Moldovan, \email{max.moldovan@@adelaide.edu.au}
 #' @export
 flexybayes_stream <- function(
   fixed,
