@@ -1,7 +1,7 @@
 # Tests for the factor:continuous indexed-slope emit (ADR 0019,
 # Stage 1A v0.2.6).
 #
-# ADR 0019 §Verification + merged-v2 §4.2.1 require >=8 subtests on
+# ADR 0019 §Verification + the design spec require >=8 subtests on
 # this file. Each test_that() block below corresponds to one of the
 # eight (or more) acceptance criteria called out in the spec; the
 # first three are structural / linear-predictor (no fitting needed),
@@ -58,7 +58,7 @@ test_that("factor:continuous interaction routes to factor_numeric_interaction", 
 # Subtest 2 -- linear-predictor equivalence vs model.matrix().      #
 # ---------------------------------------------------------------- #
 #
-# The canonical Stage-1A acceptance test (merged-v2 §4.2.1
+# The canonical Stage-1A acceptance test (the design spec
 # deliverable 3). Build the design matrix via base R's treatment-
 # coded model.matrix(); sample a coefficient vector from a fixed
 # seed; compute the reference linear predictor `eta_mm = X %*% beta`;
@@ -155,7 +155,7 @@ test_that("generated greta code uses indexed-slope idiom (Option C)", {
 #
 # The full archetype-1 numerical validation cell. Requires greta +
 # lme4; skipped on CRAN / CI per the validation-lmer convention. The
-# tolerance W_1 <= 0.10 * |beta_true| per merged-v2 §4.2.1 + the
+# tolerance W_1 <= 0.10 * |beta_true| per the design spec + the
 # `1.0 * REML SE` working tolerance used by test-validation-lmer.R
 # absorb MCMC noise at the chosen budget while still catching the
 # >3-sigma regression that the v0.2 bug produced.
@@ -231,7 +231,7 @@ test_that("posterior mean recovers lme4 fit on factor:continuous", {
 #
 # The Stage-1A scope per ADR 0019 §Decision 6 ships only the
 # treatment-coded indexed emit. Other contrast schemes raise a
-# structured refusal at ingest with a v0.3 deferral message.
+# structured refusal at ingest with a deferral message.
 
 test_that("contr.helmert raises flexybayes_contrast_unsupported", {
   set.seed(20260523L)

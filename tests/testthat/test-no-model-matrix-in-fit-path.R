@@ -1,4 +1,4 @@
-# Tests for the merged-v2 plan §4.2.3 representation acceptance:
+# Tests for the the design spec representation acceptance:
 # the greta fit-time codegen path must NOT call `model.matrix()`
 # for supported indexed term classes. The indexed-emit path binds
 # either a per-row integer level-index vector or a parse-time basis

@@ -1,7 +1,7 @@
 # ADR 0020 §Decision 5 -- three-arbitrator INLA verification gate
 # for uncorrelated random slopes (x || g).
 #
-# Per merged-v2 §3.4 "INLA mapping verification policy" + ADR 0020
+# Per the design spec "INLA mapping verification policy" + ADR 0020
 # §Decision 5: the INLA mapping is registered if and only if the
 # three-arbitrator verification test passes. The arbitrators here
 # are INLA, greta, and lme4 (this is a gaussian-identity term, so
@@ -153,7 +153,7 @@ test_that("INLA + greta + lme4 three-arbitrator agreement on (x || g) (rehearsal
   sd_x_g_post <- mean(draws_g[, "sigma_x_g"])
   sd_g_post <- mean(draws_g[, "sigma_g"])
 
-  # greta vs lme4: within loosened tolerance (per merged-v2 §5.6).
+  # greta vs lme4: within loosened tolerance (per the design spec).
   # The verification fixture has J = 20 x n_per = 12 = 240 obs, and
   # the default bounded-uniform-on-SD prior on the intercept and
   # slope variances disagrees with lme4's REML estimate by 0.10-0.35

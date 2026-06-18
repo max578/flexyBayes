@@ -49,6 +49,7 @@
 #   registered_in_adr  the ADR number the refusal traces to (e.g.,
 #                      "ADR 0024" for the routing-policy refusals,
 #                      "ADR 0025" for the structured-cov refusals).
+#                      DESIGN_DECISIONS.md indexes every ADR number.
 #                      Free-form; this field documents provenance,
 #                      it does not gate registration.
 #   plan_field         optional name of the <fb_plan> slot that

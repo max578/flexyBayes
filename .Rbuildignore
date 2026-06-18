@@ -29,6 +29,7 @@
 ^CODE_OF_CONDUCT\.md$
 ^SUPPORT\.md$
 ^API_STABILITY\.md$
+^DESIGN_DECISIONS\.md$
 ^\.claude$
 ^\.claude/.*$
 ^\.positai$

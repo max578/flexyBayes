@@ -268,7 +268,7 @@ fb_from_brms <- function(
 
   # Translate each (1 | g) / (x || g) / (1 + x || g) RE pair to a
   # parse_formula.R-style term descriptor. `(x | g)` correlated slopes
-  # raise a structured refusal with a v0.3 deferral pointer;
+  # raise a structured refusal with a deferral pointer;
   # everything else outside the supported set raises the legacy
   # refusal.
   random_terms <- list()
@@ -601,7 +601,7 @@ fb_from_brms <- function(
   }
 
   # Slope correlated: (x | g) or (1 + x | g). Refused with the
-  # structured v0.3 deferral message.
+  # structured deferral message.
   if (isTRUE(cor)) {
     slope_var <- NA_character_
     if (is_simple_var(lhs)) {

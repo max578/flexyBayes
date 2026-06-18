@@ -13,7 +13,7 @@
 #   3. backend smoke fits through INLA, greta, and brms where available;
 #   4. triangulation behaviour;
 #   5. selected code-generation and review-code surfaces;
-#   6. representation benchmarks (per merged-v2 plan §4.2.3):
+#   6. representation benchmarks (per the design spec):
 #      generated_code_size_bytes / pre_fit_object_size_bytes /
 #      code_generation_time_sec per indexed term class;
 #   7. an honest report that records failures, skips, and timeouts.
@@ -412,7 +412,7 @@ run_microbenchmarks <- function(
 }
 
 # --------------------------------------------------------------------- #
-# Representation benchmarks (merged-v2 plan section 4.2.3)              #
+# Representation benchmarks (the design spec)              #
 # --------------------------------------------------------------------- #
 #
 # Three measurements per (term_class, n) cell:
@@ -1266,7 +1266,7 @@ write_report <- function(
     "Backend fit tasks are deliberately separated because they include",
     "runtime setup, compilation, or sampler initialization overhead.",
     "",
-    "## Representation Benchmarks (merged-v2 plan section 4.2.3)",
+    "## Representation Benchmarks (the design spec)",
     "",
     if (!is.null(repr_dt) && nrow(repr_dt)) {
       c(
@@ -1414,7 +1414,7 @@ main <- function() {
   )
   data.table::fwrite(micro_dt, file.path(out_dir, "microbench_results.csv"))
 
-  cat("Running representation benchmarks (merged-v2 plan 4.2.3)...\n")
+  cat("Running representation benchmarks (the design spec)...\n")
   repr_n_grid <- if (identical(profile, "smoke")) {
     c(50L, 500L)
   } else if (identical(profile, "full")) {

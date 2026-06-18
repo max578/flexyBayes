@@ -70,7 +70,7 @@ emit_inla <- function(
   # the three-arbitrator verification test on a simple fixture has
   # passed and the artefact at
   # inst/extdata/inla-verification/simple_slope_uncor.rds records
-  # pass = TRUE. Until then, refuse explicitly with a v0.3 deferral
+  # pass = TRUE. Until then, refuse explicitly with a deferral
   # message naming the workaround (backend = "greta"). This is the
   # "no silent translation of an unverified mapping" policy.
   if (.has_simple_slope_uncor(fb)) {
@@ -742,7 +742,7 @@ emit_inla <- function(
 # (x || g) INLA mapping. The artefact is an .rds at
 # inst/extdata/inla-verification/simple_slope_uncor.rds carrying at
 # minimum a `pass` slot (logical). If the file does not exist, or
-# pass = FALSE, refuse the fit with a v0.3 deferral message naming
+# pass = FALSE, refuse the fit with a deferral message naming
 # backend = "greta" as the workaround. The refusal raises a structured
 # condition of class flexybayes_inla_simple_slope_uncor_deferred so
 # downstream tooling can pattern-match.

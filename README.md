@@ -380,7 +380,8 @@ Contributions are welcome. See `CONTRIBUTING.md` for the development workflow
 (fork, `usethis::pr_init()`, `devtools::check()` must pass, and a `NEWS.md`
 bullet for any user-facing change) and `CODE_OF_CONDUCT.md` (Contributor
 Covenant). Please report bugs and request features at
-<https://github.com/AAGI-AUS/flexyBayes/issues>.
+<https://github.com/AAGI-AUS/flexyBayes/issues>. The package's architecture
+decisions are indexed in `DESIGN_DECISIONS.md`.
 
 ## Citation
 

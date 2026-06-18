@@ -1,5 +1,5 @@
 # INLA mapping verification test for the factor_numeric_interaction
-# term class (ADR 0019 §Decision 5 / merged-v2 §3.4 three-arbitrator
+# term class (ADR 0019 §Decision 5 / the design spec three-arbitrator
 # decision rule).
 #
 # Policy: the INLA mapper for the new term class registers IF AND
@@ -11,7 +11,7 @@
 # carries `pass = FALSE`, and the lgm_gate() check
 # .lgm_check_factor_numeric_interaction_inla_verified() refuses
 # INLA dispatch on the factor:continuous indexed-slope term class
-# with a v0.3 deferral message.
+# with a deferral message.
 #
 # Tier: Tier 2 (full devtools::test()). Skipped on CRAN and when any
 # of INLA / greta / lme4 are unavailable -- the verification
@@ -121,7 +121,7 @@ test_that("INLA mapping for factor_numeric_interaction passes 3-arbitrator gate"
 
   # Three-way comparison. For every named coefficient, INLA must
   # agree with BOTH greta and lme4 within tolerance.
-  #   tolerance for fixed effects: 0.10 * |beta_true| per merged-v2
+  #   tolerance for fixed effects: 0.10 * |beta_true| per the design spec
   #   §3.4 (a small absolute floor catches near-zero coefficients).
   agreement_table <- list()
   agreement_pass <- TRUE

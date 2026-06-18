@@ -675,7 +675,7 @@ print.lgm_refusal <- function(x, ...) {
   # conditionally -- the gate accepts so dispatch routes to emit_inla,
   # but emit_inla itself consults the verification artefact at
   # inst/extdata/inla-verification/simple_slope_uncor.rds and refuses
-  # with a v0.3 deferral message if the three-arbitrator test
+  # with a deferral message if the three-arbitrator test
   # has not passed. This keeps the gate truth = emit truth invariant:
   # accept here means "INLA dispatch is attempted"; emit
   # refusal is structurally distinguishable from gate refusal.

@@ -84,7 +84,7 @@ test_that("emit_greta emits a bound-basis + random-effect block for s(x)", {
     verbose = FALSE,
     return_code = TRUE
   )
-  # ADR 0018 / merged-v2 §4.1: the basis matrix is bound into the
+  # ADR 0018 / the design spec: the basis matrix is bound into the
   # model env as B_s_x; the emitted code references it via
   # `as_data(B_s_x)` rather than inlining the n x k literal. The
   # B_s_x literal expression is gone from the code surface.

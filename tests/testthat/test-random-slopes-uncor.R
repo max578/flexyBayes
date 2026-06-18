@@ -1,7 +1,7 @@
 # Tests for ADR 0020 -- uncorrelated random slopes (x || g) and
 # (1 + x || g).
 #
-# Contract (per design-notes-priors-brms-lgm.md ADR 0020 + merged-v2
+# Contract (per design-notes-priors-brms-lgm.md ADR 0020 + the design spec
 # §4.2.2 acceptance criteria):
 #
 #   (a) fb(y ~ x + (x || g)) parses to type = "simple_slope_uncor"
@@ -19,7 +19,7 @@
 #   (d-e) Refusal slot inspection.
 #   (f) Posterior matches lme4::lmer(REML = FALSE) on sleepstudy
 #       within W_1 <= 0.20 * tau_true on the slope SD (loosened per
-#       merged-v2 §5.6 risk 3) and 0.15 on the intercept SD.
+#       the design spec) and 0.15 on the intercept SD.
 #   (g) Canonical name sd_<x>_<g> resolves on a greta fit.
 #   (h) Canonical name sd_<x>_<g> resolves on a brms-passthrough fit.
 #   (i) triangulate() between fb(backend = "brms") and
@@ -155,7 +155,7 @@ test_that("greta posterior matches lme4 on slope + intercept SD within loosened 
   withr::local_options(flexyBayes.silence_default_prior_note = TRUE)
   # 2000 samples + 2000 warmup per ADR 0020 §Verification. Slope-
   # variance posteriors are intrinsically less identified than
-  # intercept-variance ones at modest J (per merged-v2 §5.6 risk 3)
+  # intercept-variance ones at modest J (per the design spec)
   # and shorter chains yield posterior means outside the 0.20 *
   # tau_true tolerance even on the J = 18 sleepstudy-style fixture.
   fit <- suppressMessages(fb(
@@ -328,7 +328,7 @@ test_that("triangulate() agrees on sd_<x>_<g> within loosened tolerance (brms vs
     mcmc_verbose = FALSE
   ))
   tri <- triangulate(fit_g, fit_b)
-  # Per ADR 0020 §Decision 4 / merged-v2 §5.6 risk 3: tolerance
+  # Per ADR 0020 §Decision 4 / the design spec: tolerance
   # 0.20 * tau_true on slope variance (loosened from the standard
   # 0.15). Use the lme4 ML estimate as tau_true.
   ref <- lme4::lmer(Reaction ~ Days + (Days || Subject), data = d, REML = FALSE)
@@ -508,7 +508,7 @@ test_that("priors_to_brms legacy specs add the slope-variance row(s) per ADR 002
 # (o) INLA path refuses (x || g) per ADR 0020 §Decision 5            #
 # ---------------------------------------------------------------- #
 
-test_that("INLA path refuses (x || g) with v0.3 deferral when verification artefact absent", {
+test_that("INLA path refuses (x || g) with deferral when verification artefact absent", {
   testthat::skip_if_not_installed("INLA")
   d <- mk_slope_data()
   err <- tryCatch(
