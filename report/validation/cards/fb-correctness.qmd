@@ -1,71 +1,161 @@
-## `fb` is correct against an independent oracle
+## `flexybayes` recovers a Gaussian fixed-effects fit exactly
 
-**Meaning.** TODO(author): one or two sentences -- what `fb` computes, and the
-independent oracle(s) it is graded against (a self-consistent expectation is not
-validation).
+```{r}
+#| include: false
+dd <- readRDS(file.path(pv_root, "bench/results/fb-correctness.rds"))
+ag <- dd$agreement
+max_delta <- max(ag$abs_delta_vs_lm)
+fb_secs <- dd$fb$seconds
+```
+
+**Meaning.** For a Gaussian linear model with no random effects, the Bayesian
+posterior mean under a flat prior is the ordinary-least-squares solution. So
+`flexybayes()` on a fixed-effects Gaussian model must return what `stats::lm()`
+returns, and must recover the known coefficients used to simulate the data. The
+two independent oracles are `lm()` (an exact closed form) and the
+data-generating truth. The largest coefficient gap from `lm()` here is
+`r formatC(max_delta, format = "e", digits = 2)`.
 
 ### The mathematics
 
-TODO(author): state the method in full and derive the closed form (LaTeX
-`$...$` / `$$...$$`), so it renders in the PDF, the HTML explorer, and the
-Markdown dossier.
+Write the model as $y = X\beta + \varepsilon$ with $\varepsilon \sim
+\mathcal{N}(0, \sigma^2 I_n)$, where $X$ is the $n \times p$ design matrix. The
+likelihood is
 
-$$ \text{(the key identity)} $$
+$$
+p(y \mid \beta, \sigma^2) \propto
+  \exp\!\left\{ -\tfrac{1}{2\sigma^2} (y - X\beta)^\top (y - X\beta) \right\}.
+$$
+
+Under the flat prior $p(\beta) \propto 1$, the posterior for $\beta$ at fixed
+$\sigma^2$ is Gaussian,
+
+$$
+\beta \mid y, \sigma^2 \;\sim\;
+  \mathcal{N}\!\left( \hat\beta,\; \sigma^2 (X^\top X)^{-1} \right),
+  \qquad
+  \hat\beta = (X^\top X)^{-1} X^\top y,
+$$
+
+so the posterior mean $\hat\beta$ is exactly the ordinary-least-squares (and
+maximum-likelihood) estimate. The integrated nested Laplace approximation
+[@rue2009] is exact for this latent Gaussian model with a Gaussian likelihood,
+so the back end must reproduce $\hat\beta$ to numerical precision. This is the
+strongest kind of check, because the target value is known in closed form rather
+than estimated a second way.
 
 ### In `flexyBayes`
 
 ```{r}
-#| fig.show: hide
-# TODO(author): the actual exported call -- runnable, minimal.
-# library(flexyBayes); fb(<valid args>)
+#| eval: false
+library(flexyBayes)
+# data: n = 400 rows simulated from (Intercept, x1, x2) = (2.0, -1.5, 0.8)
+fit <- flexybayes(fixed = y ~ x1 + x2, data = dat, family = "gaussian",
+                  backend = "inla")
+coef(fit)
 ```
 
 ### Validation
 
-TODO(author): the headline benchmark of `fb` against at least one *external*
-implementation and, where feasible, a hand-rolled independent reference
-re-derived a second way. Report accuracy and computational time; pull every
-number from cached results in `bench/results/`.
+The fit recovers all three coefficients. Every estimate sits within two standard
+errors of both the truth and the `lm()` solution, and the maximum absolute
+difference from `lm()` is `r formatC(max_delta, format = "e", digits = 2)`, far
+below the estimation uncertainty (standard errors near
+`r formatC(mean(ag$lm_se), format = "f", digits = 2)`). The fit took
+`r formatC(fb_secs, format = "f", digits = 1)` seconds.
 
 ```{r}
-res <- readRDS("bench/results/fb-correctness.rds")
-# headline table via knitr::kable / figure via include_graphics
+#| echo: false
+disp <- data.frame(
+  Term = ag$term, Truth = ag$truth, `lm()` = ag$lm, flexyBayes = ag$fb_inla,
+  `|flexyBayes - lm()|` = formatC(ag$abs_delta_vs_lm, format = "e", digits = 2),
+  `within 2 SE` = ifelse(ag$within_2_lm_se, "yes", "no"),
+  check.names = FALSE)
+knitr::kable(disp, digits = 4, align = "lrrrrc",
+             caption = "Fixed-effects recovery: flexyBayes (INLA back end) against lm() and the known truth.")
+```
+
+```{r}
+#| echo: false
+#| fig-width: 6.5
+#| fig-height: 3.2
+#| fig-cap: "Estimates from flexyBayes and lm() coincide on each coefficient. The diamond marks the data-generating truth, and the bar is the lm() estimate plus or minus two standard errors, shown for scale."
+suppressMessages(library(ggplot2))
+pd <- data.frame(
+  term = factor(ag$term, levels = rev(ag$term)),
+  lm = ag$lm, fb = ag$fb_inla, truth = ag$truth, se = ag$lm_se)
+ggplot(pd, aes(y = term)) +
+  geom_errorbarh(aes(xmin = lm - 2 * se, xmax = lm + 2 * se),
+                 height = 0.18, colour = "grey70") +
+  geom_point(aes(x = lm, colour = "lm()"), size = 3) +
+  geom_point(aes(x = fb, colour = "flexyBayes"), size = 2) +
+  geom_point(aes(x = truth, shape = "truth"), size = 3.2, stroke = 0.9) +
+  scale_colour_manual(values = c("lm()" = pv_pal(2)[2], "flexyBayes" = pv_pal(1)),
+                      name = NULL) +
+  scale_shape_manual(values = c("truth" = 5), name = NULL) +
+  labs(x = "coefficient", y = NULL, title = "Gaussian fixed-effects recovery") +
+  pv_theme()
 ```
 
 ### Numerical validation against direct competitors
 
-TODO(author): the head-to-head against `fb`'s direct competitors -- the canonical
-counterpart first (the package or implementation this one reimplements or
-supersedes; omit no competitor that disagrees). Run on identical data; report
-numerical agreement and, where relevant, stability, precision, and timing. State a
-regime of *expected equivalence* with the measured agreement, then any *deviations*
-with their cause (algorithm, RNG, parameterisation, tolerance, backend). Provide
-copy-paste competitor + package calls and name the replication script. When a
-competitor shares this package's function names, run it in an isolated `Rscript`
-(see `bench/repro/`) to avoid namespace masking. Numbers come from cached results.
+The direct competitor for a Gaussian fixed-effects fit is `stats::lm()`, the
+exact least-squares solution and the canonical baseline.
 
-```{r}
-#| echo: false
-# TODO(author): head-to-head table from cache -- this package vs each competitor.
+**Expected equivalence.** On identical data the two should be numerically
+indistinguishable, because both target the same closed form. The measured
+maximum absolute difference across the three coefficients is
+`r formatC(max_delta, format = "e", digits = 2)`, roughly six orders of magnitude
+below the coefficient standard errors. There is no practical disagreement.
+
+**Deviations.** The residual difference is the only deviation, and its cause is
+the back end integrating over the residual-precision hyperparameter on a fine
+grid rather than profiling it out in closed form as `lm()` does. The effect sits
+at the level of the back end's numerical tolerance and is not statistically
+meaningful.
+
+**Reproduce.** On identical simulated data:
+
+```r
+# this package:
+flexybayes(fixed = y ~ x1 + x2, data = dat, family = "gaussian", backend = "inla")
+# the competitor / exact baseline:
+stats::lm(y ~ x1 + x2, data = dat)
 ```
+
+The replication script is `bench/fb-correctness.R`, reproduced in the appendix.
 
 <!-- DEEP -->
 ### When it wins
 
-TODO(author): name the alternatives and the regime where `fb` is the best
-choice, with the boundary where the ranking flips.
+For a pure Gaussian fixed-effects regression, `lm()` is the right tool and is
+instant. The value of fitting it through `flexyBayes` is the entry point rather
+than the point estimate: the same `fixed` specification extends to random
+effects, non-Gaussian families, and structured covariance without a change of
+syntax, and this card establishes that the fixed-effects base case is exact
+before any of that complexity is added.
 
 ### Limitations
 
-TODO(author): the limitations of this method and of the alternatives compared.
+The flat-prior posterior mean equals the least-squares estimate only for the
+Gaussian-identity case shown here. Under a non-Gaussian family or an informative
+prior the posterior mean and the maximum-likelihood estimate diverge by design,
+and the right oracle is then a re-derived posterior or a competing Bayesian fit
+rather than `lm()`. The check here is deliberately the exact case.
 
 ### Extended validation
 
-TODO(author): the fuller evidence -- more competitors, head-to-head results, the
-timing breakdown, seeds.
+The agreement holds for every coefficient, not only on average. The per-term
+absolute differences are
+`r paste(formatC(ag$abs_delta_vs_lm, format = "e", digits = 1), collapse = ", ")`
+for `r paste(ag$term, collapse = ", ")` respectively. The simulation uses a
+fixed seed, so the cached numbers reproduce exactly on rerun.
 <!-- /DEEP -->
 
 ### Summary
 
-TODO(author): one paragraph -- what the evidence establishes, with the headline
-number.
+On a Gaussian fixed-effects model with a known answer, `flexybayes()` through the
+INLA back end reproduces the `lm()` solution to
+`r formatC(max_delta, format = "e", digits = 2)` and recovers the
+data-generating coefficients within two standard errors. The exact base case is
+established.

@@ -4,24 +4,24 @@
 # package did not author (analytic / quadrature / simulation / competitor /
 # independent reference).
 - id: fb-correctness
-  title: "fb: correctness against an independent oracle"
+  title: "flexybayes: Gaussian fixed-effects recovery vs lm() (exact)"
   capability: fb
-  functions:  [fb]
-  tasks:      [correctness]            # TODO(author): real task domains
-  scenarios:  []
-  primitives: []                       # TODO(author): the math primitive
-  oracles:    [analytic, reference-impl]  # TODO(author): the real oracle(s)
-  competitors: []                      # TODO(author): direct head-to-heads, canonical counterpart first
+  functions:  [flexybayes]
+  tasks:      [correctness, coefficient-recovery]
+  scenarios:  [gaussian-fixed-effects]
+  primitives: [gaussian-linear-regression]
+  oracles:    [lm-exact, dgp-truth]
+  competitors: [stats::lm]
   flagship:   true
 - id: fb-inla-correctness
-  title: "fb_inla: correctness against an independent oracle"
+  title: "flexybayes (INLA): sleepstudy LMM vs standalone INLA + lme4"
   capability: fb-inla
-  functions:  [fb_inla]
-  tasks:      [correctness]            # TODO(author): real task domains
-  scenarios:  []
-  primitives: []                       # TODO(author): the math primitive
-  oracles:    [analytic, reference-impl]  # TODO(author): the real oracle(s)
-  competitors: []                      # TODO(author): direct head-to-heads, canonical counterpart first
+  functions:  [flexybayes, fb_inla]
+  tasks:      [correctness, translation-fidelity]
+  scenarios:  [random-intercept-lmm]
+  primitives: [random-intercept-gaussian-lmm]
+  oracles:    [standalone-inla, lme4-reml]
+  competitors: [INLA::inla, lme4::lmer]
   flagship:   true
 - id: fb-greta-correctness
   title: "fb_greta: sleepstudy LMM via greta/TF-HMC vs lme4"

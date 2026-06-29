@@ -24,7 +24,7 @@ for (f in c("theme.R", "setup.R", "run_bench.R", "assemble.R", "gates.R",
 ## Load the package under study from source so the bench phase exercises the
 ## working tree, never a stale installed copy.
 suppressMessages(
-  devtools::load_all(normalizePath(file.path("..", "flexyBayes")), quiet = TRUE)
+  devtools::load_all(normalizePath(file.path("..", "..", "flexyBayes")), quiet = TRUE)
 )
 title <- "flexyBayes: validation and benchmark study"
 

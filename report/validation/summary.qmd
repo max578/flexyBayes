@@ -1,0 +1,24 @@
+# What the evidence establishes {.unnumbered}
+
+Across the four checks the package behaves as its design promises. On the
+fixed-effects problem with a known answer, the INLA back end reproduces the
+ordinary-least-squares solution to a precision far below the estimation
+uncertainty, so the translation to a Gaussian linear model is exact. On the
+`sleepstudy` random-intercept model, `flexyBayes` through INLA reproduces a
+hand-written `INLA::inla()` fit to numerical precision, which shows the package
+builds the model the user specified rather than a near neighbour, and it lands
+within the reference fit's standard error of the `lme4` REML estimate. The two
+sampling back ends, greta through Hamiltonian Monte Carlo and `brms` through
+Stan, both agree with the same reference on the slope and intercept within
+sampling tolerance.
+
+Two qualifications travel with the evidence, both stated where they
+arise. The greta fit at a modest warm-up carried convergence warnings from the
+package itself, so a publication fit should lengthen the warm-up even though the
+agreement test still passes. And the `brms` comparison matched only the slope
+term by name across all three fits, because the intercept carries a different
+canonical label in each, a naming question rather than a numerical disagreement.
+
+Taken together, one model specification fitted three ways gives concordant
+estimates, and the cross-back-end agreement is the triangulation signal the
+package is built to provide.

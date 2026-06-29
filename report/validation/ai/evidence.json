@@ -1,61 +1,106 @@
 {
   "title": "flexyBayes: validation and benchmark study",
-  "note": "ALL FOUR flagship cards RUN with real numbers against independent oracles (no fabrication). One formula spec, validated across all three backends (INLA exact-deterministic; greta TF-HMC; brms Stan-HMC) plus a fixed-effects exactness card. Numbers computed by bench/*.R, cached to bench/results/*.rds; cards never hand-type them. api_surface_covered left null (N/A): a flagship correctness subset of a 169-export package, not a full-surface claim.",
-  "scaffolded": true,
-  "generated_on": "2026-06-29",
+  "note": "Machine-readable evidence index for automated review.",
   "n_cards": 4,
   "cards": [
     {
       "id": "fb-correctness",
-      "title": "fb/flexybayes: Gaussian fixed-effects recovery vs lm() (exact)",
-      "capability": "fb", "functions": ["flexybayes"],
+      "title": "flexybayes: Gaussian fixed-effects recovery vs lm() (exact)",
+      "capability": "fb",
+      "functions": "flexybayes",
       "tasks": ["correctness", "coefficient-recovery"],
-      "oracles": ["lm() exact OLS/MLE", "known data-generating truth"],
-      "competitors": ["stats::lm"], "primitives": ["gaussian-linear-regression"],
+      "oracles": ["lm-exact", "dgp-truth"],
+      "primitives": "gaussian-linear-regression",
       "flagship": true,
-      "conformance_cells": {"run": true, "pass": true,
-        "result": "flexyBayes(backend=inla) recovers (Intercept,x1,x2) to <=3.4e-6 of lm()",
-        "max_abs_delta_vs_lm": 3.4e-06}
+      "conformance_cells": null
     },
     {
       "id": "fb-inla-correctness",
-      "title": "fb_inla: sleepstudy LMM vs standalone INLA + lme4 (3-way)",
-      "capability": "fb-inla", "functions": ["flexybayes (backend='inla')", "fb_inla"],
+      "title": "flexybayes (INLA): sleepstudy LMM vs standalone INLA + lme4",
+      "capability": "fb-inla",
+      "functions": ["flexybayes", "fb_inla"],
       "tasks": ["correctness", "translation-fidelity"],
-      "oracles": ["lme4::lmer REML", "standalone INLA::inla()"],
-      "competitors": ["INLA::inla", "lme4::lmer"], "primitives": ["random-intercept-gaussian-lmm"],
+      "oracles": ["standalone-inla", "lme4-reml"],
+      "primitives": "random-intercept-gaussian-lmm",
       "flagship": true,
-      "conformance_cells": {"run": true, "pass": true,
-        "result": "flexyBayes-via-INLA == standalone INLA (delta 0, exact translation); within 1.5*SE of lme4 REML",
-        "delta_vs_standalone_inla": 0.0, "within_1.5_reml_se_vs_lme4": true,
-        "fixef": {"Intercept": 251.478, "Days": 10.451}}
+      "conformance_cells": null
     },
     {
       "id": "fb-greta-correctness",
       "title": "fb_greta: sleepstudy LMM via greta/TF-HMC vs lme4",
-      "capability": "fb-greta", "functions": ["flexybayes (backend='greta')", "fb_greta"],
-      "tasks": ["correctness"], "oracles": ["lme4::lmer REML"],
-      "competitors": ["lme4::lmer"], "primitives": ["random-intercept-gaussian-lmm"],
+      "capability": "fb-greta",
+      "functions": "fb_greta",
+      "tasks": "correctness",
+      "oracles": "lme4-reml",
+      "primitives": "random-intercept-gaussian-lmm",
       "flagship": true,
-      "conformance_cells": {"run": true, "pass": true, "seconds": 54.9,
-        "result": "agrees with lme4 within 1.5*SE (Intercept 247.9 vs 251.4; Days 10.53 vs 10.47)",
-        "caveat": "the package flagged non-convergence at modest warmup (Rhat up to 2.66, min ESS 16) -- raise warmup/n_samples for a publication fit; the agreement test still passes within tolerance"}
+      "conformance_cells": null
     },
     {
       "id": "fb-brms-correctness",
       "title": "fb_brms: sleepstudy LMM via brms/Stan-HMC vs standalone brms + lme4",
-      "capability": "fb-brms", "functions": ["flexybayes (backend='brms')", "fb_brms"],
+      "capability": "fb-brms",
+      "functions": "fb_brms",
       "tasks": ["correctness", "translation-fidelity"],
-      "oracles": ["lme4::lmer REML", "standalone brms::brm()"],
-      "competitors": ["brms::brm", "lme4::lmer"], "primitives": ["random-intercept-gaussian-lmm"],
+      "oracles": ["lme4-reml", "standalone-brms"],
+      "primitives": "random-intercept-gaussian-lmm",
       "flagship": true,
-      "conformance_cells": {"run": true, "pass": true, "seconds": 16.3,
-        "result": "Days slope agrees across fb-brms 10.48 / standalone brms 10.43 / lme4 10.47 (delta 0.01)",
-        "finding": "only the Days term matched by name across all three; the Intercept differs in canonical naming (fb_brms coef() vs brms::fixef vs lme4::fixef) and was excluded -- a real canonical-naming follow-up, not a numeric disagreement"}
+      "conformance_cells": null
     }
   ],
   "conformance": {
-    "findings": 0,
-    "api_surface_covered": null
+    "cells": 29,
+    "metamorphic": 1,
+    "findings": 1,
+    "meta_failures": 0,
+    "summary": [
+      {
+        "status": "ok",
+        "n": 8
+      },
+      {
+        "status": "warned-ok",
+        "n": 0
+      },
+      {
+        "status": "clean-error",
+        "n": 20
+      },
+      {
+        "status": "warned-through",
+        "n": 0
+      },
+      {
+        "status": "wrong-result",
+        "n": 0
+      },
+      {
+        "status": "no-error",
+        "n": 1
+      },
+      {
+        "status": "opaque-error",
+        "n": 0
+      },
+      {
+        "status": "unexpected-error",
+        "n": 0
+      }
+    ],
+    "verdicts_path": "ai/conformance_verdicts.json",
+    "api_surface_covered": 0.119
+  },
+  "scope": {
+    "n_cells": 29,
+    "n_curated": 17,
+    "n_generated": 12,
+    "n_functions": 23,
+    "n_meta": 1,
+    "n_meta_fail": 0,
+    "value_classes": "NA",
+    "api_surface_covered": 0.119,
+    "min_coverage": 0.8,
+    "uncovered_positive": ["backend_decision", "canonical_names", "cat_code", "fb", "fb_approx", "fb_as_draws_simple", "fb_backend_status", "fb_brms", "fb_dirichlet", "fb_family_dirichlet", "fb_family_gev", "fb_from_asreml", "fb_from_brms", "fb_from_greta", "fb_gblup_cv", "fb_gev", "fb_greta", "fb_gwas", "fb_inla", "fb_log_posterior", "fb_met_summary", "fb_plan", "fb_refusals", "fb_structured_cov", "flexybayes", "flexybayes_stream", "genomic_summary", "gretaR_status", "is_fb_approx", "prior_summary", "proceed", "triangulate", "triangulate_genomic", "triangulate_gwas", "validate_approximation"],
+    "uncovered_negative": ["cat_code", "fb_backend_status", "fb_brms", "fb_family_dirichlet", "fb_family_gev", "fb_from_asreml", "fb_from_brms", "fb_from_greta", "fb_gblup_cv", "fb_gev", "fb_greta", "fb_gwas", "fb_inla", "fb_plan", "fb_refusals", "flexybayes_stream", "gretaR_status", "is_fb_approx", "is_fb_cov", "is_fb_engine", "proceed"]
   }
 }

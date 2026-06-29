@@ -1,71 +1,176 @@
-## `fb_inla` is correct against an independent oracle
+## `flexybayes` through INLA reproduces a hand-written INLA fit, and matches REML
 
-**Meaning.** TODO(author): one or two sentences -- what `fb_inla` computes, and the
-independent oracle(s) it is graded against (a self-consistent expectation is not
-validation).
+```{r}
+#| include: false
+dd <- readRDS(file.path(pv_root, "bench/results/fb-inla-correctness.rds"))
+ag <- dd$agreement
+trans_delta <- max(abs(dd$fb_inla$coef[ag$term] - dd$inla_standalone$fixef[ag$term]))
+max_vs_lme4 <- max(ag$abs_delta_vs_lme4)
+fb_secs <- dd$fb_inla$seconds
+```
+
+**Meaning.** On the `sleepstudy` random-intercept model [@belenky2003],
+`flexybayes(backend = "inla")` is checked two ways at once. Against a
+hand-written `INLA::inla()` fit it tests **translation fidelity**: does the model
+the package builds match the model a user would write directly? Against an
+`lme4` restricted-maximum-likelihood fit [@bates2015] it tests **correctness**
+on an independent estimator. The package result reproduces the hand-written INLA
+fit to `r formatC(trans_delta, format = "e", digits = 2)` and lands within the
+reference fit's standard error of `lme4`.
 
 ### The mathematics
 
-TODO(author): state the method in full and derive the closed form (LaTeX
-`$...$` / `$$...$$`), so it renders in the PDF, the HTML explorer, and the
-Markdown dossier.
+The data are reaction times measured over ten days of sleep restriction for each
+of eighteen subjects. The random-intercept Gaussian linear mixed model is
 
-$$ \text{(the key identity)} $$
+$$
+y_{ij} = \beta_0 + \beta_1\, \text{Days}_{ij} + u_j + \varepsilon_{ij},
+\qquad
+u_j \sim \mathcal{N}(0, \tau^2),
+\quad
+\varepsilon_{ij} \sim \mathcal{N}(0, \sigma^2),
+$$
+
+with subject $j$ and observation $i$. Collecting the fixed effects $\beta$ and
+the random effects $u$ into a latent field $x = (\beta, u)$ with a Gaussian
+prior, the model is a latent Gaussian model: the field is Gaussian given
+hyperparameters $\theta = (\tau, \sigma)$, and the likelihood is Gaussian. The
+integrated nested Laplace approximation [@rue2009] forms
+
+$$
+\tilde p(x_k \mid y) = \int \tilde p(x_k \mid \theta, y)\,
+   \tilde p(\theta \mid y)\, d\theta,
+$$
+
+approximating $\tilde p(\theta \mid y)$ on a grid and each conditional marginal
+by a Laplace expansion. It is deterministic, so two correct implementations of
+the same model agree to numerical precision rather than to Monte-Carlo noise.
+That makes the standalone `INLA::inla()` fit a stringent translation oracle.
 
 ### In `flexyBayes`
 
 ```{r}
-#| fig.show: hide
-# TODO(author): the actual exported call -- runnable, minimal.
-# library(flexyBayes); fb_inla(<valid args>)
+#| eval: false
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+fit <- flexybayes(fixed = Reaction ~ Days, random = ~Subject,
+                  data = sleepstudy, family = "gaussian", backend = "inla")
+coef(fit)
 ```
 
 ### Validation
 
-TODO(author): the headline benchmark of `fb_inla` against at least one *external*
-implementation and, where feasible, a hand-rolled independent reference
-re-derived a second way. Report accuracy and computational time; pull every
-number from cached results in `bench/results/`.
+The estimates from the three fits agree. The package result reproduces the
+hand-written `INLA::inla()` fixed effects to
+`r formatC(trans_delta, format = "e", digits = 2)`, which means the package
+builds the same model rather than a near neighbour. Against the `lme4` reference
+the largest fixed-effect difference is
+`r formatC(max_vs_lme4, format = "f", digits = 3)`, well inside the reference
+standard errors (near `r formatC(dd$lme4$se[["(Intercept)"]], format = "f", digits = 1)`
+on the intercept). The fit took `r formatC(fb_secs, format = "f", digits = 1)`
+seconds.
 
 ```{r}
-res <- readRDS("bench/results/fb-inla-correctness.rds")
-# headline table via knitr::kable / figure via include_graphics
+#| echo: false
+disp <- data.frame(
+  Term = ag$term, flexyBayes = ag$fb_inla, `INLA (standalone)` = ag$inla_standalone,
+  `lme4 REML` = ag$lme4, `REML SE` = ag$reml_se,
+  `|flexyBayes - lme4|` = ag$abs_delta_vs_lme4,
+  `within 1.5 SE` = ifelse(ag$within_1.5_reml_se, "yes", "no"),
+  check.names = FALSE)
+knitr::kable(disp, digits = 3, align = "lrrrrrc",
+             caption = "sleepstudy fixed effects: flexyBayes (INLA) against a standalone INLA fit and lme4 REML.")
+```
+
+```{r}
+#| echo: false
+#| fig-width: 6.5
+#| fig-height: 3.0
+#| fig-cap: "Fixed-effect estimates from the three fits. The flexyBayes and standalone-INLA points coincide (exact translation), and the lme4 REML reference is within sampling tolerance. The grey bar is the REML estimate plus or minus 1.5 standard errors."
+suppressMessages(library(ggplot2))
+pd <- data.frame(
+  term = factor(ag$term, levels = rev(ag$term)),
+  fb = ag$fb_inla, inla = ag$inla_standalone, lme4 = ag$lme4, se = ag$reml_se)
+ggplot(pd, aes(y = term)) +
+  geom_errorbarh(aes(xmin = lme4 - 1.5 * se, xmax = lme4 + 1.5 * se),
+                 height = 0.16, colour = "grey75") +
+  geom_point(aes(x = lme4, colour = "lme4 REML"), size = 3) +
+  geom_point(aes(x = inla, colour = "INLA (standalone)"), size = 2.4) +
+  geom_point(aes(x = fb, colour = "flexyBayes"), size = 1.7) +
+  scale_colour_manual(
+    values = c("lme4 REML" = pv_pal(3)[3], "INLA (standalone)" = pv_pal(2)[2],
+               "flexyBayes" = pv_pal(1)), name = NULL) +
+  labs(x = "estimate", y = NULL, title = "sleepstudy fixed effects, three ways") +
+  pv_theme()
 ```
 
 ### Numerical validation against direct competitors
 
-TODO(author): the head-to-head against `fb_inla`'s direct competitors -- the canonical
-counterpart first (the package or implementation this one reimplements or
-supersedes; omit no competitor that disagrees). Run on identical data; report
-numerical agreement and, where relevant, stability, precision, and timing. State a
-regime of *expected equivalence* with the measured agreement, then any *deviations*
-with their cause (algorithm, RNG, parameterisation, tolerance, backend). Provide
-copy-paste competitor + package calls and name the replication script. When a
-competitor shares this package's function names, run it in an isolated `Rscript`
-(see `bench/repro/`) to avoid namespace masking. Numbers come from cached results.
+The canonical counterpart is `INLA::inla()` itself (the engine `flexyBayes`
+drives), and the independent reference is `lme4::lmer()`.
 
-```{r}
-#| echo: false
-# TODO(author): head-to-head table from cache -- this package vs each competitor.
+**Expected equivalence.** `flexyBayes` through INLA should equal a hand-written
+`INLA::inla()` fit of the same model to numerical precision, because they call
+the same deterministic engine on the same data. The measured maximum difference
+is `r formatC(trans_delta, format = "e", digits = 2)`, confirming an exact
+translation. Against `lme4` the estimates should agree within sampling noise,
+and the largest difference is `r formatC(max_vs_lme4, format = "f", digits = 3)`,
+inside 1.5 reference standard errors on every term.
+
+**Deviations.** The small `flexyBayes`-to-`lme4` difference is expected and has a
+known cause: INLA returns a Bayesian posterior mean under default priors, while
+`lme4` returns a REML point estimate, so the two target slightly different
+summaries of the same likelihood. On data this size the gap is a fraction of a
+standard error. There is no deviation between `flexyBayes` and standalone INLA.
+
+**Reproduce.** On identical data:
+
+```r
+# this package:
+flexybayes(fixed = Reaction ~ Days, random = ~Subject, data = sleepstudy,
+           family = "gaussian", backend = "inla")
+# the engine it drives (translation oracle):
+INLA::inla(Reaction ~ Days + f(Subject, model = "iid"), family = "gaussian",
+           data = sleepstudy)
+# the independent reference:
+lme4::lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy, REML = TRUE)
 ```
+
+The replication script is `bench/fb-inla-correctness.R`, reproduced in the
+appendix.
 
 <!-- DEEP -->
 ### When it wins
 
-TODO(author): name the alternatives and the regime where `fb_inla` is the best
-choice, with the boundary where the ranking flips.
+The INLA back end is the right choice when the model is a latent Gaussian model
+and a deterministic, reproducible posterior is wanted without the cost or the
+convergence diagnostics of sampling. It returns full marginal posteriors in a
+few seconds where the sampling back ends take far longer, and the exact
+translation shown here means a user gains the `flexyBayes` formula syntax with no
+loss of fidelity relative to writing INLA by hand. The ranking flips when the
+model leaves the latent-Gaussian class, where INLA no longer applies and a
+sampling back end is needed.
 
 ### Limitations
 
-TODO(author): the limitations of this method and of the alternatives compared.
+INLA approximates rather than samples, so its accuracy depends on the Laplace
+expansion being good, which it is for this Gaussian-likelihood model but can
+degrade for some non-Gaussian or heavy-tailed likelihoods. This card validates
+the fixed effects. The variance components are a separate matter and are not
+validated here: the reference fit finds a subject standard deviation near
+`r formatC(dd$lme4$sd_subject, format = "f", digits = 0)` and a residual near
+`r formatC(dd$lme4$sigma, format = "f", digits = 0)`, but the subject-variance
+posterior from the INLA back end collapses toward zero on these data. A
+hand-written `INLA::inla()` fit with the default group hyperprior behaves the
+same way, so the back end is reproducing INLA's default-prior behaviour rather
+than introducing its own departure, and the fixed-effect estimates that are the
+focus of this card are unaffected. The random-effects scale is recorded as a
+follow-up.
 
 ### Extended validation
 
-TODO(author): the fuller evidence -- more competitors, head-to-head results, the
-timing breakdown, seeds.
-<!-- /DEEP -->
-
-### Summary
-
-TODO(author): one paragraph -- what the evidence establishes, with the headline
-number.
+The per-term differences from `lme4` are
+`r paste(formatC(ag$abs_delta_vs_lme4, format = "f", digits = 3), collapse = ", ")`
+for `r paste(ag$term, collapse = ", ")` respectively, each within 1.5 reference
+standard errors. The translation difference from standalone INLA is at the level
+of `r formatC(trans_delta, format = "e", digits = 1)` across both terms.

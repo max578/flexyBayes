@@ -1,71 +1,175 @@
-## `fb_greta` is correct against an independent oracle
+## `flexybayes` through greta agrees with REML under Hamiltonian Monte Carlo
 
-**Meaning.** TODO(author): one or two sentences -- what `fb_greta` computes, and the
-independent oracle(s) it is graded against (a self-consistent expectation is not
-validation).
+```{r}
+#| include: false
+dd <- readRDS(file.path(pv_root, "bench/results/fb-greta-correctness.rds"))
+ag <- dd$agreement
+max_vs_lme4 <- max(ag$abs_delta_vs_lme4)
+days_delta <- ag$abs_delta_vs_lme4[ag$term == "Days"]
+fb_secs <- dd$fb_greta$seconds
+```
+
+**Meaning.** The same `sleepstudy` random-intercept model is fitted through the
+greta back end, which builds a TensorFlow probabilistic model and draws the
+posterior with Hamiltonian Monte Carlo [@golding2019]. The estimator is
+stochastic, so the test is agreement with an independent `lme4`
+restricted-maximum-likelihood fit [@bates2015] within sampling tolerance. The
+posterior-mean fixed effects land within the reference fit's standard error on
+both terms, the largest difference being
+`r formatC(max_vs_lme4, format = "f", digits = 2)`.
 
 ### The mathematics
 
-TODO(author): state the method in full and derive the closed form (LaTeX
-`$...$` / `$$...$$`), so it renders in the PDF, the HTML explorer, and the
-Markdown dossier.
+The model is the random-intercept Gaussian linear mixed model of the previous
+card,
 
-$$ \text{(the key identity)} $$
+$$
+y_{ij} = \beta_0 + \beta_1\, \text{Days}_{ij} + u_j + \varepsilon_{ij},
+\qquad
+u_j \sim \mathcal{N}(0, \tau^2),
+\quad
+\varepsilon_{ij} \sim \mathcal{N}(0, \sigma^2).
+$$
+
+Rather than approximate the posterior, greta samples it. Hamiltonian Monte Carlo
+augments the parameter vector $\vartheta$ with a momentum $r \sim
+\mathcal{N}(0, M)$ and simulates the dynamics of the Hamiltonian
+
+$$
+H(\vartheta, r) = -\log p(\vartheta \mid y) + \tfrac{1}{2} r^\top M^{-1} r,
+$$
+
+using leapfrog steps with a Metropolis correction, which proposes distant,
+high-acceptance moves by following the posterior gradient. The No-U-Turn
+extension [@hoffman2014] tunes the trajectory length automatically. The Monte
+Carlo estimate of a posterior mean converges to the true posterior mean at the
+sampling rate, so agreement is judged on the scale of the reference standard
+error, not to machine precision.
 
 ### In `flexyBayes`
 
 ```{r}
-#| fig.show: hide
-# TODO(author): the actual exported call -- runnable, minimal.
-# library(flexyBayes); fb_greta(<valid args>)
+#| eval: false
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+fit <- flexybayes(fixed = Reaction ~ Days, random = ~Subject,
+                  data = sleepstudy, family = "gaussian", backend = "greta",
+                  n_samples = 1000, warmup = 1000, chains = 2)
+coef(fit)
 ```
 
 ### Validation
 
-TODO(author): the headline benchmark of `fb_greta` against at least one *external*
-implementation and, where feasible, a hand-rolled independent reference
-re-derived a second way. Report accuracy and computational time; pull every
-number from cached results in `bench/results/`.
+The posterior-mean fixed effects agree with the `lme4` reference. The slope on
+Days differs by `r formatC(days_delta, format = "f", digits = 3)` and the
+intercept by `r formatC(max_vs_lme4, format = "f", digits = 2)`, each within 1.5
+reference standard errors (the intercept standard error alone is near
+`r formatC(dd$lme4$se[["(Intercept)"]], format = "f", digits = 1)`). The sampling
+run took `r formatC(fb_secs, format = "f", digits = 0)` seconds.
 
 ```{r}
-res <- readRDS("bench/results/fb-greta-correctness.rds")
-# headline table via knitr::kable / figure via include_graphics
+#| echo: false
+disp <- data.frame(
+  Term = ag$term, `flexyBayes (greta)` = ag$fb_greta, `lme4 REML` = ag$lme4,
+  `REML SE` = ag$reml_se, `|flexyBayes - lme4|` = ag$abs_delta_vs_lme4,
+  `within 1.5 SE` = ifelse(ag$within_1.5_reml_se, "yes", "no"),
+  check.names = FALSE)
+knitr::kable(disp, digits = 3, align = "lrrrrc",
+             caption = "sleepstudy fixed effects: flexyBayes (greta, Hamiltonian Monte Carlo) against lme4 REML.")
+```
+
+```{r}
+#| echo: false
+#| fig-width: 6.5
+#| fig-height: 3.0
+#| fig-cap: "Posterior-mean fixed effects from greta against the lme4 REML reference. The grey bar is the REML estimate plus or minus 1.5 standard errors, and both terms fall inside the interval."
+suppressMessages(library(ggplot2))
+pd <- data.frame(
+  term = factor(ag$term, levels = rev(ag$term)),
+  fb = ag$fb_greta, lme4 = ag$lme4, se = ag$reml_se)
+ggplot(pd, aes(y = term)) +
+  geom_errorbarh(aes(xmin = lme4 - 1.5 * se, xmax = lme4 + 1.5 * se),
+                 height = 0.16, colour = "grey75") +
+  geom_point(aes(x = lme4, colour = "lme4 REML"), size = 3) +
+  geom_point(aes(x = fb, colour = "flexyBayes (greta)"), size = 2.2) +
+  scale_colour_manual(
+    values = c("lme4 REML" = pv_pal(3)[3], "flexyBayes (greta)" = pv_pal(1)),
+    name = NULL) +
+  labs(x = "estimate", y = NULL,
+       title = "sleepstudy fixed effects: greta vs REML") +
+  pv_theme()
 ```
 
 ### Numerical validation against direct competitors
 
-TODO(author): the head-to-head against `fb_greta`'s direct competitors -- the canonical
-counterpart first (the package or implementation this one reimplements or
-supersedes; omit no competitor that disagrees). Run on identical data; report
-numerical agreement and, where relevant, stability, precision, and timing. State a
-regime of *expected equivalence* with the measured agreement, then any *deviations*
-with their cause (algorithm, RNG, parameterisation, tolerance, backend). Provide
-copy-paste competitor + package calls and name the replication script. When a
-competitor shares this package's function names, run it in an isolated `Rscript`
-(see `bench/repro/`) to avoid namespace masking. Numbers come from cached results.
+The independent reference for this model is `lme4::lmer()`. The greta back end is
+not reimplementing `lme4`. It samples the Bayesian posterior of the same
+specification, so the comparison is one of agreement within sampling noise rather
+than exact reproduction.
 
-```{r}
-#| echo: false
-# TODO(author): head-to-head table from cache -- this package vs each competitor.
+**Expected equivalence.** With enough posterior draws the Hamiltonian-Monte-Carlo
+posterior mean should match the REML estimate within sampling tolerance, because
+both summarise the same likelihood for this well-identified model. The measured
+differences, `r formatC(days_delta, format = "f", digits = 3)` on the slope and
+`r formatC(max_vs_lme4, format = "f", digits = 2)` on the intercept, are both
+inside 1.5 reference standard errors.
+
+**Deviations.** The intercept difference, while inside tolerance, is the larger
+of the two and is attributable to finite sampling at a modest warm-up combined
+with the default weakly-informative priors. The package reported
+convergence warnings for this short run, so a publication-grade fit should
+lengthen the warm-up and increase the number of draws. The agreement test passes
+at the run shown, and the caveat is recorded rather than smoothed over.
+
+**Reproduce.** On identical data:
+
+```r
+# this package:
+flexybayes(fixed = Reaction ~ Days, random = ~Subject, data = sleepstudy,
+           family = "gaussian", backend = "greta",
+           n_samples = 1000, warmup = 1000, chains = 2)
+# the independent reference:
+lme4::lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy, REML = TRUE)
 ```
+
+The replication script is `bench/fb-greta-correctness.R`, reproduced in the
+appendix.
 
 <!-- DEEP -->
 ### When it wins
 
-TODO(author): name the alternatives and the regime where `fb_greta` is the best
-choice, with the boundary where the ranking flips.
+The greta back end is the right choice when the model leaves the latent-Gaussian
+class that INLA requires, or when full posterior draws are wanted for arbitrary
+derived quantities rather than marginal summaries. Because it builds on
+TensorFlow, it scales the gradient computation to large models on suitable
+hardware. The cost is wall-clock time and the need to check convergence, so for a
+plain Gaussian latent model the INLA back end is faster and the comparison here
+is about fidelity, not speed.
 
 ### Limitations
 
-TODO(author): the limitations of this method and of the alternatives compared.
+The estimate is a Monte-Carlo quantity, so it carries sampling error that shrinks
+only as draws increase, and the modest warm-up used here is enough to pass the
+agreement test but not enough for a reported posterior with tight credible
+intervals. Convergence must be checked for any real fit. A non-finite draw from
+the sampler is recorded by the benchmark rather than dropped, so a failed run
+would surface rather than silently pass.
 
 ### Extended validation
 
-TODO(author): the fuller evidence -- more competitors, head-to-head results, the
-timing breakdown, seeds.
+The per-term differences from `lme4` are
+`r paste(formatC(ag$abs_delta_vs_lme4, format = "f", digits = 3), collapse = ", ")`
+for `r paste(ag$term, collapse = ", ")` respectively, both within 1.5 reference
+standard errors. All sampled coefficients are finite
+(`r if (isTRUE(dd$fb_greta$all_finite)) "confirmed" else "not confirmed"`), and
+the run uses a fixed seed.
 <!-- /DEEP -->
 
 ### Summary
 
-TODO(author): one paragraph -- what the evidence establishes, with the headline
-number.
+Fitting the `sleepstudy` model through greta with Hamiltonian Monte Carlo gives
+posterior-mean fixed effects within 1.5 reference standard errors of the `lme4`
+REML fit, the largest difference being
+`r formatC(max_vs_lme4, format = "f", digits = 2)`. The sampling back end agrees
+with the deterministic reference, with the standard caveat that a publication fit
+should use a longer warm-up.

@@ -1,0 +1,168 @@
+## `flexybayes` through brms agrees with a standalone Stan fit and with REML
+
+```{r}
+#| include: false
+dd <- readRDS(file.path(pv_root, "bench/results/fb-brms-correctness.rds"))
+ag <- dd$agreement
+days_delta <- ag$abs_delta_vs_lme4[ag$term == "Days"]
+fb_int   <- dd$fb_brms$coef[["(Intercept)"]]
+brms_int <- dd$brms_standalone$fixef[["Intercept"]]
+lme4_int <- dd$lme4$fixef[["(Intercept)"]]
+int_spread <- max(c(fb_int, brms_int, lme4_int)) - min(c(fb_int, brms_int, lme4_int))
+fb_secs   <- dd$fb_brms$seconds
+brms_secs <- dd$brms_standalone$seconds
+```
+
+**Meaning.** The `sleepstudy` model is fitted a third way, through the `brms`
+back end, which compiles a Stan program and samples it with the No-U-Turn variant
+of Hamiltonian Monte Carlo [@burkner2017; @carpenter2017]. As with INLA, the fit
+is checked against a hand-written `brms::brm()` fit (translation fidelity) and
+against `lme4` REML (the independent reference). The Days slope agrees across all
+three fits to `r formatC(days_delta, format = "f", digits = 3)` of the reference,
+and the intercept agrees once aligned across the differing coefficient labels.
+
+### The mathematics
+
+The model is again the random-intercept Gaussian linear mixed model,
+
+$$
+y_{ij} = \beta_0 + \beta_1\, \text{Days}_{ij} + u_j + \varepsilon_{ij},
+\qquad
+u_j \sim \mathcal{N}(0, \tau^2),
+\quad
+\varepsilon_{ij} \sim \mathcal{N}(0, \sigma^2).
+$$
+
+`brms` translates this specification into a Stan program and draws the joint
+posterior of $(\beta, u, \tau, \sigma)$ with the self-tuning No-U-Turn sampler
+[@hoffman2014], which adapts the leapfrog step size and trajectory length during
+warm-up. The reported fixed effects are posterior means, so the comparison with
+the deterministic REML reference is again on the scale of the reference standard
+error. The standalone `brms::brm()` fit of the same formula is the translation
+oracle: the package must build the Stan model the user intended.
+
+### In `flexyBayes`
+
+```{r}
+#| eval: false
+library(flexyBayes)
+data(sleepstudy, package = "lme4")
+fit <- flexybayes(fixed = Reaction ~ Days, random = ~Subject,
+                  data = sleepstudy, family = "gaussian", backend = "brms",
+                  n_samples = 1000, warmup = 1000, chains = 2)
+coef(fit)
+```
+
+### Validation
+
+The Days slope matches across the three fits, differing from the `lme4` reference
+by `r formatC(days_delta, format = "f", digits = 3)`, well within the reference
+standard error. The intercept estimates also agree once aligned across the
+coefficient labels (see below), spanning a range of only
+`r formatC(int_spread, format = "f", digits = 2)` across the three fits. The
+package fit took `r formatC(fb_secs, format = "f", digits = 0)` seconds against
+`r formatC(brms_secs, format = "f", digits = 0)` for the standalone fit.
+
+```{r}
+#| echo: false
+disp <- data.frame(
+  Term = ag$term, `flexyBayes (brms)` = ag$fb_brms,
+  `brms (standalone)` = ag$brms_standalone, `lme4 REML` = ag$lme4,
+  `REML SE` = ag$reml_se, `|flexyBayes - lme4|` = ag$abs_delta_vs_lme4,
+  `within 1.5 SE` = ifelse(ag$within_1.5_reml_se, "yes", "no"),
+  check.names = FALSE)
+knitr::kable(disp, digits = 3, align = "lrrrrrc",
+             caption = "sleepstudy Days slope: flexyBayes (brms) against a standalone brms fit and lme4 REML.")
+```
+
+A note on coverage. Across the three coefficient accessors only the Days slope
+shares a canonical name. The intercept is labelled `(Intercept)` by the package
+and by `lme4` but `Intercept` by `brms::fixef()`, so the automatic by-name
+comparison above covers the slope, and the intercept is aligned by hand here:
+
+```{r}
+#| echo: false
+ints <- data.frame(
+  Fit = c("flexyBayes (brms)", "brms (standalone)", "lme4 REML"),
+  `Intercept estimate` = c(fb_int, brms_int, lme4_int),
+  check.names = FALSE)
+knitr::kable(ints, digits = 2, align = "lr",
+             caption = "Intercept estimates aligned across the three differing labels.")
+```
+
+### Numerical validation against direct competitors
+
+The canonical counterpart is `brms::brm()` (the engine `flexyBayes` drives), and
+the independent reference is `lme4::lmer()`.
+
+**Expected equivalence.** The package fit and a standalone `brms` fit of the same
+formula should give the same posterior up to sampling noise, and both should
+match the REML reference within tolerance. The Days slope differs from `lme4` by
+`r formatC(days_delta, format = "f", digits = 3)`, and the three intercept
+estimates span `r formatC(int_spread, format = "f", digits = 2)`, well inside the
+reference standard error on the intercept (near
+`r formatC(dd$lme4$se[["(Intercept)"]], format = "f", digits = 1)`).
+
+**Deviations.** There is no numerical deviation on the shared terms. The single
+observed difference is one of labelling: the intercept carries a different
+canonical name in each engine's coefficient accessor, so an automatic by-name
+join keeps only the slope. This is a naming question, recorded for the package
+maintainers, and not a disagreement in the estimates, which agree once aligned.
+
+**Reproduce.** On identical data:
+
+```r
+# this package:
+flexybayes(fixed = Reaction ~ Days, random = ~Subject, data = sleepstudy,
+           family = "gaussian", backend = "brms",
+           n_samples = 1000, warmup = 1000, chains = 2)
+# the engine it drives (translation oracle):
+brms::brm(Reaction ~ Days + (1 | Subject), data = sleepstudy,
+          chains = 2, iter = 2000)
+# the independent reference:
+lme4::lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy, REML = TRUE)
+```
+
+The replication script is `bench/fb-brms-correctness.R`, reproduced in the
+appendix.
+
+<!-- DEEP -->
+### When it wins
+
+The `brms` back end is the right choice when the model needs the full Stan
+modelling language: custom priors, a wide range of families and link functions,
+non-linear terms, or distributional regression where more than the mean is
+modelled. It pays a compilation cost on the first fit and is the slowest of the
+three back ends here, so for a plain Gaussian latent model INLA is faster and
+greta is a lighter sampler. The case for `brms` is breadth of model class, not
+speed on this example.
+
+### Limitations
+
+As with any sampler the estimate carries Monte-Carlo error, and the modest
+warm-up used here is sufficient for the slope agreement but a reported posterior
+should use a longer run. The intercept-naming mismatch means a user combining
+coefficients across back ends by name must align the intercept label first. Until
+the package normalises the canonical name, an automatic cross-back-end join will
+silently cover only the shared terms.
+
+### Extended validation
+
+Aligned by hand, the intercept estimates are
+`r formatC(fb_int, format = "f", digits = 1)` (package),
+`r formatC(brms_int, format = "f", digits = 1)` (standalone brms), and
+`r formatC(lme4_int, format = "f", digits = 1)` (lme4 REML), a spread of
+`r formatC(int_spread, format = "f", digits = 2)`. The Days slope estimates are
+`r formatC(ag$fb_brms, format = "f", digits = 2)` (package),
+`r formatC(ag$brms_standalone, format = "f", digits = 2)` (standalone brms), and
+`r formatC(ag$lme4, format = "f", digits = 2)` (lme4 REML). All coefficients are
+finite and the run uses a fixed seed.
+<!-- /DEEP -->
+
+### Summary
+
+Fitting the `sleepstudy` model through the `brms` back end gives a Days slope
+within `r formatC(days_delta, format = "f", digits = 3)` of the `lme4` REML
+reference and an intercept that agrees once the differing labels are aligned.
+The package reproduces a standalone Stan fit, and the only finding is a
+cross-back-end intercept-naming mismatch recorded for the maintainers.

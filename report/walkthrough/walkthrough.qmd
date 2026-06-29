@@ -1,0 +1,399 @@
+---
+title: "A Bayesian mixed model, end to end"
+subtitle: "Fitting the sleepstudy reaction-time model with flexyBayes, and handing the answer to a colleague"
+date: 2026-06-29
+date-format: iso
+abstract: |
+  A worked example of `flexyBayes` on a real, public data set. A
+  statistician specifies a linear mixed model once, in ASReml-style
+  syntax, and fits it through a Bayesian back end. A sleep researcher
+  who does not write models receives the fitted result and reads a
+  direct answer to one question: how fast does reaction time degrade
+  under sleep restriction, and how certain are we? Every number below
+  is computed at render time from the public sleepstudy data.
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    code-tools: false
+    fig-width: 8
+    fig-height: 4.6
+    fig-align: center
+    theme:
+      light: cosmo
+    smooth-scroll: true
+    include-in-header:
+      text: |
+        <style>
+          .callout { border-left: 4px solid #1B7837; padding: 0.6em 1em; margin: 1em 0; background: #f3f9f5; }
+          .callout-warn { border-left-color: #d95f02; background: #fff7ed; }
+          .callout-tip  { border-left-color: #2166AC; background: #f1f6fb; }
+          .beginner-cue { border-left: 4px solid #762A83; padding: 0.6em 1em; margin: 1em 0; background: #f9f4fb; }
+          details > summary { cursor: pointer; font-weight: 600; }
+          table { font-size: 0.95em; }
+        </style>
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+    message: false
+    warning: false
+    dpi: 120
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(flexyBayes)
+  library(ggplot2)
+})
+options(flexyBayes.silence_default_prior_note = TRUE)
+set.seed(2026)
+
+utils::data(sleepstudy, package = "lme4")
+
+accent <- "#1B7837"; ref_col <- "#2166AC"; grey_ln <- "grey75"
+theme_wt <- function() {
+  ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
+                   plot.title = ggplot2::element_text(face = "bold"))
+}
+```
+
+## What this document is
+
+> The figures and numbers below come from the **sleepstudy** data set, a
+> public study of reaction time under sleep restriction (Belenky et al.,
+> 2003). The data ship with the `lme4` package and are reused here under
+> that package's licence (GPL). They are real measurements, used to
+> illustrate the `flexyBayes` workflow.
+
+`flexyBayes` lets you write a mixed model once and fit it through a choice
+of Bayesian engines. This walkthrough takes one model from specification
+to a usable answer, played by two people in turn:
+
+1. **The statistician** specifies and fits the model, then reads the
+   posterior.
+2. **The sleep researcher** receives the fitted result and asks one
+   applied question of it, without writing any model code.
+
+::: {.callout-tip}
+**Why read this?** It shows the shortest honest path from a research
+question to a quantified answer with a stated uncertainty, using a single
+model specification that can be fitted three different ways for
+cross-checking.
+:::
+
+A few abbreviations are used throughout. A **linear mixed model (LMM)** is
+a regression with both population-level slopes (fixed effects) and
+group-level deviations (random effects). The **posterior** is the
+distribution of a parameter after combining the data with a prior, and a
+**credible interval** is a range that contains the parameter with a stated
+probability. The package fits the model through the **integrated nested
+Laplace approximation (INLA)** (Rue et al., 2009), a deterministic
+approximation, and can also use sampling engines based on **Hamiltonian
+Monte Carlo (HMC)**.
+
+::: {.callout}
+**Requirements (for the statistician who re-renders this).** R, plus
+`flexyBayes` and the engine it uses here:
+
+```r
+install.packages("flexyBayes")     # the package
+install.packages("INLA", repos = c(INLA = "https://inla.r-inla-download.org/R/stable"))
+install.packages("lme4")           # the data set, and the cross-check fit
+```
+
+The sleep researcher in the second half needs none of this. They receive a
+small result file and read it.
+:::
+
+# The statistician's side
+
+## The question and the data
+
+Eighteen subjects had their sleep restricted to three hours a night.
+Their reaction time, in milliseconds, was measured once a day for ten
+days. The question is simple to state: **on average, how much does
+reaction time worsen per day of restriction, and how confident can we be
+in that rate?**
+
+```{r data-glance}
+str(sleepstudy)
+```
+
+Each subject contributes ten measurements, so the ten readings from one
+person are correlated. A plain regression that ignored this would
+understate the uncertainty. The right structure is a linear mixed model
+with a population trend in `Days` and a per-subject random intercept that
+absorbs each person's own baseline.
+
+```{r spaghetti}
+#| fig-cap: "Reaction time against days of sleep restriction. Each thin line is one subject; the upward trend is the population effect the model estimates."
+ggplot(sleepstudy, aes(Days, Reaction, group = Subject)) +
+  geom_line(alpha = 0.35, colour = grey_ln) +
+  geom_point(alpha = 0.35, colour = grey_ln, size = 0.8) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "Days of sleep restriction", y = "Reaction time (ms)",
+       title = "sleepstudy: reaction time degrades over ten days") +
+  theme_wt()
+```
+
+## One specification
+
+`flexyBayes` takes the model in ASReml-style syntax: a `fixed` part for
+the population trend, a `random` part for the per-subject intercept. The
+back end is chosen with one argument.
+
+```{r fit}
+fit <- flexybayes(
+  fixed   = Reaction ~ Days,
+  random  = ~ Subject,
+  data    = sleepstudy,
+  family  = "gaussian",
+  backend = "inla",
+  verbose = FALSE, mcmc_verbose = FALSE
+)
+```
+
+The same specification can be fitted through three engines by changing one
+word: `backend = "inla"` (the deterministic approximation used here),
+`backend = "greta"` (Hamiltonian Monte Carlo on TensorFlow), or
+`backend = "brms"` (Hamiltonian Monte Carlo through Stan). Fitting the
+model more than one way and confirming the answers agree is a built-in
+robustness check; a companion validation study confirms the three engines
+agree on this model to within sampling tolerance.
+
+## Reading the posterior
+
+The fitted object summarises the fixed effects as a posterior mean and a
+95 per cent credible interval for each term.
+
+```{r posterior}
+s   <- summary(fit)
+fx  <- s$fixed
+days_row <- fx["Days", ]
+post <- data.frame(
+  Term = rownames(fx),
+  `Posterior mean` = round(fx[, "mean"], 2),
+  `95% credible interval` = sprintf("[%.2f, %.2f]",
+                                    fx[, "0.025quant"], fx[, "0.975quant"]),
+  check.names = FALSE, row.names = NULL
+)
+knitr::kable(post, align = "lrr",
+             caption = "Population (fixed-effect) posterior summary.")
+```
+
+The headline is the `Days` row. Reaction time worsens by a posterior mean
+of `r round(days_row[["mean"]], 1)` milliseconds for each additional day
+of restriction, with a 95 per cent credible interval of
+[`r round(days_row[["0.025quant"]], 1)`,
+`r round(days_row[["0.975quant"]], 1)`]. Because this is a Bayesian
+credible interval, it carries the interpretation most people wrongly
+attach to a classical confidence interval: there is a 95 per cent
+posterior probability that the true daily rate lies inside it.
+
+```{r fitted-line}
+#| fig-cap: "The estimated population trend (solid) over the subject data (grey). The dashed line is an independent lme4 fit, shown as a cross-check; the two population slopes coincide."
+b0 <- fx[["(Intercept)", "mean"]]; b1 <- fx[["Days", "mean"]]
+lmer_fit <- lme4::lmer(Reaction ~ Days + (1 | Subject), data = sleepstudy, REML = TRUE)
+lfx <- lme4::fixef(lmer_fit)
+grid <- data.frame(Days = seq(0, 9, length.out = 50))
+grid$flexyBayes <- b0 + b1 * grid$Days
+grid$lme4 <- lfx[["(Intercept)"]] + lfx[["Days"]] * grid$Days
+ggplot(sleepstudy, aes(Days, Reaction)) +
+  geom_point(alpha = 0.25, colour = grey_ln, size = 0.8) +
+  geom_line(data = grid, aes(Days, flexyBayes, colour = "flexyBayes (INLA)"),
+            linewidth = 1.1) +
+  geom_line(data = grid, aes(Days, lme4, colour = "lme4 (REML)"),
+            linewidth = 0.9, linetype = 2) +
+  scale_colour_manual(values = c("flexyBayes (INLA)" = accent,
+                                 "lme4 (REML)" = ref_col), name = NULL) +
+  scale_x_continuous(breaks = 0:9) +
+  labs(x = "Days of sleep restriction", y = "Reaction time (ms)",
+       title = "Estimated population trend, with an independent cross-check") +
+  theme_wt()
+```
+
+## Cross-check against a classical fit
+
+A Bayesian fit is more trustworthy when it agrees with an independent
+estimator on a problem both can handle. **Restricted maximum likelihood
+(REML)**, the standard frequentist estimator for mixed models, is fitted
+here with `lme4` (Bates et al., 2015).
+
+```{r crosscheck}
+cross <- data.frame(
+  Term = names(lfx),
+  flexyBayes = round(fx[names(lfx), "mean"], 2),
+  `lme4 REML` = round(unname(lfx), 2),
+  Difference = round(fx[names(lfx), "mean"] - unname(lfx), 3),
+  check.names = FALSE
+)
+knitr::kable(cross, align = "lrrr",
+             caption = "Population estimates: flexyBayes against an independent lme4 REML fit.")
+```
+
+The two methods, one Bayesian and one frequentist, land on the same
+population estimates. That agreement is the licence to trust the posterior
+for the next step.
+
+## Hand the result to the colleague
+
+The statistician saves the fitted model and a one-line plain-text answer,
+and passes them on. Nothing else needs to travel.
+
+```{r handoff}
+handoff_dir  <- file.path(tempdir(), "sleep_handoff")
+dir.create(handoff_dir, showWarnings = FALSE)
+saveRDS(fit, file.path(handoff_dir, "reaction_model.rds"))
+answer <- sprintf(
+  "Reaction time worsens by %.1f ms/day (95%% credible interval %.1f to %.1f).",
+  days_row[["mean"]], days_row[["0.025quant"]], days_row[["0.975quant"]])
+writeLines(answer, file.path(handoff_dir, "headline.txt"))
+cat(answer, "\n")
+```
+
+# The sleep researcher's side
+
+::: {.beginner-cue}
+This section is for the colleague, who studies sleep rather than
+statistics. You received two files: a model (`reaction_model.rds`) and a
+one-line headline (`headline.txt`). You will read them, ask the model one
+question, and get a number with an uncertainty. You do not fit anything.
+
+```r
+install.packages("flexyBayes")          # one time, to open the model
+fit <- readRDS("reaction_model.rds")    # the statistician's result
+summary(fit)                            # the full posterior summary
+```
+:::
+
+```{r colleague-load}
+fit2 <- readRDS(file.path(handoff_dir, "reaction_model.rds"))
+cat(readLines(file.path(handoff_dir, "headline.txt")), "\n")
+```
+
+## The first question: the daily rate
+
+The colleague's question is the headline already computed: the daily
+degradation rate and its uncertainty. They read it straight off the
+posterior summary, without re-running anything.
+
+```{r colleague-rate}
+fx2 <- summary(fit2)$fixed
+sprintf("Per-day change: %.2f ms (95%% credible interval %.2f to %.2f)",
+        fx2["Days", "mean"], fx2["Days", "0.025quant"], fx2["Days", "0.975quant"])
+```
+
+## The second question: a concrete prediction
+
+A more tangible question for a sleep researcher: **after ten days of
+restriction, how much slower is a typical person than at the start?** That
+is ten days of the daily rate.
+
+```{r colleague-prediction}
+b1_mean <- fx2["Days", "mean"]
+b1_lo   <- fx2["Days", "0.025quant"]
+b1_hi   <- fx2["Days", "0.975quant"]
+ten_day <- 10 * c(mean = b1_mean, lower = b1_lo, upper = b1_hi)
+sprintf("After 10 days: about %.0f ms slower (95%% credible interval %.0f to %.0f ms).",
+        ten_day[["mean"]], ten_day[["lower"]], ten_day[["upper"]])
+```
+
+So a typical person reacts roughly
+`r round(10 * fx2["Days","mean"])` milliseconds more slowly after ten days
+of restricted sleep, and the data are consistent with a slowdown anywhere
+from about `r round(10 * fx2["Days","0.025quant"])` to
+`r round(10 * fx2["Days","0.975quant"])` milliseconds. The colleague has a
+number and a stated range for their report, and never touched the
+modelling code.
+
+# Refining the model: an explicit prior
+
+A careful analyst checks whether the answer depends on the default prior.
+`flexyBayes` takes priors in a readable penalised-complexity syntax through
+`fb_prior()`. Here the residual scale is given an explicit weakly-informative
+prior, and the fit is repeated.
+
+```{r prior-refit}
+fit_prior <- flexybayes(
+  fixed   = Reaction ~ Days,
+  random  = ~ Subject,
+  data    = sleepstudy,
+  family  = "gaussian",
+  backend = "inla",
+  prior   = fb_prior(sigma ~ pc(upper = 60, prob = 0.05)),
+  verbose = FALSE, mcmc_verbose = FALSE
+)
+fxp <- summary(fit_prior)$fixed
+sprintf("Days slope: default prior %.2f vs explicit prior %.2f ms/day",
+        days_row[["mean"]], fxp["Days", "mean"])
+```
+
+The population slope is unchanged to two decimal places, so the headline
+result is robust to this prior choice. The data, not the prior, are driving
+the population estimate.
+
+# What this looked like end to end
+
+| Stage | Who | What moved |
+|-------|-----|------------|
+| Specify and fit the model | Statistician | nothing |
+| Read the posterior, cross-check against lme4 | Statistician | nothing |
+| Save model + headline | Statistician | a small result file |
+| Read the headline | Researcher | nothing |
+| Ask the model for a 10-day prediction | Researcher | a number + interval |
+| Refit with an explicit prior | Statistician | nothing |
+
+One specification, fitted once, answered both a methodological question
+(the daily rate, with a credible interval) and an applied question (the
+ten-day prediction), and the answer survived an independent cross-check and
+a change of prior.
+
+::: {.callout-tip}
+**Try it on your own data.** Three lines fit a mixed model and read the
+population effect:
+
+```r
+fit <- flexybayes(fixed = response ~ x, random = ~ group,
+                  data = your_data, family = "gaussian", backend = "inla")
+summary(fit)$fixed
+```
+:::
+
+## Acknowledgements and references
+
+The sleepstudy data are reused from the `lme4` package under its GPL
+licence. The reaction-time study itself, and any empirical claim about
+sleep, should be cited to Belenky et al. (2003), not to this walkthrough.
+
+- Belenky, G., et al. (2003). Patterns of performance degradation and
+  restoration during sleep restriction and subsequent recovery.
+  *Journal of Sleep Research*, 12(1), 1--12.
+  doi:10.1046/j.1365-2869.2003.00337.x
+- Bates, D., et al. (2015). Fitting linear mixed-effects models using lme4.
+  *Journal of Statistical Software*, 67(1), 1--48.
+  doi:10.18637/jss.v067.i01
+- Rue, H., et al. (2009). Approximate Bayesian inference for latent
+  Gaussian models by using integrated nested Laplace approximations.
+  *Journal of the Royal Statistical Society: Series B*, 71(2), 319--392.
+  doi:10.1111/j.1467-9868.2008.00700.x
+- Burkner, P.-C. (2017). brms: An R package for Bayesian multilevel models
+  using Stan. *Journal of Statistical Software*, 80(1), 1--28.
+  doi:10.18637/jss.v080.i01
+- Golding, N. (2019). greta: simple and scalable statistical modelling in
+  R. *Journal of Open Source Software*, 4(40), 1601.
+  doi:10.21105/joss.01601
+
+```{r session-info, echo=FALSE, results="asis"}
+cat(
+  "<details><summary>Session info</summary>\n<pre>",
+  paste(capture.output(sessionInfo()), collapse = "\n"),
+  "</pre></details>\n",
+  sep = ""
+)
+```

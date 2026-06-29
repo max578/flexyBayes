@@ -1,0 +1,41 @@
+# Introduction {.unnumbered}
+
+`flexyBayes` specifies a mixed model once, in familiar ASReml-style or
+`brms`-style formula syntax, and estimates it through any of three Bayesian
+back ends: greta (TensorFlow Hamiltonian Monte Carlo), the integrated nested
+Laplace approximation [@rue2009], or Stan via `brms` [@burkner2017]. A single
+`fixed`/`random`/`rcov` specification is translated to back-end-specific code,
+so the same model can be fitted three ways and the agreement between back ends
+read as a robustness signal. The package targets agricultural mixed models and
+is built to scale to large field-trial data.
+
+A package that promises one specification across several estimation engines
+makes two claims a reader is entitled to see checked. The first is
+**correctness**: each back end must recover the right answer on a problem whose
+answer is known independently. The second is **translation fidelity**: the model
+the package builds for a back end must be the model the user wrote, so a
+hand-written fit through the same engine must agree.
+
+This study checks both, one back end at a time, against oracles the package did
+not produce:
+
+- A **fixed-effects exactness** check. For a Gaussian linear regression the
+  posterior mean under a flat prior is the ordinary-least-squares solution, so
+  the package result must match `stats::lm()` and the known data-generating
+  coefficients to numerical precision.
+- A **three-way Laplace-approximation** check on the `sleepstudy` data
+  [@belenky2003]: `flexyBayes` through INLA against a hand-written
+  `INLA::inla()` fit (translation fidelity) and against an `lme4` REML fit
+  [@bates2015] (the independent reference).
+- A **Hamiltonian-Monte-Carlo** check through greta [@golding2019] against the
+  same `lme4` reference.
+- A **Stan** check through `brms` against a standalone `brms::brm()` fit and the
+  `lme4` reference.
+
+Every figure below is computed by a benchmark script, cached, and read into the
+text. No number is typed by hand. The benchmark scripts are reproduced verbatim
+in the appendix, so a reader holding only this document can rerun each
+comparison and confirm every value. Agreement on a random-effects model is
+judged on the scale of the reference fit's standard error, the natural unit for
+a parameter estimated with sampling noise. The fixed-effects check, which has an
+exact answer, is judged on the absolute difference from `lm()`.
