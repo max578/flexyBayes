@@ -1,0 +1,48 @@
+/* flexyBayes report — shared house style. Self-contained, offline, no webfonts. */
+:root{
+  --ink:#1a1a1a; --paper:#fbfaf7; --rule:#d8d2c4; --accent:#5b4636; --accent2:#3a6ea5;
+  --soft:#f1ede3; --warn:#9a6a00; --good:#2e6b3e; --muted:#6b6457;
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--paper);
+  font:17px/1.62 Georgia,"Iowan Old Style","Palatino Linotype",serif;}
+.wrap{max-width:820px;margin:0 auto;padding:2.4rem 1.4rem 5rem;}
+header.masthead{border-bottom:3px double var(--rule);margin-bottom:1.8rem;padding-bottom:1rem;}
+.kicker{font:600 12px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);}
+h1{font-size:2.0rem;line-height:1.18;margin:.5rem 0 .3rem;}
+h2{font-size:1.42rem;margin:2.4rem 0 .6rem;border-bottom:1px solid var(--rule);padding-bottom:.25rem;}
+h3{font-size:1.12rem;margin:1.6rem 0 .4rem;color:var(--accent);}
+.lede{font-size:1.12rem;color:#333;}
+.sub{color:var(--muted);font-style:italic;}
+nav.toc{font:14px/1.5 ui-sans-serif,system-ui,sans-serif;background:var(--soft);
+  border:1px solid var(--rule);border-radius:8px;padding:.8rem 1.1rem;margin:1.4rem 0;}
+nav.toc a{color:var(--accent2);text-decoration:none;} nav.toc a:hover{text-decoration:underline;}
+nav.toc b{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;}
+a{color:var(--accent2);}
+code,pre{font-family:"SF Mono",Menlo,Consolas,monospace;}
+code{background:var(--soft);padding:.06em .35em;border-radius:4px;font-size:.88em;}
+pre{background:#2b2b2b;color:#e8e6df;padding:1rem 1.1rem;border-radius:8px;overflow:auto;
+  font-size:13.5px;line-height:1.5;}
+pre code{background:none;padding:0;color:inherit;}
+.callout{border-left:4px solid var(--accent2);background:#eef3f8;padding:.7rem 1rem;
+  border-radius:0 6px 6px 0;margin:1.1rem 0;font-size:.97em;}
+.callout.history{border-color:var(--accent);background:#f3efe7;}
+.callout.warn{border-color:var(--warn);background:#fbf3e2;}
+.eq{display:block;text-align:center;margin:1.1rem 0;font-size:1.12rem;font-style:italic;}
+.eq .frac{display:inline-block;vertical-align:middle;text-align:center;}
+.eq .frac .num{display:block;border-bottom:1.4px solid var(--ink);padding:0 .4em;}
+.eq .frac .den{display:block;padding:0 .4em;}
+table{border-collapse:collapse;width:100%;margin:1.1rem 0;font-size:.92em;}
+th,td{border:1px solid var(--rule);padding:.4rem .6rem;text-align:left;}
+th{background:var(--soft);font-family:ui-sans-serif,system-ui,sans-serif;font-size:.85em;
+  text-transform:uppercase;letter-spacing:.04em;}
+.tag{display:inline-block;font:600 11px/1 ui-sans-serif,system-ui,sans-serif;
+  padding:.25em .55em;border-radius:999px;background:var(--soft);color:var(--accent);
+  border:1px solid var(--rule);}
+.tag.good{background:#e7f1ea;color:var(--good);border-color:#bcdcc6;}
+figure{margin:1.4rem 0;text-align:center;} figcaption{font-size:.85em;color:var(--muted);margin-top:.4rem;}
+footer{margin-top:3rem;border-top:1px solid var(--rule);padding-top:1rem;font-size:.85em;color:var(--muted);}
+.crumbs{font:13px/1 ui-sans-serif,system-ui,sans-serif;color:var(--muted);margin-bottom:1rem;}
+.crumbs a{color:var(--accent2);text-decoration:none;}
+.bignum{font-variant-numeric:tabular-nums;font-weight:600;}

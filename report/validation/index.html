@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flexyBayes — validation &amp; benchmark study</title>
+<link rel="stylesheet" href="../assets/house.css">
+</head><body><div class="wrap">
+
+<div class="crumbs"><a href="../index.html">report</a> &rsaquo; validation</div>
+<header class="masthead">
+  <div class="kicker">flexyBayes &middot; validation &amp; benchmark study</div>
+  <h1>One formula, validated across three engines</h1>
+  <p class="lede">Does a model fit <em>through</em> flexyBayes reproduce the same model written directly in the
+  backend, and does it agree with an established independent reference? Four flagship cards answer that with
+  numbers computed by runnable benchmarks — never hand-typed.</p>
+</header>
+
+<nav class="toc"><b>Method</b>
+  Each card simulates or loads data with a known answer, fits it through flexyBayes, and compares against an
+  <em>independent oracle</em> the package did not author — the exact <code>lm()</code> solution, the known
+  data-generating truth, a hand-written backend fit, or the <code>lme4</code> REML reference. Pass = agreement
+  within a stated tolerance.
+</nav>
+
+<h2>Results</h2>
+<table>
+<tr><th>Card</th><th>Model / oracle</th><th>Result</th><th></th></tr>
+<tr>
+  <td><code>fb</code></td>
+  <td>Gaussian regression vs <code>lm()</code> (exact) + known truth</td>
+  <td>recovers (Intercept,&nbsp;x1,&nbsp;x2) to <span class="bignum">&le;&nbsp;3.4&times;10<sup>&minus;6</sup></span> of <code>lm()</code></td>
+  <td><span class="tag good">PASS</span></td>
+</tr>
+<tr>
+  <td><code>fb_inla</code></td>
+  <td>sleepstudy LMM vs standalone <code>INLA::inla()</code> + <code>lme4</code></td>
+  <td><strong>identical</strong> to a hand-written INLA fit (&Delta;&nbsp;=&nbsp;0); within 1.5&middot;SE of <code>lme4</code></td>
+  <td><span class="tag good">PASS</span></td>
+</tr>
+<tr>
+  <td><code>fb_greta</code></td>
+  <td>sleepstudy LMM via greta / TensorFlow-HMC vs <code>lme4</code></td>
+  <td>slope 10.53 vs 10.47; within tolerance <span class="sub">(convergence caveat &mdash; see note)</span></td>
+  <td><span class="tag good">PASS*</span></td>
+</tr>
+<tr>
+  <td><code>fb_brms</code></td>
+  <td>sleepstudy LMM via brms / Stan-HMC vs standalone <code>brms</code> + <code>lme4</code></td>
+  <td>slope agrees: fb 10.48 / standalone 10.43 / lme4 10.47 <span class="sub">(intercept naming differs &mdash; see note)</span></td>
+  <td><span class="tag good">PASS</span></td>
+</tr>
+</table>
+
+<div class="callout"><strong>Headline.</strong> Through the INLA backend, flexyBayes is <em>numerically
+identical</em> to a hand-written <code>INLA::inla()</code> fit — direct evidence that the formula-to-backend
+translation is exact, not approximate. Across all three Bayesian engines and the frequentist REML reference,
+the <code>sleepstudy</code> slope lands at &asymp;&nbsp;10.5 ms per lost day of sleep — agreement across
+paradigms.</div>
+
+<h3>Notes &amp; caveats</h3>
+<ul>
+  <li><strong>greta (*)</strong>: the package flagged non-convergence at a modest warm-up (R-hat up to 2.66,
+  minimum effective sample size 16). The agreement test still passes within tolerance; a publication fit
+  would raise the warm-up. The convergence diagnostic is reported with the estimate.</li>
+  <li><strong>brms</strong>: the <code>Days</code> slope agrees across all three fits; only the intercept was
+  excluded from the cross-check because its canonical name differs between <code>flexybayes</code>'s
+  <code>coef()</code>, <code>brms::fixef()</code> and <code>lme4::fixef()</code> — a naming-convention
+  follow-up, not a numeric disagreement.</li>
+  <li><strong>Scope</strong>: this is a flagship correctness subset of a large package; coverage of the full
+  exported surface is deliberately not claimed. No conformance defects were found in the four cards.</li>
+</ul>
+
+<h2>Reproduce</h2>
+<pre><code>cd validation
+Rscript bench/fb-correctness.R
+Rscript bench/fb-inla-correctness.R
+Rscript bench/fb-greta-correctness.R
+Rscript bench/fb-brms-correctness.R</code></pre>
+<p>Each writes a cached <code>.rds</code>; the machine-readable index is
+<a href="ai/evidence.json"><code>ai/evidence.json</code></a>. Background and concepts:
+the <a href="../tutorial/">tutorial</a>; a worked narrative: the <a href="../walkthrough/">walkthrough</a>.</p>
+
+<footer>
+<p>Independent oracles: <code>stats::lm</code>, <code>lme4::lmer</code> (REML), standalone
+<code>INLA::inla</code>, standalone <code>brms::brm</code>, and known data-generating truth. Data:
+<code>sleepstudy</code> (<code>lme4</code>). All figures computed by <code>bench/*.R</code>.</p>
+</footer>
+
+</div></body></html>

@@ -1,0 +1,71 @@
+## `fb_inla` is correct against an independent oracle
+
+**Meaning.** TODO(author): one or two sentences -- what `fb_inla` computes, and the
+independent oracle(s) it is graded against (a self-consistent expectation is not
+validation).
+
+### The mathematics
+
+TODO(author): state the method in full and derive the closed form (LaTeX
+`$...$` / `$$...$$`), so it renders in the PDF, the HTML explorer, and the
+Markdown dossier.
+
+$$ \text{(the key identity)} $$
+
+### In `flexyBayes`
+
+```{r}
+#| fig.show: hide
+# TODO(author): the actual exported call -- runnable, minimal.
+# library(flexyBayes); fb_inla(<valid args>)
+```
+
+### Validation
+
+TODO(author): the headline benchmark of `fb_inla` against at least one *external*
+implementation and, where feasible, a hand-rolled independent reference
+re-derived a second way. Report accuracy and computational time; pull every
+number from cached results in `bench/results/`.
+
+```{r}
+res <- readRDS("bench/results/fb-inla-correctness.rds")
+# headline table via knitr::kable / figure via include_graphics
+```
+
+### Numerical validation against direct competitors
+
+TODO(author): the head-to-head against `fb_inla`'s direct competitors -- the canonical
+counterpart first (the package or implementation this one reimplements or
+supersedes; omit no competitor that disagrees). Run on identical data; report
+numerical agreement and, where relevant, stability, precision, and timing. State a
+regime of *expected equivalence* with the measured agreement, then any *deviations*
+with their cause (algorithm, RNG, parameterisation, tolerance, backend). Provide
+copy-paste competitor + package calls and name the replication script. When a
+competitor shares this package's function names, run it in an isolated `Rscript`
+(see `bench/repro/`) to avoid namespace masking. Numbers come from cached results.
+
+```{r}
+#| echo: false
+# TODO(author): head-to-head table from cache -- this package vs each competitor.
+```
+
+<!-- DEEP -->
+### When it wins
+
+TODO(author): name the alternatives and the regime where `fb_inla` is the best
+choice, with the boundary where the ranking flips.
+
+### Limitations
+
+TODO(author): the limitations of this method and of the alternatives compared.
+
+### Extended validation
+
+TODO(author): the fuller evidence -- more competitors, head-to-head results, the
+timing breakdown, seeds.
+<!-- /DEEP -->
+
+### Summary
+
+TODO(author): one paragraph -- what the evidence establishes, with the headline
+number.

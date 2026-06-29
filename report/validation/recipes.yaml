@@ -1,0 +1,29 @@
+# pkg-validation views -- each is a recipe over the same cards.
+- name: by-capability
+  label: "By capability"
+  group_by: capability
+  note: "The methods-paper reading: one chapter per capability of the package."
+- name: by-function
+  label: "By function"
+  group_by: functions
+  note: "Each exported function shown against the tasks it is validated on."
+- name: by-task
+  label: "By task domain"
+  group_by: tasks
+  note: "Grouped by use-case; a single function recurs across the domains it serves."
+- name: by-oracle
+  label: "By validation method"
+  group_by: oracles
+  note: "Grouped by how each claim is independently checked."
+- name: by-primitive
+  label: "By mathematical primitive"
+  group_by: primitives
+  note: "Grouped by the mathematical primitive underneath."
+- name: by-scenario
+  label: "By scenario"
+  group_by: scenarios
+  note: "One entry per validated scenario identifier."
+- name: flagship
+  label: "Flagship evidence"
+  filter: flagship
+  note: "The deepest, most decisive chapters, given full treatment."

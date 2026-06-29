@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flexyBayes — a 30-minute walkthrough on real data</title>
+<link rel="stylesheet" href="../assets/house.css">
+</head><body><div class="wrap">
+
+<div class="crumbs"><a href="../index.html">report</a> &rsaquo; walkthrough</div>
+<header class="masthead">
+  <div class="kicker">flexyBayes &middot; walkthrough &middot; read in 10, reproduce in 30</div>
+  <h1>Two readings of a sleep-deprivation study</h1>
+  <p class="lede">A scientist has a question and a small, real data set. A methodologist fits it three
+  different ways and checks they agree. You can run every line below.</p>
+  <p class="sub">Data: <code>sleepstudy</code> (Belenky et&nbsp;al., shipped with <code>lme4</code>) — average
+  reaction time over days of restricted sleep, 18 subjects, 180 observations. Public, citable, tiny.</p>
+</header>
+
+<nav class="toc"><b>The path</b>
+  <a href="#question">The question</a> &nbsp;·&nbsp;
+  <a href="#fit">One formula</a> &nbsp;·&nbsp;
+  <a href="#three">Three engines</a> &nbsp;·&nbsp;
+  <a href="#triangulate">Triangulation</a> &nbsp;·&nbsp;
+  <a href="#reproduce">Reproduce it</a>
+</nav>
+
+<h2 id="question">The question</h2>
+<p><strong>Dr.&nbsp;Okafor (sleep scientist).</strong> &ldquo;Each night my subjects were held to three
+hours in bed. Their reaction times drift upward day by day — but every person starts in a different place and
+some degrade faster than others. I want the <em>population</em> effect of a lost day of sleep, with calibrated
+uncertainty, without pretending all 18 people are interchangeable.&rdquo;</p>
+<p><strong>Ravi (methodologist).</strong> &ldquo;That is a linear mixed model: a population slope for
+<code>Days</code>, plus a per-subject intercept so each person keeps their own baseline. The classical fit is
+one line of <code>lme4</code>. But you asked for uncertainty as a full <em>distribution</em> — that is the
+Bayesian reading. flexyBayes lets us write the model once and get both.&rdquo;</p>
+
+<h2 id="fit">One formula</h2>
+<pre><code>library(flexyBayes)
+data(sleepstudy, package = "lme4")
+
+fit &lt;- flexybayes(
+  fixed  = Reaction ~ Days,   # the population effect Dr. Okafor wants
+  random = ~Subject,          # each subject keeps their own intercept
+  data   = sleepstudy,
+  backend = "inla"
+)
+coef(fit)</code></pre>
+<p><strong>Ravi.</strong> &ldquo;<code>fixed</code> is the mean structure — reaction time as a function of
+days. <code>random = ~Subject</code> is the partial-pooling part: we do not estimate 18 unrelated intercepts,
+we treat subjects as draws from a population, which stabilises the per-person estimates and gives a clean
+population slope.&rdquo;</p>
+
+<h2 id="three">Three engines, one answer</h2>
+<p>The only thing that changes is <code>backend =</code>. Each routes the <em>same</em> formula through a
+different estimation machine. Here is what they return for the slope — the rise in reaction time per lost
+day of sleep — alongside the classical <code>lme4</code> reference:</p>
+<table>
+<tr><th>How it was fit</th><th><code>Days</code> slope (ms/day)</th><th>What it tells us</th></tr>
+<tr><td><code>backend = "inla"</code></td><td class="bignum">10.451</td><td>fast, deterministic; <em>identical</em> to a hand-written INLA fit</td></tr>
+<tr><td><code>backend = "greta"</code></td><td class="bignum">10.533</td><td>TensorFlow HMC (sampling)</td></tr>
+<tr><td><code>backend = "brms"</code></td><td class="bignum">10.48</td><td>Stan HMC; matches a standalone <code>brms</code> fit (10.43)</td></tr>
+<tr><td><code>lme4::lmer</code></td><td class="bignum">10.467</td><td>frequentist REML, the textbook reference</td></tr>
+</table>
+<p><strong>Dr.&nbsp;Okafor.</strong> &ldquo;They all say about ten and a half milliseconds per day.&rdquo;<br>
+<strong>Ravi.</strong> &ldquo;Three different Bayesian samplers and the classical estimator, all landing in
+the same place. That is the cross-paradigm agreement you want before you put a number in a paper.&rdquo;</p>
+
+<div class="callout warn"><strong>When an engine hedges.</strong> The greta run reported that its sampler had
+not fully converged at this warm-up (R-hat above 2). The estimate was still in range, but for a final result
+we would raise <code>warmup</code> and re-check. The convergence diagnostic is reported alongside the
+estimate.</div>
+
+<h2 id="triangulate">Triangulation as evidence</h2>
+<p><strong>Ravi.</strong> &ldquo;Because we can fit the model three ways, agreement <em>between</em> the
+engines is itself evidence. A fast deterministic engine (INLA) and a gold-standard sampler (Stan) reaching
+the same posterior means neither is fooling us. flexyBayes calls this <code>triangulate()</code>; on a real
+analysis it is how I decide a result is trustworthy enough to ship — and how flexyBayes scales: prototype in
+INLA, confirm in Stan.&rdquo;</p>
+
+<h2 id="reproduce">Reproduce it</h2>
+<p>Every number above is computed by the validation benchmarks — none is hand-typed. From the report folder:</p>
+<pre><code># requires R with: flexyBayes (dev), lme4, INLA, greta, brms
+cd validation
+Rscript bench/fb-inla-correctness.R     # the INLA fit + standalone-INLA + lme4 (seconds)
+Rscript bench/fb-greta-correctness.R    # the greta/TF-HMC fit vs lme4   (~1 minute)
+Rscript bench/fb-brms-correctness.R     # the brms/Stan fit + standalone brms + lme4 (~20s after compile)
+</code></pre>
+<p>Each writes a cached result the validation cards read, so the numbers you see are always the numbers a run
+produced. The full evidence index is <a href="../validation/ai/evidence.json"><code>validation/ai/evidence.json</code></a>;
+the conceptual background is the <a href="../tutorial/">tutorial</a>.</p>
+
+<footer>
+<p>Data: the <code>sleepstudy</code> data set distributed with the <code>lme4</code> R package (Belenky
+et&nbsp;al., 2003, sleep-restriction reaction-time study). flexyBayes figures reproduced from
+<code>../validation/</code>.</p>
+<p class="sub">A release walkthrough accompanying the flexyBayes validation report.</p>
+</footer>
+
+</div></body></html>

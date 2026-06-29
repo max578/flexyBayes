@@ -1,0 +1,45 @@
+# cards.yaml -- flexyBayes validation cards. One entry per card.
+# TODO(author): set capability/tasks/oracles/competitors/primitives per card; add
+# non-flagship cards as the study grows. Every claim needs >=1 oracle the
+# package did not author (analytic / quadrature / simulation / competitor /
+# independent reference).
+- id: fb-correctness
+  title: "fb: correctness against an independent oracle"
+  capability: fb
+  functions:  [fb]
+  tasks:      [correctness]            # TODO(author): real task domains
+  scenarios:  []
+  primitives: []                       # TODO(author): the math primitive
+  oracles:    [analytic, reference-impl]  # TODO(author): the real oracle(s)
+  competitors: []                      # TODO(author): direct head-to-heads, canonical counterpart first
+  flagship:   true
+- id: fb-inla-correctness
+  title: "fb_inla: correctness against an independent oracle"
+  capability: fb-inla
+  functions:  [fb_inla]
+  tasks:      [correctness]            # TODO(author): real task domains
+  scenarios:  []
+  primitives: []                       # TODO(author): the math primitive
+  oracles:    [analytic, reference-impl]  # TODO(author): the real oracle(s)
+  competitors: []                      # TODO(author): direct head-to-heads, canonical counterpart first
+  flagship:   true
+- id: fb-greta-correctness
+  title: "fb_greta: sleepstudy LMM via greta/TF-HMC vs lme4"
+  capability: fb-greta
+  functions:  [fb_greta]
+  tasks:      [correctness]
+  scenarios:  [random-intercept-lmm]
+  primitives: [random-intercept-gaussian-lmm]
+  oracles:    [lme4-reml]
+  competitors: [lme4::lmer]
+  flagship:   true
+- id: fb-brms-correctness
+  title: "fb_brms: sleepstudy LMM via brms/Stan-HMC vs standalone brms + lme4"
+  capability: fb-brms
+  functions:  [fb_brms]
+  tasks:      [correctness, translation-fidelity]
+  scenarios:  [random-intercept-lmm]
+  primitives: [random-intercept-gaussian-lmm]
+  oracles:    [lme4-reml, standalone-brms]
+  competitors: [brms::brm, lme4::lmer]
+  flagship:   true

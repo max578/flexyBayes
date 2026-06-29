@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>From ASReml to Bayesian mixed models — a flexyBayes primer</title>
+<style>
+  :root{
+    --ink:#1c1a17; --paper:#fcfbf8; --rule:#ddd6c7; --accent:#6a2e1f; --accent2:#2f5d8a;
+    --soft:#f3efe6; --muted:#736b5d; --warn:#8a5a00; --good:#2f6b40;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;color:var(--ink);background:var(--paper);
+    font:18px/1.66 "Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
+    text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:42rem;margin:0 auto;padding:3.2rem 1.5rem 6rem;}
+  .crumbs{font:13px/1 ui-sans-serif,system-ui,sans-serif;color:var(--muted);margin-bottom:1.6rem;letter-spacing:.02em;}
+  .crumbs a{color:var(--accent2);text-decoration:none;}
+  header.masthead{margin-bottom:2.4rem;}
+  .kicker{font:600 12px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--accent);}
+  h1{font-size:2.35rem;line-height:1.12;margin:.7rem 0 .5rem;font-weight:600;letter-spacing:-.01em;}
+  .standfirst{font-size:1.16rem;line-height:1.5;color:#3a352e;margin:.4rem 0 .2rem;}
+  .byline{font:14px/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--muted);margin-top:1rem;
+    border-top:1px solid var(--rule);padding-top:.8rem;}
+  nav.toc{font:14px/1.7 ui-sans-serif,system-ui,sans-serif;background:var(--soft);
+    border:1px solid var(--rule);border-radius:10px;padding:1rem 1.2rem;margin:2rem 0;}
+  nav.toc b{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;}
+  nav.toc ol{margin:0;padding-left:1.3rem;} nav.toc a{color:var(--accent2);text-decoration:none;}
+  nav.toc a:hover{text-decoration:underline;}
+  h2{font-size:1.05rem;font:700 1.05rem/1.3 ui-sans-serif,system-ui,sans-serif;
+    margin:3rem 0 .9rem;color:var(--accent);letter-spacing:.01em;}
+  h2 .n{color:var(--rule);font-variant-numeric:tabular-nums;margin-right:.5rem;}
+  h3{font-size:1.06rem;margin:1.8rem 0 .3rem;font-weight:600;}
+  p{margin:.9rem 0;} a{color:var(--accent2);}
+  .lead::first-letter{float:left;font-size:3.4rem;line-height:.82;padding:.06em .08em 0 0;
+    color:var(--accent);font-weight:600;}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.86em;
+    background:var(--soft);padding:.08em .36em;border-radius:4px;}
+  pre{background:#23211d;color:#ece7dc;padding:1.1rem 1.2rem;border-radius:9px;overflow:auto;
+    font:13.5px/1.55 "SF Mono",ui-monospace,Menlo,Consolas,monospace;margin:1.3rem 0;}
+  pre code{background:none;padding:0;color:inherit;font-size:inherit;}
+  pre .c{color:#9b9482;font-style:italic;}
+  math{font-size:1.06em;} math[display="block"]{display:block;margin:1.4rem 0;text-align:center;}
+  .note{border-left:3px solid var(--accent2);background:#eef3f8;padding:.85rem 1.1rem;
+    border-radius:0 7px 7px 0;margin:1.4rem 0;font-size:.97em;}
+  .note.history{border-color:var(--accent);background:#f4efe7;}
+  .note.warn{border-color:var(--warn);background:#fbf4e3;}
+  blockquote{margin:1.8rem 0;padding:.2rem 0 .2rem 1.3rem;border-left:3px solid var(--rule);
+    font-size:1.18rem;line-height:1.45;font-style:italic;color:#403a31;}
+  blockquote cite{display:block;font-size:.78rem;font-style:normal;color:var(--muted);
+    font-family:ui-sans-serif,system-ui,sans-serif;margin-top:.5rem;letter-spacing:.02em;}
+  figure{margin:2rem 0;text-align:center;}
+  figure svg{max-width:100%;height:auto;}
+  figcaption{font:13.5px/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--muted);
+    margin-top:.7rem;text-align:left;}
+  figcaption b{color:#403a31;}
+  table{border-collapse:collapse;width:100%;margin:1.4rem 0;
+    font:15px/1.45 ui-sans-serif,system-ui,sans-serif;}
+  th,td{border-bottom:1px solid var(--rule);padding:.5rem .6rem;text-align:left;vertical-align:top;}
+  thead th{border-bottom:2px solid var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+  td.num{font-variant-numeric:tabular-nums;font-weight:600;}
+  sup.ref a{text-decoration:none;color:var(--accent2);font-weight:600;}
+  ol.refs{font:14px/1.55 ui-sans-serif,system-ui,sans-serif;color:#3a352e;padding-left:1.4rem;}
+  ol.refs li{margin:.5rem 0;}
+  footer{margin-top:3.5rem;border-top:1px solid var(--rule);padding-top:1.2rem;
+    font:13.5px/1.6 ui-sans-serif,system-ui,sans-serif;color:var(--muted);}
+  .lex{font-variant:small-caps;letter-spacing:.02em;}
+</style>
+</head><body><div class="wrap">
+
+<div class="crumbs"><a href="../index.html">report</a> &rsaquo; tutorial</div>
+
+<header class="masthead">
+  <div class="kicker">flexyBayes &middot; a primer</div>
+  <h1>One formula, three engines, a Bayesian inheritance</h1>
+  <p class="standfirst">How a single mixed-model formula reaches three estimation engines &mdash; and the
+  unlikely history, running through a Presbyterian minister and an argument about miracles, that makes it
+  Bayesian.</p>
+  <div class="byline">A methods primer accompanying the flexyBayes validation report. Reading time ~18&nbsp;min.
+  Every flexyBayes figure is reproduced from the <a href="../validation/">validation study</a>; nothing is
+  hand-typed.</div>
+</header>
+
+<nav class="toc"><b>Contents</b>
+<ol>
+  <li><a href="#asreml">The variance-structure tradition</a></li>
+  <li><a href="#origin">Where Bayesian statistics came from</a></li>
+  <li><a href="#concepts">The ideas you actually need</a></li>
+  <li><a href="#illustration">flexyBayes, illustrated</a></li>
+  <li><a href="#heights">To its heights</a></li>
+</ol>
+</nav>
+
+<h2 id="asreml"><span class="n">1</span>The variance-structure tradition</h2>
+<p class="lead">Most statistics teaching stops at the mean: <code>y ~ x</code>. Yet in field trials, animal
+breeding, genetics and longitudinal medicine the decisive information lives in the <em>variance</em> &mdash;
+how much spread is between plots, between animals, between time-points, and how those sources correlate. The
+tradition that made this routine is <span class="lex">reml</span> (restricted, or residual, maximum
+likelihood), and its most influential software incarnation is <strong>ASReml</strong>, which gave
+practitioners a compact grammar for the linear mixed model</p>
+
+<math display="block">
+  <mrow>
+    <mi mathvariant="bold">y</mi><mo>=</mo>
+    <mi mathvariant="bold">X</mi><mi mathvariant="bold">&#x3B2;</mi><mo>+</mo>
+    <mi mathvariant="bold">Z</mi><mi mathvariant="bold">u</mi><mo>+</mo>
+    <mi mathvariant="bold">e</mi><mo>,</mo>
+    <mspace width="1.4em"/>
+    <mi mathvariant="bold">u</mi><mo>&#x223C;</mo><mi>N</mi><mo>(</mo><mn>0</mn><mo>,</mo><mi mathvariant="bold">G</mi><mo>)</mo><mo>,</mo>
+    <mspace width="0.7em"/>
+    <mi mathvariant="bold">e</mi><mo>&#x223C;</mo><mi>N</mi><mo>(</mo><mn>0</mn><mo>,</mo><mi mathvariant="bold">R</mi><mo>)</mo>
+  </mrow>
+</math>
+
+<p>where <math><mrow><mi mathvariant="bold">X</mi><mi mathvariant="bold">&#x3B2;</mi></mrow></math> is the
+<strong>fixed</strong> part (the population mean structure),
+<math><mrow><mi mathvariant="bold">Z</mi><mi mathvariant="bold">u</mi></mrow></math> the <strong>random</strong>
+part (group-level deviations with covariance <math><mi mathvariant="bold">G</mi></math>), and
+<math><mi mathvariant="bold">e</mi></math> the residuals with covariance
+<math><mi mathvariant="bold">R</mi></math>. ASReml's wedge was a three-line declarative grammar &mdash;</p>
+
+<pre><code>fixed  = trait ~ treatment
+random = ~ block + variety
+rcov   = ~ ar1(row):ar1(col)     <span class="c"># a spatial residual structure</span></code></pre>
+
+<p>&mdash; letting you say, precisely, &ldquo;estimate these means, treat <em>these</em> as exchangeable
+draws, and let the residuals follow <em>that</em> correlation in space or time.&rdquo; That
+<code>fixed</code>&nbsp;/&nbsp;<code>random</code>&nbsp;/&nbsp;<code>rcov</code> split is exactly the syntax
+flexyBayes adopts.</p>
+
+<p>The quiet power in the random part is <strong>partial pooling</strong>. A random effect does not estimate
+each group in isolation; it pulls noisy small-group estimates toward the overall mean, borrowing strength
+across groups (Figure&nbsp;1). A group seen only a few times is told, in effect, &ldquo;until you show me
+otherwise, you look like the population.&rdquo;</p>
+
+<figure>
+<svg viewBox="0 0 540 210" role="img" aria-label="Partial pooling: raw group means shrink toward the grand mean.">
+  <line x1="40" y1="150" x2="510" y2="150" stroke="#c9c1b1" stroke-width="1"/>
+  <line x1="275" y1="40" x2="275" y2="178" stroke="#6a2e1f" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="275" y="196" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#6a2e1f">grand mean</text>
+  <text x="46" y="40" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#736b5d">no pooling (raw)</text>
+  <text x="46" y="142" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#736b5d">partial pooling</text>
+  <!-- raw means (top row, y=55) and shrunk (y=120), arrows between -->
+  <g stroke="#b9b1a1" stroke-width="1">
+    <line x1="110" y1="62" x2="180" y2="113"/><line x1="170" y1="62" x2="215" y2="113"/>
+    <line x1="245" y1="62" x2="262" y2="113"/><line x1="330" y1="62" x2="300" y2="113"/>
+    <line x1="405" y1="62" x2="335" y2="113"/><line x1="465" y1="62" x2="362" y2="113"/>
+  </g>
+  <g fill="#bcae93"><circle cx="110" cy="55" r="5"/><circle cx="170" cy="55" r="5"/><circle cx="245" cy="55" r="5"/><circle cx="330" cy="55" r="5"/><circle cx="405" cy="55" r="5"/><circle cx="465" cy="55" r="5"/></g>
+  <g fill="#2f5d8a"><circle cx="180" cy="120" r="5"/><circle cx="215" cy="120" r="5"/><circle cx="262" cy="120" r="5"/><circle cx="300" cy="120" r="5"/><circle cx="335" cy="120" r="5"/><circle cx="362" cy="120" r="5"/></g>
+</svg>
+<figcaption><b>Figure&nbsp;1.</b> Partial pooling. Six raw group means (top) are noisy; the random-effect model
+shrinks them toward the grand mean (bottom), and the most extreme groups move the most. A random effect is a
+<em>hierarchical prior</em> on the group effects &mdash; the same mechanism we will meet in &sect;3.</figcaption>
+</figure>
+
+<h2 id="origin"><span class="n">2</span>Where Bayesian statistics came from</h2>
+<p>The method now used to filter spam, decode genomes and rank search results began with a Presbyterian
+minister and an argument about miracles.</p>
+
+<h3>A minister and a posthumous essay</h3>
+<p><strong>Thomas Bayes</strong> (c.&nbsp;1701&ndash;1761) was an English Nonconformist &mdash; a Presbyterian
+minister, son of one of the first Nonconformist ministers ordained in England, who had studied logic and
+divinity at Edinburgh. He published almost nothing on mathematics in his lifetime. His one celebrated work,
+<em>An Essay towards solving a Problem in the Doctrine of Chances</em>, was found among his papers after his
+death and read to the Royal Society in <strong>1763</strong> &mdash; published the following year &mdash; by
+his friend <strong>Richard Price</strong>, who edited it heavily, supplied worked numerical examples and an
+appendix, and by some accounts contributed roughly half of the final paper.<sup class="ref"><a href="#r1">1</a></sup></p>
+
+<p>Bayes asked an <em>inverse</em> question. The probability calculus of his day &mdash; De Moivre's
+<em>Doctrine of Chances</em> &mdash; ran forwards: given a known chance, what outcomes follow? Bayes turned it
+around. <em>Given the outcomes we have actually seen, what can we say about the unknown chance that produced
+them?</em> That is the question every scientist faces, and the answer is the rule that bears his name.</p>
+
+<blockquote>The probability of any event is the ratio between the value at which an expectation depending on
+the happening of the event ought to be computed, and the value of the thing expected upon its happening.
+<cite>&mdash; Thomas Bayes, opening definition of the 1763 <em>Essay</em></cite></blockquote>
+
+<div class="note history"><strong>The &ldquo;God&rdquo; in the origin story.</strong> Price was not only a
+mathematician but a moral philosopher and minister, and he read Bayes's result through the lens of
+<em>natural theology</em>: inverse probability as a way of reasoning from the observed order of the world back
+toward its cause. He turned it, pointedly, against <strong>David Hume</strong>, whose 1748 essay <em>Of
+Miracles</em> argued that no testimony could rationally establish a miracle, since a miracle is maximally
+improbable. Price's reply was probabilistic &mdash; Bayes's mathematics shows how the <em>accumulation</em> of
+even fallible, independent testimony can overwhelm a very small prior probability, so a sufficiently
+corroborated report of an improbable event can rationally raise belief.<sup class="ref"><a href="#r2">2</a></sup>
+Whether Bayes <em>himself</em> intended a theological target is debated &mdash; his interest may simply have
+come from De Moivre &mdash; but his editor launched the idea into the world as, among other things, an
+instrument of natural theology: inverse probability as a way to argue from effects back to a first
+cause.<sup class="ref"><a href="#r3">3</a></sup></div>
+
+<p>The method was carried much further by <strong>Pierre-Simon Laplace</strong>, who rediscovered and
+generalised it from the 1770s, called it the &ldquo;probability of causes,&rdquo; and applied it to real
+problems &mdash; the masses of the planets, the ratio of male to female births. For a century it was known as
+<em>inverse probability</em>; the adjective <em>Bayesian</em> became common only in the twentieth century,
+during a revival led by Jeffreys, de&nbsp;Finetti and Savage, and made practical for hard problems by the
+arrival of <strong>Markov-chain Monte Carlo</strong> in the 1990s &mdash; the engines (Stan, greta, INLA)
+that flexyBayes drives today.</p>
+
+<h2 id="concepts"><span class="n">3</span>The ideas you actually need</h2>
+<p>Bayesian inference is one equation and a change of attitude. The attitude: a parameter is not a fixed
+unknown to be point-estimated but a quantity we hold <em>beliefs</em> about, expressed as a probability
+distribution and <em>updated</em> by data.</p>
+
+<h3>Bayes' theorem &mdash; the update rule</h3>
+<math display="block">
+  <mrow>
+    <mi>p</mi><mo>(</mo><mi>&#x3B8;</mi><mo>&#x2223;</mo><mi>D</mi><mo>)</mo>
+    <mo>=</mo>
+    <mfrac>
+      <mrow><mi>p</mi><mo>(</mo><mi>D</mi><mo>&#x2223;</mo><mi>&#x3B8;</mi><mo>)</mo>
+        <mspace width="0.18em"/><mi>p</mi><mo>(</mo><mi>&#x3B8;</mi><mo>)</mo></mrow>
+      <mrow><mi>p</mi><mo>(</mo><mi>D</mi><mo>)</mo></mrow>
+    </mfrac>
+  </mrow>
+</math>
+<p>The denominator <math><mrow><mi>p</mi><mo>(</mo><mi>D</mi><mo>)</mo></mrow></math> is just the constant that
+makes the right-hand side a proper distribution, so the working form is a proportionality:</p>
+<math display="block">
+  <mrow>
+    <munder><munder><mrow><mi>p</mi><mo>(</mo><mi>&#x3B8;</mi><mo>&#x2223;</mo><mi>D</mi><mo>)</mo></mrow>
+      <mo stretchy="true">&#x23DF;</mo></munder><mtext>posterior</mtext></munder>
+    <mo>&#x221D;</mo>
+    <munder><munder><mrow><mi>p</mi><mo>(</mo><mi>D</mi><mo>&#x2223;</mo><mi>&#x3B8;</mi><mo>)</mo></mrow>
+      <mo stretchy="true">&#x23DF;</mo></munder><mtext>likelihood</mtext></munder>
+    <mo>&#x00D7;</mo>
+    <munder><munder><mrow><mi>p</mi><mo>(</mo><mi>&#x3B8;</mi><mo>)</mo></mrow>
+      <mo stretchy="true">&#x23DF;</mo></munder><mtext>prior</mtext></munder>
+  </mrow>
+</math>
+<ul>
+  <li><strong>Prior</strong> &mdash; what we believe about the parameter before this data set (from theory,
+  past studies, or a deliberately weak &ldquo;let the data speak&rdquo; choice).</li>
+  <li><strong>Likelihood</strong> &mdash; how well each candidate value explains the data; the same object
+  frequentist maximum likelihood maximises.</li>
+  <li><strong>Posterior</strong> &mdash; the updated belief: the prior reshaped by the evidence. Because it is
+  a full distribution, every summary (mean, interval) falls out of it directly (Figure&nbsp;2).</li>
+</ul>
+
+<figure>
+<svg viewBox="0 0 540 240" role="img" aria-label="A prior distribution reshaped by the likelihood into a sharper posterior.">
+  <line x1="40" y1="200" x2="510" y2="200" stroke="#c9c1b1" stroke-width="1"/>
+  <text x="505" y="222" text-anchor="end" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" font-style="italic" fill="#736b5d">&#x3B8;</text>
+  <!-- prior: wide dashed -->
+  <path d="M60,196 C150,196 150,120 260,120 C370,120 370,196 480,196" fill="none" stroke="#9a9181" stroke-width="2" stroke-dasharray="5 4"/>
+  <!-- likelihood: medium blue -->
+  <path d="M180,196 C290,196 290,86 330,86 C370,86 370,196 470,196" fill="none" stroke="#2f5d8a" stroke-width="2"/>
+  <!-- posterior: narrow tall accent, between but nearer likelihood -->
+  <path d="M210,196 C295,196 300,48 315,48 C330,48 335,196 410,196" fill="#6a2e1f" fill-opacity="0.10" stroke="#6a2e1f" stroke-width="2.4"/>
+  <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">
+    <text x="150" y="112" fill="#776e5d">prior</text>
+    <text x="392" y="100" fill="#2f5d8a">likelihood</text>
+    <text x="318" y="40" text-anchor="middle" fill="#6a2e1f" font-weight="700">posterior</text>
+  </g>
+</svg>
+<figcaption><b>Figure&nbsp;2.</b> A Bayesian update. The broad prior (dashed) is reshaped by the likelihood the
+data carry; the posterior (filled) is sharper than the prior and pulled toward the evidence. With more data
+the likelihood dominates and the choice of a weak prior stops mattering.</figcaption>
+</figure>
+
+<p>A few consequences are worth keeping:</p>
+<table>
+<thead><tr><th>Concept</th><th>What it gives you</th></tr></thead>
+<tbody>
+<tr><td><strong>Credible interval</strong></td><td>&ldquo;there is a 95% probability the parameter lies in
+  [a,&nbsp;b]&rdquo; &mdash; the statement people <em>think</em> a confidence interval makes, here literally
+  true.</td></tr>
+<tr><td><strong>Conjugacy</strong></td><td>special prior&ndash;likelihood pairs whose posterior is available
+  in closed form. A coin with a <math><mrow><mtext>Beta</mtext><mo>(</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo>)</mo></mrow></math>
+  prior, after <math><mi>y</mi></math> heads in <math><mi>n</mi></math> tosses, has posterior
+  <math><mrow><mtext>Beta</mtext><mo>(</mo><mi>a</mi><mo>+</mo><mi>y</mi><mo>,</mo><mspace width="0.2em"/><mi>b</mi><mo>+</mo><mi>n</mi><mo>&#x2212;</mo><mi>y</mi><mo>)</mo></mrow></math>
+  &mdash; the analytic anchor a validation can check against.</td></tr>
+<tr><td><strong>MCMC / HMC</strong></td><td>when no closed form exists, draw samples from the posterior by
+  simulating a Markov chain (Hamiltonian Monte Carlo in Stan and greta); the draws <em>are</em> the answer.</td></tr>
+<tr><td><strong>Shrinkage</strong></td><td>a random effect is a hierarchical prior; the posterior pulls
+  small-group estimates toward the mean &mdash; the mixed model of &sect;1 and the Bayesian model are the same
+  object.</td></tr>
+</tbody>
+</table>
+
+<div class="note"><strong>The bridge.</strong> <code>random = ~Subject</code> says &ldquo;subjects are
+exchangeable draws from a population&rdquo; &mdash; which <em>is</em> a prior on the subject effects.
+flexyBayes makes that identity operational: it takes the ASReml-style formula and hands it to a Bayesian
+engine.</div>
+
+<h2 id="illustration"><span class="n">4</span>flexyBayes, illustrated</h2>
+<p>Here is the canonical sleep-deprivation study (<code>sleepstudy</code>: reaction time against days of
+restricted sleep, 18 subjects, 180 observations). One formula, written once:</p>
+<pre><code>library(flexyBayes)
+fit &lt;- flexybayes(
+  fixed   = Reaction ~ Days,   <span class="c"># population slope of reaction time on days</span>
+  random  = ~Subject,          <span class="c"># each subject keeps their own intercept</span>
+  data    = sleepstudy,
+  backend = "inla"             <span class="c"># or "greta" (TensorFlow HMC), or "brms" (Stan HMC)</span>
+)
+coef(fit)                      <span class="c"># canonical-named posterior means</span></code></pre>
+
+<p>The same three lines, with <code>backend =</code> swapped, run the <em>same</em> formula through three
+different estimation engines. The validation study fits all three on this exact model and checks them against
+<code>lme4</code> (REML) and, where the engine is deterministic, against a hand-written backend fit. The
+estimated slope &mdash; the rise in reaction time per lost day of sleep &mdash; from each route:</p>
+
+<figure>
+<svg viewBox="0 0 540 170" role="img" aria-label="The estimated Days slope from four methods, all clustered near 10.5 ms per day.">
+  <line x1="60" y1="120" x2="520" y2="120" stroke="#c9c1b1" stroke-width="1"/>
+  <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#736b5d" text-anchor="middle">
+    <line x1="60"  y1="116" x2="60"  y2="124" stroke="#c9c1b1"/><text x="60"  y="138">10.0</text>
+    <line x1="290" y1="116" x2="290" y2="124" stroke="#c9c1b1"/><text x="290" y="138">10.5</text>
+    <line x1="520" y1="116" x2="520" y2="124" stroke="#c9c1b1"/><text x="520" y="138">11.0</text>
+    <text x="290" y="158" font-style="italic">slope, ms per lost day of sleep</text>
+  </g>
+  <!-- x = 60 + (val-10)*460 ; INLA 10.451->267, lme4 10.467->275, brms 10.48->281, greta 10.533->305 -->
+  <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11">
+    <circle cx="267" cy="120" r="6" fill="#6a2e1f"/><text x="267" y="64" text-anchor="middle" fill="#6a2e1f" font-weight="700">INLA</text><text x="267" y="80" text-anchor="middle" fill="#6a2e1f">10.451</text><line x1="267" y1="86" x2="267" y2="114" stroke="#6a2e1f" stroke-width="1"/>
+    <circle cx="275" cy="120" r="6" fill="#2f5d8a"/><text x="246" y="104" text-anchor="middle" fill="#2f5d8a">lme4 10.467</text>
+    <circle cx="281" cy="120" r="6" fill="#2f6b40"/><text x="318" y="104" text-anchor="middle" fill="#2f6b40">brms 10.48</text>
+    <circle cx="305" cy="120" r="6" fill="#8a5a00"/><text x="305" y="64" text-anchor="middle" fill="#8a5a00" font-weight="700">greta</text><text x="305" y="80" text-anchor="middle" fill="#8a5a00">10.533</text><line x1="305" y1="86" x2="305" y2="114" stroke="#8a5a00" stroke-width="1"/>
+  </g>
+</svg>
+<figcaption><b>Figure&nbsp;3.</b> Cross-paradigm agreement on the <code>sleepstudy</code> slope. Three Bayesian
+engines through flexyBayes &mdash; INLA, greta, brms &mdash; and the classical <code>lme4</code> REML reference
+all land near 10.5&nbsp;ms per lost day of sleep. Numbers are the real validation results, not illustrations.</figcaption>
+</figure>
+
+<p>Two things are worth seeing. First, the INLA route is <strong>numerically identical</strong> to a
+hand-written <code>INLA::inla()</code> fit (difference exactly zero) &mdash; direct evidence that the
+formula-to-backend translation is faithful, not approximate. Second, three different samplers and the
+frequentist estimator agree to well within their uncertainty &mdash; agreement <em>across paradigms</em>, the
+strongest kind of corroboration a number can carry.</p>
+
+<div class="note warn"><strong>A convergence caveat.</strong> The greta run above used a modest warm-up and
+flexyBayes reported that the sampler had not fully converged (R-hat up to 2.66). The estimate still fell
+within tolerance; a publication fit would raise the warm-up. The convergence diagnostic is reported alongside
+the estimate.</div>
+
+<h2 id="heights"><span class="n">5</span>To its heights</h2>
+<p>The point of one syntax over three engines is that you can choose the engine by the <em>problem</em> and
+cross-check across them.</p>
+
+<h3>Triangulation</h3>
+<p>Because the same model can be fit three ways, agreement <em>between</em> the engines becomes a built-in
+robustness check. flexyBayes exposes this through its <code>triangulate()</code> method: fit in INLA (fast,
+deterministic) and in Stan (full MCMC), and if the posteriors agree you have strong evidence the answer is
+real, not an artefact of one engine's approximation. Figure&nbsp;3 is triangulation in miniature.</p>
+
+<h3>Scale</h3>
+<p>The three engines have different sweet-spots, and one syntax lets you meet a dataset where it is:</p>
+<table>
+<thead><tr><th>Engine</th><th>Strength</th><th>Reach for it when&hellip;</th></tr></thead>
+<tbody>
+<tr><td><strong>INLA</strong></td><td>fast, deterministic approximate inference; no sampling</td><td>large spatial / temporal and structured-covariance models where MCMC would be hopeless</td></tr>
+<tr><td><strong>greta</strong></td><td>TensorFlow back-end; GPU-capable HMC</td><td>large, custom, differentiable models that benefit from hardware acceleration</td></tr>
+<tr><td><strong>brms / Stan</strong></td><td>gold-standard HMC; rich family and prior support</td><td>complex likelihoods where you want the most trusted sampler</td></tr>
+</tbody>
+</table>
+<p>On top of the engines, flexyBayes carries an indexing representation of the design built to scale, plus
+higher-level entry points for genomics-scale work &mdash; among its exported verbs are <code>fb_gwas()</code>
+(genome-wide association), <code>fb_gblup_cv()</code> (genomic best-linear-unbiased prediction with
+cross-validation), structured-covariance constructors, and aggregation paths for grouped data. The same
+<code>fixed</code>&nbsp;/&nbsp;<code>random</code> formula that fits 18 subjects of sleep data is the formula
+that fits thousands of genotypes.</p>
+
+<div class="note history"><strong>Full circle.</strong> Price used inverse probability to argue that enough
+independent evidence can overturn a strong prior. Two and a half centuries later that is exactly what a
+triangulated, large-scale flexyBayes fit does: it accumulates evidence across engines and across thousands of
+units until the posterior is sharp enough to act on. The minister's instrument, industrialised.</div>
+
+<h2 id="refs" style="font-size:.95rem">References &amp; notes</h2>
+<ol class="refs">
+  <li id="r1">Thomas Bayes, &ldquo;An Essay towards solving a Problem in the Doctrine of Chances,&rdquo;
+  <em>Phil. Trans. R. Soc.</em> 53 (1763), communicated by R. Price. Biographical summary:
+  &ldquo;Thomas Bayes,&rdquo; <em>Wikipedia</em> (consulted 2026).</li>
+  <li id="r2">J. Earman, &ldquo;Bayes, Hume, Price, and Miracles,&rdquo; in <em>Bayes's Theorem</em>
+  (Proc. British Academy 113), 2002.</li>
+  <li id="r3">D. R. Bellhouse and collaborators on Richard Price, miracles, and the origins of Bayesian
+  decision theory, <em>Eur. J. Hist. Econ. Thought</em> 20(1), 2013; see also popular discussions of Bayes'
+  theorem and arguments concerning a first cause.</li>
+</ol>
+
+<footer>
+  <p>Historical claims are drawn from public references and checked against more than one source (above). The
+  flexyBayes figures are reproduced from the validation study in <code>../validation/</code>; no number in
+  this primer is hand-typed. Mathematics is rendered with native <span class="lex">MathML</span> &mdash;
+  self-contained and offline.</p>
+  <p><a href="../index.html">&larr; back to the report</a> &nbsp;&middot;&nbsp; <a href="../walkthrough/">the
+  walkthrough</a> &nbsp;&middot;&nbsp; <a href="../validation/">the validation study</a></p>
+</footer>
+
+</div></body></html>

@@ -1,0 +1,6 @@
+site/
+pdf/
+figures/
+bench/results/
+.build/
+*.log
