@@ -1,12 +1,17 @@
-# Tidy a flexybayes model
+# Tidy a flexyBayes fit into a one-row-per-term data frame
 
-Returns a tidy data frame of fixed effect estimates with posterior
-statistics.
+Turns a flexyBayes fit into a flat, `broom`-style `data.frame`: one row
+per model term, with stable, documented columns. The method is
+registered against the
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html) generic
+(re-exported by `broom`), so `broom::tidy(fit)` and
+`generics::tidy(fit)` both dispatch here.
 
 ## Usage
 
 ``` r
-tidy.flexybayes(
+# S3 method for class 'flexybayes'
+tidy(
   x,
   conf.int = TRUE,
   conf.level = 0.95,
@@ -19,25 +24,90 @@ tidy.flexybayes(
 
 - x:
 
-  A flexybayes object
+  A flexyBayes fit: `flexybayes_brms` (brms backend, which inherits this
+  method via the bare `flexybayes` class).
 
 - conf.int:
 
-  Logical: include credible intervals?
+  Logical. Whether to attach credible intervals. Defaults to `TRUE`.
 
 - conf.level:
 
-  Credible level (default 0.95)
+  Numeric in `(0, 1)`. The credible level for the intervals. Defaults to
+  `0.95`.
 
 - effects:
 
-  Which effects to return: `"fixed"` or `"random"`
+  Character. Which effects to return: `"fixed"` for the population-level
+  (fixed) coefficients or `"random"` for the variance-component summary.
+  Defaults to `"fixed"`.
 
 - ...:
 
-  Additional arguments (ignored)
+  Currently unused. Present for generic compatibility.
 
 ## Value
 
-A data frame with columns: term, estimate, std.error, conf.low,
-conf.high
+A `data.frame` with one row per term and columns:
+
+- term:
+
+  Character. The coefficient or variance-component name.
+
+- estimate:
+
+  Numeric. The posterior mean.
+
+- std.error:
+
+  Numeric. The posterior standard deviation.
+
+- conf.low:
+
+  Numeric. The lower credible bound (present when `conf.int = TRUE`).
+
+- conf.high:
+
+  Numeric. The upper credible bound (present when `conf.int = TRUE`).
+
+An empty `data.frame` is returned when the requested effects are absent
+(for example `effects = "random"` on a fixed-effects-only fit).
+
+## Details
+
+This is the supported accessor for cross-engine summaries. The hub
+returns backend-specific objects, `flexybayes_brms` (brms) and
+`flexybayes_inla` (INLA), whose internal layouts differ. Tidying through
+this generic yields the same columns across both, so a brms-versus-INLA
+comparison table can be assembled by `rbind`-ing two
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html) outputs
+instead of reaching into each backend's slots by hand.
+
+The credible intervals are posterior quantile-based intervals, not
+frequentist confidence intervals. They are reported in the
+`broom`-canonical `conf.low` / `conf.high` columns. The `std.error`
+column carries the posterior standard deviation of each term, again
+under the `broom`-canonical (dotless to the user, dotted in the column
+name) label.
+
+## See also
+
+[`glance.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/glance.flexybayes.md),
+[`augment.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/augment.flexybayes.md),
+[`tidy.flexybayes_inla()`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes_inla.md)
+
+## Examples
+
+``` r
+# Not run: the brms path compiles a Stan program first, and the
+# compile is far longer than an example should take. The fragment is
+# complete, so it runs as written on a machine with a C++ toolchain.
+if (FALSE) { # \dontrun{
+set.seed(1)
+dat <- data.frame(yield = rnorm(40), env = factor(rep(1:4, each = 10)))
+fit <- flexybayes(yield ~ env, data = dat, backend = "brms",
+                  chains = 1L, n_samples = 200L, warmup = 100L)
+tidy(fit)
+tidy(fit, effects = "random")
+} # }
+```

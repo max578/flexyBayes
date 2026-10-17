@@ -8,17 +8,16 @@ project verbatim.
 
 ## Scope
 
-The Code of Conduct applies to all project spaces — the GitHub
+The Code of Conduct applies to all project spaces (the GitHub
 repository, issues, pull requests, discussions, vignettes and
-documentation, and any other channels where the project operates — and
-to public spaces when an individual is officially representing the
-project.
+documentation, and any other channels where the project operates) and to
+public spaces when an individual is officially representing the project.
 
 ## Enforcement
 
 Reports of conduct that breaches the Contributor Covenant should be sent
-privately to the project maintainer at <max.moldovan@gmail.com>. All
-reports will be reviewed and investigated promptly and fairly. The
+privately to the project maintainer at <max.moldovan@adelaide.edu.au>.
+All reports will be reviewed and investigated promptly and fairly. The
 maintainer is obligated to respect the privacy and security of the
 reporter of any incident.
 

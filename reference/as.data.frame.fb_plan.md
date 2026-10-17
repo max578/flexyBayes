@@ -1,7 +1,7 @@
 # Coerce an `<fb_plan>` to data.frame — one row, stable columns
 
-Stable column ordering by the internal vector `.FB_PLAN_DF_COLS`; adding
-new fields appends rather than reorders.
+Stable column ordering by the internal vector `.FB_PLAN_DF_COLS`. New
+fields are appended, and existing columns keep their order.
 
 ## Usage
 
@@ -14,16 +14,22 @@ as.data.frame(x, row.names = NULL, optional = FALSE, ...)
 
 - x:
 
-  an `<fb_plan>` object.
+  An `<fb_plan>` object as returned by
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md).
 
 - row.names:
 
-  unused.
+  Ignored. Present for compatibility with the generic.
 
 - optional:
 
-  unused.
+  Ignored. Present for compatibility with the generic.
 
 - ...:
 
-  unused.
+  Ignored. Present for compatibility with the generic.
+
+## Value
+
+A one-row data.frame whose columns follow the internal
+`.FB_PLAN_DF_COLS` order, with one column per recorded plan field.

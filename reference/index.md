@@ -3,23 +3,19 @@
 ## Verbs
 
 The universal entry, the single-engine pins, the feasibility planner,
-cross-engine triangulation, and approximation validation.
+and approximation validation.
 
 - [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   : Bayesian Mixed Models with ASReml Syntax
 - [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
   : Fit a mixed model to an out-of-core dataset by streaming aggregation
-- [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-  : Fit a flexyBayes model via the greta engine
 - [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md)
   : Fit a flexyBayes model via the INLA engine
 - [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
   : Fit a flexyBayes model via the brms (Stan) engine
 - [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
   : Plan a flexyBayes fit without firing the backend
-- [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-  : Cross-engine posterior triangulation
 - [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
   : Validate an approximate model fit against its bias bound
 - [`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md)
@@ -33,13 +29,11 @@ Turn a model specification into a backend-agnostic representation.
   : Ingest an ASReml-format model specification into the flexyBayes IR
 - [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_brms.md)
   : Ingest a brms-format formula into the flexyBayes IR
-- [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md)
-  : Ingest a user-built greta model into the flexyBayes IR
 
 ## Constructor nouns
 
-The four classed input constructors: priors, covariance carriers,
-approximation schemes, and engine selections.
+The classed input constructors: priors, covariance carriers,
+approximation schemes and engine selections.
 
 - [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
   : Specify priors via the PC-canonical hybrid DSL
@@ -77,12 +71,24 @@ status.
   : Backend dispatch trace for a flexyBayes fit
 - [`canonical_names()`](https://aagi-aus.github.io/flexyBayes/reference/canonical_names.md)
   : Canonical parameter-name view for a flexyBayes fit
+- [`fb_backend_status()`](https://aagi-aus.github.io/flexyBayes/reference/fb_backend_status.md)
+  : Report inference-backend readiness
 - [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md)
   : List flexyBayes refusal reasons
+- [`fb_register_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_register_refusals.md)
+  : Register a package's refusal reasons
+- [`fb_refuse()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refuse.md)
+  : Raise a registered refusal
+- [`fb_isolated_lapply()`](https://aagi-aus.github.io/flexyBayes/reference/fb_isolated_lapply.md)
+  : Run jobs, each in its own R process
 - [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
   : Resolved-prior summary for a flexyBayes fit
-- [`gretaR_status()`](https://aagi-aus.github.io/flexyBayes/reference/gretaR_status.md)
-  : Introspect the gretaR backend slot
+- [`ranef()`](https://aagi-aus.github.io/flexyBayes/reference/ranef.md)
+  : Random-effect predictions from a flexyBayes fit
+- [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  : Posterior functionals of the variance components
+- [`fb_complete_grid()`](https://aagi-aus.github.io/flexyBayes/reference/fb_complete_grid.md)
+  : Complete a design grid before fitting
 - [`cat_code()`](https://aagi-aus.github.io/flexyBayes/reference/cat_code.md)
   : Emit the generated backend code for a deferred review object
 
@@ -90,36 +96,48 @@ status.
 
 Tidiers, emmeans, marginaleffects, and draws conversion.
 
-- [`tidy.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes.md)
-  : Tidy a flexybayes model
-- [`glance.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/glance.flexybayes.md)
-  : Glance at a flexybayes model
-- [`augment.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/augment.flexybayes.md)
-  : Augment a flexybayes model
+- [`tidy(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes.md)
+  : Tidy a flexyBayes fit into a one-row-per-term data frame
+- [`tidy(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes_inla.md)
+  : Tidy a per-row INLA fit into a one-row-per-term data frame
+- [`glance(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/glance.flexybayes.md)
+  [`glance(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/glance.flexybayes.md)
+  : Glance at a flexyBayes fit
+- [`augment(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/augment.flexybayes.md)
+  [`augment(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/augment.flexybayes.md)
+  : Augment a flexyBayes fit with fitted values and residuals
 - [`emm_basis(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/emm_basis.flexybayes.md)
   [`emm_basis(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/emm_basis.flexybayes.md)
-  : emmeans support: estimation basis (greta backend)
+  : emmeans support: estimation basis (default method)
 - [`recover_data(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/recover_data.flexybayes.md)
   [`recover_data(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/recover_data.flexybayes.md)
-  : emmeans support: recover model data (greta backend)
+  : emmeans support: recover model data (default method)
 - [`get_coef(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_coef.flexybayes.md)
   [`get_coef(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_coef.flexybayes.md)
-  : marginaleffects support: fixed-effect coefficients (greta backend)
+  : marginaleffects support: fixed-effect coefficients (default method)
 - [`get_vcov(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_vcov.flexybayes.md)
   [`get_vcov(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_vcov.flexybayes.md)
-  : marginaleffects support: covariance (greta backend)
+  : marginaleffects support: covariance (default method)
 - [`get_predict(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_predict.flexybayes.md)
   [`get_predict(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_predict.flexybayes.md)
-  : marginaleffects support: population-level predictions (greta
-  backend)
+  : marginaleffects support: population-level predictions (default
+  method)
 - [`get_data(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_data.flexybayes.md)
   [`get_data(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/get_data.flexybayes.md)
-  : Model data accessor (greta backend)
+  : Model data accessor (default method)
 - [`set_coef(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/set_coef.flexybayes.md)
   [`set_coef(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/set_coef.flexybayes.md)
-  : marginaleffects support: set coefficients (greta backend)
+  : marginaleffects support: set coefficients (default method)
 - [`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
   : Extract per-parameter posterior draws from a model fit
+- [`as_draws_df(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/as_draws_df.flexybayes.md)
+  [`as_draws(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/as_draws_df.flexybayes.md)
+  [`as_draws_matrix(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/as_draws_df.flexybayes.md)
+  : Posterior draws from a flexyBayes fit
+- [`loo(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/loo.flexybayes.md)
+  : Approximate leave-one-out cross-validation for a flexyBayes fit
+- [`pp_check(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/pp_check.flexybayes.md)
+  : Posterior predictive check for a flexyBayes fit
 
 ## Methods
 
@@ -129,10 +147,13 @@ S3 methods on the fit objects. Most are reached through their generic
 here for completeness.
 
 - [`summary(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/summary.flexybayes.md)
-  : Summarise a flexybayes object
+  : Summarise a flexyBayes fit
+
+- [`print(`*`<summary.flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.summary.flexybayes.md)
+  : Print a flexyBayes summary
 
 - [`summary(`*`<flexybayes_aggregated>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/summary.flexybayes_aggregated.md)
-  : Summarise a flexybayes_aggregated object
+  : Summarise a fit run on the aggregated representation
 
 - [`summary(`*`<flexybayes_glm>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/summary.flexybayes_glm.md)
   : Summary for flexybayes GLM-compatible object
@@ -143,16 +164,13 @@ here for completeness.
   Summarise an `<fb_plan>` — verbose form
 
 - [`print(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes.md)
-  : Print a flexybayes object
+  : Print a compact description of a flexyBayes fit
 
 - [`print(`*`<flexybayes_aggregated>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes_aggregated.md)
   : Print a flexybayes_aggregated object
 
 - [`print(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes_brms.md)
   : Print method for the brms-passthrough flexybayes subclass
-
-- [`print(`*`<flexybayes_direct_greta>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes_direct_greta.md)
-  : Print a flexybayes object built via fb_greta() (direct greta entry)
 
 - [`print(`*`<fb_approx>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.fb_approx.md)
   :
@@ -175,19 +193,19 @@ here for completeness.
   Print an `<fb_plan>` — flight-checklist form
 
 - [`coef(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/coef.flexybayes.md)
-  : Extract fixed effect coefficients
+  : Extract coefficients from a flexyBayes fit
 
 - [`coef(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/coef.flexybayes_inla.md)
-  : Fixed-effect coefficients of a per-row INLA fit
-
-- [`coef(`*`<flexybayes_direct_greta>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/coef.flexybayes_direct_greta.md)
-  : Extract canonical-named posterior means from an fb_greta() fit
+  : Coefficients of a per-row INLA fit
 
 - [`confint(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/confint.flexybayes.md)
-  : Credible intervals for fixed effects
+  : Credible intervals for the fixed effects of a flexyBayes fit
 
 - [`confint(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/confint.flexybayes_brms.md)
   : Credible intervals on the brms path
+
+- [`confint(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/confint.flexybayes_inla.md)
+  : Credible intervals for the fixed effects of a per-row INLA fit
 
 - [`confint(`*`<flexybayes_glm>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/confint.flexybayes_glm.md)
   : Credible intervals for flexybayes_glm
@@ -198,43 +216,62 @@ here for completeness.
 - [`vcov(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/vcov.flexybayes_inla.md)
   : Posterior covariance of a per-row INLA fit's fixed effects
 
-- [`predict(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes.md)
-  : Predict from a flexybayes model
+- [`fb_variance_draws()`](https://aagi-aus.github.io/flexyBayes/reference/fb_variance_draws.md)
+  : Joint posterior draws of the variance components of an INLA fit
+
+- [`fb_marginal_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_marginal_cov.md)
+  [`as.matrix(`*`<fb_marginal_cov>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/fb_marginal_cov.md)
+  : The marginal covariance of the response of a fitted model
 
 - [`predict(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes_brms.md)
   : Predict from a brms-passthrough flexybayes fit
 
-- [`predict(`*`<flexybayes_direct_greta>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes_direct_greta.md)
-  : Predict from a flexybayes_direct_greta fit
-
 - [`predict(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes_inla.md)
+  [`print(`*`<fb_predict_new>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes_inla.md)
   : Population-level predictions from a per-row INLA fit
+
+- [`print(`*`<fb_predict_classify>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/print.fb_predict_classify.md)
+  : Print a classify means table
 
 - [`fitted(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/fitted.flexybayes.md)
   : Extract fitted values
 
+- [`fitted(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/fitted.flexybayes_inla.md)
+  : In-sample fitted values from a per-row INLA fit
+
+- [`fitted(`*`<flexybayes_aggregated>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/fitted.flexybayes_aggregated.md)
+  : Fitted values of an aggregated count fit
+
 - [`residuals(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/residuals.flexybayes.md)
   : Extract residuals
+
+- [`residuals(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/residuals.flexybayes_inla.md)
+  : Response residuals from a per-row INLA fit
+
+- [`residuals(`*`<flexybayes_aggregated>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/residuals.flexybayes_aggregated.md)
+  : Residuals of an aggregated count fit
 
 - [`plot(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
   [`plot(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
   [`plot(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
   [`plot(`*`<flexybayes_aggregated>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
-  [`plot(`*`<flexybayes_direct_greta>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
   [`plot(`*`<flexybayes_glm>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/plot.flexybayes.md)
-  : Plot diagnostics for a flexybayes model
+  : Plot diagnostics for a flexyBayes model
 
 - [`anova(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/anova.flexybayes.md)
-  : Compare flexybayes models
+  : Compare flexyBayes models on a plug-in information criterion
 
 - [`logLik(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/logLik.flexybayes.md)
-  : Log-likelihood (approximate)
+  : Plug-in conditional log-likelihood of a flexyBayes fit
+
+- [`logLik(`*`<flexybayes_inla>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/logLik.flexybayes_inla.md)
+  : Log-likelihood of a per-row INLA fit (not computed)
 
 - [`logLik(`*`<flexybayes_brms>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/logLik.flexybayes_brms.md)
   : Log-likelihood on the brms path
 
 - [`nobs(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/nobs.flexybayes.md)
-  : Number of observations
+  : Number of observations a flexyBayes fit was fitted to
 
 - [`family(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/family.flexybayes.md)
   : Extract model family
@@ -249,15 +286,27 @@ here for completeness.
   : Fixed-effect model formula of a per-row INLA fit
 
 - [`model.matrix(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/model.matrix.flexybayes.md)
-  : Extract model matrix
+  : Fixed-effect model matrix of a flexyBayes fit
 
 - [`update(`*`<flexybayes>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/update.flexybayes.md)
-  : Update a flexybayes model
+  : Re-fit a flexyBayes model with modified arguments
+
+- [`fb_refit()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refit.md)
+  : Refit a model on new data, with added fixed columns
 
 - [`as.data.frame(`*`<fb_plan>`*`)`](https://aagi-aus.github.io/flexyBayes/reference/as.data.frame.fb_plan.md)
   :
 
   Coerce an `<fb_plan>` to data.frame — one row, stable columns
+
+## Genomics
+
+Genomic selection and the cross-engine genomic accessors.
+
+- [`fb_gblup_cv()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gblup_cv.md)
+  : Genomic-prediction accuracy by cross-validation
+- [`genomic_summary()`](https://aagi-aus.github.io/flexyBayes/reference/genomic_summary.md)
+  : Genomic summary of a fitted relationship model
 
 ## Datasets
 
@@ -268,5 +317,5 @@ here for completeness.
 
 - [`flexyBayes`](https://aagi-aus.github.io/flexyBayes/reference/flexyBayes-package.md)
   [`flexyBayes-package`](https://aagi-aus.github.io/flexyBayes/reference/flexyBayes-package.md)
-  : flexyBayes: Bayesian Mixed Models with ASReml Syntax, Powered by
-  Greta and INLA
+  : flexyBayes: Bayesian Mixed Models with ASReml Syntax via INLA and
+  brms

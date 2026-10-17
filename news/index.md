@@ -1,1884 +1,5340 @@
 # Changelog
 
-## flexyBayes 0.6.0
+## flexyBayes 0.18.1
+
+- On Windows, a brms fit that fails no longer blames a working C++
+  toolchain.
+- Messages about unrecognised `engine` settings and
+  [`fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/fb_engine.md)
+  options quote the names the same way on every operating system.
+
+## flexyBayes 0.18.0
+
+### For users of 0.10.0
+
+0.10.0 was the last public release. These changes can stop an existing
+script or change its results. Each is described in full under its
+release below.
+
+- `triangulate()` and `triangulate_genomic()` are removed.
+- [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
+  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md),
+  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md),
+  [`fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/fb_engine.md),
+  [`fb_from_asreml()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_asreml.md)
+  and
+  [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_brms.md)
+  are deprecated in favour of
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  and
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md).
+  [`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md),
+  [`cat_code()`](https://aagi-aus.github.io/flexyBayes/reference/cat_code.md),
+  [`is_fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_cov.md),
+  [`is_fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_engine.md)
+  and
+  [`is_fb_approx()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_approx.md)
+  are deprecated too. Each still runs and warns with what to call
+  instead.
+- The default prior on each standard deviation is half-normal on both
+  engines and follows the units of the response, so estimates can differ
+  from 0.10.0.
+- INLA fits run on one thread and are fitted three times, keeping the
+  fit with the highest marginal likelihood. The three fits run at the
+  same time, so a fit takes little longer than a single fit.
+  `options(flexyBayes.inla_best_of = 1)` fits once, and
+  `options(flexyBayes.inla_best_of_workers = 1)` runs the three one
+  after another, which takes about three times as long.
+- `us(f):g` and `(x | g)` fit on brms only, and `backend = "auto"` sends
+  them there. `fa(env, k):gen` is refused on both engines.
+
+### New since 0.10.0
+
+- More ASReml syntax: `at()`, `dsum()` residuals, AR1 x AR1 fields per
+  trial, `predict(classify = )` and predictions for unseen levels. See
+  the vignette *Moving from ASReml-R*.
+- `known_variance` for the second stage of a two-stage analysis, and
+  `pooled()` priors on brms.
+- Every fit records the priors it used
+  ([`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md))
+  and how it was run.
+- Refusals carry a reason code, and other packages can register their
+  own with
+  [`fb_register_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_register_refusals.md).
+
+### In this release
+
+- On INLA fits, a variance component is marked `weakly identified` when
+  its 95% interval covers 40% or more of its prior’s probability, or is
+  4.24 or more times its median. Expect more of these warnings than
+  under 0.17.0, mostly on terms with few levels. Under a prior tighter
+  than the default, a component whose interval sits close to its median
+  can be marked as well. The flag can stay silent on a component the
+  data cannot identify, as item 24 of `inst/KNOWN_ISSUES.md` describes.
+- `fa()` is still refused. In a simulation test, intervals for the
+  genetic correlation covered the true value 134 and 125 times in 150
+  for k = 1 and 2, against 136 required. The refusal message gives the
+  details.
+- A field with one AR1 factor names its correlation after that factor,
+  for example `rho_t`, instead of `rho_row`.
+- On INLA, `summary(fit)$varcomp` names the residual prior on each
+  `dsum()` section.
+- INLA fits run once under `R CMD check` when cores are limited.
+- The package title is “Bayesian Mixed Models with ASReml Syntax via
+  INLA and brms”.
+- The penalised-selection functions deprecated in 0.16.0, `fb_select()`
+  and the six beside it, are removed, and glmnet leaves Suggests.
+
+## flexyBayes 0.17.0
+
+### Changes to fitting
+
+- Every INLA fit is now run three times, once in the session and twice
+  in fresh R processes, and the fit with the highest log marginal
+  likelihood is returned. Identical one-thread INLA calls in fresh
+  processes can reach different modes, so a single fit is not repeatable
+  across sessions. `options(flexyBayes.inla_best_of = 1)` fits once,
+  exactly as 0.16.0 did. Other whole numbers set the number of fits. The
+  further fits need callr. A fit takes about three times as long.
+- `$extras$reproducibility$best_of` records each fit’s log marginal
+  likelihood and mode status, the fit kept, the range of the marginal
+  likelihoods, and how far each standard deviation moved across the
+  fits. [`print()`](https://rdrr.io/r/base/print.html) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) add one line when a
+  standard deviation differs by more than 5%.
+- A fit that fails in a separate process stops the call with that
+  process’s message. An option value that is not a whole number of one
+  or more refuses with `inla_best_of_invalid`.
+- On six trials of a barley series, single fits in eight processes
+  reached four modes. Best of three in four processes reached three, two
+  of them 0.003 apart in log marginal likelihood. Within a process the
+  main-plot standard deviation moved by up to 13.6% and the others by
+  3.9% or less.
+- The two fresh-process fits of best of three now run at the same time
+  as the fit in the session, so best of three takes little longer than a
+  single fit. On six trials of a barley series a package fit took a
+  median of 29 s, against 64 s with the fits one after another (three
+  fresh processes each). The fit kept does not depend on which fit
+  finishes first: it is the one with the highest log marginal
+  likelihood, the lowest-numbered of equal ones.
+- `options(flexyBayes.inla_best_of_workers)` sets how many fits run at
+  once, the session fit included. The default is all of them, and `1`
+  runs them one after another as before. Each child runs INLA with the
+  session’s thread plan, `"1:1"` by default.
+- Before the fits start, the memory one fit needs is estimated from the
+  design-memory preflight and compared with the free memory. When it
+  holds fewer fits than asked for, fewer run at once, down to one after
+  another, and a message says how much memory is free and how much a fit
+  needs. The number of fits is never changed.
+- `$extras$reproducibility$best_of` now also records each fit’s time in
+  seconds (`wall_s`), the number of fits run at once (`workers`) and
+  whether that was more than one (`parallel`).
+- When fits running at once fail, the call stops with the message of the
+  lowest-numbered failed fit, and the fits still running are ended.
+- Once the last fresh-process fit has finished, the processx supervisor
+  that flexyBayes started for it is ended, so a fit leaves no connection
+  open. A supervisor the session already ran is left running.
 
 ### New features
 
-- **[`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
-  fits mixed models to out-of-core datasets by streaming exact
-  aggregation.** The data is read in row-range chunks from an `.fst`
-  file, a vector of partitioned `.fst` shards, a delimited file, an
-  in-memory frame, or a chunk-generator function; per-cell sufficient
-  statistics are accumulated additively across chunks and never expanded
-  back to the full row count. Peak memory is bounded by one chunk plus
-  the cell accumulator, not by the row count, so a replicated factorial
-  design fits at hundreds of millions to a billion rows through the same
-  footprint as a small one.
-- **The aggregated likelihood is exact for the gaussian, binomial, and
-  poisson families.** Summing within a cell preserves the likelihood
-  (gaussian sum of squares; binomial successes / trials; poisson counts
-  / exposure), so the fitted posterior is the full-data posterior, not
-  an approximation. The streaming path fits through `inla` or `greta`.
-- **Out-of-scope models are refused before any data is read.**
-  Continuous fixed covariates (one cell per row), random slopes,
-  structured covariance, and smooth terms break the cell-constant linear
-  predictor and are refused with a named reason code rather than
-  silently approximated.
-- **In-memory `flexybayes(aggregate = )` now aggregates binomial and
-  poisson, not only gaussian.** A 0/1 binomial or a poisson model with a
-  factor cell key and a productive compression routes through the exact
-  count aggregation under `aggregate = "auto"` / `TRUE`; the dispatch
-  trace reads `path == "aggregated_count"`. Non-Bernoulli binomial
-  responses and weighted count models fall through to the per-row path.
-
-## flexyBayes 0.5.0
-
-### The verb surface, finalised (breaking change)
-
-The fitting surface now has one consistent shape: a universal entry that
-spans every backend, single-engine pins, and exported ingest adapters.
-The deprecation windows opened at 0.4.1 are now closed.
-
-- **Engine pins are single-engine, by name.**
-  [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md),
-  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md),
+- Model C’s per-trial standard deviations can be partially pooled.
+  `fb_prior(sd(group = "TRIAL:VARIETY", by = "TRIAL") ~ pooled(scale = half_normal(scale = 0.5)))`
+  pools the genotype-by-trial SDs of `diag(TRIAL):VARIETY`, and
+  `sigma(by = "TRIAL") ~ pooled(scale = ...)` pools the residual SDs of
+  `dsum(~ units | TRIAL)`. Either can be used without the other. The log
+  SDs share a normal distribution with an estimated mean and SD. The
+  prior on that SD, `scale`, has no default, and a `pooled()` without it
+  is refused.
+- Pooling is fitted on brms only. `backend = "inla"` refuses with
+  `pooled_prior_requires_brms`, and `backend = "auto"` fits on brms and
+  says so in
+  [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/reference/backend_decision.md)
   and
-  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  each fit via exactly one engine — `fb_<engine>(...)` is sugar for
-  `fb(..., backend = "<engine>")`. Passing a conflicting `backend` to a
-  pin is now a clear error rather than being silently overridden.
-  `fb_brms(backend = "brms")` (the redundant self-pin) is still
-  accepted.
-- **[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  no longer takes a non-brms backend.** The multi-backend role moved to
-  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  /
-  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  at 0.4.1; at 0.5.0
-  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  is the brms engine pin. Pass the same formula to
-  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  to reach `greta`, `inla`, or `auto`.
-- **[`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  /
-  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  fit a native greta model directly.** Pass a
-  [`greta::model()`](https://rdrr.io/pkg/greta/man/model.html) object
-  (or a
-  [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md)
-  intermediate representation) straight to
-  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md);
-  it is fit via greta and returned with the full post-fit surface. To
-  keep a canonical-name map for cross-engine
-  [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md),
-  build the representation once and reuse it:
-  `fb(fb_from_greta(model, canonical_names = c(...)))`.
-- **`fb_greta(model = )` is no longer a separate native-graph verb.**
-  The `model =` argument still works (it is mapped to the universal
-  model slot), so existing native-graph calls keep fitting; the
-  recommended form is `fb_greta(model)` or, with a canonical map,
-  `fb_greta(fb_from_greta(model, canonical_names = c(...)))`.
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md).
+  Printed fits, [`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  label the fit “per-trial SDs partially pooled” and print each pooling
+  SD’s posterior median.
+- A pooled fit is a different estimator from ASReml’s model C. On the
+  stored 12-trial fixture, T06’s residual variance moved from ASReml’s
+  0.086 to a posterior median of 0.099 (0.81 ASReml standard errors) and
+  T09’s genotype-by-trial variance from 0.632 to 0.550.
+- Over 20 simulated 12-trial series, the 90% intervals covered the true
+  per-trial SDs at 91% (genotype-by-trial) and 88% (residual), and the
+  true pooling SDs at 80% and 95%. One fit takes about two minutes on
+  two cores.
 
-### Backend selection has one home
+### Factor-analytic covariance
 
-Backend availability, per-engine capability, and the `auto` candidate
-set are all sourced from a single locked registry, so an unsupported
-(model x engine) pair always yields a registered, structured refusal
-naming the offending construct.
+- `fa(env, k):gen` is still refused on both engines
+  (`factor_analytic_not_repeatable`). Fits on INLA did not reproduce
+  ASReml 4.2’s split of the genetic variance into common and specific
+  parts, which ASReml often places at a specific variance of zero.
+- [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  accepts `loading(group = "gen") ~ normal(mean, sd)`, the prior on the
+  loadings of `fa(f, k):gen`. With none stated the loadings take INLA’s
+  own prior on a copy scaling, `normal(mean = 1, sd = 0.316)`, which is
+  named in the model manifest.
+- ASReml 4.2 reference fits of `fa(env, k):gen` on `agridat::besag.met`
+  (all genotypes and the first 30) and `agridat::dasilva.maize` ship in
+  `inst/validation/asreml-4.2/`.
+
+### Other changes
+
+- The seven selection functions deprecated in 0.16.0 (`fb_select()` and
+  the six beside it) still stop with `selection_removed` and remain
+  exported in this release.
+
+### Documentation
+
+- An INLA fit is not guaranteed to give the same result in a fresh R
+  session, even on one thread. Earlier help pages said it was. The
+  measurements, and a check to run where a conclusion rests on a weakly
+  informed variance, are in
+  [`?flexybayes`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  (section *INLA threads*) and `inst/KNOWN_ISSUES.md` (item 26).
+
+## flexyBayes 0.16.0
+
+### Breaking changes
+
+- Penalised selection is no longer part of flexyBayes. `fb_select()`,
+  `fb_select_path()`, `fb_select_refit()`, `fb_select_fold_data()`,
+  `fb_penalty()`, `fb_resamples()` and `fb_decision()` remain in this
+  release and stop with the refusal `selection_removed`. They will be
+  removed in the next one. The vignette *A two-stage analysis of a
+  series of trials* now shows a penalised regression fitted with glmnet
+  on the design whitened by
+  [`fb_marginal_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_marginal_cov.md),
+  and the vignette *Selecting over a candidate block* is withdrawn. The
+  options `flexyBayes.selection_dense_gb`,
+  `flexyBayes.selection_grouped_solver` and
+  `flexyBayes.selection_workers` are no longer read, and projpred,
+  grpreg, quadprog and plotly leave Suggests.
+
+  ``` r
+
+  # Before
+  sel <- fb_select(fit, ~ z1 + z2, penalty = fb_penalty(term(everything()) ~ laplace(scale = 0.3)))
+  # Now: whiten the design X and response y by the fitted covariance, and
+  # fit the path with glmnet
+  U <- chol(as.matrix(fb_marginal_cov(fit)))
+  glmnet::cv.glmnet(backsolve(U, X, transpose = TRUE),
+                    backsolve(U, y, transpose = TRUE), intercept = FALSE)
+  ```
+
+- `lgm_gate()` no longer runs its check for joint shrinkage priors,
+  which no route reached, and the refusal
+  `prior_family_unsupported_inla` is gone.
+
+- This renames the correlations of every field whose factors are not
+  called `row` and `col`: `ar1(ROW):ar1(RANGE)` now reports `rho_ROW`
+  and `rho_RANGE`, where it reported `rho_row` and `rho_col`. For
+  `ar1(range):ar1(row)`, `rho_row` is now the correlation along `row`,
+  which was `rho_col` before, and the correlation along `range` is
+  `rho_range`. A field written `ar1(row):ar1(col)` keeps its names. A
+  fit saved with an earlier version keeps the old names in
+  [`summary()`](https://rdrr.io/r/base/summary.html) until it is
+  refitted, and
+  [`fb_marginal_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_marginal_cov.md)
+  refuses such a fit by name.
+
+- On brms, `allow_new_levels = TRUE` used to pass through to
+  `posterior_epred()` with brms’s default new-level policy, which
+  resamples the effects of seen levels and leaves out observation noise.
+  It now returns the table above, built from
+  `posterior_predict(sample_new_levels = "gaussian")`.
+
+- `at_field_per_level_parameters_not_fitted` and
+  `at_field_per_level_hyper_not_representable` leave the refusal
+  registry, since both spellings now fit. The nugget-free residual
+  beside a random-side field refuses (`ar1_residual_with_random_field`),
+  and `residual = ~ ar1(t)` still refuses.
+
+### New features
+
+- `predict(fit, newdata, allow_new_levels = TRUE)` predicts trials and
+  localities the fit did not see, on INLA and on brms. Each level the
+  fit did not see is drawn from its fitted variance, and an INLA fit’s
+  AR1 x AR1 field is drawn afresh for a new trial. Levels the fit saw
+  keep their own posterior effects. `mean_by = ~ TRIAL` gives the mean
+  of each trial’s rows, `~ TRIAL + VARIETY + NRATE` each cell mean. The
+  result is a table of predictive means, SDs and intervals, observation
+  noise included, with joint draws in `attr(, "draws")`, and it repeats
+  under [`set.seed()`](https://rdrr.io/r/base/Random.html).
+
+- On INLA the mean and SD are exact for the posterior draws used. At
+  ASReml 4.2’s REML variances the variance of a trial, cell or locality
+  mean agrees with ASReml’s plug-in value to 2e-15.
+
+- A structure the new-level draw is not built for (random slopes,
+  splines, known covariances, factor-analytic and unstructured terms,
+  observation weights, a known variance), a new level with no fitted
+  variance (a new level of `f` in `diag(f):g`, a new residual section, a
+  plot off the fitted lattice) and a non-Gaussian response are refused
+  by name: `predict_new_levels_structure_not_supported`,
+  `predict_new_levels_no_variance` and
+  `predict_new_levels_family_not_supported`.
+
+- A series of trials with its own genotype-by-trial variance and its own
+  residual variance in every trial,
+  `random = ~ ... + diag(TRIAL):VARIETY` with
+  `residual = ~ dsum(~ units | TRIAL)`, now fits on INLA past 15
+  variance parameters. Above that limit INLA fits it by empirical Bayes
+  (`int.strategy = "eb"`). The fixed and random effects are conditional
+  on the posterior mode of the variance parameters, and each variance
+  keeps its own posterior.
+  [`print()`](https://rdrr.io/r/base/print.html),
+  [`summary()`](https://rdrr.io/r/base/summary.html),
+  [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/reference/backend_decision.md)
+  and
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  say so. On 12 simulated trials (26 variance parameters) every
+  per-trial variance ASReml 4.2 identifies is within 0.17 of its ASReml
+  standard error, and the fit takes 8 seconds. Other models past 15 are
+  still refused by `hyperparam_budget`. `backend = "auto"` fits these
+  models on INLA, where it used brms.
+
+- `predict(fit, classify = "gen")` now works when `gen` is random, on
+  INLA and brms fits. Each genotype’s prediction is the fixed part,
+  averaged over the other fixed factors, plus its random effect, with a
+  posterior SD and credible interval. On a multi-environment fit with
+  `gen:env` also random, `classify = "gen"` adds each genotype’s
+  `gen:env` effects averaged over environments, and
+  `classify = "gen:env"` returns one value per genotype and environment,
+  including combinations with no plots. This matches ASReml’s default
+  [`predict()`](https://rdrr.io/r/stats/predict.html). On two field
+  trials (john.alpha and 16 genotypes of besag.met) the predictions
+  differ from ASReml’s by at most 0.11 SE for genotypes and 0.4 SE for
+  genotype-by-county cells, and the posterior SDs are 1-25% wider than
+  ASReml’s SEs, because they include the uncertainty in the variance
+  components. With the variance components held at ASReml’s estimates,
+  the predictions agree to 0.006 SE and the SDs to 0.3%.
+
+- The arguments of ASReml’s
+  [`predict()`](https://rdrr.io/r/stats/predict.html) that change those
+  rules, such as `present`, `average` and `ignore`, or ask for `sed` or
+  `vcov`, now stop with the error `classify_argument_not_supported`
+  instead of being ignored.
+
+- `at(f, level):g` fits on both engines. The random effect `g` applies
+  only where `f` takes the named levels, with one variance per level, as
+  in ASReml. `at(design, "split"):mainplot` gives a main-plot variance
+  to the split-plot trials alone. Levels can be named by value or by
+  position in `levels(f)`, and a level the data lack is refused
+  (`at_level_not_in_data`). On simulated split-plot and RCB trials the
+  main-plot SD was within 1% of ASReml’s on INLA and 3% on brms.
+
+- `at(trial):ar1(row):ar1(col)` fits a separate AR1 x AR1 field on each
+  trial on INLA, with its own SD and both correlations, reported as
+  `sd_spatial__trial<level>`, `rho_row__trial<level>` and
+  `rho_col__trial<level>`. `at(trial, "T2"):ar1(row):ar1(col)` fits the
+  field on the named trials only. On three simulated trials every
+  posterior median was within 0.3 posterior SDs of ASReml’s estimate.
+  brms refuses the term.
+
+- `residual = ~ ar1(row):ar1(col)` fits ASReml’s separable residual with
+  no nugget on INLA, for a Gaussian response: three parameters, and no
+  `sigma` row. `residual = ~ dsum(~ ar1(row):ar1(col) | trial)` fits it
+  separately in each trial. The random-side
+  `random = ~ ar1(row):ar1(col)` keeps its nugget, so the two models are
+  told apart by where they are written. On a simulated 16 x 10 trial the
+  field SD and the two correlations were within 1.4% of ASReml’s.
+
+### Fixes to INLA results
+
+- The median and 95% limits of each variance component in
+  `summary(fit)$varcomp` are now read from INLA’s marginal of the log
+  precision, not of the precision. Standard deviations near zero were
+  overstated before: on one field-trial fit the median of the row term
+  fell from 0.123 to 0.009, matching INLA’s `summary.hyperpar` quantiles
+  converted to the standard-deviation scale. Variance components saved
+  from earlier versions will differ from a refit.
+
+- [`fb_variance_draws()`](https://aagi-aus.github.io/flexyBayes/reference/fb_variance_draws.md)
+  and
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  now draw the variance components jointly with each component’s
+  distribution taken from INLA’s stored marginal, so the median and 95%
+  limits of the draws equal those in `summary(fit)$varcomp`. Earlier
+  draws differed from them by up to about 1%.
+
+- [`vcov()`](https://rdrr.io/r/stats/vcov.html) on an INLA fit is now
+  computed from INLA’s Gaussian approximation with no random draws. It
+  was estimated from random draws before and varied between calls. Two
+  calls now give the same matrix. `n_samples` is still accepted and
+  ignored.
+
+- [`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
+  on an INLA fit draws with R’s random number generator from INLA’s
+  stored approximation, so
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) before the call
+  gives the same draws every time. INLA’s own sampler does not repeat
+  under a seed. The draws match it in distribution.
+
+- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  no longer reports that a model will not fit on data under 100,000 rows
+  because the memory check cannot size one of its terms.
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  skips that check below 100,000 rows.
+
+### New: a flag for weakly identified variance components
+
+- On INLA fits, a variance component whose 95% posterior interval covers
+  40% or more of its prior’s probability is marked `weakly identified`
+  in the `note` column of `summary(fit)$varcomp`, and the fit warns.
+  Data that inform a component narrow it to a small share of the prior,
+  and a share this large means the reported value mostly reflects the
+  prior. It is common with a grouping factor of three or four levels, or
+  a random term with the same grouping as a fixed factor. brms fits are
+  not checked yet. Silence the warning with
+  `options(flexyBayes.silence_weak_identification_warning = TRUE)`.
+
+- The warning that a random slope has collapsed to zero now compares the
+  slope’s standard deviation times its covariate’s standard deviation
+  with 1% of the residual standard deviation, so the result no longer
+  depends on the covariate’s units.
+
+### For packages that extend flexyBayes
+
+- [`fb_register_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_register_refusals.md)
+  lets another package add its own refusal codes from its `.onLoad()`,
+  in a partition under its own name, and
+  [`fb_refuse()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refuse.md)
+  raises any registered code as a `flexybayes_refusal` condition.
+  [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md)
+  gains a `package` column, and every refusal condition records the
+  package that registered its code.
+
+- [`fb_marginal_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_marginal_cov.md)
+  returns the marginal covariance of the response of a fit over given
+  rows: one block per variance component with its design and structure,
+  the Kronecker factors of an AR1 x AR1 field, the residual, and any
+  known variance or covariance.
+  [`as.matrix()`](https://rdrr.io/r/base/matrix.html) gives the dense
+  matrix. Each variance is its posterior mean, the squared estimate plus
+  the squared standard error of that component in
+  `summary(fit)$varcomp`.
+
+- [`fb_refit()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refit.md)
+  refits the model of a fit on new data, keeping its random terms,
+  family, priors, engine settings, weights, offsets and known variance.
+  It can add fixed columns, and on brms it can take extra prior rows,
+  Stan code and a hook that edits the formula. `emit_brms()` loses its
+  `nl_block` argument, which `formula_hook` replaces.
+
+- [`fb_isolated_lapply()`](https://aagi-aus.github.io/flexyBayes/reference/fb_isolated_lapply.md)
+  runs each call of a function in its own R process, as
+  `options(flexyBayes.isolation = "process")` does for a fit: values,
+  messages and warnings come back in job order, and a process that ends
+  without returning is the refusal `isolated_process_died`.
+
+- [`fb_extension_api()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md)
+  gives the version of the functions a package reads a fit through, 1 in
+  this release.
+  [`?fb_extension`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md)
+  documents them:
+  [`fb_model_terms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_response_values()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_offset_values()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_model_weights()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_known_variance()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_engine_settings()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_convergence()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_inla_posterior_sample()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md),
+  [`fb_check_refit()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md)
+  and
+  [`fb_fixed_design()`](https://aagi-aus.github.io/flexyBayes/reference/fb_extension.md).
+  [`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
+  gains a method for a brms fit.
+
+- Prior rows passed to `fb_refit(extra_prior = )` are recorded in the
+  model manifest with the source `extra_prior`.
+
+### Other fixes
+
+- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  refuses an argument it does not take with `plan_argument_unknown`. A
+  misspelt name used to fall into its unused `...` and the plan was made
+  for a different model.
+
+- The
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  help now says that with `prior = NULL` each random-effect standard
+  deviation takes the package’s half-normal default and the fixed
+  effects keep INLA’s defaults. It used to say the backend’s defaults
+  were used for every parameter.
+
+- On brms, `prior_vc_sd` now sets `lognormal(0, prior_vc_sd)` on the
+  standard deviation of an interaction random effect such as `a:b` or
+  `a:b:c`. A three-way term used to stop with “‘length = 3’ in coercion
+  to ‘logical(1)’”, because `term$var` partially matched the term’s
+  `vars`, and a two-way term was left at brms’s default prior.
+
+- On INLA, `prior_vc_sd` now sets `lognormal(0, prior_vc_sd)` on a
+  three-way random term such as `a:b:c`, as brms does. The term used to
+  get the package’s half-normal default, because the legacy prior list
+  left out multi-way interactions.
+
+- A non-Gaussian INLA fit with a three-way random term no longer warns
+  “partial match of ‘var’ to ‘vars’” under
+  `options(warnPartialMatchDollar = TRUE)`. The covariate
+  standardisation now reads the term’s fields by exact name.
+
+- With `gen` fixed and `gen:env` random, `predict(classify = "gen")` now
+  includes the `gen:env` effects, as ASReml does. It used to return the
+  fixed part only, with SEs 8-11% wider than ASReml’s on besag.met.
+
+- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  names an AR1 field term as it was written, for example
+  `ar1(row):ar1(col)`, in its representation plan. It printed
+  `(ar1_spatial | ?)` for every field.
+
+- The INLA hyperparameter count now has one precision per section of a
+  `dsum(~ units | f)` residual. It counted the residual as one, so with
+  12 trials it read 16 where INLA has 26, and a residual over many
+  sections could pass the limit of 15 unrefused.
+
+- The print of an INLA fit with a `dsum()` residual names its family
+  once instead of once per section.
+
+- The gate’s warning above 10 hyperparameters no longer says that a
+  `ccd` integration is set. Nothing set it.
+
+- A saved INLA fit holds only the fit. The formula and INLA’s prior
+  functions kept the frame the model was fitted in, with the data and
+  the engine’s working copies, so
+  [`saveRDS()`](https://rdrr.io/r/base/readRDS.html) of a 10,368-plot
+  fit wrote 1,119 MB in 93 s. It now writes 160 MB in 17 s, and a job of
+  [`fb_isolated_lapply()`](https://aagi-aus.github.io/flexyBayes/reference/fb_isolated_lapply.md)
+  that is given the fit runs in 3.7 s instead of 7.4 s with about a
+  quarter of the memory. Results are unchanged.
+
+- The two correlations of an AR1 x AR1 field are now named after the
+  factor each runs along, `rho_<factor>`, in `summary()$varcomp`,
+  [`print()`](https://rdrr.io/r/base/print.html),
+  [`fb_variance_draws()`](https://aagi-aus.github.io/flexyBayes/reference/fb_variance_draws.md),
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  and the per-level names of `at(trial):ar1(row):ar1(col)` and
+  `dsum(~ ar1(row):ar1(col) | trial)`. `ar1(col):ar1(row)` and
+  `ar1(row):ar1(col)` now report the same correlation under the same
+  name, as the field panel and ASReml (`ar1(row):ar1(col)!row!cor`)
+  already did. Previously `rho_row` was the correlation along whichever
+  factor the term wrote first.
+
+- [`vcov()`](https://rdrr.io/r/stats/vcov.html),
+  `predict(se.fit = TRUE)`, `predict(classify = )` and the posterior
+  draws of an INLA fit with a smooth beside the intercept, such as
+  `random = ~ site + spl(x)`, stopped with “leading principal minor … is
+  not positive” in 18 of 40 simulated fits of one such design. The
+  smooth and the intercept share a constant that only the smooth’s
+  sum-to-zero constraint fixes, so the precision INLA stores is singular
+  in that direction and rounding can make its factorisation fail. These
+  calls now condition on the constraint the way
+  `INLA::inla.posterior.sample()` does, and on such a fit the
+  [`vcov()`](https://rdrr.io/r/stats/vcov.html) SDs agree with INLA’s
+  `summary.fixed` to 5e-6 and with 100,000 of INLA’s own posterior draws
+  to within 0.5 Monte Carlo standard errors. Fits whose precision
+  factorises give the same results as before.
+
+- A fit whose stored precision is singular in a direction no constraint
+  fixes is refused by name,
+  `inla_config_precision_not_positive_definite`.
+
+- A fixed or random term that names a column not in the data is refused
+  before any engine runs, with `model_variable_not_in_data` and the
+  missing names in `variables`. It used to stop with R’s “object ‘x’ not
+  found”, on INLA only after the fit had run.
+
+- A response that is a factor or character vector is refused with
+  `response_not_numeric` on both engines and in
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md).
+  A three-level factor used to be fitted on INLA as a Gaussian on its
+  level codes 1 to 3. A binomial response keeps its own refusal,
+  `binomial_response_not_binary`, which
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  now reports too.
+
+- The bar grammar fits a transformed response, `log(y) ~ x + (1 | g)`,
+  as the ASReml grammar does. The two fits agree to within the spread of
+  two identical INLA calls (1e-8 in the coefficients), and the
+  coefficients agree with `lme4::lmer()` to 2e-4.
+
+- `aggregate = "foo"` (`aggregate_argument_invalid`), weights that are
+  not one number per row (`weights_invalid`), a `prior` that is not an
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  object (`prior_not_fb_prior`) and a
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  source that is not a file, a data frame or a chunk generator
+  (`stream_source_invalid`) are refused by name. They used to stop
+  untyped, and a character prior crashed with “\$ operator is invalid
+  for atomic vectors”.
+
+- The refusals of the aggregated and streamed routes are
+  `flexybayes_refusal` conditions with a registered `reason_code`. A
+  model the aggregation plan cannot compress refuses with
+  `aggregation_plan_ineligible`, its reasons in `reason_codes`, and a
+  model outside the aggregated or streamed route’s scope with
+  `aggregation_out_of_scope`, its reason in `scope_reason`.
+
+- `fb_plan(aggregate = TRUE)` reports no route where the fit refuses
+  `aggregate = TRUE`, for example a Poisson model with a continuous
+  covariate. It used to plan a per-row fit.
+
+- [`predict()`](https://rdrr.io/r/stats/predict.html) on an INLA fit
+  takes `re_formula` and `summary`. Its predictions are
+  population-level, so `re_formula = NA` returns the fixed part of the
+  model, as on a brms fit. Any other `re_formula`, and
+  `summary = FALSE`, are refused with `method_argument_not_supported`.
+  [`vcov()`](https://rdrr.io/r/stats/vcov.html) and
+  [`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
+  on a brms fit refuse `n_samples`, which they used to ignore.
+
+- [`update()`](https://rdrr.io/r/stats/update.html) with no change now
+  re-fits under the prior the fit ran under. When the original call
+  stated a prior or `prior_vc_sd` but not `prior_fixed_sd`, the re-fit
+  put a normal(0, 100) prior on every fixed effect, which the original
+  fit did not have. The re-fit also records its data under the name the
+  fit recorded.
+
+- [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  works on a flexyBayes fit when sommer is attached after flexyBayes.
+  sommer’s own
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  used to mask it and stop with “no applicable method”.
+
+- A brms fit finished with
+  [`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md)
+  after `review_code = TRUE` carries the record of the direct call: its
+  known variance, missing-response policy, backend and aggregation
+  setting, the routing decision and the prior record. It used to lack
+  them, so [`update()`](https://rdrr.io/r/stats/update.html) on it
+  refitted without the known variance.
+
+### Minor improvements
+
+- [`vcov()`](https://rdrr.io/r/stats/vcov.html),
+  `predict(se.fit = TRUE)` and `predict(classify = )` on an INLA fit
+  take about half the time (4.7 s to 2.2 s on a 10,368-plot fit with 79
+  hyperparameter configurations): each configuration’s precision matrix
+  is factorised on the ordering of the first, which gives the same
+  factor. Results are identical.
+
+### Documentation
+
+- New vignette, *Moving from ASReml-R*: the flexyBayes spelling of each
+  ASReml construct the package supports (`fixed`, `random`, `residual`,
+  `at()`, [`diag()`](https://rdrr.io/r/base/diag.html), `us()`, `ar1()`,
+  `dsum()`, `weights`, `predict(classify = )`,
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md),
+  `summary()$varcomp`), the constructs it refuses and why, and how to
+  read a posterior summary beside a REML one. Every ASReml number on the
+  page comes from a stored fit, so it builds without an ASReml licence.
+
+- *Moving from ASReml-R* shows the 0.16.0 additions beside stored ASReml
+  4.2 fits: `predict(classify = "gen")` with `gen` random,
+  `at(f, level):g`, the nugget-free `residual = ~ ar1(row):ar1(col)`, a
+  separate field per trial with `at(trial):ar1(row):ar1(col)`, per-trial
+  genotype and residual variances on 12 trials fitted by empirical
+  Bayes, and `predict(allow_new_levels = TRUE, mean_by = )` for a county
+  the fit did not see. Its list of refused models no longer includes
+  `at(env, "C1"):gen` or the nugget-free residual, which both fit.
+
+- `inst/TRANSLATION.md` lists per-trial genotype and residual variances,
+  prediction with a random classify factor, and prediction at new
+  levels, each with its ASReml comparison. `inst/KNOWN_ISSUES.md` adds
+  two open issues: the weak-identification flag can stay silent where
+  REML cannot identify a variance, and `ar1(t):g` reports its
+  correlation as `rho_row`.
+
+### Tests
+
+- flexyBayes is now compared with stored ASReml 4.2 fits on all eight
+  model shapes of the ASReml oracle suite, up from one. On the six
+  shapes fitted on INLA the fixed effects agree to within 0.011 of
+  ASReml’s standard error and every variance component ASReml identifies
+  agrees to within 9% (the tolerance is 15%). The replicate variance of
+  `john.alpha`, which ASReml estimates with a standard error larger than
+  itself, is flagged weakly identified in all three shapes that carry
+  it. `us(env):gen` is refused on INLA by name, and on brms its fixed
+  effects and identified variances agree.
+
+## flexyBayes 0.15.0
+
+A feature release for two-stage analyses of a series of trials and for
+selection runs. A second stage can take the full covariance of the first
+stage’s estimates, selection runs expose their fold data, a shrinkage
+prior can be confined to the candidate covariates, and parallel fold
+workers run as separate R processes. No model family or engine is added.
+
+### Two-stage analysis
+
+- `flexybayes(known_variance = K)` takes a symmetric positive-definite
+  covariance matrix with one row per data row, for a second stage whose
+  first stage returned the full covariance of its estimates:
+  `Var(y) = sigma^2 I + K`. INLA fits `K` as a latent effect with
+  precision `K^-1`. brms refuses a matrix with
+  `known_variance_not_supported`, because its `fcor()` term fits
+  `sigma^2 K` and does not combine with `se()`.
+
+- `fb_select(covariance = "base_model")` on such a base whitens each
+  fold by `sigma^2 I + sum_k sigma_k^2 Z_k Z_k' + K`, with `K` in full.
+
+- `fb_select(refit = list(method = "bayes"))` runs on an INLA base with
+  a known variance or covariance: each fold is refitted with it, and
+  each held-out row’s known variance is added to its predictive
+  variance.
+
+- `fb_select(keep_fold_data = TRUE)` keeps each fold’s whitened data,
+  read by three new functions: `fb_select_fold_data()` returns the
+  whitened and protected-removed design of each fold, `fb_select_path()`
+  solves the penalised path again at the run’s alpha or another, and
+  `fb_select_refit()` refits a named column set by generalised least
+  squares and scores its held-out clusters. New refusal code
+  `selection_fold_data_not_kept`.
+
+- [`fb_variance_draws()`](https://aagi-aus.github.io/flexyBayes/reference/fb_variance_draws.md)
+  draws an INLA fit’s variance components jointly, under the names and
+  on the scale of `summary(fit)$varcomp`.
+
+- [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) on a fit
+  takes `newdata`, coding its factors on the fitted data’s levels with
+  columns in the order of [`coef()`](https://rdrr.io/r/stats/coef.html).
+
+### Shrinkage on a block of candidates
+
+- `regularized_horseshoe()` and `r2d2()` take `scope = "block"`, which
+  keeps protected fixed effects out of the shrinkage prior. The
+  reference model of `fb_select()` is fitted as the brms non-linear
+  formula `y ~ a + b`: part `a` holds the intercept, the protected
+  effects and the random terms under the base model’s priors, and part
+  `b ~ 0 + <candidates>` carries the prior. The block must hold every
+  candidate. Coefficients,
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html),
+  [`confint()`](https://rdrr.io/r/stats/confint.html), draws and the
+  shrinkage factors use the candidates’ own names. A known variance per
+  row (`known_variance`) is carried when no out-of-fold score is asked
+  for. The projection decision refuses on this scope, and
+  `decision = "auto"` resolves to `"full"`. A model with a variable
+  named `a` or `b` refuses with `penalty_block_part_name_taken`.
+
+### Selection folds
+
+- With more than one fold worker
+  (`options(flexyBayes.selection_workers)`), `fb_select()` runs each
+  fold in a separate R process started through callr, instead of forking
+  the session. A forked worker of a session with INLA, OpenMP and TBB
+  loaded had died with SIGABRT in R’s garbage collector with memory to
+  spare. `options(flexyBayes.isolation = "fork")` keeps the forked
+  workers. Without callr, more than one worker refuses with
+  `isolation_requires_callr`.
+- The refusal for a forked fold worker that ends without a result
+  (`selection_parallel_worker_failed`) states what was seen, and names
+  memory and a crash in compiled code only as possible causes.
+- INLA refits inside `fb_select()`’s fold loops compute only what the
+  fold reads: no DIC, WAIC or latent marginals, posterior configurations
+  only where draws are taken, and no second fit testing an AR1 field.
+  The stored fold fit is about 12 times smaller, and a fold whose field
+  the data do not support no longer fits twice.
+- On INLA, the posterior predictive draws that score a fold are taken
+  for the held-out rows only, so a draw no longer holds the whole latent
+  field.
+- The Bayesian route scores each fold on 8,000 predictive draws, up from
+  4,000. On an 800-row, 20-site example with a weak candidate effect,
+  the Monte Carlo standard deviation of a between-model elpd difference
+  was 0.26 nats at 4,000 draws against a difference of 0.81, and 0.12 at
+  8,000. Sampling 16,000 draws for one fold took 28 s against 20 s for
+  500.
+
+### Other fixes
+
+- [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  returns the flexyBayes summary when brms is attached after flexyBayes.
+  brms re-exports the rstantools generic, whose default returned `NULL`.
+  The methods are registered on it too.
+- The README install block also installs remotes, knitr and rmarkdown,
+  which building the vignettes needs.
+- Vignette 03 reads the number of refusal codes from
+  [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md)
+  when it is built.
+- A build from a git worktree no longer ships its `.git` file.
+- The vignettes open with what each one covers.
+
+## flexyBayes 0.14.5
+
+A patch release for fits with an AR1 field. The field’s standard
+deviation now has the package’s default prior, and whether the data
+support the field is tested against a fit without it. No model family,
+engine or exported function is added.
+
+- On INLA, the standard deviation of an AR1 field (`ar1(t)`,
+  `ar1(row):ar1(col)`, `id(trial):ar1(row):ar1(col)` and `ar1(t):g`) now
+  has the default half-normal prior, as every other random-effect
+  standard deviation does. It had INLA’s own prior, log-gamma(1, 5e-05)
+  on the precision, and the model manifest recorded it as an engine
+  default. A stated prior reaches the field as
+  `fb_prior(sd(group = "spatial") ~ half_normal(scale = s))`.
+- The field’s correlations keep INLA’s own prior, and the manifest still
+  records them as engine defaults.
+- A fit with an AR1 field is now also fitted without the field, and the
+  two marginal likelihoods are compared. When the model without the
+  field is favoured by a Bayes factor of more than 100 to 1, the fit
+  warns that the field is not supported by the data, and
+  `summary(fit)$varcomp` marks the `sd_spatial` row `collapsed`. The
+  field SD can no longer show this on its own: on data with no spatial
+  signal it now reads about 0.9 beside a nugget of 0.8.
+- On simulated 10 x 8 grids, 13 per setting, the warning fired on all 13
+  grids with no field, on none of the 26 grids with a field SD of 1 or
+  1.5 (nugget 0.5 and 0.3), and on 11 of the 13 grids with a field SD of
+  0.4 beside a nugget of 1. In every one of the 52 cases it agreed with
+  a REML likelihood-ratio test at the 5% level, which also finds no
+  field on those 11 weak-field grids.
+- The fit without the field adds about 1.3 s on 80 plots, roughly
+  doubling the time of a small fit. It is not run when the 95% interval
+  of a field correlation excludes zero. `print(fit)` and `summary(fit)`
+  show the log Bayes factor under the field block, and
+  `fit$extras$field_test` holds the value, the threshold and the
+  verdict.
+
+## flexyBayes 0.14.4
+
+A maintenance release. No model family, penalty family, engine or
+exported function is added, and no fit changes.
+
+- The help page of
+  [`fb_log_posterior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_log_posterior.md)
+  now defines the `log_normalizer` attribute as `log Z`, the log of the
+  integral of the unnormalised density. It said `-log Z`, the opposite
+  of what proxymix 0.16.0 reads. No backend returns a finite value yet,
+  so no result changes.
+- The grouped penalty families in `?fb_penalty` are now a bulleted list,
+  and seven source lines longer than 80 characters are wrapped, so
+  `lintr` reports no lints.
+
+## flexyBayes 0.14.3
+
+A patch release for repeatable INLA fits. Identical calls now agree
+closely on the variance components. No model family, penalty family,
+engine or exported function is added.
+
+### INLA threads
+
+- Every INLA fit now runs on one thread, `num.threads = "1:1"`, on the
+  per-row, aggregated and streamed routes and in every fold of
+  `fb_select()`. At INLA’s own default, `"10:1"` on a 10-core machine,
+  identical calls returned different variance components where a
+  variance is weakly informed: on a 48-trial barley model with 22
+  localities, eight identical fits at `"4:1"` gave the locality variance
+  from 0.58 to 42.3, and at `"1:1"` from 0.75 to 0.79, with the fixed
+  effects unchanged. This is a change in behaviour.
+  `INLA::inla.setOption(num.threads = )` no longer sets the plan of a
+  flexyBayes fit. `options(flexyBayes.inla_threads = "4:1")` does, and
+  `"inla"` returns the choice to INLA.
+- A fold worker of `fb_select()` no longer sets INLA’s threads to
+  `cores %/% workers`, which replaced the plan the caller had chosen.
+
+## flexyBayes 0.14.2
+
+A patch release for selection on a weighted base. `fb_select()` carries
+the base model’s observation weights on every route, re-estimates them
+in each fold on request, selects on a padded field whose added cells
+have no response, and runs a shared AR1 x AR1 field under
+`prediction = "new_cluster"`. No model family, penalty family, engine or
+exported function is added. One change in behaviour: a weighted base on
+the projection decision now refuses, where 0.14.1 selected on the
+unweighted model without a message.
+
+### Observation weights in selection
+
+- A base fitted with `weights` is selected with residual variance
+  `sigma^2 / w` on each training row and `sigma^2` on each held-out row,
+  on the REML plug-in, on `covariance = "base_model"`, on the penalised
+  optimiser and its stability subsamples, and in every Bayesian fold
+  refit, which is fitted with the weights of its rows. 0.14.1 selected a
+  weighted base on the REML plug-in route as if it had no weights, and
+  said nothing. The fold covariance read no weights, and
+  `R/selection_weights.R` was called from no selection route. The
+  certificate records where the weights were absorbed.
+- The projection decision refuses a weighted base
+  (`selection_weights_not_carried`) instead of selecting unweighted.
+  This is a change in behaviour.
+- `fb_resamples(weights_by = ~ group)` re-estimates the weights in each
+  fold from the training rows alone. The base is refitted without
+  weights on the training rows, `s2` of a group is the mean squared
+  residual of its rows with the random effects included, the group’s
+  weight is `median(s2) / s2`, and held-out rows get weight 1. Each
+  fold’s weights are recorded on the certificate. The base must have
+  been fitted with `weights` (`selection_weights_by_unweighted_base`).
+
+### Missing responses and the shared field
+
+- On the benchmark and optimiser workflows, a row with a missing
+  response, such as a cell
+  [`fb_complete_grid()`](https://aagi-aus.github.io/flexyBayes/reference/fb_complete_grid.md)
+  adds to pad a field, is neither fitted nor scored in any fold. The
+  fold covariance is built on the full lattice and restricted to the
+  rows with a response, which is the exact marginal for a Gaussian
+  response. `selection_missing_response_not_carried` is withdrawn from
+  the registry. A fold whose held-out units have no response still
+  refuses by name.
+- `id(g):ar1(row):ar1(col)` runs under `prediction = "new_cluster"`. A
+  held-out level of `g` gets a field independent of the training levels,
+  with the shared variance and correlations, so its cross-covariance
+  with the training rows is zero. A field with no replicating factor,
+  and `vm()` and `ped()` terms, keep the refusal.
+- Under `new_cluster`, the Bayesian refit keeps each held-out trial on
+  one field label: the position factors of `TRIAL:RANGE` and `TRIAL:ROW`
+  are relabelled with the trial, and the rows the fold cannot estimate
+  are relabelled the same way. Before, the refit refused on some folds
+  of a weighted field base and not on others.
+
+### Refusal registry
+
+- 231 typed codes: `selection_weights_not_carried` and
+  `selection_weights_by_unweighted_base` added,
+  `selection_missing_response_not_carried` withdrawn.
+
+## flexyBayes 0.14.1
+
+A patch release that fits the ASReml spellings of a shared AR1 x AR1
+field and of aliased fixed effects the way ASReml 4.2 does, and makes
+penalised selection converge on grouped candidates. Two changes can stop
+a model that fitted in 0.14.0: `at(trial):ar1(row):ar1(col)` now
+refuses, and `id(trial)` is the spelling of the shared field.
+[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+refuses fixed-effect columns the data do not estimate unless
+`fixed_alias = "drop"` is given.
+
+### Models written as in ASReml
+
+- `id(trial):ar1(row):ar1(col)` fits one AR1 x AR1 field per trial on
+  INLA, with the variance and both correlations shared across trials, as
+  in ASReml. `at(trial):ar1(row):ar1(col)`, which ASReml fits with
+  separate parameters for each trial, now refuses
+  (`at_field_per_level_parameters_not_fitted`). 0.14.0 fitted the shared
+  field under that spelling. A brms plan reports `will_fit = FALSE` when
+  the brms fit would refuse the model.
+- `fb_select(covariance = "base_model")` builds the fold covariance of
+  `id(trial):ar1(row):ar1(col)`, one AR1 x AR1 field per trial with the
+  two correlations and the variance shared across trials. The covariance
+  is factored one trial at a time at any size.
+- [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  now refuses a model whose fixed-effect columns are not all estimated
+  by the rows with a response, as in a factorial with empty cells, and
+  names the columns (`fixed_effects_aliased`). Before, INLA and brms
+  fitted such a model without a message and reported those columns at
+  their prior. This is a change in behaviour: a model that fitted in
+  0.14.0 can refuse. `fixed_alias = "drop"` fits it on INLA as asreml
+  4.2 does, with the aliased columns fixed at zero and listed in
+  `fit$extras$fixed_alias`, and
+  [`predict()`](https://rdrr.io/r/stats/predict.html) returns `NA` with
+  status `"Aliased"` for a cell the fitting rows do not estimate.
+- `fb_select(protected_alias = "drop")` fits a protected term whose
+  columns are not all identified on a fold’s training rows, as an
+  unbalanced `VARIETY * NAPPLIED * SEEDRATE` is, the way ASReml 4.2
+  does: each fold drops the columns asreml reports as aliased, a
+  held-out row whose cell the training rows do not estimate is not
+  scored, and the certificate lists both per fold. The default,
+  `"refuse"`, is unchanged.
+- `fb_select(protected_alias = "drop")` now works with
+  `refit = list(method = "bayes")`: each fold’s refit leaves out that
+  fold’s dropped columns, and `value$not_estimable` counts the held-out
+  rows left out of the log predictive density. With
+  `covariance = "base_model"`, each fold’s refit fixes its aliased
+  protected columns at zero instead of fitting them at their prior.
+
+### Penalised selection
+
+- `fb_decision()` gains `n_lambda` and `lambda_min_ratio`, which set the
+  penalised optimiser’s path grid. The defaults, 20 points down to 1e-3
+  of each fold’s `lambda_max`, are the grid 0.14.0 used. The grid is
+  printed by `fb_select()` and its plan, and recorded on the certificate
+  as `benchmark$glmnet$path_grid`.
+- `group_lasso()` gains `alpha` (default 1). Below one it is a group
+  elastic net: `(alpha / scale) sum_g sqrt(p_g) ||beta_g||` plus
+  `((1 - alpha) / (2 scale)) ||beta||^2`, and a group still enters or
+  leaves whole.
+- Group lasso and group elastic net path points are solved by block
+  coordinate descent with an exact update for each group. The other
+  grouped families keep the proximal-gradient solver.
+- A grouped-family path point is accepted when its KKT residual is at
+  most `1e-6` times the largest entry of `|A'z|` on the fold’s whitened
+  payload, in place of an absolute `1e-6`, so the threshold follows the
+  response’s units. Ridge, Laplace and elastic net keep the absolute
+  `1e-6`. The threshold and the solver of each point are recorded in the
+  optimiser arm’s `kkt` table.
+- Exclusive lasso and group-exclusive path points on blocks of strongly
+  correlated candidates now reach their exact optimum. In 0.14.0 such a
+  point could stop after 200,000 iterations and refuse with
+  `selection_prox_mode_not_converged`.
+
+### Reporting
+
+- [`glance()`](https://generics.r-lib.org/reference/glance.html) on an
+  `fb_select()` result names its out-of-fold scores as losses. `metric`,
+  `protected_only`, `full` and `improvement` are now `loss`,
+  `loss_protected_only`, `loss_full` and `loss_reduction`. Lower is
+  better, and `loss_reduction` is positive when the candidates improve
+  prediction. On the Bayesian workflow the loss is `neg_elpd`, minus the
+  log predictive density of a held-out unit, where the old `metric`
+  column said `elpd`. [`print()`](https://rdrr.io/r/base/print.html)
+  labels the same block “out-of-fold loss”.
+- The default-prior note, the printed INLA formula and
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  say which scale the default prior is on. A Gaussian INLA fit runs on
+  the standardised response, and its priors are shown on that scale and
+  on the response, for example `half-normal-SD(5)` beside
+  `half-normal-SD(3.235)`. A lognormal prior on the standardised
+  response, previously shown as a half-normal, is shown as a lognormal.
+
+### Authors
+
+- Anabel Forte Deltell is listed as an author again, in `DESCRIPTION`,
+  `inst/CITATION`, `CITATION.cff` and `codemeta.json`.
+
+## flexyBayes 0.14.0
+
+The release for a two-stage analysis of a designed multi-environment
+trial. Penalised selection can now take its fold covariance from a refit
+of the base model, carry known first-stage variances into the second
+stage, value the support the optimiser chose by held-out log predictive
+density, and rank declared blocks by what removing each one costs in
+held-out loss. Each engine fit and each fold can run in its own process.
+One internal function is removed, and the statements the package makes
+about INLA and brms are checked against the engines.
+
+### Selection for a two-stage design
+
+- `fb_select()` gains `covariance = "base_model"`, which reads the fold
+  covariance of the benchmark and optimiser workflows from a refit of
+  the base model on each fold’s training rows. It builds random slopes,
+  `diag(f):g`, a single-trial `ar1(row):ar1(col)` field and `vm()` or
+  `ped()` known covariances, and factors a covariance that is
+  block-diagonal over a grouping one block at a time.
+- The default, `covariance = "reml_plugin"`, is unchanged below a stated
+  memory bound, `options(flexyBayes.selection_dense_gb = )` (0.5 GiB,
+  8,192 rows). Above it, a covariance that would be formed as a dense
+  matrix refuses with `selection_dense_covariance_too_large` instead of
+  exhausting memory.
+- `flexybayes(known_variance = v)` adds a known variance to each row’s
+  residual variance, `Var(y_i) = sigma^2 + v_i`, for the second stage of
+  a two-stage analysis. brms fits it as `se(sqrt(v), sigma = TRUE)` and
+  INLA as a row effect with known variance.
+  `fb_select(covariance = "base_model")` carries it into the fold
+  covariance, and the routes that would leave it out refuse with
+  `known_variance_not_supported`.
+- `fb_select(refit = list(method = "bayes"))` refits the support the
+  penalised optimiser chose on each fold as a Bayesian model on the
+  base’s own engine, scores each held-out row by its log predictive
+  density, and reports the per-unit sums, their total with its standard
+  error across units, and the share of between-trial variance a declared
+  block explains. `glance(x, against = y)` differences two such runs
+  unit by unit.
+- The Bayesian workflow’s fold refits now keep a base’s `prior_vc_sd`
+  and `prior_fixed_sd`. Before, they ran under the package’s default
+  priors.
+- `fb_select(ablation = TRUE)` drops each declared block of the
+  penalised path in turn, walks the path again on the same folds, and
+  reports in `tidy(level = "group")` the change in held-out loss per
+  unit with its standard error, and the change in log predictive density
+  where `refit = list(method = "bayes")` ran. The read-out is not
+  nested.
+
+### Selection read-outs
+
+- Entrance read-outs for penalised selection.
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) adds
+  `entry_s_median`, the point on `s` by which half of the folds able to
+  estimate a column had admitted it, with its quartiles and their
+  spread. It is the point `plot(type = "entrance_path")` labels, and
+  `path_entry_s` keeps its meaning, the earliest entry on any fold.
+  `tidy(level = "group")` gives the same profile for a grouped penalty’s
+  groups and for declared penalty blocks.
+  `plot(type = "entrance_heatmap")` shows the share of folds holding
+  each candidate or group along `s`, and the entrance path now uses a
+  logarithmic `s` axis so its labels no longer overprint.
+  `fb_decision(stability_subsamples = )` adds subsample stability
+  selection (Meinshausen and Buhlmann 2010) over half-samples of the
+  resampling unit. It is off by default, and `plan = TRUE` states its
+  cost.
+- Two displays. `plot(fit, type = "spatial_field")` draws the posterior
+  mean of an `ar1(row):ar1(col)` field on the trial’s row-by-column
+  array, titled with the `trial` identifier the caller gives. On a
+  selection, `plot(x, type = "loss_surface", alongside = list(...))`
+  draws the out-of-fold loss over `s` and the elastic-net mixing
+  parameter from results run at other mixing values on the same score
+  contract, with each result’s chosen point marked. It needs plotly, now
+  in Suggests.
+
+### Fitting in a separate process
+
+- `options(flexyBayes.isolation = "process")` runs each engine fit, and
+  each fold of `fb_select()`, in a separate R process started through
+  callr (in Suggests). If that process is killed, the call refuses with
+  `isolated_process_died`, naming the engine, the function called and
+  the signal or exit status, and the session carries on. The default,
+  `"none"`, fits in the session as before.
+
+### Refusals and corrections
+
+- A `brms::bf()` object with a non-linear formula, a formula or fixed
+  value for a distributional parameter, or a family other than the
+  `family` argument now refuses with `brms_ingest_feature_unsupported`.
+  Before, both engines fitted `bf(y ~ x + (1 | g), sigma ~ x)` without
+  `sigma ~ x` and fitted the `family` argument in place of a family
+  named inside `bf()`, and `nl = TRUE` stopped with an untyped error.
+- `fb_select()` refuses a base whose data have a missing response when
+  the unpenalised benchmark, the penalised optimiser or
+  `benchmark = TRUE` is asked for
+  (`selection_missing_response_not_carried`). It used to stop inside the
+  optimiser with an untyped error.
+- The refusal raised when `refit = list(method = "bayes")` meets a path
+  that froze no support no longer carries the penalty family’s name as
+  one of its condition classes. A `ridge` path’s refusal was classed
+  `flexybayes_refusal_selection_refit_support_undefined` and `ridge`.
+  The second class is gone, and the family is carried as data on the
+  condition.
+- At `s = 1` the penalised optimiser’s support is now empty, as the
+  exact solution there is. Rounding left values of order 1e-16 that
+  counted as selected, so a one-standard-error choice of `s = 1` could
+  report columns in the chosen support and in `tidy()$retained`.
+
+### What the package states about the engines
+
+- Refusals, the capability table and the help pages no longer describe a
+  gap in flexyBayes as a limit of INLA or brms. Two such statements were
+  false: brms writes a multi-trait covariance with a known relationship
+  matrix, and INLA has an exchangeable group model. Statements about the
+  engines that remain are checked against the engines in
+  `test-engine-claims.R`.
+- `corh(f):g` now refuses by name on INLA as it does on brms, and the
+  INLA refusal of a model the brms route also refuses no longer points
+  at brms.
+
+### Documentation and messages
+
+- The README keeps what the package does, how to install it, one worked
+  example, the table of models at least one engine fits, and where to
+  read more. The row notes, and the structures neither engine fits, are
+  in `KNOWN_ISSUES.md`.
+- *A two-stage analysis of a series of trials* is a new page. It fits
+  each trial of a simulated series on its own, carries the first stage’s
+  variances into the second with `known_variance`, whitens the folds
+  from a refit of that second-stage model, and reports what each
+  declared block of trial-level covariates costs when it is dropped.
+- *Mixed models in brief* and *Bayesian estimation in brief* are rebuilt
+  and show the half-normal default prior. *Selecting over a candidate
+  block* is rebuilt on this release.
+- The default-prior message printed on a first fit is two sentences.
+
+### Removals
+
+- The internal cross-engine comparison `triangulate()`, with
+  `triangulate_genomic()` and `triangulate_gwas()`, is removed. Nothing
+  in the package called it, and agreement between two engines fitted
+  from one parsed model cannot detect a translation error both share.
+
+## flexyBayes 0.13.1
+
+A patch release for penalised selection. It adds two read-outs of a
+penalised path and holds every point on the path to one optimality
+certificate. No model family, penalty family, engine or exported
+function is added.
+
+### Selection read-outs
+
+- `plot(fit, type = "entrance_path")` draws the out-of-fold score along
+  `s = lambda / lambda_max`, from the strongest penalty to the weakest,
+  and labels each candidate at its median first entry: the point by
+  which at least half of the folds that could estimate it had admitted
+  it. A candidate admitted on fewer than half of those folds is not
+  labelled, and candidates entering at the same point share one label.
+  The ordinate is the mean of the per-unit scores, for example RMSE, and
+  is not an inclusion probability. `ridge()` and `exclusive_lasso()`
+  have no finite null anchor and so no `s` coordinate, and the display
+  says so.
+- `augment(fit, type = "assessment_predictions")` returns the stored
+  out-of-fold predictions behind the optimiser’s decision: one row per
+  assessment row and repeat, with the row’s position in the data, its
+  fold, repeat and scoring unit, the observed and predicted values on
+  the modelled scale after any Gaussian offset, the selected tuning
+  point and the hash of the decision-stage score contract. It does not
+  predict rows supplied by the caller. The default,
+  `type = "unit_scores"`, returns the per-unit scores as before.
+
+### Optimality certificates
+
+- Every optimiser path point is held to one KKT threshold of `1e-6`,
+  whichever provider computed it. `glmnet` stops on a change in its own
+  objective, and on strongly correlated blocks, or when it runs out of
+  iterations, it returns points above that threshold, and 0.13.0 scored
+  those points as if they were the optimum. Such a point is now solved
+  again, on the support `glmnet` found or by the internal proximal
+  solver, and refused by name (`selection_prox_mode_not_converged`) if
+  neither certifies it. On correlated synthetic designs this turned
+  residuals of up to 2.6 into certified points and left the selected
+  supports unchanged.
+- Grouped path points were held to `1e-9` and could be refused on a
+  large correlated block after 200,000 iterations. They now use the same
+  `1e-6` threshold. On exclusive-lasso paths over correlated synthetic
+  blocks, every support accepted at `1e-6` matched the exact optimum
+  from an independent quadratic-programming solver, out-of-fold
+  predictions moved by less than `1e-5` response standard deviations,
+  and the paths ran 3 to 16 times faster. The lower-level solvers keep
+  their stricter defaults.
+
+### Documentation
+
+- `?fb_penalty` states that under treatment contrasts a factor’s group
+  holds its non-reference contrast columns, and the reference level has
+  no design column. The exclusive lasso encourages one member of a
+  declared block of correlated alternatives to represent it and does not
+  guarantee a single survivor.
+
+## flexyBayes 0.13.0
+
+This release makes the selection and large-MET substrate materially
+safer and more reproducible. It is sufficient for the model-fitting and
+variable- selection stages of the planned nert workflow. Study-specific
+data assembly, the M0–M2 orchestration and reporting remain in the study
+repository.
+
+### Selection at scale
+
+- `fb_select()` now exposes lasso, elastic net, group lasso, sparse
+  group lasso, exclusive lasso and the group-exclusive composite through
+  the explicitly frequentist `penalized_optimizer` workflow. Grouped
+  penalties use the package’s proximal provider and do not pass through
+  the brms prior compiler. Bayesian requests for optimiser-only families
+  still refuse by name.
+- Every penalised fit records the relative path coordinate
+  `s = lambda / lambda_max`, fold-specific lambdas, complete support
+  histories (entry, exit, re-entry and availability), KKT/proximal
+  diagnostics and the grouping map. Protected terms remain outside the
+  penalty.
+- Candidate spaces and learned transformations are compiled inside each
+  training fold. Rank-deficient candidates, assessment-only factor
+  levels and representations that cannot carry a fold-local drop have
+  typed outcomes. Score contracts and certificates hash the actual
+  folds, responses and design values.
+- Fold evaluation can run concurrently. Serial and concurrent runs
+  preserve exact folds, model order, selected support, scores and
+  certificate content. The measured three-worker pilot was 2.35 times
+  faster than serial and used about 11.5 GiB aggregate memory. Worker
+  death is a typed refusal. Choose the number of workers by available
+  memory, not by core count.
+
+### Model and data integrity
+
+- The default variance-component and residual-scale prior is now
+  half-normal on the standard deviation, with a common scale convention
+  across engines. Audits no longer claim support merely because a
+  bounded-uniform prior was stated when an INLA approximation escaped
+  that support.
+- Non-Gaussian INLA fits standardise numeric covariates and carry the
+  transformation into predictions and reported coefficients.
+- Family objects and character family names now pass through one exact
+  family/link gate. Unsupported families, contradictory links and
+  invalid response domains refuse before an engine runs.
+- Factor-analytic GxE is conservatively refused on both engines because
+  repeated identical fits did not satisfy the release’s repeatability
+  gate. Known-covariance block carriers are likewise refused. Use the
+  equivalent precision carrier. These are deliberate correctness
+  boundaries, not claims that complex MET covariance modelling is
+  complete.
+- Missing-response augmentation continues to preserve design nodes.
+  Posterior equivalence with omission requires ignorability and a common
+  prior on the same parameters. Backend defaults that depend on the
+  realised design do not establish that condition automatically.
+- Streaming, aggregation, family support, link handling and
+  parallel-worker failures now use typed refusals. Fits record provider
+  versions, threads, seeds and relevant reproducibility metadata.
+- Deferred brms review objects now preserve the caller’s `seed` and
+  `control` settings when
+  [`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md)
+  executes the reviewed model. Earlier builds kept the draw counts but
+  silently fell back to backend defaults for those two settings.
+- When a host supplies no detectable core count, an INLA fit now
+  receives the conservative `num.threads = "1:1"` setting instead of
+  INLA’s malformed `NA:1` default and undocumented parser fallback.
+  Explicit caller settings and valid host defaults are unchanged. Some
+  INLA builds still print their own hardware-probe messages. These are
+  recorded as an upstream environment note and are not suppressed as
+  package warnings.
+
+### API consolidation
+
+- [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
+  is deprecated in favour of `flexybayes(..., backend = "brms")`.
+  [`fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/fb_engine.md)
+  is deprecated in favour of direct fitting arguments, or a named
+  sampler-settings list in `fb_select(engine = )`.
+- [`fb_from_asreml()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_asreml.md)
+  and
+  [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_brms.md)
+  are deprecated in favour of
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  for inspection. The compatibility functions still return their
+  historical objects and warn with class `flexybayes_deprecated`.
+- The earlier deprecations of
+  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
+  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md),
+  [`is_fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_cov.md),
+  [`is_fb_approx()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_approx.md),
+  [`is_fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_engine.md),
+  [`cat_code()`](https://aagi-aus.github.io/flexyBayes/reference/cat_code.md)
+  and
+  [`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md)
+  remain in their warning-only period.
+
+### Known limits
+
+- The package does not provide the nert study’s end-to-end pipeline,
+  automatic ASReml-like experimental-design recognition, or a generally
+  validated production solution for arbitrary complex METs.
+  Factor-analytic GxE remains outside the admitted surface.
+- Concurrent INLA work is memory-intensive. One three-worker stress run
+  ended in an INLA segmentation fault and was recovered as a typed
+  worker failure. Not every worker count is known to be safe.
+- The nert release-shaped smoke test found a structurally aliased
+  variety-type parameterisation. flexyBayes selection already refuses an
+  unidentified protected design and records unavailable candidate
+  columns. Choosing among variety identity, type and within-type
+  contrasts remains an estimand decision for the study, not an automatic
+  formula rewrite by this package.
+
+## flexyBayes 0.12.1
+
+A containment release. An INLA fit whose hyperparameter lies outside the
+bound of a stated prior is refused by name, the capability record the
+package installs is generated from the live registry, and the README and
+known issues state what each engine fits at the level the evidence
+supports. No model family, penalty family, engine or exported function
+is added.
+
+### Breaking changes
+
+- **INLA refuses a fit outside the bound of a stated prior**
+  (`prior_support_violated`). After every INLA fit, on the per-row route
+  and both aggregated routes, each hyperparameter under a uniform bound
+  is checked on the scale INLA fitted: its mode and its 2.5% and 97.5%
+  quantiles must lie inside the bound INLA received, within 0.1% of the
+  standard deviation. The refusal names the parameter, its standard
+  deviation at the mode, the interval, the bound, the INLA version and
+  the route. `backend = "auto"` falls back to brms, as for any INLA
+  failure. On a Poisson design with a random term aliased with a fixed
+  factor, 0.12.0 under INLA 26.08.07 returned 45 of 100 repeated fits
+  with a standard deviation near 1,400 against a bound of 3, and 0.12.1
+  fitted 72 of 100 inside the bound and refused 28. Under INLA 25.10.19
+  all 100 fitted inside. Every INLA fit records the check in
+  `fit$extras$support_audit` (known issue 17). This corrects the 0.12.0
+  statement that a stated bound binds on INLA.
+
+  The check also refuses a fit whose mode is inside the bound when
+  INLA’s reported interval reaches past it. A uniform prior cuts the
+  posterior off at the bound, so such an interval misstates the
+  posterior. This happens on a weakly identified component with few
+  levels: on `agridat::john.alpha` with `random = ~ rep + rep:block`,
+  the default bound on `rep` (three levels) is 3.05 and INLA’s interval
+  runs from 0.17 to 3.65, so the default INLA fit is refused, in 8 of 8
+  repeats. A half-normal prior on the standard deviations fits the same
+  model on INLA, and brms fits it under the default.
+
+- **`na_action = "augment"` on brms refuses a missing Student-t
+  response** by name (`brms_cannot_augment_nongaussian`). 0.12.0
+  admitted the family and stopped with an untyped emitter error.
+  Augmentation on brms is admitted for the gaussian and lognormal
+  families, and the lognormal route is now checked by a live fit against
+  the complete-case posterior.
+
+### Claims and evidence
+
+- **The README, known issues and
+  [`?flexybayes`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  state what each engine fits.** INLA fits nested and multi-stratum
+  random effects, a per-environment residual and the baseline
+  heteroscedastic MET model (iid genotype, iid genotype-by-environment
+  and a sectioned residual), checked on small simulated trials.
+  Unstructured genotype-by-environment covariance fits on brms only, and
+  factor-analytic covariance on INLA is experimental. The capability row
+  formerly called the full MET model carries the baseline name.
+
+- **The installed capability record is generated from the registry.**
+  `inst/validation/execution_grid/capability_matrix.csv` is written by
+  the same generator as the README and known-issues tables, and an
+  installed- package test compares each shipped row with the live
+  registry. The grid outcome files come from this release’s grid run on
+  its tarball.
+
+- **Known issues 16 and 17 name their measured causes.** Issue 16, an
+  INLA program crash on a Poisson response with three non-zero counts,
+  is refused as `inla_program_failed` and is not a regression: the grid
+  cell’s data changed when the grid fixture’s random-number state moved.
+  A half-normal prior with scale 1.53 fits the same data. Issue 17 is
+  the aliased-term design above.
+
+- **The high-missingness warning reads a disagreement between engines as
+  weak identification.** The 30% threshold is described as a rule of
+  thumb.
+
+- `API_STABILITY.md` pins to the 0.12.x line.
+
+- **The default variance prior is unchanged in this release.** It stays
+  the uniform bound on each standard deviation, on both engines. No
+  execution-grid cell that fitted in 0.12.0 is refused by the check, but
+  the `john.alpha` design above, the data of a validated ASReml
+  comparison, is. The release plan therefore moves the default to a
+  half-normal prior on both engines in 0.13.0. Tests that fit
+  `john.alpha` as `rep + rep:block` on INLA, and two with a weakly
+  identified component, now state a half-normal prior or a wider bound.
+
+## flexyBayes 0.12.0
+
+The model a fit reports is the model it ran. Gaussian models on INLA are
+fitted per row on a standardised response, default priors follow the
+units of the response and of each covariate, offsets fit on both
+engines, a stated bound on a standard deviation binds (corrected in
+0.12.1: INLA can still return a mode outside the bound, and 0.12.1
+refuses such a fit), and every fit records which prior reached which
+engine slot as the engine reports it back. No model family, penalty
+family, engine or exported function is added.
+
+### Breaking changes
+
+- **Gaussian models are fitted per row.** The aggregated Gaussian route
+  combined the within-cell sums of squares with a fixed gamma prior on
+  the residual precision, so the residual prior a caller stated, or the
+  package’s default, was not the prior fitted, while
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  reported it: aggregated fits with residual bounds of 0.05 and 50
+  returned the same residual standard deviation. `aggregate = "auto"`
+  now fits a Gaussian model per row. `aggregate = TRUE` on a Gaussian
+  model, and
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  on a Gaussian family, refuse with
+  `aggregation_residual_prior_not_composed` before any fit or chunk is
+  read. `flexybayes_stream(fit = FALSE)` still returns the Gaussian
+  sufficient statistics, and binomial and Poisson models still
+  aggregate. The 0.10.0 release carries the same construction: an
+  aggregated Gaussian fit made with 0.10.0 should be refitted per row.
+
+- **Aggregated and streamed fits report no marginal likelihood.** On the
+  aggregated representation the engine’s value omits constants that
+  depend on the data, and under standardisation it scales with the
+  number of cells. [`summary()`](https://rdrr.io/r/base/summary.html)
+  reports the value as not available and names the reason
+  (`aggregated_evidence_unavailable`).
+
+- **Estimated correlation matrices are fitted on brms only.** `us(f):g`
+  and the correlated random slope `(x | g)` refuse on INLA with
+  `correlated_covariance_requires_brms`, and `backend = "auto"` routes
+  both to brms. On INLA each was one field under a joint Wishart prior,
+  which ties the variances to the correlations: `us(env):gen` on
+  `agridat::besag.met` returned a genetic correlation of 0.142 where
+  ASReml returns 0.930.
+
+- **A response containing `NaN` or an infinite value refuses** with
+  `response_not_finite`, naming the rows. INLA fitted such a model
+  without a message, and brms stopped with an error that named neither
+  the row nor the value. `NA` is still a missing response, handled by
+  `na_action`. On
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  a missing count refuses too (`aggregation_response_incomplete`), as
+  `aggregate = TRUE` already did: the cell holding it used to drop out
+  of the fit without a message.
+
+- **INLA refuses a heterogeneous residual on a count family**, as brms
+  does (`heterogeneous_residual_family_has_no_sigma`).
+  `residual = ~ dsum(~ units | f)` on a Poisson or binomial model split
+  the response into one likelihood per section, which is the unsectioned
+  model, and fitted it without a message.
+
+### The fitted model is the written model
+
+- **Gaussian models on INLA run on a standardised response.** Every
+  Gaussian identity-link fit on INLA is fitted to `(y - m) / s`, with
+  `m` the mean of the response when the model has an intercept and `s`
+  its standard deviation. Fixed and random effects, hyperparameters,
+  fitted values and the linear predictor with their marginals, the
+  marginal likelihood, DIC, WAIC, CPO, PO and the draws are mapped back
+  exactly, and stated priors are restated on the standardised scale in
+  closed form. The same model on a response recorded in different units
+  used to return different variance components without failing. Checked
+  across random-effect structures and response multipliers from 0.01 to
+  1000.
+
+- **Default priors on INLA follow the units of the data.** An unstated
+  random-effect standard deviation takes the bounded default prior. It
+  used to take INLA’s log-gamma precision prior, and on a design with a
+  four-level random intercept a call stating only the residual prior
+  returned a block standard deviation near 1e7 in 20 of 20 fits. The
+  default bound on an uncorrelated slope’s standard deviation is divided
+  by the standard deviation of its covariate, and the default
+  fixed-effect prior is scaled by each numeric column’s standard
+  deviation: on `lme4::sleepstudy` with `Days` multiplied by 0.001, 1 or
+  1000, the `Days` coefficient is 10.467285959588 at every scale,
+  7.8e-12 from lme4. Stated priors are never rescaled, and every filled
+  default is recorded on the fit and printed by
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md).
+
+- **The default bound reads a transformed response.** The bounded
+  default on the residual and group standard deviations is five standard
+  deviations of the response. It was read from a column named like the
+  response, so `log(y)` and `I(10 * y)` took a bound of 1 on both
+  engines whatever the units. It is now five standard deviations of the
+  modelled response, after any offset, on both engines.
+
+- **A tight uniform bound binds on INLA** (corrected in 0.12.1: the
+  start is inside the bound, but the returned mode can still leave it,
+  as known issue 17 records). INLA starts its search at a standard
+  deviation of 0.135 for a random effect. A stated uniform bound below
+  that started the search outside the bound, where the prior is flat,
+  and the search never entered it:
+  `sd(group = "geno") ~ uniform(0, 0.05)` on a Poisson model returned
+  0.61. The search now starts inside the bound whenever INLA’s own
+  starting point lies outside it, and the same fit returns 0.05. Every
+  other fit is sent to INLA as before. When INLA fails on a model that
+  states a uniform bound, the refusal says so and names two remedies.
+
+- **Offsets in the fixed formula fit on both engines.** `offset(z)` used
+  to be dropped without a message: `Reaction ~ Days + offset(Days)` on
+  `lme4::sleepstudy` returned the coefficient of the model without the
+  offset (10.47 against lme4’s 9.47). brms receives the offset in its
+  formula and INLA through `inla()`’s `offset` argument, and on the
+  standardised Gaussian response the centre, scale and default priors
+  read `y - o`. On Poisson, `offset(log(E))` is the same model as
+  `exposure = "E"`. [`predict()`](https://rdrr.io/r/stats/predict.html)
+  evaluates the offset on the fit data or on `newdata`, and a `newdata`
+  missing an offset column refuses (`newdata_offset_missing`). A
+  binomial offset on the aggregated route, projection selection with an
+  offset, a non-finite or wrongly sized offset (`fixed_offset_invalid`)
+  and an offset in the random or residual formula refuse by name. INLA
+  agrees with lme4 on `sleepstudy` to 1e-11.
+
+- **Every fit carries a model manifest** at `fit$extras$manifest`: every
+  stated or default prior with its source and the number of engine slots
+  that used it; every engine slot with the prior sent and the prior the
+  engine reports after fitting (INLA’s `all.hyper`, brms’s
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md));
+  the route; and whether the marginal likelihood is available.
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  prints from it, including each input no slot used and the reason. A
+  stated [`sd()`](https://rdrr.io/r/stats/sd.html) prior on one factor
+  of a multi-way interaction, such as `"a"` on `a:b:cc`, refuses with
+  `prior_target_not_in_model`. It used to be accepted without reaching
+  the fit. A stated prior on the interaction itself,
+  `sd(group = "a:b:cc")`, is accepted on INLA.
+
+- **[`fitted()`](https://rdrr.io/r/stats/fitted.values.html) and
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) work on
+  aggregated count fits, and include the random effects.** Both used to
+  stop with “missing value where TRUE/FALSE needed”, and the fitted
+  values stored on the fit were the fixed part alone, off by up to 3.49
+  counts on a Poisson test design. Row-level fitted values now come from
+  INLA’s cell fitted values mapped to each row and multiplied by that
+  row’s exposure or trials and `exp(offset)`. They match a per-row fit
+  to within 1e-6. A streamed fit keeps a head sample of its rows, and
+  where that is shorter than the data,
+  [`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) and the
+  emmeans and insight data hooks refuse with
+  `streamed_rows_not_retained`, and
+  [`update()`](https://rdrr.io/r/stats/update.html) with
+  `update_streamed_fit_not_supported`.
+  [`nobs()`](https://rdrr.io/r/stats/nobs.html), `glance()$nobs` and
+  `summary()$n_design` report the same integer.
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) on
+  INLA, the log-density producer, and
+  [`predict()`](https://rdrr.io/r/stats/predict.html) and
+  marginaleffects predictions on a non-identity link now refuse with
+  registered reason codes.
+
+- **[`ranef()`](https://aagi-aus.github.io/flexyBayes/reference/ranef.md)
+  on INLA reports the levels the user wrote** for every random-effect
+  index the INLA formula builder generates. Estimates, standard errors
+  and intervals are unchanged.
+
+### Selection
+
+- **Each fold learns its own preprocessing.** In `fb_select()` the
+  penalised reference model’s centring, scaling and prior are learned on
+  each fold’s analysis rows. Out-of-fold comparisons are gated on a
+  declared score contract at each model stage (`reference_predictive`
+  and `decision_predictive` on the certificate), the certificate records
+  how hyperparameters were treated and how the selection data were
+  reused, and a projection metric other than `elpd` refuses before any
+  fit (`projection_metric_unsupported`). projpred’s own k-fold search
+  refits the reference model on the whole sample, and the certificate
+  names that approximation.
+
+- A base model’s offset is subtracted in the fold substrate every
+  provider shares.
+
+### Smaller fixes
+
+- `fb_gblup_cv(seed = )` puts the caller’s random-number state back when
+  it returns.
+- The warning on `predict(classify = )` given `newdata` names the
+  argument brms accepts for new levels, `allow_new_levels = TRUE`.
+- Package code reads list fields by exact name where `$` partial
+  matching used to supply them: the preflight’s term label and level
+  count, the plan’s cell estimate and the selection bridge’s response
+  convention. A multi-way fixed term without a label now gets one label,
+  `x:z`.
+- `fb_select()` has an example.
+- On INLA, the warnings that the variance-component table could not be
+  built, or that a hyperparameter lost its row, no longer say the fit is
+  unaffected. Either can follow from a mode outside a stated prior
+  bound, and both now say to read `fit$inla$summary.hyperpar` against
+  the bounds (known issue 17).
+
+### Documentation
+
+- The explanation of why shrinkage priors are not fitted on INLA is
+  corrected wherever it ships. Given one local scale per coefficient, a
+  Laplace, horseshoe or R2D2 prior is Gaussian. The model then carries a
+  hyperparameter for every coefficient, more than INLA’s integration is
+  built for. The capability tables mark those rows `n/a` on INLA,
+  because `fb_select()` fits them on brms.
+- The scaling benchmark (`inst/validation/benchmark_scaling.md`) is
+  measured on a Poisson model: peak memory of 712 MB at ten million rows
+  and 734 MB at five billion, streamed from disk. The earlier Gaussian
+  measurements are kept as a dated record.
+- `API_STABILITY.md` records `triangulate()` as internal and the
+  [`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  change. `inst/KNOWN_ISSUES.md` records the bound change under issue 8
+  and lists the problems open for 0.13.0 as issues 10 to 16.
+
+### Refusals
+
+The registry holds 204 codes, 187 at 0.11.0. New in this release:
+`aggregation_residual_prior_not_composed`,
+`aggregated_evidence_unavailable`,
+`correlated_covariance_requires_brms`, `fixed_offset_unsupported`,
+`fixed_offset_invalid`, `newdata_offset_missing`,
+`projection_metric_unsupported`, `prior_family_has_no_residual_scale`,
+`prior_vc_sd_superseded_by_prior`, `evidence_not_computed`,
+`response_not_finite`, `streamed_rows_not_retained`,
+`update_streamed_fit_not_supported`, `augment_not_available_inla`,
+`log_density_producer_unavailable`, `predict_link_not_supported` and
+`marginaleffects_link_not_supported`.
+
+## flexyBayes 0.11.0
+
+`fb_select()` becomes a Bayesian verb. It fits a reference model in
+which a declared block of candidate fixed effects carries a joint
+shrinkage prior and the covariance structure is integrated over, not
+plugged in. It selects a parsimonious submodel by projection predictive
+inference where the reference model’s structure permits it, and refuses
+by name where it does not. On request, it triangulates the result
+against an external penalised optimiser on the same folds. It does not
+claim that posterior summaries are numerically identical to `glmnet`,
+and there is no configuration under which a penalised mode is reported
+under a Bayesian label.
+
+### Breaking changes
+
+- **`fb_select()`’s signature has four axes instead of one engine
+  argument.** `workflow`, `provider`, `prior` and `decision` are
+  recorded independently on every result, so a penalised-likelihood mode
+  cannot be described as a posterior. `covariance`, `metric`, `alpha`,
+  `lambda`, `stability` and `sensitivity` leave the public signature.
+  The metric is set in `fb_decision()`. Path and stability quantities
+  belong to the optimiser workflow and are returned only when it ran.
+  `metric` and `covariance` are still accepted for one release with a
+  deprecation notice.
+
+- **The certificate’s covariance estimand is read from the fold object,
+  not from an argument.** The public argument defaulted to
+  `plugin_mean_covariance` while the folds worked in
+  `reml_plugin_covariance`, so a certificate could describe a
+  computation that had not happened. Every field naming an estimand, a
+  provider, a convention or a route is now copied from the object that
+  produced it. The regression test injects a disagreement and requires
+  the certificate to follow the fold.
+
+- **Five penalty families are withdrawn from the public grammar.**
+  `group_lasso`, `exclusive_lasso`, `sparse_group_lasso`,
+  `group_exclusive` and `adaptive` have no provider in this release
+  (`sparsegl`, `grpreg` and an internal proximal solver are not
+  shipped). Naming one refuses with
+  `selection_penalty_family_withdrawn`. Their component traits remain in
+  the resolver, and their return is a later phase with its own gates.
+
+### New
+
+- **`fb_penalty()`** declares the joint shrinkage prior:
+  `target ~ family(...)` formulas resolved in written order against the
+  model matrix’s own assignment map, never by string matching on names.
+  Five families are available, `ridge(scale)`, `laplace(scale)`,
+  `elastic_net(lambda, alpha)`, `regularized_horseshoe(p0, ...)` and
+  `r2d2(mean_R2, prec_R2, cons_D2)`, plus `none()` to exempt coordinates
+  from shrinkage. Targets are `term(everything())`, `term(x1, x2)`,
+  `term(c("x1", "x2"))` and `term(matches("^SLGA_"))`. The tidyselect
+  vocabulary is not supported.
+
+  `ridge`, `laplace` and `elastic_net` target the candidate block
+  exactly: the first two through coefficient-specific prior rows, the
+  third through a `target +=` contribution over the candidate indices
+  carried in `stanvars`. `regularized_horseshoe` and `r2d2` are
+  class-wide: brms refuses a coefficient-specific row beside a
+  class-wide special prior, so a base carrying protected fixed effects
+  beyond the intercept refuses with
+  `penalty_block_targeting_unsupported` and the refusal names both ways
+  forward: an exactly-targetable family, or `scope = "all_fixed"`, an
+  explicit opt-in under which the protected coefficients also sit under
+  the global-local prior and the certificate records
+  `protected_under_global_shrinkage`.
+
+- **`fb_resamples()`** becomes public unchanged: folds on original units
+  before any transformation, frozen factor levels, and an assessment
+  fold carrying a level the training fold never saw is refused, not
+  dropped.
+
+- **`fb_decision()`** declares how the answer is read off: the method
+  (`projection`, `full`, `posterior_threshold`), the metric, the rule
+  (`one_se`, `min`, `tolerance`) and the search. It validates at
+  construction, so a tolerance rule with no tolerance, or a posterior
+  threshold with no practical effect size, refuses before anything is
+  fitted.
+
+  A posterior threshold is a decision rule and is labelled one
+  everywhere it appears. A continuous shrinkage prior puts no posterior
+  mass at zero, so the quantity it thresholds is not an inclusion
+  probability.
+
+- **`penalty = NULL` has a provider.** Under `workflow = "bayes"` it
+  refits the base’s own engine (INLA or brms, whichever fitted the base)
+  inside every assessment fold and scores held-out clusters from
+  posterior predictive draws. This is the Bayesian no-penalty reference
+  and the baseline for every shrinkage family. On INLA the assessment
+  rows enter the refit with an `NA` response and their held-out grouping
+  levels relabelled, so for a level the training rows never saw the
+  predictive is marginal over the random effect.
+
+- **`benchmark = TRUE`** runs the closed-form generalised-least-squares
+  arm and, where a penalty was given, the `glmnet` arm on the same
+  folds, the same prediction target and the same candidate design. The
+  generalised-least-squares arm is `workflow = "unpenalized_benchmark"`,
+  `provider = "gls_reml_plugin"`, and is never labelled Bayesian. It can
+  also be asked for on its own.
+
+- **`fallback = "none"` is the default.** A Bayesian request whose
+  provider is absent refuses with `selection_provider_absent` or
+  `selection_fallback_not_authorised`, naming the package and the
+  install line. `fallback = "glmnet"` is a deliberate choice, fires only
+  on an absent provider and never after a failure. When it fires, the
+  workflow becomes `penalized_optimizer`, the object prints the
+  substitution on its first line, and the certificate records
+  `fallback_fired = TRUE`.
+
+- **`fb_select(plan = TRUE)`** reports the resolved axes, the compiled
+  prior blocks and their route, the projection structure gate and a cost
+  estimate without fitting anything. The per-fit figure is the base
+  model’s own recorded wall time, labelled as a floor.
+
+- **`lgm_gate()` gains a twelfth structural check.** A joint shrinkage
+  prior on a model routed at INLA refuses with
+  `prior_family_unsupported_inla`. A Laplace, horseshoe or R2D2 prior is
+  Gaussian given one local scale per coefficient, so the model can be
+  written as a latent Gaussian model. It then carries a hyperparameter
+  for every coefficient, and INLA’s integration is built for a few. No
+  public call reaches the check, because `fb_select()` fits every
+  shrinkage prior on brms (see “An INLA-fitted base can carry a
+  shrinkage prior” below). The capability matrix carries one row per
+  family with `inla = "n/a"` and `brms = "fits"`, each anchored on the
+  generated-code assertions.
+
+- **Accessors**: [`print()`](https://rdrr.io/r/base/print.html),
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html),
+  [`glance()`](https://generics.r-lib.org/reference/glance.html),
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) and
+  `plot(type = c("elpd_by_size", "rank_stability", "shrinkage", "benchmark"))`.
+
+- **The projection search runs on clustered draws**: 20 clusters for the
+  search and 100 for the predictive evaluation. Projecting a multilevel
+  submodel is a fit per draw, so projecting every draw at every search
+  step inside every fold does not finish on a problem of the size this
+  module is for. Both settings travel on the result and on the
+  certificate, so a reader can see what the elpd column was computed
+  from.
+
+### Every comparison declares what it does and does not claim
+
+Three equivalence levels, and every stored comparison carries exactly
+one.
+
+- `map_exact_fixed_covariance`: the posterior mode under fixed
+  covariance and fixed residual scale is the minimiser of a named
+  penalised objective, and a numerical oracle gates the claim.
+- `posterior_predictive_comparable`: the provider expresses the family,
+  but the covariance is integrated or the residual scale is free, so the
+  estimands differ and only predictive risk on common folds compares.
+- `no_identity_expected`: the provider has no representation of the
+  family at all. The arms are reported side by side and nothing is
+  claimed.
+
+A Bayesian arm always integrates the covariance and leaves the residual
+scale free, so a `glmnet` benchmark beside it is
+`posterior_predictive_comparable` for ridge, laplace and elastic net,
+and `no_identity_expected` for the regularised horseshoe and R2D2. The
+words “same as glmnet” appear nowhere unqualified.
+
+### The `glmnet` conventions are measured, not recalled
+
+Under `glmnet` 5.0 on this machine, with `standardize = FALSE`,
+`intercept = FALSE` and a convergence threshold of `1e-16`, the map from
+the canonical objective `0.5 ||z - A beta||^2 + pen(beta)` to `glmnet`’s
+own lambda was measured against two references independent of `glmnet`,
+the ridge closed form and the canonical KKT residual.
+
+- The L1 part maps as `lambda_canonical / n`, with KKT residual
+  **9.8e-09**.
+- The L2 part does **not**. `glmnet` measures its ridge penalty against
+  a response scale, and that scale is the uncentred root mean square,
+  not either standard deviation. `lambda_canonical * rms(y) / n`
+  recovers the closed form to a maximum absolute coefficient deviation
+  of **1.3e-10**. Leaving the response scale out gives 1.9e-02, the
+  population standard deviation 7.4e-03 and the sample standard
+  deviation 7.2e-03.
+
+The convention is measured at run time by `.fb_sel_glmnet_convention()`,
+stored on the provider certificate as `provider_lambda_convention`, and
+pinned by a test. A change in `glmnet`’s convention fails that test
+instead of moving the answer silently.
+
+### Projection refuses two structures it was measured against
+
+`projpred` 2.10.0’s reference-model constructor was exercised cell by
+cell. Two structures the package fits are refused, and the refusal names
+the feature:
+
+- **`(x || g)`**, the uncorrelated random slope. `get_refmodel()`
+  rejects the spelling. The two-term form `(1 | g) + (0 + x | g)` is
+  accepted, and the refusal says so.
+- **`(1 | gr(g, cov = K))`**, the known-covariance term `vm()` and
+  `ped()` lower to. `get_refmodel()` rejects a function call on the
+  right-hand side of a group term. The alternative the refusal names is
+  `decision = "full"`, which keeps the shrinkage posterior with no
+  selection.
+
+`us()` and `fa()` translations and heterogeneous residual structures
+have no executed gate, so they refuse with
+`projection_structure_unsupported` too. Turning any of those rows green
+requires a test that runs it.
+
+### Adequacy is a gate, not a note
+
+Before any decision runs, the reference model must pass two checks. The
+tri-state convergence contract reads divergences, treedepth saturation,
+E-BFMI and bulk and tail effective sample size. A `fail` refuses with
+`penalty_sampler_diagnostics_failed`. An unverified verdict is carried
+on the certificate and printed, and is not treated as a pass. A
+posterior predictive check on the observed mean and standard deviation
+must place both inside (0.005, 0.995), else
+`penalty_reference_model_inadequate`. A projection inherits the
+reference model’s misfit.
+
+For the regularised horseshoe the count of coefficients whose shrinkage
+factor falls below one half is reported against `p0`, labelled
+`orthogonal_design_kappa_approx`: the scalar formula holds for a
+standardised near-orthogonal design, and a correlated candidate block
+does not have one shrinkage factor per coefficient at all.
+
+### Three silent wrong answers closed
+
+Found by the 2026-09-12 audit of this release’s own selection work. Each
+one fired on the formulas the module exists to serve, not on an edge
+case.
+
+- **[`tidy()`](https://generics.r-lib.org/reference/tidy.html) marked a
+  chosen factor or interaction as dropped.** Retention was matched by
+  design-column name against a chosen set written in formula terms, so a
+  projection that kept `f` and `x1:f` reported `fB`, `fC`, `x1:fB` and
+  `x1:fC` as not retained. The column map now carries the term each
+  column came from, every decision records the vocabulary its chosen set
+  is written in, and retention is read in that vocabulary: terms for the
+  projection, `full` and an optimiser support, and coefficients for the
+  posterior threshold, the one decision that chooses column by column.
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) gains a
+  `source_term` column.
+
+- **A mismatched scoring-unit key silently became row numbers.** When
+  the unit key and the provider’s pointwise log predictive densities
+  named different numbers of observations, the aggregation replaced the
+  key with row numbers and carried on. The cluster-level standard error
+  then became the row-level one, too small by roughly the square root of
+  the cluster size, on the clustered models a unit was declared for. It
+  now refuses with `selection_scoring_unit_mismatch`, naming both
+  lengths.
+
+- **`search = "L1"` was stored and passed to the provider.** It reached
+  `projpred::cv_varsel()` beside a `search_terms` block built for a
+  forward search, and no gate had run that combination and read the
+  ranking back, so whether the forced protected and random terms survive
+  an L1 path is unmeasured. `fb_decision(search = "L1")` now refuses at
+  construction with `projection_search_unsupported`. The forward search
+  is the search this release executes.
+
+### The structure gate leads, and it chooses the decision
+
+Projection predictive inference is the right Bayesian decision given a
+reference posterior, and it is available for a minority of what this
+package fits. The gate that says so was executed and accurate, and it
+was reported after the fact.
+
+- **`fb_decision()`’s default method is `"auto"`.** It resolves to
+  `"projection"` where every structural feature of the reference model
+  has an executed projection gate behind it, and to `"full"` (the
+  reference posterior under the shrinkage prior, with no selection)
+  where one does not. The resolution and the gate verdict that produced
+  it are recorded on the result and on its certificate. A
+  known-covariance genomic or pedigree base used to refuse only after a
+  reference model had been sampled. It now gets shrinkage without a
+  selection, and says why.
+
+- **Naming `"projection"` explicitly on a red gate refuses before the
+  reference model is sampled**, with the feature that failed. The gate
+  inside the projection also stays. It reads the reference model, not
+  the base, and can still refuse a base whose gate was green.
+
+- **[`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  and `print.fb_select()` lead with the structure-gate table**: one row
+  per structural feature the model carries, its verdict, and the run
+  behind that verdict.
+
+- **The clustered-draw counts are on the first print line of a
+  projection result and in `?fb_select`**: the search runs on 20
+  clustered draws and the predictive evaluation on 100. Projecting a
+  multilevel submodel is a fit per draw.
+
+- **The capability matrix says what each family can be asked for.** The
+  regularised horseshoe and R2D2 rows say that exact block targeting
+  holds only when the base’s fixed part is intercept-only, and name the
+  two ways forward otherwise. The known-covariance genomic and pedigree
+  row says shrinkage yes, projection no. The selection vignette carries
+  the same table, keeps its intercept-only base with the sentence that
+  says why, and adds a base with a protected covariate under
+  `laplace()`.
+
+- **The withdrawn families are not offered a schedule.** The refusal
+  names what was removed and what is available. It no longer says when
+  the group, exclusive and adaptive families return, because no dated
+  decision stands behind that. The release record above is the only
+  place the withdrawal is described, and the resolver keeps their
+  component traits.
+
+### glmnet is a check that cannot be misread
+
+`posterior_predictive_comparable` says the arms were scored “on the same
+folds, target, loss, unit and candidate design”. The Bayesian penalised
+route wrote no out-of-fold score at all (it set `aggregated = NULL`), so
+the label was printed about a comparison that had not been made.
+
+- **The penalised Bayesian route writes the same unit-level out-of-fold
+  table the `penalty = NULL` route writes**: `elpd`, `rmse` and `nlpd`
+  per resampling unit, under the requested prediction target, on the
+  folds the projection used. It reuses the per-fold machinery for the
+  reference model. It costs one reference refit per fold per model, so
+  it runs under `benchmark = TRUE` and the certificate says which of the
+  two situations a reader is in.
+
+- **The certificate splits the `glmnet` role in two.** `mode_oracle`
+  carries the Tier-1 claim and is populated only from an arm that solved
+  the canonical objective with the covariance plugged in and the
+  residual scale held fixed, and whose comparison against the primary
+  answer was made under the same two conditions. It is therefore empty
+  on every sampled route, and says why. `predictive_side_by_side`
+  carries the out-of-fold comparison and is written only when the arms
+  really do share one loss, at one unit, on one set of folds. An arm
+  that aggregated at a different number of units is dropped and named,
+  not averaged in.
+
+- **`posterior_predictive_comparable` needs the shared table stated.**
+  The gate defaults to closed: a caller who has not built the table
+  cannot reach the level by forgetting. Horseshoe and R2D2 against
+  `glmnet` stay `no_identity_expected` whatever the table, because
+  `glmnet` has no representation of a scale mixture at all.
+
+- **The `glmnet` benchmark arm is scored at the resampling unit.** It
+  scored at the fold, so a side-by-side table would have put a
+  twelve-site standard error beside a two-fold one and called them one
+  loss.
+
+### An INLA-fitted base can carry a shrinkage prior
+
+`fb_select()` fits the reference model through brms whatever fitted the
+base. The parsed model is engine-independent, and the reference is a
+re-emission of it with an extended fixed part and the base’s own priors
+carried through the brms prior translation. `lgm_gate()`’s twelfth check
+nevertheless ran on the BASE’s intermediate representation whenever the
+base was INLA, so a user with an INLA fit asking for a Laplace prior was
+told the prior was impossible on INLA, about a fit that was never going
+to INLA.
+
+The check no longer runs on the base. An INLA-fitted base with a joint
+shrinkage prior samples on brms. The certificate records
+`reference_engine = "brms"`, the print method and the plan say the base
+was fitted by a different engine, and the certificate carries
+`reference_fitted_on_brms` among its approximations. No public call
+reaches the check: `fb_select()` is the only verb that takes a shrinkage
+prior, and it always fits on brms. The check stays as an internal guard.
+
+### The prior is calibrated against the information that is there
+
+- **`calibration_n` counts resampling units, not rows.** The Piironen
+  and Vehtari calibration of a global-local prior reads
+  `tau0 = (p0 / (p - p0)) * sigma / sqrt(n)`, and the elastic net’s
+  canonical objective carries `n` in front of its penalty. Both were
+  given the row count. In a clustered design that overstates the
+  information about a coefficient by roughly the cluster size (a hundred
+  plots in ten sites are not a hundred independent pieces of evidence
+  about a site-level covariate), so the global scale came out too small
+  and the prior over-shrank. The number is now the count of resampling
+  units where one was declared, and the row count where none was. The
+  certificate carries the basis and the row count beside it, and the
+  object prints the calibration wherever the two differ.
+
+  brms derives the horseshoe’s global scale from `par_ratio` and the
+  number of fitted rows and offers no way to set it otherwise. Measured
+  against `brms::make_standata()`,
+  `hs_scale_global = par_ratio / sqrt(N)` exactly. The calibration is
+  therefore moved by moving `par_ratio`, and the certificate carries the
+  canonical `p0 / (p - p0)` beside the ratio brms was handed so a reader
+  can see the second is the first re-expressed.
+
+- **A class-wide family refuses an unstandardised candidate column.**
+  The reference model is a re-emission of the formula, not a
+  design-matrix fit, so a factor contrast or an interaction product has
+  no data column to centre and divide and is left on its own scale. brms
+  puts ONE global-local prior on the whole population-level vector, so a
+  0/1 dummy then sits under the same local scale as a numeric already at
+  unit standard deviation and the shrinkage applied is a property of the
+  contrast coding. `regularized_horseshoe` and `r2d2` now refuse with
+  `penalty_candidate_columns_unscaled`, naming the columns and the two
+  ways out. `ridge`, `laplace` and `elastic_net` state a scale per
+  coefficient and keep the `candidate_columns_not_standardised`
+  approximation they already carried.
+
+- **The mode-identity language carries its conditions everywhere.** A
+  ridge or Laplace prior’s mode equals the corresponding penalised
+  objective only with the covariance plugged in and the residual scale
+  held fixed. The Bayesian route integrates the covariance and samples
+  `sigma`, so no arm of it reaches `map_exact_fixed_covariance`. The
+  identity belongs to the fixed-covariance, fixed-sigma substrate the
+  exact-limit bridges test, and `?fb_penalty` and `?fb_select` say so.
+
+### The correlated random slope on INLA is demoted to an analogue
+
+A validation run against ASReml 4.2.0.392 and lme4 found that `(x | g)`
+on INLA carries the defect the `us(f):g` row was demoted for, on a
+second route, through the `iid2d` field instead of `iidKd`.
+
+On `lme4::sleepstudy` the slope variance comes back at 46.37 at the
+posterior mode (52.10 at the mean, 50.19 at the median), against 35.076
+in ASReml and 35.072 in lme4. That is 32 per cent high at the mode,
+which is the summary a REML estimate is comparable to, while the
+intercept variance on the same fit is 7 per cent high and the residual
+0.4 per cent. Rescaling the response by ten is an exact transformation
+under which a correlation is invariant, and it moves the reported
+intercept-slope correlation from 0.02 to 0.969 while REML holds at
+0.066. The ratio of the intercept standard deviation to the residual
+doubles on the same transformation. The numerical-confirm gate does not
+separate the two: the unscaled fit reports mode status 0 and passes it
+on every call, and the rescaled fit passes it on some calls and not
+others: five identical tenfold calls returned mode status 0, 0, 0, 2 and
+6. The one protection a user has here therefore stays quiet on the fit
+that is wrong.
+
+The row is reclassified from `covariance-family` to **`analogue`** in
+the translation registry, with the measurement recorded in the row. The
+change propagates to `inst/TRANSLATION.md`, the shipped CSV, and,
+through the capability matrix, to `README.md` and
+`inst/KNOWN_ISSUES.md`, where it is open issue 2 beside the `us()` row.
+
+`fb_select()` refuses a base that carries the term on INLA
+(`selection_base_not_allowlisted`), because the selection substrate
+whitens by the base’s own covariance and a block that is a third too
+large would set the rotation every score is read through. The refusal
+quotes the measurement and names the brms route, which the comparison
+did not exercise and which writes `(x | g)` natively. A brms base
+carrying the term stays admitted, and a test asserts that it does.
+
+The scale-invariance check in
+`tests/testthat/test-metamorphic-scale-invariance.R` gains the sibling
+tripwire. It asserts the ratio of the slope standard deviation to the
+residual, not the correlation: across three identical unscaled fits the
+ratio reproduces to the third digit while the correlation spans 0.048,
+and a metamorphic gate is only as reproducible as the component it
+reads. As with `us()`, the tripwire fails when the defect goes away and
+its message names the records to close. The cause is not established and
+is shared between the two routes, so a repair has to cover both.
+
+### `ranef()` on an INLA fit reports the levels the user wrote
+
+`.fb_random_inla()` restored a level label only where INLA returned the
+`ID` column as CHARACTER, which is what a plain `~ g` produces because
+INLA is handed the factor itself. Every structured term is indexed by an
+integer column the emitter builds, so `ID` came back as `1 ... n` and
+the guard never fired: `rep:block` on `agridat::john.alpha` reported
+levels `"1"` to `"18"` where ASReml reports `rep_R1:block_B1 ...`, and
+`(Days | Subject)` on `lme4::sleepstudy` reported `"1"` to `"36"` with
+the subject identifiers sitting unused on the fit.
+
+Two of the four BLUP comparisons in the September validation programme
+could not be made at all. Aligning by row order was not attempted:
+[`interaction()`](https://rdrr.io/r/base/interaction.html) orders `rep`
+fastest and ASReml orders it slowest, so a positional match would have
+been silently wrong on exactly the row where it looked easiest.
+
+Levels now come from the grouping factor itself, composed in the order
+the emitter’s index uses and in the user’s own labels, not the legalised
+ones. An interaction group reports the interaction level, `R1:B1`, with
+the separator its group name already uses.
+
+The correlated random slope also returned **two list elements under one
+name**, because both of its index names mapped to the single label
+`<x> | <g>`, and `ranef(fit)[["Days | Subject"]]` reached one of the two
+blocks with nothing to say which. The two blocks are now named for what
+they hold, `(Intercept) | <g>` and `<x> | <g>`, and each reports the
+group’s own levels over its own half of the `iid2d` field instead of the
+whole field twice.
+
+### Documentation
+
+- **[`?fb_engine`](https://aagi-aus.github.io/flexyBayes/reference/fb_engine.md)
+  documents `adapt_delta`.** The help page listed the recognised options
+  as `n_samples`, `warmup` and `chains` while the constructor had
+  accepted a fourth since the start of this release. It is the option
+  that clears a selection run refused with
+  `penalty_sampler_diagnostics_failed`, and both selection runs in the
+  September validation programme hit that refusal, so a reader following
+  the documentation would have concluded the refusal could not be
+  cleared. The page now carries a “Recognised options” section giving
+  all four, brms’s own 0.8 default, the reference fit’s 0.95, and the
+  run that needed 0.999.
+
+### Refusals
+
+The registry moves from 163 codes to 184.
+`selection_penalty_not_implemented` is withdrawn, because the penalty is
+implemented and nothing throws it any more. New in this release:
+`selection_penalty_spec_malformed`,
+`selection_penalty_target_unsupported`,
+`selection_penalty_target_not_in_model`,
+`selection_penalty_target_ambiguous`,
+`selection_penalty_family_unknown`,
+`selection_penalty_family_withdrawn`, `penalty_hyperparameter_invalid`,
+`penalty_block_overlap`, `penalty_block_targeting_unsupported`,
+`penalty_factor_contrast_ambiguous`, `penalty_scaling_column_constant`,
+`penalty_sampler_diagnostics_failed`,
+`penalty_reference_model_inadequate`, `penalty_runtime_budget_exceeded`,
+`projection_structure_unsupported`, `projection_family_unsupported`,
+`selection_provider_absent`, `selection_fallback_not_authorised`,
+`selection_prox_mode_not_converged`,
+`selection_penalty_blocks_not_expressible`,
+`prior_family_unsupported_inla` and `selection_decision_invalid`. Each
+is registered beside the site that throws it and each is fired by a
+test.
+
+The audit close adds three more, taking the registry to 187:
+`selection_scoring_unit_mismatch`, `projection_search_unsupported` and
+`penalty_candidate_columns_unscaled`.
+
+### Dependencies
+
+`Suggests` gains `projpred` and `glmnet`. Nothing moves to `Imports`,
+the package loads and checks with neither installed, and every
+provider-requiring test is gated on the provider being present.
+
+## flexyBayes 0.10.0.9000 (development version)
+
+- **`us(f):g` on INLA is no longer described as covariance-family
+  equivalent to ASReml’s, because it is not.** Paired against ASReml
+  4.2.0.392 on `agridat::besag.met`, the route returns a genetic
+  correlation of 0.142 where ASReml returns 0.930, and 0.198 / 0.231 /
+  0.320 against 0.898 / 0.915 / 0.955 over three environments, with
+  genotype variances four to five times larger while the residual
+  variance agrees closely. The gap reproduces across refits (three runs
+  spanned 0.141 to 0.147 over two environments), so the answer is stably
+  wrong, not noisy. A stable wrong answer is harder to notice, and a
+  repeatability screen rates it as fine. The gap is the finding. The
+  third digit belongs to one run, and the banked fixture carries it.
+
+  It also fails a check that needs no external reference. Multiplying
+  the response by ten is an exact transformation under which a
+  correlation is invariant, so it must not decide whether the model
+  fits. Here it does. Across eight identical rescaled calls **none
+  converged**, and the correlation returned spanned **-0.894 to
+  +0.686**, nearly its whole range, against an unscaled value
+  reproducible to 0.1448-0.1474. ASReml returns 0.930 at every scale.
+
+  The rescaled fit at least says so, through a non-zero mode status and
+  a failed numerical confirm. The unscaled fit, which is the one a user
+  runs and the wrong one, reports mode status 0 and passes its confirm.
+  The gate fires on the fit nobody would trust and stays quiet on the
+  one they would.
+
+  The translation registry row is classified `analogue`, no longer
+  `covariance-family`. The capability matrix says which route to read
+  the correlations from, and `inst/KNOWN_ISSUES.md` carries the
+  measurement as the package’s largest open correctness gap. The cause
+  is **not** established. The joint Wishart the `iidKd` field carries
+  has a plausible mechanism, its scale being set from the response
+  variance, but the emitted hyper block has not been read directly. A
+  hypothesis about this exact route was published once and withdrawn for
+  that reason. Reproduce with oracle scenarios `06_us_dim2` and
+  `07_us_dim3`.
+
+- **A named argument written twice is refused
+  (`grammar_argument_duplicated`).** The 0.10.0.9000 grammar contract
+  validated the *set* of named arguments a special form answers to and
+  never their multiplicity, which left the audited defect class alive in
+  two shapes. `vm(g, V = G, V = G)` was accepted and lowered to a single
+  `vm` term, and which copy survived depended on how the parser indexes.
+  `s(x, k = 5, k = 9)` reached mgcv’s own argument matcher and raised
+  “formal argument ‘k’ matched by multiple actual arguments”, a base
+  error about package internals and the untyped escape the contract
+  exists to close. Both refuse before dispatch, for closed name sets
+  (`vm`, `ped`) and for the open-ended `s()` set alike.
+
+- **A `b()` prior target that is not one coefficient name is refused
+  (`prior_target_not_a_single_name`).** The target was read with
+  [`as.character()`](https://rdrr.io/r/base/character.html) on the
+  unevaluated argument, which deparses a call head-first.
+  `b(c("x", "z"))` became the three coefficient names
+  `c("c", "x", "z")`, with a phantom `c` nobody wrote, and
+  `b(starts_with("x"))` became `c("starts_with", "x")`. Neither was
+  refused. The length-three target passed through
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  and
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  intact and failed inside the emitter with “the condition has length \>
+  1”, an R internals message raised about a formula the user had
+  written. The two documented spellings, `b("treatment")` and
+  `b(treatment)`, are unchanged. Vector and tidy-select targets need a
+  typed term resolver, not a coercion. Until there is one, the refusal
+  says so.
+
+- **The system-memory probe shells out once per session instead of once
+  per plan.**
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  resolved a memory ceiling on every call, and each resolution spawned a
+  child process, measured at about 9 ms. Total system RAM does not
+  change while an R process runs, so the answer is cached for the
+  session, including when the probe is unavailable. The native probes
+  also check that the executable exists with
+  [`Sys.which()`](https://rdrr.io/r/base/Sys.which.html) before spawning
+  it, and a Solaris host without `kstat` no longer reaches the optional
+  helper that would call it. A child’s stderr cannot be redirected from
+  inside R once it is running, so the only defence is not to spawn it.
+
+- **A converged INLA fit could be the wrong converged fit, and the
+  package finds the better one and returns it.** Fitting
+  `random = ~ diag(env):gen` to `agridat::besag.met` returned no genetic
+  variance in any of six environments on nineteen of twenty-four runs of
+  the identical call, and substantial variance on the other five. Every
+  one of the twenty-four reported `Mode status: 0` and
+  `Numerical confirm: PASS`, because the optimiser had converged, to a
+  solution with every component pinned at zero. ASReml 4.2 on the same
+  rows returns 5.84 and 5.45 in two of those environments, stably.
+
+  The cause is not a prior this package chose. The emitted INLA formula
+  was read directly and carries the intended prior. Tightening it from
+  `uniform(0, 192.6)` through `uniform(0, 40)` to `uniform(0, 10)`, and
+  then to a penalised-complexity prior, did not remove the collapse.
+  That separates this case from the factor-analytic specific variance
+  and the `iid2d` Wishart, which were both the package’s own defaults.
+
+  When a component comes back pinned at zero, the fit is restarted from
+  a mode where that component carries real variance, and the two
+  marginal likelihoods are compared. On `besag.met` the restart was
+  better by 65 to 154 log units, so **the restarted fit is the one
+  returned**. The numerical gate is re-run against the fit actually
+  returned. The adoption is stated in the convergence block and as a
+  message, so the user does not have to infer it from a number that
+  moved. A fit with nothing pinned at zero never enters the probe and
+  costs nothing.
+
+  After adoption, five identical calls return every component
+  substantially non-zero. They agree with ASReml closely where a
+  component is well identified (5.76 to 7.77 against 5.84, 6.03 to 7.96
+  against 5.45) and sit above it where ASReml has pinned the component
+  at the boundary. That last difference is the documented one between a
+  REML estimate, which can sit exactly at zero, and the mean of a
+  posterior over a non-negative parameter, which cannot.
+
+- **Variance components of a
+  [`diag()`](https://rdrr.io/r/base/diag.html) term reported the wrong
+  prior.** `summary(fit)$varcomp$prior` read `engine default` on every
+  `sd_<group>__<level>` row while the emitted formula carried the
+  package default, or the user’s own prior, verbatim. The heterogeneous
+  routes emit one field per level keyed by the inner group, so the
+  canonical row names never matched the prior spec’s key, and every one
+  of them fell through to the closing branch.
+
+  The cost was not cosmetic. Reading that column was how the first pass
+  of the ASReml oracle suite concluded that the prior layer did not
+  reach [`diag()`](https://rdrr.io/r/base/diag.html) at all. That
+  finding was written up before the emitted formula was read, and
+  withdrawn once it was.
+
+- **An ASReml oracle suite, and the repeatability screen that runs
+  first.** `data-raw/asreml_oracle/` carries a specification written
+  before any comparison ran, a scenario matrix pairing ASReml 4.2
+  against the built flexyBayes tarball on byte-identical public data,
+  and a screen that asks whether a structure returns the same answer
+  twice before any comparison is attempted. Tolerances are fixed in the
+  specification, and the exit gate admits no outcome in which a
+  tolerance moves.
+
+  The screen found five of ten structures unstable before the
+  mode-adoption fix, with the factor-analytic row swinging by a factor
+  of fifteen between identical calls. It also found its own blind spot.
+  Its first criterion returned STABLE for the structure already measured
+  as bistable, because all three runs had collapsed alike and a
+  consistently wrong answer scored as a repeatable one.
+
+- **A malformed `dsum()` fitted a homogeneous residual instead of
+  refusing, and it was one of four ways the parser let a malformed
+  formula through.** `dsum(~ units | env)` asks for one residual
+  variance per section. Written without the bar, as `dsum(~units)`, the
+  parser returned a plain `units` residual. The fitted model is a
+  plausible neighbour of the one requested, so it converges, prints
+  credible output, and agrees across both engines, because both engines
+  consume the same parsed representation.
+
+  An external translation audit reported this and one other case,
+  `fa(env)` without a rank raising a base subscript error. A fuzz corpus
+  over all 22 special forms (129 malformed variants) found the class was
+  wider than both. 15 cases raised an untyped base error across five
+  forms, 7 lowered `dsum()` to `units`, 15 zero-argument forms parsed
+  into a term whose variable was `NA`, and 32 calls had a surplus
+  argument discarded without comment.
+
+  Each branch of the parser read the arguments it expected without
+  checking what it was given. The argument shape of every special form
+  is declared once, in `R/grammar_contract.R`, and checked once, before
+  the parser dispatches. Across the same 129 cases, untyped errors fall
+  from 15 to 0 and 55 silent acceptances become typed refusals, while
+  every well-formed call parses into the term it always produced. Eight
+  reason codes join the registry: `grammar_arity_too_few`,
+  `grammar_arity_too_many`, `grammar_named_argument_unknown`,
+  `grammar_argument_empty`, `dsum_malformed`, `fa_rank_missing`,
+  `pol_degree_invalid` and `multivariate_smooth_unsupported`. `fa()`’s
+  rank and `pol()`’s degree must be whole numbers written into the
+  formula. Previously
+  [`as.integer()`](https://rdrr.io/r/base/integer.html) turned `TRUE`,
+  `1.5` and `"1"` each into a rank of 1.
+
+- **A negative factor-analytic loading was printed as a collapsed
+  variance.** The `collapsed` note in `summary(fit)$varcomp` flagged any
+  component that was not a correlation and not `sigma` whose upper
+  credible bound sat below 1% of the residual scale. Factor-analytic
+  loadings are signed. A crossover interaction gives a negative loading,
+  which is a result and not a failure, and its negative upper bound
+  satisfies that inequality for arithmetic reasons, so it was labelled
+  as a variance pinned at zero. The shipped FA(1) and FA(2) summaries
+  both carried one.
+
+  The note applies only to components the canonical namer marks as
+  non-negative scales, the rule the fit-time collapse warning has always
+  used. The two surfaces had disagreed. A component the namer does not
+  produce is left unflagged and is not put through a test written for
+  standard deviations.
+
+- **What each ASReml structure is lowered to, and what grounds the
+  claim, is written down.** “ASReml syntax” covered lowerings of three
+  different kinds without saying which was which: exact structural
+  translations, covariance-family equivalents whose identification and
+  priors are not ASReml’s, and one analogue built from a different
+  basis. `inst/TRANSLATION.md` and
+  `inst/translation/translation_registry.csv` carry one row per
+  structure with its syntax vintage, its translation class, its
+  precondition where it has one, and the independent oracle that grounds
+  it. Both are generated from a single table and pinned by a staleness
+  test.
+
+  Three consequences are visible to readers. `spl()` is an analogue of
+  ASReml’s spline, not a translation of it, and says so on every
+  surface. The basis, the scaling and the prediction rule differ, and no
+  equivalence has been established. Residual-side `at()` and `ped()` are
+  labelled as the ASReml 3 spellings they are, since ASReml 4 replaced
+  them with `dsum()` and `vm()` and may reject them. A fit carrying a
+  factor-analytic term no longer reports `Representation: exact`. The
+  loadings are anchored to one at a level taken from factor-level order,
+  which spans the factor-analytic family only where the leading loading
+  block supports the anchoring, so the line names the condition.
+
+  Several rows record `none at this anchor` in the oracle column. The
+  banked ASReml comparisons were taken at 0.10.0’s predecessors, before
+  this line added or changed the INLA factor-analytic, `us()`,
+  correlated-slope, sectioned-residual and combined multi-environment
+  paths.
+
+- **Four claim surfaces had drifted apart, and are held to each other by
+  tests.** The package help said eight vignettes ship and
+  `cran-comments` said eleven, where four ship. The help and the startup
+  banner still offered `triangulate()` as the signature feature after it
+  was unexported, and two `@seealso` entries pointed at
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md),
+  withdrawn at 0.10.0.
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  was exported but absent from both the pkgdown reference index and
+  `API_STABILITY.md`. Each is corrected, and each is held by a test that
+  fails when the surfaces disagree.
+
+- **Five documented examples generated random data without a seed.** The
+  invariant checker had marked seed discipline present because it found
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) calls somewhere in
+  the sources. Each `@examples` block is linted on its own and must seed
+  itself before its first draw.
+
+- **The ASReml reference recipe no longer carries a workstation path.**
+  `data-raw/asreml_reference.R` set
+  [`.libPaths()`](https://rdrr.io/r/base/libPaths.html) to an absolute
+  path under a home directory, which made the recipe unrunnable by
+  anyone else. It reads `FLEXYBAYES_ASREML_LIB` instead. A test scans
+  every source directory for absolute home paths, not only the four the
+  estate-level pre-commit rule reads.
+
+- **The unstructured and correlated-slope covariances get a Wishart
+  scaled to the data, which removes an instability the package had
+  blamed on INLA.** `iid2d` and `iidKd` carry one joint Wishart on
+  `theta1`, and its scale matrix defaults to the identity, a prior
+  centred on unit variances. There is no standard-deviation slot to
+  translate a DSL prior into, so the default was left unspliced, and
+  that unit-scale prior stayed in force on data of any scale.
+
+  On `lme4::sleepstudy`, whose response has a standard deviation near
+  50, eight identical calls to `(Days | Subject)` returned intercept
+  standard deviations from 0.50 to 54.8 and correlations from -1.00 to
+  +0.75, with marginal likelihoods 31 units apart, and none near
+  `lme4`’s REML answer of 24.7. That was recorded here and in the
+  capability table as a property of INLA’s `iid2d` parameterisation. It
+  was the package’s own default.
+
+  The scale matrix is taken from the response’s own variance, the same
+  basis the uniform-SD default already uses. The slope block is scaled
+  by the response variance per unit of the slope variable, the scale a
+  slope lives on. `R` is on the variance scale, established by fitting
+  the candidates. Five identical calls return intercept SDs of 25.7 to
+  26.9 against 24.7, slope SDs of 6.7 to 7.2 against 5.92, correlations
+  of -0.07 to +0.15 around 0.066, and sigma 25.66 to 25.81 against
+  25.59. The correlation’s run-to-run spread falls from 1.95 to 0.22.
+
+  The earlier note said to fit such designs on brms. That advice is
+  withdrawn.
+
+- **[`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  on INLA drew its variance components from the integration grid, not
+  from the posterior.** The generic draws path uses
+  `INLA::inla.posterior.sample()`, which resamples the configurations
+  INLA assembled the fit from. Those are coherent, with each latent draw
+  paired with the hyperparameters it was drawn under. The
+  hyperparameters themselves take only as many distinct values as the
+  grid has points. On a 24-genotype alpha design, 1000 draws carried
+  **15** unique values. A heritability built on them had a posterior
+  supported on 15 atoms while its quantiles were reported as a smooth
+  interval, and its minimum *was* its 2.5th percentile.
+
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  draws from the fitted joint hyperparameter posterior via
+  `INLA::inla.hyperpar.sample()`, whose columns carry the same names the
+  canonical map already keys on. The point estimate barely moves (0.633
+  to 0.638 on that fit). The tails do: the interval widens from \[0.460,
+  0.800\] to \[0.426, 0.816\], and the support exceeds it. A test
+  asserts that more than half the draws are distinct and that the range
+  is wider than the central interval, which a 15-atom distribution
+  cannot be.
+
+- **The refusal a user reads is four lines, not sixteen.** The R Journal
+  review of 0.10.0 quoted one back. It carried a per-rule diagnostic
+  string, four lines explaining what `backend = "auto"` already does, an
+  unconditional sentence about a roadmap item for mixtures (printed
+  whether or not the model contained one), a two-argument override
+  incantation, and a second header above the one the printed refusal
+  already had. It carries the rule ids, the reasons, and one route
+  onward, with `?lgm_gate` for the rest. Measured on the same model:
+  1225 characters to 531.
+
+- **README rebuilt to what a reader needs.** It was 371 lines, of which
+  178 were commented-out prose, and it carried claims the code had
+  overtaken. `fa(env, k):gen` was still listed as “refused (no active
+  engine)” in two places. It is 147 lines: what the package does, how to
+  install it, one worked example with its printed output and an `lme4`
+  cross-check, the generated capability table, and where to report
+  problems. The separate “Supported ASReml syntax” and “Model types”
+  sections are consolidated into the one generated table plus a syntax
+  vignette, as the review asked.
+
+- **The vignette deck is four pages, not eight tutorials.** Mixed models
+  in brief, Bayesian estimation in brief, the ASReml syntax covered and
+  not covered, and one worked illustration replace 2696 lines of
+  tutorial. The previous deck is kept under `vignettes-reserve/`,
+  excluded from the build and not deleted, and every one of its
+  published URLs redirects to the page that covers the same ground.
+
+- **The illustration is fitted both ways, on two public trials.** The
+  ASReml side was computed once with a licensed ASReml 4.2.0.392 by
+  `data-raw/asreml_reference.R` and stored, so the page builds without a
+  licence and every number attributed to ASReml has one source.
+
+  On the whole `john.alpha` alpha design the two agree: heritability
+  0.636 against 0.640, intervals almost coincident. Degrade the same
+  trial and they part. At twelve genotypes ASReml’s delta-method
+  interval runs from **-0.533**. At six, it runs from -1.256 to 1.256,
+  wider than the parameter space. Two random-deletion designs put the
+  upper bound above 1. The posterior intervals stay inside \[0, 1\]
+  throughout, because every draw does.
+
+  On the `dasilva.maize` multi-environment trial both engines fit
+  `fa(env, 1):gen` with a `dsum` residual and agree on the residual and
+  specific variances. The genetic correlations do not agree. ASReml’s
+  delta-method intervals reach **1.034** and **1.342** for two
+  correlations, which cannot exceed one. The same quantities are exact
+  posteriors here, from one
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  line, and stay in range.
+
+  Two claims are recorded as **not** demonstrated. Carrying a lost plot
+  as a design row, instead of deleting it, changes the variance
+  components hardly at all under deletion at random (the ignorability
+  result). The factor-analytic fit does not fail on a design with whole
+  genotype-by-environment cells removed, which an earlier note in this
+  project predicted it would.
+
+- **A failed brms fit no longer blames the model for a broken
+  compiler.** The brms path compiles a Stan program, and a missing or
+  mismatched C++ toolchain reaches R as a downstream symptom,
+  `invalid connection`, while the compiler’s own message goes to the
+  console. Reported verbatim, that sends the reader looking for a fault
+  in their model. On a failed fit the toolchain is checked directly by
+  compiling a three-line C++ program. Only if that fails does the
+  message name the toolchain, give the check and the repair, and note
+  that `backend = "inla"` compiles nothing. A machine that compiles fine
+  gets the engine’s own words unchanged.
+
+- **[`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md):
+  exact posterior functionals of the variance components.** ASReml’s
+  [`vpredict()`](https://aagi-aus.github.io/flexyBayes/reference/vpredict.md)
+  returns a heritability with a delta-method standard error, which
+  linearises at the REML estimate and does not know where the parameter
+  space ends. That is how an ASReml heritability acquires an interval
+  running below zero. This one transforms the draws, so the interval is
+  a quantile interval of the functional’s own posterior and cannot leave
+  the range the function maps into.
+
+  ``` r
+
+  vpredict(fit, h2 ~ sd_gen^2 / (sd_gen^2 + sigma^2))
+  ```
+
+  It reads canonical draws, not engine-native ones, so the same call
+  gives the same answer on either engine. It agrees with `lme4`’s REML
+  variance components put through the same ratio. A functional naming a
+  component the fit does not carry refuses and lists the ones it does.
+  It does not resolve the name against the caller’s workspace.
+
+- **The correlated random slope fits on both engines: `(x | g)`.** It
+  used to refuse at ingest, before any engine was chosen, on the ground
+  that no active backend represented the structure. It is the
+  uncorrelated slope with the correlation freed: one intercept SD, one
+  slope SD, and the correlation between them. Both engines fit it. INLA
+  holds all three in a single `iid2d` field over an index blocked
+  intercepts-then-slopes, with the slope block entering as a
+  fixed-scaling copy of that same field weighted by `x`. brms writes
+  `(x | g)` verbatim.
+
+  On simulated data with an intercept SD of 1.2, a slope SD of 0.6 and a
+  correlation of 0.60, INLA returns 1.11, 0.66 and 0.569 with the
+  residual at 0.338 against 0.35, and agrees with `lme4::lmer()`’s REML
+  fit of the same model on all three. A crossover fixture with a
+  correlation of -0.7 comes back negative with an interval excluding
+  zero. Components are reported as `sd_<g>`, `sd_<x>_<g>` and
+  `cor_<g>__Intercept__<x>`.
+
+  **Where the design separates the intercept from the slope weakly,
+  INLA’s mode for this structure is not unique, and the capability table
+  says so.** On `lme4::sleepstudy`, with 18 subjects, five identical
+  calls return intercept standard deviations between 0.5 and 4.6 against
+  `lme4`’s 24.7, and correlations spanning -0.96 to +0.99. Each reports
+  `mode.status = 0`, INLA’s own convergence flag, and each has a
+  different marginal likelihood. Hand-written INLA, with this package
+  not loaded, reproduces the same spread, so it is a property of the
+  `iid2d` parameterisation and not of the translation. INLA’s own
+  restart machinery fires on some of those runs
+  (`inla.core.safe: rerun with improved initial values`, from the `safe`
+  argument that defaults to TRUE), so the engine detects a suspect
+  solution without the answer settling. The boundary-collapse warning
+  fires on these fits. Fit such designs on brms, and refit before
+  reporting a correlation.
+
+- **The `prior` column reports the prior that reached the fit.**
+  `us(f):g` and `(x | g)` are `iidKd` fields on INLA, and their
+  hyperparameters are a single joint Wishart. `theta1` carries it, and
+  every later `theta` reports `prior = "none"`. There is no
+  standard-deviation slot. The package’s own default was therefore never
+  spliced in, which is correct, but
+  [`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  went on reporting it as though it had been. Those components read
+  `engine default`, and `prior_summary()$not_applied` names them with
+  the reason. An **explicit** prior on these groups still refuses by
+  name and is not dropped.
+
+- **The factor-analytic covariance fits on INLA: `fa(f, k):g`.** This is
+  ASReml’s flagship multi-environment-trial model, and the one this
+  package had declared no engine could fit. INLA has no latent model
+  called “factor analytic”, which is what the refusal said, and it does
+  not need one. Each common factor is a single latent field entered once
+  per level of `f` as a **scaled copy**, and `copy=`’s scaling parameter
+  **is the loading**, so the loadings arrive with a posterior, which
+  REML cannot give.
+
+  Factor `j` is anchored at level `j` and entered from that level
+  onward, the zero upper triangle ASReml uses to identify the loading
+  matrix against rotation. An anchored loading is therefore absent from
+  the summary, not reported as an estimate of 1.
+
+  On simulated data with four environments and loadings 1.6, 0.5 and
+  -0.9, the fit returns 1.598, 0.505 and -0.846, with the common-factor
+  SD at 0.890 against 0.9 and the residual at 0.309 against 0.30. A
+  crossover environment comes back negative, not merely small.
+  `fa(f, 2)` recovers both loading columns on five environments.
+
+  **The prior is the package’s contribution here, and it has a test.**
+  On INLA’s default log-gamma precision, the specific variance at the
+  level carrying the largest loading collapsed to 0.007 against a truth
+  of 0.25. `.fb_default_prior_targets()` had no branch for this term,
+  because the term had never been reachable. With the package’s own
+  standard-deviation prior wired in, it recovers to 0.165 with an
+  interval covering the truth, and a test asserts that no specific
+  variance collapses.
+
+  The dispatch-wide refusal that claimed “INLA’s `f()` has no
+  factor-analytic latent model” is gone. brms’s own emit refuses the
+  term by name, so a per-engine limit sits in that engine’s emit, not in
+  a rule that speaks for both.
+
+- **Unstructured genotype-by-environment covariance fits on INLA:
+  `us(f):g`.** INLA holds the whole k-by-k covariance as one `iidKd`
+  field over a blocked index. Standard deviations of 0.8, 1.2 and 0.5
+  come back as 0.768, 1.256 and 0.447 with the residual at 0.354 against
+  0.35. Components are reported as `sd_<g>__<f><level>` and
+  `cor_<g>__<f>I__<f>J`, the names brms uses for `(0 + f | g)`.
+
+  **The correlations are shrunk toward each other** by INLA’s Wishart
+  hyperprior: a true 0.7 / 0.2 / 0.4 returns near 0.71 / 0.41 / 0.61.
+  That is a property of the prior, measured and documented, not a
+  translation defect. The test asserts what is defensible, not three
+  point values.
+
+  **An explicit standard-deviation prior on this term refuses.** INLA’s
+  `iidKd` hyperparameters are `prec1..preck` and `cor12..` under a joint
+  Wishart, with no slot for a scalar SD prior. Splicing one in makes
+  INLA drop it silently. The package’s auto-default is left unspliced,
+  so INLA’s Wishart governs, and an explicit prior is refused by name,
+  not discarded.
+
+  `us()` beyond five levels refuses and names `fa(f, k):g` instead.
+  INLA’s `iidkd` is a different parameterisation above that width, and
+  k(k+1)/2 parameters is the problem the factor-analytic structure
+  exists to solve.
+
+- **`devtools::check()` spends less time in tests.** Eight test blocks
+  that compile a Stan program carry `skip_on_cran()`, cutting the
+  check-path test phase from about six minutes to under three. The
+  gating is per block, not per file. The six files involved hold 69 test
+  blocks and only 11 brms fits, so gating whole files would have dropped
+  roughly sixty cheap tests out of `check()`. `devtools::test()` still
+  runs everything.
+
+- **The full multi-environment-trial model fits on INLA: a sectioned
+  residual `dsum(~ units | f)`, alone and together with an interaction
+  random effect.** The refusal claimed that “INLA folds residual
+  variance into the likelihood and has no separate residual-structure
+  surface”. The multiple-likelihood interface is that surface: a matrix
+  response with one Gaussian family per section carries one observation
+  precision each. The claim was the package’s, not INLA’s, and this is
+  the second of ASReml’s two MET workhorses.
+
+  Per-section residual standard deviations of 0.25, 0.80 and 1.60 come
+  back as 0.246, 0.748 and 1.722. With an interaction random effect
+  added (the combination that was unreachable on INLA because both
+  halves refused), the fit recovers the genotype (0.913 against 0.9),
+  the genotype-by-environment (0.534 against 0.5) and all three
+  residuals.
+
+  Sections are reported as `sigma_<level>` on the standard-deviation
+  scale, the vocabulary the brms path already used, so `dsum()` reads
+  the same on both engines. The matrix response is built inside the INLA
+  call only. `fb$response` stays a scalar name and `data` is untouched,
+  so every consumer that reads the response as a vector is unaffected.
+
+  `at(f, level):units` conditions the residual on selected levels and
+  does not ask for one variance per level. That is a different model and
+  refuses.
+
+- **Heterogeneous variance by factor level fits on INLA: `diag(f):g`,
+  `idh(f):g`, `at(f):g`.** One free standard deviation per level of the
+  outer factor and no covariance between levels. This is one of ASReml’s
+  two multi-environment-trial workhorses, and it was refused on INLA
+  with nothing but an allowlist behind the refusal.
+
+  INLA writes it as k independent iid fields, one per level, each on an
+  index that is NA outside its level. On simulated data with
+  per-environment standard deviations of 0.4, 1.0 and 2.0 the fit
+  returns 0.48, 1.08 and 1.95 against lme4’s REML values of 0.46, 1.05
+  and 1.89, with the residual at 0.293 against 0.292.
+
+  The component is reported as `sd_<g>__<f><level>`, which is what brms
+  calls the same quantity, so
+  [`diag()`](https://rdrr.io/r/base/diag.html) reads identically on both
+  engines.
+
+  `at(f, level)`, which conditions the effect on selected levels instead
+  of asking for a heterogeneous variance across all of them, is a
+  different model and still refuses.
+
+- **Uncorrelated random slopes `(x || g)` and factor-by-numeric
+  interactions `y ~ f * x` fit on INLA.** Both were refused at run time
+  unless an on-disk artefact recorded that a “three-arbitrator”
+  comparison had passed. One of those arbitrators was an engine
+  withdrawn at 0.9.3, so the criterion could not be re-run and the
+  refusal became permanent, blocking a working capability.
+
+  The runtime gate is retired. The agreement it stood in for is checked
+  in the suite, where every other capability claim in this package
+  lives: against `lme4`’s REML fit for the random slope, and against
+  [`lm()`](https://rdrr.io/r/stats/lm.html) for the fixed interaction.
+  Both references are independent of this package’s parser and emit.
+
+  **Retiring the gate exposed a defect it had been hiding.** The
+  uncorrelated slope emit wrote `f(<g>_for_slope_<x>, ...)` into the
+  INLA formula and never created that index column, so the fit would
+  have failed with `object not found`. Because the gate refused the
+  class before the emit ran, the path was never exercised end to end and
+  the defect could not surface. It is fixed, and the column refuses by
+  name if it would overwrite a user column.
+
+  Component labels no longer leak the generated index name. The slope
+  reports as `sd_<x>_<g>`, the name its prior is registered under.
+
+- **Nested and multi-stratum random effects fit on INLA: `~ rep:block`,
+  `~ env:rep:block`.** These refused, with a message asserting that
+  INLA’s `f()` machinery could not represent the term class without an
+  SPDE or kronecker expansion. That was not true. The term is an iid
+  field over the interaction index, which is also what brms’s
+  `(1 | a:b)` means, and the alpha-design in the report that raised it
+  (`agridat::john.alpha`) fits in seconds.
+
+  The two engines and `lme4`’s REML fit of the same model agree:
+  residual 0.293 against 0.286, `sd_gen` 0.397 against 0.378,
+  `sd_rep:block` 0.288 against 0.265. Only observed cells get a level,
+  as in lme4 and brms.
+
+  The generated index is named after the interacting factors and never
+  reaches a user-facing label. The summary reports `sd_rep:block`, the
+  name brms uses, so the same component lines up across engines. A
+  generated index that would overwrite an existing column refuses by
+  name, so the field is never indexed by whatever that column holds.
+
+- **A transformed response fits: `log(yield) ~ env`.** The left-hand
+  side was required to name a column, so every peer’s ordinary spelling
+  (`lm`, `lme4`, `brms` and ASReml all evaluate it) was refused with
+  “Response variable not found in data” (reported as issue
+  [\#14](https://github.com/AAGI-AUS/flexyBayes/issues/14)). The
+  left-hand side is evaluated against the data when it does not name a
+  column.
+
+  The refusal was the visible half. The quiet half was worse. Several
+  consumers read `data[[fb$response]]` behind a guard that returned
+  early when the name was absent, so a transformed response reported *no
+  missing responses* on data that had them, and skipped the binomial
+  response check and the aggregation route’s missing-data branch. Those
+  reads go through one resolver.
+
+  The expression is evaluated with
+  [`baseenv()`](https://rdrr.io/r/base/environment.html) as its
+  enclosure, so base transforms resolve and an object in the user’s
+  workspace does not. A mistyped column still refuses and does not bind
+  to a global of the right length.
+
+  Streaming aggregation reads named columns from disk and cannot
+  evaluate an expression, so it refuses one by name
+  (`stream_response_must_be_a_column`) instead of asking the reader for
+  a column that does not exist.
+
+- **Units followed through time: `random = ~ ar1(t):g`.** The grouped
+  temporal field (AR1 along `t` within each level of `g`, independent
+  across levels, three hyperparameters shared by every level) is a named
+  capability with its own matrix row, anchor test and execution-grid
+  cell. The commuted spelling `g:ar1(t)` (ASReml’s usual order for a set
+  of plots followed over seasons) parses to the same field instead of
+  falling to an untyped interaction that refused. The model line, the
+  field block and the note naming the ASReml residual used to describe
+  this field as `ar1(t):ar1(g)` with four parameters. They describe it
+  as what it is. This is the units-by-occasions covariance of Verbyla
+  and Cullis (1992) written on the random side.
+
+## flexyBayes 0.10.0
+
+The first release prepared for CRAN. Its criteria are held as a runnable
+contract in the development repository. The checks that read source
+answer immediately. The ones that need a build, a check run or a person
+are listed as unmet until their artefact exists, and the contract exits
+non-zero while any of them is outstanding. That file is not shipped in
+the tarball.
+
+### Breaking changes
+
+- **The declared validation tier is V2, not V3.** 0.9.2 declared V3 and
+  waived four of its validation floors. 0.9.3 shipped declaring V3 with
+  that waiver already expired, and it is not re-issued. V2 is what the
+  registered evidence supports. The four floors are recorded in
+  `inst/validation/README.md` as the next validation arc, and a second
+  consecutive waiver on the same floors is the pattern a waiver exists
+  to prevent.
+
+- **Eleven functions are withdrawn from the public API**, taking the
+  export count from 44 to 33. The extreme-value and Dirichlet
+  maximum-likelihood fitters
+  ([`fb_gev()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gev.md),
+  [`fb_family_gev()`](https://aagi-aus.github.io/flexyBayes/reference/fb_family_gev.md),
+  [`rgev()`](https://aagi-aus.github.io/flexyBayes/reference/rgev.md),
+  [`fb_dirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/fb_dirichlet.md),
+  [`fb_family_dirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/fb_family_dirichlet.md),
+  [`rdirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/rdirichlet.md)),
+  the EMMAX genome-wide association pair
+  ([`fb_gwas()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gwas.md),
+  `triangulate_gwas()`), and the three exports that abstained
+  unconditionally
+  ([`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md),
+  [`fb_log_posterior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_log_posterior.md),
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md))
+  are no longer exported. They remain in the package, documented as
+  internal and covered by their existing tests, and their S3 print and
+  tidy methods stay registered so the objects still print.
+
+  The package returns a Bayesian posterior where REML returns a point
+  estimate. Four of the withdrawn fitters are maximum-likelihood or
+  frequentist, none of them has a cell in the execution grid, and
+  together they were a quarter of the public surface sitting outside the
+  package’s own execution oracle.
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md)
+  joined them late. No active engine emits an `fa()` term, so its only
+  reachable outcome is a message and an empty list, the same ground the
+  other two abstainers were withdrawn on.
+  [`fb_gblup_cv()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gblup_cv.md),
+  [`genomic_summary()`](https://aagi-aus.github.io/flexyBayes/reference/genomic_summary.md)
+  and `triangulate_genomic()` were considered for the same treatment and
+  kept. The first is taught and executed in the multi-environment-trials
+  and genomics vignette, and the other two operate on posterior draws.
+
+- **`effectsize` is no longer listed as a supported downstream
+  package.** It was named in the `DESCRIPTION` Description, in
+  `Suggests`, in `README.md`, and in two vignettes. One of those
+  vignettes also said a `flexybayes`-class method dispatched through
+  `parameters::model_parameters()`, which was never true. It is removed
+  from all five. The standardised-effect section of the
+  downstream-analysis vignette keeps its worked example, which needs
+  nothing but the draws.
+
+- **`coda` moves from `Imports` to `Suggests`, and `splines` leaves
+  `Imports` altogether.** The only trace of `coda` in `R/` was a roxygen
+  `@importFrom` tag, and neither `effectiveSize()` nor `gelman.diag()`
+  was called there. The test suite does use it, so it moves to
+  `Suggests`. `splines` was the same defect one release later:
+  `importFrom(splines, bs)` with `bs()` called nowhere in `R/`. It moves
+  to `Suggests`, where the one test that calls
+  [`splines::bs()`](https://rdrr.io/r/splines/bs.html) needs it.
+
+### Diagnostics
+
+- **A variance component pinned at the boundary warns, on any term type
+  on the per-row emit paths.** The existing detector covered one case,
+  `sd_spatial` running to its floor against the nugget. Any other
+  component could reach the same state reporting only a
+  `note = "collapsed"` cell in `summary(fit)$varcomp`, which is easy to
+  read past, while the convergence block reported a converged mode. Both
+  engines raise a warning naming the component, its upper credible bound
+  and the residual scale, with three routes out. Silence it with
+  `options(flexyBayes.silence_boundary_collapse_warning = TRUE)`.
+
+  The threshold is 0.01 of the residual SD, calibrated against a
+  measured floor. A sweep of 112 INLA fits with the group SD set to
+  exactly zero, crossing n in {30, 60, 120, 240, 480} with 5, 10 and 20
+  groups, puts the upper credible bound of a genuinely null component at
+  0.0228 of the residual SD at the lowest. The ratio is flat in both n
+  and the group count, because it is a floor set by the prior. The
+  degenerate mode sits two orders of magnitude below that: 2.5e-04 on
+  the `besag.met` fit this was built from. The threshold sits in the
+  gap. It is the constant the `varcomp` table already used to mark a row
+  `collapsed`, so the warning and the table agree.
+
+  It has two structural limits. It compares against a residual SD, so it
+  reads Gaussian-scale fits and is silent on families carrying no
+  `sigma` row. It needs credible bounds, so it covers the per-row emit
+  paths only. The aggregated streaming emitters record variance
+  components as posterior means with no quantiles, so there is no upper
+  bound to read.
+
+- **`na_action` documentation separates the identity from the
+  arithmetic.** Under ignorability the posterior is the same whether a
+  missing cell is augmented or omitted. That is a statement about the
+  posterior and not a promise about what an optimiser returns. The two
+  settings hand the engine an intact design and a ragged one, and on a
+  weakly identified mode they can land in different places. `augment`
+  remains the default and the recommendation. The caveat stands wherever
+  the identity is stated, `README.md` and the brms emit path included.
+
+- **Every export carries a runnable `\examples{}` block.** Nine had
+  none. Five of the new blocks are wrapped in `\donttest{}` and guarded
+  on the engine, so they do not fire where it is absent. The three
+  tidier re-exports (`augment`, `glance`, `tidy`) document their
+  generics on `man/reexports.Rd`, which carries no example. Their
+  methods do.
+
+- **`Config/testthat/parallel` is `false`.** It was `true`, and the
+  parallel runner stalls: workers spawn, orphan, and sit at 0 per cent
+  CPU indefinitely once the suite reaches the brms and INLA tests. Every
+  release run so far had forced sequential execution from the outside,
+  and `TESTTHAT_PARALLEL=false` does not reliably prevent the workers
+  from spawning. The setting hung the suite for anyone who runs
+  `devtools::test()`, so it is fixed in the package.
+
+### Documentation
+
+- **The vignette deck is rebuilt: eleven pages become eight, and 8,591
+  lines become 1,651.** The structure follows the grouping the
+  co-authors approved, and the standing brief with it: concise, grounded
+  in open-source data, “reproducibility and insightful commentary over
+  exhaustive coverage”. The old deck had inverted that last line.
+
+  The merges: the formula surface absorbs dispatch and refusals, because
+  the grammar and the machinery that turns a term away are one subject.
+  Regression and hierarchical models become one foundational page.
+  Summaries, model comparison and triangulation become one “after the
+  fit” page. Nothing was dropped. Old article URLs redirect.
+
+  Every page opens with a panel giving the problem, the ASReml line, the
+  flexyBayes line, what the posterior adds and what it costs, so a
+  reader can tell from the first screen whether the page is the one they
+  want. Every capability and refusal table is generated from the
+  package’s own capability record, so a table cannot drift from the
+  code.
+
+- **The unsupported structures are listed in one place.** They were
+  scattered across five points of the old formula vignette with no list.
+  The formula page carries two generated tables: structures neither
+  engine represents, and structures one engine fits and the other
+  refuses.
+
+- **Section headings are sized correctly.** `html_vignette` sets body
+  text at 14px and `h1` at 35px, because `h1` is meant to be the
+  document title. Every numbered section in the deck was an `h1`, so
+  sections rendered at two and a half times the body and competed with
+  the title, and inline code in a heading landed near 30px. The shared
+  header include sets a normal document hierarchy and sizes code in a
+  heading against its heading.
+
+- **The spline section of the spatial vignette runs.** It was an
+  unevaluated block with `data = ...` as a literal stand-in. It could
+  not be executed, produced no output, and read as though it worked. It
+  fits the composite on `stroup.nin` and reports the result. The splines
+  collapse because the autoregressive field is already carrying the
+  gradient, and the boundary warning flags this so it is not read as a
+  zero trend.
+
+### Corrections to the package’s own claims
+
+Each of these was a statement the code did not support. Each is recorded
+here as a fix, and each has a guard that fails the lint workflow if it
+recurs.
+
+- The package-level help said **twelve** vignettes ship, including one
+  on arriving from an ASReml call. Eleven ship, and that page was folded
+  into the getting-started vignette at 0.9.3.
+
+- `API_STABILITY.md` said every public export carries a
+  `lifecycle::badge("experimental")`. None did. The document states the
+  lifecycle stage without claiming a badge.
+
+- `README.md` described the release as “a stable release of the
+  supported capability set” six lines above a block stating that every
+  export is experimental.
+
+- `CITATION.cff` carried a `date-released` eight days earlier than the
+  tree it described.
+
+- An internal flag word reached a shipped surface in
+  `inst/validation/README.md`.
+
+- `cran-comments.md`, `SECURITY.md`, `SUPPORT.md` and `.zenodo.json` all
+  still named 0.9.3. The coherence test that exists to catch this could
+  not. Its “superseded version” pattern was written as `0\.[0-8]\.` and
+  so was blind to the 0.9.x line at the moment the tree reached 0.10.0.
+  It compares parsed versions and needs no edit at the next bump.
+
+- Withdrawing eleven functions left their `\examples{}` blocks calling
+  them by bare name, and `R CMD check` runs the examples of internal
+  help pages too. Ten pages were affected. They reach the functions
+  through the namespace, and a new guard fails when any example calls
+  something the package does not export.
+
+- The boundary-collapse threshold shipped in this release at 0.05 of the
+  residual SD on the strength of a single simulation, with a claim that
+  a null component returns an upper bound near 0.43 of the residual SD.
+  The package’s own suite falsified it: seven fixtures whose components
+  are null by construction warned. The claim is withdrawn and the
+  threshold re-grounded on the sweep described above.
+
+- The release contract reported its machine-evidence criteria as skipped
+  and exited zero regardless, so the suite, both check runs, the grid,
+  lint, pkgdown, the clean room and CI could each be red while it
+  reported success. Those criteria are unmet until evidenced, and the
+  full tier exits non-zero while one is outstanding. The criterion
+  asserting that a boundary-pinned component warns was satisfied by the
+  existence of its test file. It runs the tests.
+
+- `inst/KNOWN_ISSUES.md` item 7 still said the INLA-crash re-route to
+  brms was silent and that “what is ours to fix is the silence around
+  it”. The re-route emits a one-shot message and the fit’s class records
+  the engine, so the silence had already been fixed and the note had not
+  followed. This file ships in the tarball and the startup message
+  points at it, so the stale text was user-facing. An earlier pass
+  recorded this same finding as not reproducing, on a search for
+  “silent” and “fallback” against a document that says “silence” and
+  “falls back”. That rejection was wrong and is corrected in the release
+  record.
+
+- `API_STABILITY.md` advertised `output_file`, `format` and
+  `allow_new_levels` on the two
+  [`predict()`](https://rdrr.io/r/stats/predict.html) methods. None is a
+  formal of either, and `...` swallowed them. `output_file` belongs to
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  and `allow_new_levels` to the classify path. The paragraph naming the
+  methods had been corrected once already without its argument list
+  being checked.
+
+- The guard asserting that every declared import is used counted
+  mentions in comments and the package name inside message strings,
+  which is how `splines` stayed in `Imports` unused. It requires an
+  imported symbol to be called.
+
+- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)’s
+  own documentation showed `fb_plan(fixed = ...)`, which errors. The
+  fixed part is the first argument, `formula`, and `fixed` fell into
+  `...`. The guard that checks documented arguments against
+  [`formals()`](https://rdrr.io/r/base/formals.html) skips any function
+  taking `...`, so nothing could see it.
+
+- The ignorability caveat was missing from
+  [`?flexybayes`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
+  the most-read of the four places the identity is stated. The guard
+  that exists to prevent this read a hand-written list of files, and the
+  list was missing the entry point. It derives the surface set, and its
+  patterns tolerate the words a writer puts between “posterior” and “is
+  the same”. A literal phrase match had been reading past the entry
+  point’s wording even once the file was in scope.
+
+- `README.md` pointed at `?na_action`, which is not a help page. The
+  argument is documented on
+  [`?flexybayes`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md).
+
+- `API_STABILITY.md` described
+  [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_brms.md)
+  and
+  [`fb_from_asreml()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_asreml.md)
+  as wrapping a fitted object. They parse a formula and return the
+  internal representation. Passing a `brmsfit` fails.
+
+- `API_STABILITY.md` still said
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) refuses
+  on an INLA fit in its interoperability section, having been corrected
+  in its own 0.8.x table in this same release, so the same claim
+  appeared twice in one file. It also documented `predict.flexybayes()`,
+  removed at 0.9.3, and omitted
+  [`fb_complete_grid()`](https://aagi-aus.github.io/flexyBayes/reference/fb_complete_grid.md),
+  [`genomic_summary()`](https://aagi-aus.github.io/flexyBayes/reference/genomic_summary.md)
+  and
+  [`ranef()`](https://aagi-aus.github.io/flexyBayes/reference/ranef.md)
+  from what presents itself as the export inventory. A new guard fails
+  when an export is not named there.
+
+- “There is no silent fallback” appeared on three surfaces while
+  `backend = "auto"` does re-route to brms when the INLA program fails.
+  The re-route is reported by a message, so it is not silent, but the
+  sentence read as a promise that `auto` never changes engine. All three
+  name the numerical-fallback path. The routing message itself asserted
+  “this is a multi-stratum designed experiment” for every gate refusal
+  it handled, which is false for most of them. It names the refusal
+  reason instead.
+
+- `inst/validation/scenarios.yaml` shipped inside the tarball declaring
+  `tier: V3` and `0.9.3`, the tier this release steps down from. It is
+  in the version-coherence gate with the other metadata surfaces.
+
+- The boundary-collapse floor was asserted in prose and restated as a
+  literal in its own test, so a wrong threshold that still sat below the
+  literal would have passed. The 112-fit sweep is recorded at
+  `inst/validation/boundary_calibration.csv`, regenerable through
+  `tools/calibrate_boundary_collapse.R`, and the test reads the floor
+  from it. Restoring the original 0.05 threshold fails three tests.
+
+- The guard asserting that every advertised structure spelling is
+  executed read the grid *source*, which declares cells, not the record
+  of what ran. It reads the `code` column of the recorded run.
+
+## flexyBayes 0.9.3
+
+This is the first public release of the 0.9 line. Versions 0.9.0 to
+0.9.2 were staged locally and never published. Their sections below
+stand as the record of what changed between 0.8.3 and this release.
+
+### Breaking changes
+
+- **The third native fitting engine, quarantined since 0.9.0, is
+  withdrawn from the package entirely.** No code path, export, S3
+  method, backend registry row, refusal code, worker script or
+  `Suggests` entry for it remains. `fb_greta()`, `fb_from_greta()` and
+  `gretaR_status()` are removed, and a call to any of them fails with
+  “could not find function” instead of a typed refusal. 0.9.2 was the
+  last version whose code could read draws from an object fitted by that
+  engine. Re-entry, should it ever be proposed, is a fresh
+  implementation, not a repair of retained code. `greta` and
+  `tensorflow` leave `Suggests`.
+- **`backend = "greta"`, `backend = "gretaR"`, or any other unrecognised
+  backend name raises an ordinary `unknown_backend` refusal** naming the
+  two active engines, `"inla"` and `"brms"`, before
+  [`match.arg()`](https://rdrr.io/r/base/match.arg.html) could report a
+  less specific error.
+- **[`fb_backend_status()`](https://aagi-aus.github.io/flexyBayes/reference/fb_backend_status.md)
+  reports the two active engines only** (INLA, brms). The rows for the
+  withdrawn engine and its dormant sibling are gone, with the
+  Python/TensorFlow discovery probe that populated them.
+- **The refusal-code registry drops eleven codes and adds nine** (116 in
+  0.9.2, 114 now). Removed: `backend_quarantined`, the six codes of the
+  dormant sibling engine’s refusal family, the two codes naming the
+  withdrawn engine directly, `low_rank_requires_greta` (renamed, below)
+  and the stale `predict_kernel_invalid_include`, which had no live
+  raise site. Added: `unknown_backend`, `low_rank_smooth_unsupported`,
+  `cell_count_exceeds_integer`, `inla_program_failed`,
+  `weights_requires_gaussian`, `weights_not_aggregatable`,
+  `binomial_response_not_binary`,
+  `update_unnamed_argument_not_supported` and
+  `at_field_per_level_hyper_not_representable`.
+  [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md)
+  gives the authoritative list.
+- **[`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md)
+  abstains unconditionally** (`met_summary_not_ available`). Its breeder
+  summaries were derived from the withdrawn engine’s realised
+  factor-analytic effects, and neither active engine emits an
+  `fa(env, k):gen` term.
+  [`summary()`](https://rdrr.io/r/base/summary.html) and, on a
+  [`diag()`](https://rdrr.io/r/base/diag.html) or `us()` covariance,
+  `brms::VarCorr()` remain the way to read a multi-environment trial’s
+  genotype-by-environment structure.
+- **[`fb_log_posterior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_log_posterior.md)
+  abstains unconditionally** (`fb_c4_unavailable`): neither active
+  engine exposes an equivalent producer.
+- **[`update()`](https://rdrr.io/r/stats/update.html) refuses the
+  unnamed-formula idiom by name**
+  (`update_unnamed_argument_not_supported`). `update(fit, . ~ . + z)`
+  previously discarded the formula silently and re-fitted the unchanged
+  model. Named arguments (`fixed =`, `random =`, `residual =`) are
+  unaffected.
+- **GBLUP and pedigree-BLUP cross-engine comparison is two-engine**
+  (INLA, brms). `triangulate_genomic()` and
+  [`genomic_summary()`](https://aagi-aus.github.io/flexyBayes/reference/genomic_summary.md)
+  keep their shape.
+- The unreachable streaming `predict(..., output_file = )` path is
+  removed. The engine-specific
+  [`predict()`](https://rdrr.io/r/stats/predict.html) methods had
+  shadowed it since before this release.
+
+### New features
+
+- **A per-trial separable spatial field.**
+  `random = ~ at(trial):ar1(row):ar1(col)` fits one AR1 x AR1 field per
+  level of `trial` on INLA, sharing the row correlation, column
+  correlation and field variance across levels (INLA `replicate`), with
+  the complete-lattice check run per level. brms has no lowering for it,
+  as for the single-field spelling. A level-conditioned `at()` on this
+  spelling refuses by name
+  (`at_field_per_level_hyper_not_representable`).
+- **`weights =` is lowered for the Gaussian family** (identity link) in
+  the precision sense `Var(y_i) = sigma^2 / w_i` on both engines: INLA’s
+  per-observation `scale`, and on brms a known offset on the sigma
+  distributional parameter that reproduces the same precision-weighted
+  likelihood (brms’s own
+  [`weights()`](https://rdrr.io/r/stats/weights.html) addition term is a
+  likelihood-power quantity and was not used). Both engines match
+  `lme4::lmer(weights = )` closely. Doubling every weight leaves the
+  fixed effects unchanged and doubles the fitted residual variance. Any
+  other family, a non-identity Gaussian link, or `aggregate = TRUE` with
+  weights refuses by name (`weights_requires_gaussian`,
+  `weights_not_aggregatable`).
+- **[`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  accepts the ASReml `fixed` / `random` / `residual` grammar**,
+  auto-detected as
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  does. Before, `random` and `residual` were silently dropped, so the
+  plan could name a backend for a fixed-effects-only reading of the
+  model.
+  [`print.fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/print.fb_plan.md)
+  and
+  [`print.fb_aggregation_plan()`](https://aagi-aus.github.io/flexyBayes/reference/print.fb_aggregation_plan.md)
+  print the row count, cell count, rows per cell and a plain verdict on
+  whether aggregation will pay, with the threshold stated.
+- **A non-syntactic factor level** (a level containing a space) no
+  longer kills the INLA emit untyped: levels are legalised inside the
+  emit and the user’s own labels are printed back by
+  [`summary()`](https://rdrr.io/r/base/summary.html),
+  [`coef()`](https://rdrr.io/r/stats/coef.html),
+  [`ranef()`](https://aagi-aus.github.io/flexyBayes/reference/ranef.md),
+  `predict(classify = )` and
+  [`confint()`](https://rdrr.io/r/stats/confint.html).
+  `backend = "auto"` now routes such models to INLA where it fell
+  through to brms. Purely numeric levels are left alone.
+- **[`glance()`](https://generics.r-lib.org/reference/glance.html)
+  returns its one-row summary on INLA and aggregated fits** as it did on
+  brms fits, with sampler-specific columns `NA`.
+- **A `family = "binomial"` response outside {0, 1}** refuses before any
+  engine runs (`binomial_response_not_binary`), naming the column, the
+  offending values and the remedy, on all three routes.
+- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md),
+  [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/reference/backend_decision.md)
+  and
+  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
+  carry runnable examples.
 
 ### Bug fixes
 
-- **[`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-  now compares INLA variance components on the standard- deviation
-  scale.** The automatic precision-to-standard-deviation conversion for
-  an INLA fit was keyed so that it silently did not fire, so a
-  cross-engine comparison (for example greta versus INLA) reported the
-  INLA precision against the other engine’s standard deviation on the
-  `sigma` and `sd_<group>` rows. The conversion now fires by default,
-  with no need to pass `transform_b` by hand.
-- **[`plot()`](https://rdrr.io/r/graphics/plot.default.html) works on
-  every backend fit.** Previously only a greta fit had a
-  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) method, so
-  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) on an INLA,
-  brms, aggregated, or native-greta fit fell through to
-  [`graphics::plot.default()`](https://rdrr.io/r/graphics/plot.default.html)
-  and errored. `plot(fit, type = "effects")` now works on any backend,
-  and plot types that need quantities a backend does not expose (trace
-  plots without MCMC draws, residual plots without fitted values) report
-  that clearly instead of erroring.
-- **Positional and named prior arguments behave identically.** A prior
-  written positionally (for example `normal(0, 50)`) is now read the
-  same as the named form (`normal(0, sd = 50)`) on every emit path;
-  previously a positional scale could be silently dropped to the default
-  on the greta and INLA paths.
-- **[`predict()`](https://rdrr.io/r/stats/predict.html), `emmeans()`,
-  and `marginaleffects` work on an INLA fit of a brms-grammar mixed
-  model.** A model written as `y ~ x + (1 | g)` and fitted via INLA
-  previously refused these downstream calls, because the random-effect
-  bar term leaked into the fixed-effect design matrix.
-  [`formula()`](https://rdrr.io/r/stats/formula.html) on an INLA fit now
-  returns the fixed-effect formula only, as documented, so the design
-  matrix matches the fitted coefficients. Aggregated INLA fits are
-  covered too.
-- **A non-binary binomial response is refused on the greta backend**
-  rather than being silently fitted as a Bernoulli model.
-- **Internal faults are no longer swallowed.** A genuine fault in the
-  latent-Gaussian gate during aggregated `auto` routing, and a failure
-  to compute [`logLik()`](https://rdrr.io/r/stats/logLik.html), now
-  surface rather than being silently turned into a fallback or `NA`.
+- **An INLA engine death surfaces as a typed refusal**
+  (`inla_program_failed`) naming the design size, the largest design
+  this package has verified an INLA per-row fit to complete, the binding
+  random-effect term and the remedies, instead of a raw engine message
+  after tens of minutes.
+- **The aggregation planner’s cell count is carried as a double.** Past
+  R’s integer limit the plan records `cell_count_exceeds_integer`
+  instead of an `NA` count: `aggregate = "auto"` takes the per-row route
+  and says why, `aggregate = TRUE` refuses by name. A grep gate keeps
+  the cast class closed.
+- A streamed fit’s [`print()`](https://rdrr.io/r/base/print.html) banner
+  names its engine and route instead of `(unknown engine)`.
+- Gate labels spell `GxE` in ASCII. A gate message that named a
+  pre-renumber vignette filename is corrected, and a test requires every
+  vignette filename named in `R/` to exist.
+- `triangulate()`’s `transform_b` is exercised at a non-`NULL` value.
+- The `low_rank_smooth` refusal is renamed `low_rank_smooth_unsupported`
+  and says what is true: no active engine consumes a rank-truncated
+  smooth basis.
 
-## flexyBayes 0.4.1
+### Documentation
 
-### One universal entry across every grammar and backend
+- **The tutorial deck is eleven contiguous pages.** The page *From an
+  ASReml call* is removed. Its accessor tour (variance components,
+  random effects, predicted means, observation counts, missing plots,
+  the empirical variogram) lives in *Getting started*, section 6, with
+  no `asreml()` call anywhere in the deck. Pages 06 to 11 and 16 are
+  renumbered 05 to 11. The pkgdown site redirects every old address.
+- **Every figure carries a caption and a reading sentence.**
+  `html_ vignette` leaves captions off by default, so a `fig.cap`
+  reached the page only as alt text. Every page sets
+  `fig_caption: true`.
+- **Every page is copy-paste runnable**:
+  [`library(flexyBayes)`](https://aagi-aus.github.io/flexyBayes/) is the
+  first visible line, seeds are visible, and no code depends on a hidden
+  chunk. *Streaming exact aggregation* runs end to end on temporary
+  `.fst` files (single file, shards, `fit = FALSE` inspection, binomial
+  with `trials =`, poisson with `exposure =`), states how the Gaussian
+  case stays exact as the emit implements it, and cites its methods.
+- *Getting started* lists the four verbs one per row. *The formula
+  surface* shows `weights =` fitting on Gaussian and refusing elsewhere.
+  *Spatio-temporal models* shows the per-trial field. The kinship
+  comment in *Multi-environment trials* attributes the marker-count
+  normalisation to Astle and Balding (2009), which is what the code
+  does.
+- `@param random` separates terms that parse and fit from terms that
+  parse and refuse by name (`fa()` on both engines). README carries a
+  short paragraph on the accessor surface downstream tools read.
 
-[`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-/
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-becomes the single entry for any input grammar and any backend, with
-single-engine pins alongside it.
+### Validation record
 
-- **Grammar polymorphism.**
-  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  /
-  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  now accept a brms / lme4-style bar-grouped formula
-  (`response ~ x + (1 | g)`) in addition to the ASReml `fixed` /
-  `random` / `rcov` form. The grammar is detected from the call shape;
-  the new `syntax` argument forces it. A brms-style model now reaches
-  every available backend through the universal entry, not just one.
-- **Engine pins.**
-  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md)
-  joins
-  [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-  as a single-engine fitting verb: `fb_inla(...)` is exactly
-  `fb(..., backend = "inla")`, and accepts the same grammars.
-- **Exported ingest adapters.**
-  [`fb_from_asreml()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_asreml.md),
-  [`fb_from_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_brms.md)
-  and
-  [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md)
-  are now exported. They turn a model specification into the
-  backend-agnostic intermediate representation, for inspection, caching,
-  or hand-off to a fitting verb.
-- **Registry-driven backend selection.** Backend availability,
-  capability, and the `auto` candidate set are sourced from a single
-  locked backend registry, so the dispatch facts have one home.
+- `inst/validation/benchmark_scaling.{md,csv}` carry the 2026-08-22
+  ceilings study on a realistic multi-term MET design. The
+  flexyBayes/INLA ceiling on that design family is bracketed between
+  911,808 rows (the preflight refuses) and 1,823,616 rows (the engine
+  dies after 41.6 minutes) and has not been measured or bisected. A
+  previously recorded 340.9-second success at 911,808 rows was found
+  unsupported by any run artefact and was corrected.
+- The execution grid gains cells for the space-level factor, Gaussian
+  weights on both engines, and the per-trial field.
+- `cran-comments.md` names the check artefacts this release produces and
+  states the dormant log-posterior contract’s oracle gap.
 
-### Deprecations
+## flexyBayes 0.9.2
 
-- **[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  with a non-brms backend is deprecated.** Pass the same formula to
-  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-  /
-  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
-  which now detects brms grammar and reaches every backend (including
-  the same `auto` / `greta` / `inla` routing).
-  `fb_brms(backend = "brms")` is unaffected. The multi-backend form is
-  removed at 0.5.0, when
-  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  becomes the brms engine pin.
-- **The `fb_greta(model = )` native-graph signature is deprecated.**
-  Build the intermediate representation from a native greta model with
-  [`fb_from_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_greta.md).
-  The signature is removed at 0.5.0, when
-  [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-  becomes the greta engine pin.
+### Bug fixes
 
-## flexyBayes 0.4.0
+- **The prior mini-language refuses malformed specifications instead of
+  substituting a default.**
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  matched a distribution call against the family’s parameter list and,
+  when the match failed (as it does for a wrong argument name), carried
+  the call on unnamed. Every emit-side read then fell back to its own
+  default. `half_normal(sd = 1.5)` fitted under
+  `half_normal(scale = 1)`, `pc(upper = 1)` fitted under a tail
+  probability the caller never wrote, and a negative standard deviation
+  reached the sampler and surfaced four layers downstream as a
+  missing-draws error. Argument matching is strict: an unknown or
+  duplicated argument name, a missing required argument, a non-scalar or
+  non-finite value, and a value outside its domain are each refused at
+  construction with a `flexybayes_refusal_*` class, and both halves of a
+  PC prior are required. The whole constructor surface is typed, so a
+  caller can match a refusal by class instead of by message text.
 
-### Covariance carriers: the `fb_cov()` constructor (breaking change)
+- **Gamma and beta fit on the Stan backend again, on every prior
+  route.** Which families carry a residual `sigma` was written down
+  twice, and the two lists disagreed: the prior emit believed gamma and
+  beta had one, the heteroscedastic-residual gate knew they did not. The
+  prior emit won, so every route, including the plain default with no
+  prior argument, sent brms a `sigma` prior for a parameter the model
+  does not have, and brms refused the fit. Two of the six advertised
+  response families were unreachable on that backend. The fact now has
+  one table (`R/family_traits.R`), both call sites read it, a test
+  grounds it against brms’s own declaration of each family’s
+  distributional parameters, and a second test fails if a duplicate
+  roster reappears.
 
-Structured covariance is now declared with the
-[`fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_cov.md)
-constructor noun inside a random term, completing the four-constructor
-surface
-([`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md),
-[`fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/fb_engine.md),
-[`fb_approx()`](https://aagi-aus.github.io/flexyBayes/reference/fb_approx.md),
-[`fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_cov.md)).
+- **`prior_fixed_sd` and `prior_vc_sd` reach the engine, and
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  tells one story about them.** Both arguments were documented as
+  applied and neither was. `prior_fixed_sd` was absent from the
+  condition that decides whether the auto-default prior fires, so
+  passing it alone left the default in charge and the legacy bridge (the
+  only consumer of the scalar) was never reached. The prior table was
+  byte-identical to the same call without the argument. `prior_vc_sd`
+  was consumed by the brms route and by nothing on the INLA route, so an
+  INLA fit ran under INLA’s own log-gamma precision default while
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  printed `Lognormal(0, 3)` in its header and, four lines further down,
+  said no prior had been supplied and the engine had used its own.
+  Supplying either argument applies it on the per-row and aggregated
+  routes alike: `prior_fixed_sd` through brms prior rows and INLA’s
+  `control.fixed`, `prior_vc_sd` through a brms `lognormal` row and the
+  INLA expression prior that writes the same density on the
+  standard-deviation scale. The two engines therefore carry the same
+  variance-component prior, and `triangulate()` can compare the
+  components. Leaving either unsupplied keeps each engine’s own default,
+  which
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  names. A residual prior declared for a family with no residual scale
+  parameter is reported as declared but not applied, instead of being
+  dropped silently.
 
-- **`fb_cov(M, type)`** wraps a covariance carrier and is passed via the
-  `cov` argument: `vm(geno, cov = fb_cov(L, type = "chol"))`. The five
-  carrier types are `"dense"`, `"chol"`, `"precision"`, `"blocks"`, and
-  `"low_rank"` (the last is a reserved vocabulary entry at this
-  release). The constructor returns a classed object carrying its
-  `representation_class` and a construction-time `validation_summary`;
-  it comes with
-  [`is_fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_cov.md)
-  and a print method.
-- **The legacy `vm()` / `ped()` keyword carriers are deprecated.** The
-  four forms introduced in v0.3.7 — `vm(group, chol = L)`,
-  `vm(group, precision = Q)`, `vm(group, blocks = list(...))`, and
-  `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` — now emit a
-  `lifecycle` migration warning naming the
-  [`fb_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_cov.md)
-  replacement. They continue to work in 0.4.0 and will be **removed at
-  0.5.0**. The bare dense forms `vm(group, V)` / `ped(group, A)` are
-  unchanged.
+- **Beta, negative-binomial and binary responses fit on INLA.** The
+  family gate compared a flexyBayes spelling against INLA’s own
+  likelihood roster, and the reconciler that maps between the two
+  vocabularies runs after the gate, so `negative_binomial`, `negbinom`
+  and `binary` were refused for a naming reason on an engine that
+  carries `nbinomial` and `binomial` perfectly well. These are three of
+  the eight supported spellings. The gate now resolves the spelling
+  first, and a refusal names both. Separately, the residual
+  hyperparameter for the beta likelihood was emitted as `prec` where
+  INLA declares `phi`, so a beta fit died inside the engine with a raw
+  error whose own text quoted the correct alternatives. The keyword now
+  comes from a table read out of `INLA::inla.models()`, and a test
+  re-reads that declaration from the installed engine. All sixteen
+  family x backend cells the capability matrix advertises now fit.
 
-### New constructor nouns: `fb_engine()` and `fb_approx()`
+- **`(1 | g:h)` refuses on INLA exactly as `random = ~ g:h` does.** The
+  two spellings are one model, and the README says the grammar is
+  detected from the call shape. On INLA they diverged: the ASReml
+  spelling was stopped by `lgm_gate()` with a typed refusal naming the
+  engine that fits it, while the bar spelling was read as a simple
+  random intercept on a group called `g:h`, passed the gate, reached the
+  INLA binary, and failed there with a message describing the emitted
+  formula instead of the user’s model. Both surfaces are now classified
+  by the same walker, so the term descriptors are identical and every
+  downstream gate sees one model. This includes the guard against a
+  numeric variable inside a random interaction, which fires on the bar
+  surface too.
 
-Two named constructors join
-[`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md),
-so a model’s inference engine and any approximation are specified as
-explicit, printable objects rather than bare strings.
+- **A prior the backend cannot carry is refused by name, instead of
+  being dropped or raising a bare error.** `priors_to_inla()` translated
+  three distributions on three targets and returned nothing at all for
+  every other pair, while
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  printed each of them as applied: `b()` and
+  [`cor()`](https://rdrr.io/r/stats/cor.html) targets were inert on
+  INLA, as were five of the ten distributions on the variance
+  components, so a prior-sensitivity analysis could vary a `student_t`
+  scale and compare the engine’s own default with itself. The brms side
+  refused the same class of specification for a real reason but in an
+  untyped condition, so no caller could tell “outside the translation
+  table” from “R fell over”. Which pairs each engine carries is now one
+  table (`R/prior_translation.R`, the sibling of the family-traits
+  table), and a pair outside it refuses at the fit, naming the row and
+  both remedies: re-express it in a distribution that engine does carry,
+  or switch backend. The table also widened: brms takes all ten
+  distributions on `sigma` and `sd(group = )`, and INLA gained
+  `exponential` on the variance components (it is the PC prior in
+  distributional form) and `normal` on `b()`, which arrives through
+  `control.fixed` per coefficient. Every translatable pair carries an
+  arrival test that reads the hyperparameter string back out of the
+  fitted engine object, not out of the translator.
 
-- **`fb_engine(name, opts)`** names an inference engine (`"greta"`,
-  `"inla"`, `"brms"`) and its sampler tuning, and is passed as the
-  `backend` argument:
-  `flexybayes(..., backend = fb_engine("greta", chains = 4L))`. It
-  records the engine’s inference `paradigm` and a `toolchain_status`
-  reflecting whether the engine’s package is installed. The bare-string
-  form (`backend = "greta"`) continues to work unchanged.
-- **`fb_approx(scheme, ...)`** names an approximation scheme — validated
-  against the approximation registry — and its tuning, and is passed as
-  a smooth representation:
-  `s(x, representation = fb_approx("low_rank_smooth", rank = 5L))`. It
-  carries a literature-referenced description of the scheme’s bias
-  bound. An unregistered scheme is refused with the supported
-  vocabulary.
-- Both come with
-  [`is_fb_engine()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_engine.md)
-  /
-  [`is_fb_approx()`](https://aagi-aus.github.io/flexyBayes/reference/is_fb_approx.md)
-  predicates and print methods.
+- **A prior naming a term the model does not have refuses at fit entry,
+  in the caller’s vocabulary.** `b("nonexistent_term")` was passed
+  through to brms’s parser, which answered with a synthesised Stan
+  parameter name (`b_nonexistent_term`) the user never wrote, untyped.
+  On the INLA route the same mistake was ignored altogether. The check
+  runs against the engine’s own parameter list (`default_prior()` on
+  brms, the design-matrix columns and f()-term keys on INLA) and names
+  the offending target and the model’s actual terms.
 
-### `emmeans` and `marginaleffects` now work end-to-end
+- **A smoother written in the fixed part refuses instead of reaching the
+  engine.** `y ~ s(x)` raised a bare `could not find function "s"`, from
+  the INLA subprocess, and on brms only after a completed sampling run,
+  so the compute was spent before the failure. Every mgcv-style smoother
+  spelling (`s`, `te`, `ti`, `t2`, `sos`, `gp`) refuses at parse time
+  naming the flexyBayes spelling, `random = ~ spl(x)` on the INLA
+  backend. Ordinary transformations in the fixed part are untouched.
 
-Fits now expose the standard model interface that the downstream
-estimation ecosystem dispatches on, so estimated marginal means,
-contrasts, predictions, slopes, and comparisons work directly on both
-the greta and INLA backends.
+- **A spline whose variable is also a fixed term refuses typed on
+  INLA.** The emit placed `x` in the fixed part and as
+  `f(x, model = "rw2")`, and INLA refuses a key used twice. The error
+  reached the caller as the generic “the inla-program exited with an
+  error” wrapper, which names neither the variable nor the remedy. The
+  refusal now names both of INLA’s own remedies and the one specific to
+  an rw2 smooth, whose null space already carries the linear trend.
 
-- **`emmeans::emmeans(fit, ~ f)` and `contrast()`** work on greta- and
-  INLA-backed fits. The estimation basis is built to match each
-  backend’s fixed-effect parametrisation — treatment contrasts on INLA,
-  the over-parameterised (intercept + all factor levels) basis on greta,
-  the latter handled through a non-estimability basis so only estimable
-  combinations are reported. Posterior summaries use z-intervals.
-- **`marginaleffects::predictions()`, `avg_slopes()`, and
-  `avg_comparisons()`** work on both backends via the `get_coef()` /
-  `set_coef()` / `get_vcov()` / `get_predict()` accessors, with
-  population-level (fixed-effect) predictions on the identity link.
-- **Per-row INLA fits gain
-  [`coef()`](https://rdrr.io/r/stats/coef.html),
+- **A bar-grammar random slope on a factor names the ASReml surface that
+  fits.** `(trt | g)` raised an untyped error listing other bar
+  spellings, none of which expresses the model, and never mentioned that
+  the identical model written `random = ~ us(trt):g` completes on brms.
+  The refusal is typed and names that surface verbatim (`us(f):g` for
+  the correlated form, `diag(f):g` for the uncorrelated one), and a test
+  fits both, so the alternative named is one that works. The remaining
+  ingest refusals were typed alongside it.
+
+- **Every aggregated-route refusal can be caught by class.** Three
+  refusals on the way into the aggregated path raised a bare error:
+  `aggregate = TRUE` with a missing response, `aggregate = TRUE` on a
+  backend that carries no aggregated emit, and `aggregate = TRUE` with
+  no aggregated backend resolving for the model. The two refusals
+  further along the same path already carried a condition class. A
+  caller could match three of the five by class and had to match the
+  other two by message text. All five are typed now, on two reason codes
+  that separate the boundaries: a missing response is a property of the
+  data (`aggregation_response_incomplete`), an unreachable emit is a
+  property of the engine roster (`aggregation_route_unavailable`).
+  Message wording is unchanged, and each refusal still carries
+  `flexybayes_aggregate_refusal` beneath its per-code class, so existing
+  handlers keep working.
+
+### New features
+
+- **`family = "hurdle_gamma"` fits on the brms backend.** The entry
+  allowlist refused it, and the engine behind it carries it natively
+  (`brms::brmsfamily("hurdle_gamma")` declares `mu`, `shape` and `hu`).
+  The restriction had no documented boundary and no named alternative.
+  It is admitted end to end: entry, family traits, emit, the capability
+  matrix and a live fit. INLA’s likelihood roster has no counterpart, so
+  the family gate refuses it there and `backend = "auto"` routes to
+  brms.
+
+- **The remaining family boundaries say whose they are.** Three
+  neighbouring families a field engagement reached for stay refused, and
+  the refusal records which layer the boundary sits at, checked against
+  the installed engines. Neither engine carries `zero_inflated_gamma` or
+  `compound_poisson`. INLA’s likelihood roster does carry `tweedie`, so
+  that boundary is flexyBayes’s own, not the engine’s, and is tracked as
+  a feature request in `inst/KNOWN_ISSUES.md`. Each of the three names
+  `hurdle_gamma` as the nearest implemented alternative.
+
+### Documentation
+
+- **The fixed-effect prior contract is corrected in the two vignettes
+  that still stated the old one.** *Getting started* and *Default priors
+  and the
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  DSL* both described a blanket `normal(0, 100)` on every fixed effect
+  as the working default. That was never what the engines received, and
+  it is not what this release applies: `prior_fixed_sd` is honoured when
+  it is supplied, and left unsupplied each engine keeps its own
+  fixed-effect prior, which
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  names. The reference documentation was corrected when the behaviour
+  was fixed, and the vignettes match it.
+
+- **The priors vignette carries the per-backend translation contract.**
+  Section 6 previously described the cross-engine translation in a
+  parenthesis that no longer matched the code. It now carries the
+  target-by-distribution table for each engine, the argument each
+  translating pair arrives through, and the reason
+  [`cor()`](https://rdrr.io/r/stats/cor.html) is a refusal on both
+  engines and not a gap.
+
+- **The scaling claim now points at its measurements, and the claims
+  that had none are gone.** `DESCRIPTION` said the package “scales to
+  large agricultural datasets” and the README called a route “scalable”
+  and the planner the “fastest way” to explore the package, none of
+  which named evidence. The scaling claim stays and says what produces
+  it (exact per-cell sufficient statistics on replicated designs), and
+  the measurements behind it ship at
+  `inst/validation/benchmark_scaling.md`: the size at which the per-row
+  path runs out of memory, what the streamed path costs at the same
+  size, five billion rows through a flat memory envelope, and the model
+  scope outside which the route refuses instead of approximating. The
+  three claims with nothing behind them were reworded to say what is
+  true (the planner needs no backend installed).
+
+### Internal
+
+- **The capability claims are verified by execution, not by the registry
+  that generates them.** `tools/execution_grid.R` runs the claim-derived
+  cross product against an installed build, one isolated process per
+  cell, and banks the per-cell ledger under
+  `inst/validation/execution_grid/`. The cross product covers every
+  capability-matrix cell, every prior route by family and backend, the
+  malformed-prior corpus, the family allowlist against the installed
+  engines’ own rosters, the structure and grammar surfaces, and the
+  prior-translation table.
+
+- **`inst/validation/scenarios.yaml` registers the numerical-validation
+  studies** in the schema the validation ladder reads, and `DESCRIPTION`
+  declares `Config/rpkg/validationTier: V3`. Every registered row is an
+  existing study. What the tier asks for and the studies do not yet
+  supply is written down in `inst/validation/README.md`.
+
+## flexyBayes 0.9.1
+
+Work aimed at the reader who arrives from ASReml with last season’s
+`asreml()` call in hand, and who should be able to read the answer
+without opening `$inla` or `$brms`.
+
+### New features
+
+- **[`summary()`](https://rdrr.io/r/base/summary.html) returns one
+  object on every engine and every representation.** The two active
+  engines used to return two incomparable things (INLA’s own four-slot
+  list of its tables, brms’s `brmssummary`), and a fit run on the
+  aggregated representation returned a third, its own list of the
+  aggregated posterior’s raw pieces. None of the three carried a
+  variance-component table, so `summary(fit)$varcomp`, which is the
+  first subset an ASReml user types, was `NULL` on every fit. It is now
+  a data frame of `component`, `estimate`, `std.error`, `conf.low`,
+  `conf.high`, `prior`, `note`, alongside `$fixed`, `$converge`,
+  `$n_design`, `$n_observed` and the rest of an eleven-slot
+  `summary.flexybayes` object, with a twelfth `$spatial_field` on a fit
+  carrying an autoregressive latent field. Posterior mean is not a REML
+  component.
+
+- **The aggregated representation answers the same questions as the
+  per-row one.** Aggregation is the default route for an ordinary
+  Gaussian call with a random term, so the missing variance-component
+  table affected the ordinary case. An aggregated fit now returns the
+  same object, with the components rebuilt from the engine’s own
+  posterior. On the INLA route they come through the same precision
+  marginal the per-row route uses, not a reciprocal square root of a
+  tabulated mean. The printed banner names the representation
+  (`aggregated-gaussian`, `aggregated-binomial`, `aggregated-poisson`)
+  where a per-row fit names its engine, and the row-to-cell compression
+  appears both on the header and in the `$model` slot.
+  `plot(fit, type = "variance")` reads the same table and stopped
+  erroring on an aggregated fit with it. The raw aggregated pieces the
+  old summary returned (`beta_means`, `beta_vcov`, `sigma_means`,
+  `tau_means`) are unchanged at `fit$extras$summary`.
+
+- **No convergence claim is made where no check ran.** The aggregated
+  route records no numerical confirm, and the summary reported it as a
+  failed one, because an absent record and a failed check tested the
+  same. The line is now omitted where nothing was checked, and the
+  `$converge$numerical_confirm` slot is `NA` instead of `FALSE`.
+
+- **The variance components carry the prior each one ran under.** The
+  `prior` column is a projection of
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md),
+  so the two surfaces cannot disagree about which prior reached the
+  engine.
+
+- **INLA’s components reach the standard-deviation scale through the
+  precision marginal** (`inla.tmarginal()` then `inla.emarginal()` and
+  `inla.qmarginal()`), instead of by transforming a tabulated point
+  estimate. The transform is nonlinear and decreasing, so the two
+  answers differ, and they differ most where the posterior is widest.
+
+- **`nobs(fit, type = "observed")`** reports how many responses were
+  actually observed, next to `nobs(fit)`, which stays the design row
+  count the engine saw. On an augmented fit those are different numbers
+  and both are reported.
+
+- **`na_action` accepts the policy an ASReml user already writes**:
+  `asreml::na.method(y = , x = )`, or the bare `list(y = , x = )` for
+  readers without an asreml licence, alongside the native strings.
+  Detection is by shape, never by class. The covariate half becomes
+  settable in ASReml’s own words: `x = "fail"` (the default, as in
+  ASReml) refuses. `x = "omit"` drops the affected rows with a warning
+  naming the count and the columns. `x = "include"`, which in ASReml
+  means treating a missing covariate as zero, is refused by name.
+
+- **`coef(fit, what = )` reaches the random effects and the unobserved
+  cells**, and `ranef(fit)` is the same table under the name an `nlme`
+  or `lme4` reader types. `what = "random"` returns one data frame per
+  grouping factor with `group`, `level`, `estimate`, `std.error`,
+  `conf.low` and `conf.high`, `what = "missing"` returns the unobserved
+  design cells, and `what = "all"` returns all three. The default is the
+  historical named numeric vector of fixed effects, byte for byte, so
+  every existing caller keeps working. Where `nlme` or `lme4` is
+  attached in the same session, `flexyBayes::ranef(fit)` is the
+  collision-proof spelling.
+
+- **`predict(fit, classify = )`** builds ASReml’s marginal-means table
+  on top of the existing `emmeans` seam, with a `level` argument
+  defaulting to 0.95. It carries means and credible intervals and says
+  so on the table. There is no pairwise standard-error block. On an INLA
+  fit the interval comes from the Gaussian approximation of the fixed
+  effects, and the banner states that. Without `emmeans` installed the
+  argument refuses by name (`classify_requires_emmeans`) instead of
+  failing inside a namespace call.
+
+- **[`fb_complete_grid()`](https://aagi-aus.github.io/flexyBayes/reference/fb_complete_grid.md)**
+  reinstates design cells that are absent from the data frame
+  altogether, returning the crossing of the index variables with the
+  response `NA` on every cell it added. It shares one implementation
+  with the completion that `na_action = "augment"` performs, so the
+  helper and the fit cannot drift apart. A design factor that varies
+  across the trial is refused, not invented, and `unused_level =` opens
+  that door explicitly, warning with every column it fills. This makes
+  ASReml’s nin89 LANCER coding an explicit, named choice.
+
+- **`plot(fit, type = "variogram")`** draws the empirical residual
+  semivariance over the design array, computed on the observed rows,
+  because a residual is `NA` on an augmented row by construction. A fit
+  with no design index refuses by name
+  (`variogram_requires_design_index`). Nothing is fitted to the surface,
+  so the plot has no fitted-variogram overlay.
+
+- **The Bayesian door.** The same fit object now answers to the generics
+  a Bayesian reaches for. `posterior::as_draws_df()`, `as_draws()` and
+  `as_draws_matrix()` return canonical parameter names with the variance
+  components on the standard-deviation scale, the same names
+  `triangulate()` compares, on either engine. `loo()` passes through to
+  `brms::loo()` on a sampled fit. `pp_check()` passes through to
+  `brms::pp_check()` on a sampled fit, replicated datasets and all. On a
+  Laplace fit each refuses by name, and the message is built from the
+  fit and names the WAIC and DIC that the fit does carry and where they
+  live.
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  and `summary(fit)$converge` complete the door, and neither idiom is a
+  wrapper around the other.
+
+- **A term written on both the fixed and the random side is refused by
+  name.** `flexybayes(yield ~ Variety, random = ~ Block + Variety)` is
+  aliased with itself: the fixed part already estimates one mean per
+  level, so the random copy’s deviations are held up by their prior
+  alone and the variance component reported for them reads that prior,
+  not the data. ASReml accepts the spelling and fits it, so a translated
+  script arrives carrying it, and each engine here handled it badly in
+  its own way: an intermittently singular marginal solve on INLA, an
+  empty variance-component table, and at benchmark scale two
+  segmentation faults in the engine subprocess followed by an error with
+  no reason code. The new `term_in_fixed_and_random` refusal fires at
+  plan time on every engine and in
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md),
+  names the term, and gives both repairs: drop it from `random` for
+  population-level means, or drop it from the fixed part for shrunk
+  level effects.
+
+- **The autoregressive field says so when it does not identify.** On an
+  incomplete grid the latent field can collapse to a boundary (field
+  standard deviation at a floor, both correlations spanning almost the
+  whole of `[-1, 1]`, its variance absorbed into the nugget), while the
+  convergence block reports a converged mode and a passing numerical
+  confirm. The optimiser did converge, to a solution with no field in
+  it. A fit in that state now raises a warning naming the parameters
+  that lost their identification and the three routes out (complete the
+  grid, read the model on brms as well, or give the field an informative
+  prior), and `summary(fit)$varcomp` carries `collapsed` in the `note`
+  cell of the `sd_spatial` row. The warning is scoped to the field: a
+  grouping factor whose variance component collapses is a different fact
+  and keeps its quieter cell. Silence with
+  `options(flexyBayes.silence_spatial_collapse_warning = TRUE)`.
+  `inst/KNOWN_ISSUES.md` carries the measured behaviour.
+
+- **The sectioned residual reaches the object, not only the printout.**
+  `summary(fit)$varcomp` on a `dsum(~ units | f)` fit returned the
+  grouping factors and no residual at all, while `print(summary(fit))`
+  rendered a full per-level block. The result `dsum()` exists to give
+  was readable but not subsettable, and reaching it meant opening
+  `$brms` and transforming `b_sigma_*` draws by hand. The table now
+  carries one `sigma_<level>` row per level of the sectioning factor, on
+  the standard-deviation scale, taken from the same builder the printed
+  block reads, with the `prior` cell naming the retargeted prior that
+  actually reached the sampler.
+
+- **`predict(classify = )` for a random-effects grouping factor refuses
+  by name.** Asking a multi-environment fit for genotype means is the
+  first thing a breeder does after fitting. The reference grid is built
+  from the population-level design, so a factor entering only as a
+  grouping term is not in it and the call died inside `emmeans` with “No
+  variable named Geno in the reference grid”, a third-party message with
+  no reason code and no route onward. The new
+  `classify_random_factor_not_supported` refusal names the factor and
+  points at `coef(fit, what = "random")` and `ranef(fit)`, which carry
+  the level effects with their intervals. Population-level marginal
+  means for a random factor are planned.
+
+### Breaking changes
+
+- **`plot(fit, type = "pp_check")` no longer draws an
+  observed-versus-fitted panel on a fit that carries no predictive
+  draws.** That panel was never a posterior predictive check, and the
+  documentation claimed it was. It is removed, not retitled, and both
+  entry points raise a catchable refusal
+  (`pp_check_requires_predictive_draws`) naming the diagnostics the fit
+  does answer, `plot(fit, type = "residuals")` and, where there is a
+  design index, `plot(fit, type = "variogram")`. On a brms-engine fit
+  the same type now runs a real posterior predictive check through
+  `brms::pp_check()`. A script that called it on an INLA fit for the
+  picture will need one of the named alternatives.
+
+### Minor improvements and fixes
+
+- **A sectioned-residual fit answers the mean-model accessors.** A
+  `dsum()` residual makes the emitted model distributional, and two
+  readers were working on the wrong object: the formula reader indexed
+  the resulting `brmsformula` by position, which reaches its parameter
+  slots and not its formula, and the coefficient reader swept every `b_`
+  column, which collects the log-sigma coefficients alongside the mean
+  effects. The result was `coef(fit)` reporting `sigma_EnvE1` as though
+  it were an effect on the response, a fixed-effect design matrix that
+  could not be reconciled with it, `$glm$y` and `$glm$residuals`
+  all-`NA`, and `predict(fit, classify = )` failing in the estimability
+  seam even for a plain fixed factor. All four are fixed at the two
+  readers, so [`coef()`](https://rdrr.io/r/stats/coef.html),
   [`vcov()`](https://rdrr.io/r/stats/vcov.html),
-  [`predict()`](https://rdrr.io/r/stats/predict.html),
-  [`formula()`](https://rdrr.io/r/stats/formula.html), and
-  [`family()`](https://rdrr.io/r/stats/family.html) methods.**
-  [`vcov()`](https://rdrr.io/r/stats/vcov.html) returns a Monte-Carlo
-  estimate of the joint posterior covariance of the fixed effects (its
-  marginal standard deviations match the INLA fixed-effect summary);
-  `predict(newdata = ...)` returns fixed-effect predictions.
-- A model whose fixed-effect design cannot be reconciled one-to-one with
-  its fitted coefficients is refused with a clear message pointing to
-  the posterior-draws workflow, rather than silently mis-mapped.
+  [`confint()`](https://rdrr.io/r/stats/confint.html) and the
+  marginal-means table now describe the same parameter set.
 
-### Triangulation now labels its convergence claim by independence axis
+- **An ordinary aggregated fit no longer reports a prior nobody
+  supplied.** The `prior_parametrization` label was set by a class test
+  on the recorded prior, which was right while the only `fb_prior` on a
+  fit was one the caller wrote. The auto-default became an `fb_prior`
+  object, so the commonest fit the package produces printed
+  `custom (explicit prior supplied; see prior_summary())`. The label is
+  taken from the default-basis attribute
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  reads, and it has three values (previously two). `per_row_equivalent`
+  marks the legacy scalar bridge, whose matched-prior guarantee is what
+  that word claims. `package_default` marks the automatic bounded
+  uniform on the standard-deviation scale, which claims no such
+  equivalence on the aggregated route. `custom` marks a prior from the
+  caller.
 
-[`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-reports gain an `independence` axis label, so a cross-engine agreement
-says *what kind* of convergence it is, not just how close. A small
-distance between two HMC fits (“implementation” independence)
-underwrites a weaker claim than the same distance between an HMC fit and
-a Laplace-approximation fit (“algorithmic” independence).
+- **`tidy(fit, effects = "random")` answers on an INLA fit.**
+  [`tidy.flexybayes_inla()`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes_inla.md)
+  had no `effects` argument, so the request was absorbed by `...` and
+  the fixed-effect table came back under a call that asked for variance
+  components. On the package’s default engine this was a wrong answer
+  with no error. Both tidiers now take the same argument, route
+  `"random"` through one builder, and stop on an unrecognised value. The
+  shared builder reads through the normaliser the summary uses, so the
+  request also works on an aggregated fit, where the raw field is a list
+  and [`nrow()`](https://rdrr.io/r/base/nrow.html) of it is `NULL`.
 
-- Every
-  [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-  result carries `independence` (a vector from the closed vocabulary
-  `algorithmic` / `implementation` / `specification`) and
-  `axis_justification` (a one-line explanation). The print method
-  surfaces the label, colour-graded by methodological strength on a
-  colour terminal (plain text everywhere else). The Wasserstein columns
-  are unchanged, so existing consumers keep working. The label follows
-  Gelman et al. (2020, *Bayesian Workflow*, arXiv:2011.01808) §6 on
-  cross-checks across implementations.
-- The three v0.3.x backend pairs (greta–inla, greta–brms, brms–inla) are
-  labelled; same-backend or unregistered pairs render without the label
-  rather than refusing.
+- **The two counts named `K` say which is which.** A fit reports the
+  planner’s cell count (the product of the declared factor levels, the
+  complete grid) in `backend_decision(fit)$reason`, and the realised
+  count of cell keys the data contains in the print and summary
+  compression lines. On an incomplete grid these differ, and both
+  printed as a bare `K`. The planner’s figure is now labelled
+  `K = <n> (estimated)`, in the routing reason and in the
+  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  print. The realised count is unqualified.
 
-### Aggregated triangulation and matched-prior transparency
+- **The three prints share one header** and name the engine for what it
+  did. An INLA fit no longer reports `MCMC : n chain(s) x n samples`
+  over a deterministic Laplace approximation that ran no chains. The
+  model line is derived from the model representation, so it describes
+  the model that was written, not the program that was emitted.
 
-- **[`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-  now works on greta-aggregated fits.** Aggregated greta fits previously
-  did not expose their posterior draws in the layout the draw extractor
-  expects, so
-  [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md),
-  [`canonical_names()`](https://aagi-aus.github.io/flexyBayes/reference/canonical_names.md),
-  [`confint()`](https://rdrr.io/r/stats/confint.html),
-  [`plot()`](https://rdrr.io/r/graphics/plot.default.html), and
-  [`predict()`](https://rdrr.io/r/stats/predict.html) failed on them;
-  they now work.
-- **Aggregated-gaussian fits report their prior parametrization.** A new
-  `prior_parametrization` field (`"per_row_equivalent"` under the
-  default precision prior, `"custom"` otherwise) is shown in the
-  aggregated [`print()`](https://rdrr.io/r/base/print.html) /
-  [`summary()`](https://rdrr.io/r/base/summary.html) and returned by
-  [`canonical_names()`](https://aagi-aus.github.io/flexyBayes/reference/canonical_names.md),
-  so it is clear whether the aggregated posterior matches the per-row
-  posterior.
-- **[`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-  documents the matched-prior caveat** for aggregated inputs,
-  forward-linking
-  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md).
+- **[`update()`](https://rdrr.io/r/stats/update.html) works on an INLA
+  fit.** The INLA emit recorded six of the arguments a re-fit needs
+  against brms’s fifteen, and that gap, not anything about the engine,
+  was the whole cause of the `update_call_not_reconstructable` refusal.
+  Both engines now also record the requested `na_action`.
 
-### `fb_refusals()` — a browsable registry of refusal reasons
+- **[`update()`](https://rdrr.io/r/stats/update.html) works on the
+  aggregated routes too.** The Gaussian and count streaming-aggregation
+  emits recorded eleven of the sixteen fields, so an ordinary Gaussian
+  call with a random term, which routes there by default, refused a
+  re-fit. All four emits now record the same names in the same order.
+  `na_action` travels with the re-fit, so an augmented fit re-fits as an
+  augmented fit. A fit made before this release still refuses cleanly on
+  the shorter record, by design.
 
-flexyBayes now ships a complete, locked vocabulary of the conditions
-under which it declines to fit, route, or validate a model, exposed
-through a new exported accessor and a precise condition-class contract.
+- **A re-fit runs under the prior the fit ran under.** The auto-default
+  bounded uniform on the standard-deviation scale fires only when a call
+  supplies neither a `prior` nor a `prior_vc_sd`, and
+  [`update()`](https://rdrr.io/r/stats/update.html) re-issued the
+  recorded `prior_vc_sd`, so the default never fired on a re-fit and the
+  model fell through to the engine’s own hyperprior. An identity
+  [`update()`](https://rdrr.io/r/stats/update.html), with nothing
+  changed, could halve a reported variance component and report
+  `engine default` where the first fit reported the resolved uniform.
+  [`update()`](https://rdrr.io/r/stats/update.html) now resolves the
+  prior from the fit’s own record, on every engine, and **a policy
+  re-fires while a bespoke prior carries**. The auto-default is a policy
+  (one bounded uniform per variance component, with the bound read off
+  the data), so a re-fit passes neither `prior` nor either scalar and
+  lets the default rebuild itself over the *updated* model. On an
+  identity re-fit the same data give the same bound, so nothing moves.
+  On `update(fit, random = ~ g + h)` the added term gets the same
+  uniform as its siblings instead of falling to the engine while they
+  keep theirs. A user-supplied
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  is carried verbatim, and a term it never named still follows the
+  engine’s own hyperprior, exactly as on the first fit. A `prior` or a
+  `prior_vc_sd` written in the
+  [`update()`](https://rdrr.io/r/stats/update.html) call still outranks
+  the record, and only one of the two forms is passed.
 
-- **New exported function
-  `fb_refusals(reason_code = NULL, since_version = NULL)`.** Returns an
-  `fb_refusals_table` data frame — one row per refusal reason carrying
-  its `reason_code`, a one-line `description`, the `since_version` it
-  was introduced in, and the related `plan_field` — with a compact print
-  method. Optional filters narrow the listing to specific reason codes
-  or to an introducing-version prefix
-  (`fb_refusals(since_version = "0.4")`).
-- **Precise, catchable refusal classes.** Every user-facing refusal now
-  carries a condition class `flexybayes_refusal_<reason_code>` above its
-  existing family class, so a specific refusal can be caught directly,
-  for example
-  `tryCatch(fit, flexybayes_refusal_precision_not_symmetric = handler)`.
-  The registry holds the complete 39-reason vocabulary; routing-decision
-  reasons and internal control-flow signals are deliberately excluded as
-  they are not refusals a user can encounter.
-- The aggregated-emit out-of-scope refusal’s reason code is now
-  `rcov_type_unsupported_for_aggregation` (previously a less descriptive
-  identifier).
-- **Unsupported families now refuse through the registry.** Requesting a
-  family flexyBayes cannot fit — for example a survival / time-to-event
-  likelihood — is declined at the family gate with the catchable
-  `unsupported_family` refusal, which lists the supported families and
-  points to
-  [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md).
-- **Parse-time spec refusals now route through the registry.** Early
-  formula checks raise catchable refusals instead of bare errors: a
-  one-sided formula (`formula_not_two_sided`), a response absent from
-  `data` (`response_not_in_data`), a factor-analytic rank below one
-  (`fa_rank_invalid`), and a smooth variable absent from `data`
-  (`smooth_variable_not_in_data`). The `review_code` / `return_code`
-  entry-point guards likewise raise catchable refusals
-  (`review_code_backend_unsupported`, `code_flags_mutually_exclusive`).
-- **Tensor-product smooths are now refused, not silently accepted.**
-  `te()`, `ti()`, and `t2()` raise `tensor_smooth_unsupported` rather
-  than being parsed as ordinary named terms; flexyBayes fits univariate
-  penalised splines (`s()`, `spl()`) only. The README gains a **Known
-  limitations** section documenting the spatial (AR1-only), smooth
-  (univariate-only), survival / HMM (deferred), and missing-data scope
-  boundaries.
+- **A variance component the package priored nothing for says so.** A
+  partial
+  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
+  (one naming `sigma` but not a random term the model has) left that
+  component’s `prior` cell blank in `summary(fit)$varcomp`, where the
+  two words `engine default` belong. Reachable on a first fit, not only
+  through [`update()`](https://rdrr.io/r/stats/update.html).
 
-### `validate_approximation()` + the `low_rank_smooth` smooth approximation
+- **A re-fit comes back on the engine and in the representation the fit
+  ran on.** `backend` and `aggregate` were absent from the record, so a
+  re-fit took the formal defaults for both: an identity
+  [`update()`](https://rdrr.io/r/stats/update.html) of a Stan fit
+  returned an aggregated INLA fit, a different inference engine and a
+  different representation, under the same name and with no message. A
+  re-fit of a per-row fit could come back aggregated. Both now travel
+  with the record. What is recorded is the value the call asked for, not
+  the engine it resolved to: a fit made under `backend = "auto"` records
+  `"auto"`, and a re-fit routes again from there, so a changed model is
+  routed afresh. Both join the fields a re-fit requires, so a fit made
+  before this release refuses cleanly and does not re-fit elsewhere. An
+  override in the [`update()`](https://rdrr.io/r/stats/update.html) call
+  still wins. `verbose` is recorded alongside them but not carried:
+  [`update()`](https://rdrr.io/r/stats/update.html) reproduces the model
+  and the policy behind it, not the display settings of the session that
+  first ran it. `update(fit, verbose = FALSE)` quietens a re-fit.
 
-Completes the approximation contract end to end: the `low_rank_smooth`
-scheme, its greta emit path, and the exported
-[`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
-verb land together so every registered scheme carries a working
-validation procedure.
+- **An auto fallback no longer forwards sampler settings that are not
+  there.** An INLA fit records no `n_samples`, `warmup` or `chains` (the
+  nested Laplace approximation runs none). An auto re-fit whose INLA
+  attempt failed therefore reached brms with all three absent, and brms
+  refused the `iter` it builds from them
+  (`Cannot coerce 'iter' to a single numeric value`). The user read a
+  brms argument error where an INLA failure had happened. Absent sampler
+  settings are now omitted and the receiving engine applies its own
+  defaults.
 
-- **New exported verb `validate_approximation(fit, threshold = 0.99)`**
-  — the sixth (and architecturally-final) exported verb. Returns an
-  `<fb_approximation_validation>` object reporting, per approximated
-  smooth, the realised Frobenius capture () against the pass threshold
-  (default `0.99`), the overall pass / fail verdict, and a fallback
-  hint. An exact fit refuses (`approximation_scheme_unknown`).
-- **`low_rank_smooth` approximation scheme.** Request a rank-K
-  principal-component truncation of a smooth basis with
-  `s(x, representation = list(scheme = "low_rank_smooth", rank = K))`.
-  The model then carries `K` basis coefficients (the truncated basis
-  `B_K = B V_K`, with `V_K` the top-K right singular vectors of the
-  basis `B`) instead of the full `k`; prediction projects the newdata
-  basis through the same `V_K`. The rank refuses unless it is a positive
-  integer no greater than `min(basis dimension, n)`.
-- **Three-tier `exactness` vocabulary** — `exact`, `aggregated_exact`,
-  and `approximate_<scheme>`. Approximate fits carry an
-  `[APPROX: <scheme>]` badge on the `Representation:` print line and in
-  [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md);
-  every pre-existing fit’s label is unchanged.
-- **Greta backend only.** `low_rank_smooth` truncates the dense `mgcv`
-  smooth basis, which only the greta backend materialises; an explicit
-  `backend = "inla"` or `"brms"` request for a low-rank smooth refuses
-  (`low_rank_requires_greta`) rather than silently fitting a different
-  smooth representation, and `backend = "auto"` resolves to greta.
-- **Representation registry** gains the `low_rank` class (sixteenth
-  entry).
-- Fix: the brms-formula ingest’s unsupported-feature refusal no longer
-  errors on a multi-line
-  [`deparse()`](https://rdrr.io/r/base/deparse.html); a long unsupported
-  term now surfaces the intended clean refusal.
+- **A variance component priored through the legacy scalar bridge names
+  that prior.** The cell read `engine default` on every row of such a
+  fit, which on the Stan route is false: the bridge writes
+  `lognormal(0, prior_vc_sd)` onto the residual scale and onto every
+  named group. `engine default` is now reserved for a component
+  genuinely left to the engine, which on the INLA route is what the
+  bridge leaves behind and where the words still belong.
 
-### C5 approximation-registry scaffold (ADR 0030 + ADR 0027, v0.4.0 Wave 1 Phase 1A substrate)
+- **[`plot()`](https://rdrr.io/r/graphics/plot.default.html)’s default
+  type follows the engine, and the default draws on a brms fit.** The
+  predicate deciding whether a fit carried draws read a greta-only slot,
+  so a brms fit fell through to a message saying it had no draws to
+  plot, and the diagnostics path had no brms branch underneath to reach
+  anyway. The default is now `"residuals"` where the fit carries no
+  sampler draws and `"diagnostics"` where it does, and the brms branch
+  forwards to brms’s own trace and density panels. Every explicit
+  `type =` behaves as it did.
 
-Ships the approximation-scheme registry *infrastructure* — a single
-locked `.approximation_registry` environment populated at `.onLoad()`
-and locked via `.lock_approximation_registry()`, with the
-`.register_approximation()` (five-field ADR 0027 Decision 2 schema:
-`scheme`, `bias_bound`, `validation_fn`, `fallback_hint`,
-`registered_in_adr`), `.lookup_approximation()`, and
-`.approximation_scheme()` helpers. Empty at this step by design.
+- **`na_action = "fail"` records itself.** With no missing response it
+  used to fall through into the augment branch, completing the design
+  grid and writing `augment` into the fit’s record.
 
-- The container ships ahead of its first scheme, mirroring the v0.3.8 C7
-  refusal-registry scaffold (container at v0.3.8, first population at
-  v0.3.10). The first approximation scheme (`low_rank_smooth`) registers
-  together with its emit path and the exported
-  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
-  surface, because the scheme’s `validation_fn` reads the truncated and
-  full smooth-basis matrices off a fit object that only the emit path
-  produces; landing the scheme, its validation procedure, and its
-  producer in one end-to-end-verifiable change honours the registry
-  invariant that every registered scheme carries a working validation
-  procedure.
-- No user-facing API change at this step.
-  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md),
-  the `low_rank_smooth` scheme, the `[APPROX: <scheme>]` print badge,
-  and the three-tier `exactness` controlled vocabulary land in the Phase
-  1B completion change.
-- Nine acceptance criteria in
-  `tests/testthat/test-approximation-registry.R` (container exists +
-  locked; empty at the scaffold step; five-field input validation;
-  locked-registry refusal; unknown-scheme refusal with the
-  empty-vocabulary hint; non-string-input refusal;
-  `.approximation_scheme()` refusal delegation; user-side
-  [`assign()`](https://rdrr.io/r/base/assign.html) raises;
-  empty-vocabulary snapshot for vocab-lock gating).
+- **`missing_fraction` is present on every missingness path**, not only
+  under `augment`, and means the same thing on each: the fraction of the
+  fitted rows carrying no observed response.
 
-### C4 representation registry formalised (ADR 0030, v0.4.0 Wave 1 Phase 1A)
+- **The refusal messages for missing plots are rewritten** in the
+  reader’s language, each naming what ASReml does in the same situation
+  and what to type instead.
 
-Phase 1A ratifies ADR 0030 contract C4 (closed-vocabulary representation
-classes) end-to-end. The representation-class vocabulary previously
-spread informally across `R/fb_preflight.R`, `R/fb_plan.R`, and
-`R/methods_truth_display.R` as inline string literals now lives in a
-single locked `.representation_registry` environment populated at
-`.onLoad()` and locked immediately after via
-`.lock_representation_registry()`. Consumer sites route every reference
-through `.representation_class("<name>")`, so typos refuse at runtime
-rather than silently propagating an unknown class through preflight /
-planning / display.
+- Effective sample size is recorded for the tails as well as the bulk of
+  each marginal, and reported by
+  [`summary()`](https://rdrr.io/r/base/summary.html). A fit can mix well
+  in the middle of a marginal and badly at the 2.5% bound, which is the
+  number a credible interval is read off.
 
-- Fifteen entries at v0.4.0 open: the ten plan-named classes
-  (`dense_cov`, `chol_cov`, `sparse_precision`,
-  `pedigree_sparse_precision`, `block_diagonal`, `dense_smooth`,
-  `sparse_smooth`, `banded_smooth`, `indexed_structured_known`,
-  `indexed_structured_estimate`) plus five additional classes
-  load-bearing in the v0.3.10 source and surfaced during the Phase 1A
-  producer-site sweep (`indexed_random_intercept`, `dense_baseline`,
-  `indexed_fixed_numeric`, `indexed_fixed_factor`,
-  `indexed_fixed_factor_numeric`). `low_rank` registers in Phase 1B
-  alongside the ADR 0027 approximation registry; the `axis_*`
-  reservation lands in Phase 2B with the backend-independence axis
-  vocabulary.
-- Internal helpers:
-  `.register_representation(name, description, category, registered_in_adr, since_version)`
-  validates inputs, refuses duplicate names, and refuses any attempt to
-  register after the registry locks. `.lookup_representation(name)`
-  returns the full registered entry and refuses unknown names with the
-  known-classes hint. `.representation_class(name)` is the edit-light
-  thin wrapper consumer sites call to swap a bare string literal for a
-  validated-name round-trip.
-- Twelve acceptance criteria in
-  `tests/testthat/test-representation-registry.R` (container exists +
-  locked, vocabulary completeness, schema check on every entry, lookup
-  round-trip, lookup refusal on unknown name + non-string input,
-  `.representation_class()` round-trip, registration input validation,
-  duplicate refusal, locked-registry refusal, user-side
-  [`assign()`](https://rdrr.io/r/base/assign.html) raises, vocabulary
-  snapshot for vocab-lock gating). The snapshot test forces every future
-  vocabulary addition or removal through a conscious maintainer-review
-  step rather than silently mutating the registry.
-- No user-facing API change. Refusal messages on unknown representation
-  classes surface earlier (at `.representation_class()` instead of at
-  the consumer site downstream) but carry identical content; existing
-  tests that assert specific refusal messages continue to pass.
+## flexyBayes 0.9.0
 
-## flexyBayes 0.3.10
+A stable release of the supported capability set, ready for testing. It
+is published as a pre-release while the first collaborator round
+completes. Entries appear newest-first within each section, so where a
+later change supersedes an earlier one on the same line (the greta
+quarantine over the greta-only MET route, for instance), the superseding
+entry is the one above.
 
-### Stage 5A blocks emit + low_rank refusal-stub upgrade (ADR 0025 Decisions 3 + 4)
+### Licence
 
-Phase A closes two of the three v0.3.8-deferred items that v0.3.9 did
-not absorb. The block-diagonal carrier `vm(group, blocks = ...)` ships
-end-to-end on greta + INLA; the low-rank refusal upgrades to name the
-v0.4.0
-[`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
-forward export by reference, and three new reason codes register into
-the v0.3.8 C7 refusal-registry scaffold as the first migration
-(forward-pattern demonstration for the v0.4.0 Wave 1 Phase 1C bulk
-migration).
+- **The licence changes to MIT** (previously GPL \>= 3), by the authors’
+  decision of 2026-08-17. `LICENSE`, `LICENSE.md` and every metadata
+  surface (`CITATION.cff`, `codemeta.json`, `.zenodo.json`) changed
+  together.
 
-- `vm(group, blocks = my_blocks)` — where `my_blocks` resolves to
-  `list(V_1, ..., V_K)` — is active on greta + INLA. The greta path
-  emits via `t(chol(as.matrix(Matrix::bdiag(...))))` through
-  `.vm_ped_sqrt_expr()` (fits the v0.3.7 sqrt-expr architecture
-  unchanged; “exact and boring” per the 2026-05-28 planning correction).
-  The INLA path emits K independent
-  `f(<var>_id_block_<k>, model = "generic0", Cmatrix = solve(V_k))`
-  calls; per-block integer index columns + per-block precision matrices
-  are pre-computed in `data_inla`.
-- `vm(group, low_rank_factor = U, low_rank_scheme = "pca")` refuses with
-  the upgraded message naming **ADR 0027** +
-  [`validate_approximation()`](https://aagi-aus.github.io/flexyBayes/reference/validate_approximation.md)
-  (v0.4.0 Wave 1 Phase 1B) and the actionable workaround
-  `vm(group, V = U %*% t(U))` for the dense materialisation path.
-- Two new structured refusals: `block_partition_incomplete` (sum of
-  block sizes does not match the grouping factor’s level count) and
-  `block_not_positive_definite` (offending block index named in the
-  message text).
-- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
-  reports `representation_plan` entries with class `block_diagonal` for
-  blocks-format vm/ped terms; the print form renders `(K blocks)`
-  annotations from `known_matrices` resolution. The fit-side
-  [`print.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes.md)
-  Representation line renders `exact (block-diagonal, K blocks)` when
-  blocks-format terms are present.
-- `lgm_gate()` check 8 (`random_term_type_inla`) accepts vm/ped with
-  `cov_representation$format == "blocks"`; the refusal text for
-  `format %in% c("dense", "chol")` extends to mention the blocks carrier
-  as a third structurally-INLA-eligible representation.
-- The refusal-registry scaffold (ADR 0030 C7, shipped at v0.3.8 with
-  zero entries) gains its first three entries via
-  `.populate_refusal_registry_v0310()` — registered at `.onLoad()`
-  before the registry locks. The full ~28-site migration follows the
-  same `.register_refusal()` shape at v0.4.0 Wave 1 Phase 1C.
+### Vignette rendering
 
-### Per-term INLA memory estimator (ADR 0024 §Consequences amendments (a) + (c))
+- **Inline math no longer towers over the sentence it sits in.** The
+  vignette engine loads MathJax v2, whose TeX web fonts render visibly
+  larger than the vignette body text. Every vignette now includes a
+  shared header asset (`vignettes/_mathjax-scale.html`) that pins the
+  MathJax output scale to the body font before the loader runs, and a
+  test fails any vignette, current or future, that drops the reference.
 
-Phase B replaces the v0.3.6 single-multiplier INLA memory check with a
-per-term decomposition keyed on representation class.
+### The plan, the build and the fit agree
 
-- `<fb_preflight>` gains a `memory_estimate` slot carrying an
-  `<fb_memory_estimate>` carrier with `$total` (bytes after the INLA
-  overhead constant; default 2x; configurable via
-  `flexyBayes.preflight_inla_overhead_factor`), `$breakdown` (a
-  stable-shape data.frame with rows `term_label`, `representation`,
-  `bytes`, `share` — ADR 0030 §C4 closed-vocabulary discipline), and the
-  pre-overhead `$raw_total`. `as.numeric(pf$memory_estimate)` returns
-  the total, so existing scalar-numeric consumers keep working
-  unchanged.
-- `lgm_gate()` rule 11 (`memory_feasibility_inla`) decomposes per term
-  when `memory_estimate` is present: dense `n^2`, sparse precision
-  `nnz(Q) * 16` (per Lindgren et al. 2011), block-diagonal
-  `sum_k n_k^2 * 8`, indexed random `8K + 4N`, fixed effects
-  `N * p * 8`. Refuses with the new reason code
-  `memory_feasibility_inla_per_term` and names the largest contributor +
-  its representation on the diagnostic line.
-- [`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
-  print form renders the breakdown rows under the headline memory line:
-  total + overhead factor followed by one indented row per term with
-  representation class + bytes.
-- New vignette `flexyBayes-13-lgm-feasibility-memory` walks through the
-  per-term model, how to read `memory_estimate$breakdown`, four patterns
-  to negotiate a refusal, and the SPDE-mesh / approximate- scheme
-  surfaces explicitly out of scope at v0.3.10.
+- **`plan = TRUE` no longer names a route the fit would not take.** On a
+  `residual = ~ dsum(~ units | env)` model the plan reported
+  `Backend chosen: inla` and `Path: aggregated_inla` on the same screen
+  as `Gate outcome: refuse_structural (residual_term_type_inla)`, while
+  the live call routed to brms. Two defects combined:
+  `.fb_aggregation_plan()` enumerated the structured residuals it could
+  not aggregate and so let a sectioned residual through, and the plan’s
+  aggregation override treated an eligible aggregation plan as enough to
+  choose the aggregated INLA route without asking whether the gate had
+  accepted the model. The aggregation scope names the one residual that
+  is cell-constant, plain `units`, and the override requires an
+  accepting gate.
 
-## flexyBayes 0.3.9
+- **An untracked file no longer decides what INLA fits.** The INLA gate
+  for a factor-by-numeric interaction read an `.rds` under
+  `inst/extdata/inla-verification/`. That directory is untracked but was
+  not build-excluded, so a tarball built in a working tree carried a
+  file a clean clone of the same commit did not, and the two fitted
+  different models. The directory is excluded from the build, and the
+  artefacts become a developer rehearsal hook read only under
+  `options(flexyBayes.dev_inla_verification_artefacts = TRUE)`. Both
+  affected term classes, the factor-by-numeric fixed interaction and the
+  uncorrelated random slope `(x || g)`, refuse on every host. Both
+  refusals say why: their three-arbitrator verification named greta as
+  one arbitrator, and greta is quarantined. The factor-by-numeric
+  refusal, which recommended `backend = "greta"`, names brms.
 
-### Test-isolation pass – three v0.3.8-deferred stochastic flakes closed
+- **`tools/check_build_parity.R`** builds a tarball from the working
+  tree and one from a clean `git archive` of HEAD and fails on any
+  difference between their file lists. It also checks that every
+  `.Rbuildignore` line compiles as a regular expression, because the
+  file has no comment syntax and a `#` line containing an unbalanced
+  parenthesis aborts `R CMD build`.
 
-Four themed Phase commits close the three v0.3.8-deferred stochastic
-flakes (`test-smooth.R:88`, `test-validation-lmer.R:31`,
-`test-emit-gaussian-aggregated.R:299`) and consolidate the test-
-isolation contract under a single-call umbrella. The
-`[flake-test-infrastructure]` and `[flake-stochastic-rng]` classes in
-`inst/skip-ledger.md` drop to zero residual entries; the replacement
-entries under the Stress-only class are opt-in via
-`FLEXYBAYES_RUN_STRESS=true` by design.
+- **`backend = "auto"` on a host without INLA routes to brms.** It
+  announced “routing to greta” and built a greta routing decision. That
+  branch predated the quarantine, so every `auto` call on such a host
+  advertised a quarantined engine and then refused. It resolves through
+  the same fallback the other auto paths use.
 
-**Phase A `fix:` (emit-state latch encapsulation + bare-options leak
-repair).**
+- **`family = binomial()` works.** A `stats` family object reached
+  [`tolower()`](https://rdrr.io/r/base/chartr.html) and a scalar `if`,
+  and the user saw base R’s “the condition has length \> 1”. Family
+  objects and unevaluated family generators are accepted, and a family
+  object supplies its own link, so
+  [`Gamma()`](https://rdrr.io/r/stats/family.html) means the inverse
+  link it names, not the log link that `family = "gamma"` defaults to. A
+  family object handed a contradicting `link` refuses
+  (`family_argument_not_recognised`) instead of choosing one.
 
-- The once-per-session message latches (default-prior note,
-  uniform-on-INLA approx note) migrate from the
-  [`options()`](https://rdrr.io/r/base/options.html) namespace into a
-  package-private environment in `R/emit_state.R`. Accessors
-  `.emit_state_get` / `.emit_state_set` / `.init_emit_state` keep the
-  state invisible to user code; the public-API
-  `options(flexyBayes.silence_*)` toggles are unchanged. Test isolation
-  gets a withr-scoped helper at `tests/testthat/helper-emit-state.R`;
-  the regression suite at `tests/testthat/test-emit-state-isolation.R`
-  pins the contract in 15 expectations across 7 `test_that` blocks.
-- Six bare `options(flexyBayes.silence_default_prior_note = TRUE)` calls
-  (one in `test-inla-verification-simple-slope-uncor.R`, five in
-  `test-random-slopes-uncor.R`) migrate to
-  [`withr::local_options()`](https://withr.r-lib.org/reference/with_options.html)
-  so the silence flag does not leak across files in `tools/tally.R`’s
-  single-process loop. Bisection during Phase A traced the v0.3.8 flake
-  at `test-smooth.R:88` through the env migration to this leak as the
-  upstream cause; either fix alone is insufficient.
+- **The aggregation cell key is a set of variables, not a list of
+  terms.** `y ~ a * b` produces three terms over two variables, and the
+  planner multiplied the term-level counts, so a replicated 4-by-4
+  factorial that compresses 320 rows into 16 cells was sized at 256 and
+  refused as unproductive. The runtime aggregator had always keyed on
+  the union, so the plan and the emitter disagreed about the quantity
+  the decision turns on.
 
-**Phase B `fix:` (TF-RNG containment + hybrid sleepstudy validation).**
+- **A factor-interaction design column refuses the aggregated route.**
+  Probing what the corrected planner then admits found the reason the
+  first defect had been hiding: both aggregated emitters name
+  model-matrix columns in the INLA formula, and INLA does not resolve a
+  column called `a2:b2` even backticked. The aggregated route refuses by
+  name and points at the per-row route, which uses INLA’s own `a:b`
+  notation and fits the model.
 
-- New test helper `tests/testthat/helper-rng.R` exposes
-  `local_tf_seed(seed, .local_envir, deterministic_ops = FALSE)` which
-  reseeds both R (`set.seed`) and TensorFlow (`tf$random$set_seed` via
-  [`requireNamespace("tensorflow")`](https://github.com/rstudio/tensorflow));
-  `deterministic_ops = TRUE` additionally enables
-  `tf$config$experimental$enable_op_determinism()` (opt-in;
-  process-global state + 5–15% throughput cost).
-- The sleepstudy
-  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)-vs-`lme4`
-  validation test (`test-validation-lmer.R:31`) splits into a hybrid:
-  primary always-on path at 1000+1000 budget + 1.5 \* REML SE
-  fixed-effect tolerance + 30% VC tolerance; secondary stress-gated path
-  at 2000+2000 + 1.0 \* REML SE / 25% (the original strict assertion).
-  Both paths call `local_tf_seed(20260427L)` at entry. The stress-gated
-  companion joins the existing stress- only blocks under
-  `tools/profiles/stress.R`.
+- **The aggregated header names the fit’s own family.**
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) on an aggregated
+  fit said `aggregated-gaussian` from a string literal, so a binomial or
+  Poisson fit from the count aggregator carried the wrong family on the
+  surface the package uses to signal exactness.
 
-**Phase B’ `fix:` (aggregated INLA bit-exact identity tolerance
-amendment).**
+### Fidelity of names
 
-- The `INLA per-row + aggregated agree on beta` assertion
-  (`test-emit-gaussian-aggregated.R:284`) splits: always-on band at
-  `5e-3` (10x the spike’s `1e-4` theoretical bit-exact claim, 1.5x the
-  v0.3.8 Phase D worst-case observation of `3.4e-3`) with a stress-gated
-  companion at the original `1e-3` floor. Same shape as the v0.3.5
-  BLAS-non-associativity amendment on ADR 0023 and the v0.3.7
-  subtest (d) loosening on ADR 0025; the algebraic-identity claim
-  documented at `R/emit_gaussian_aggregated.R:30-41` is unchanged.
+- **The separable AR1 spatial structure is now written on the random
+  side.** This is a breaking change within the unreleased 0.9.0 line.
 
-**Phase C `feat:` (single-call test-isolation umbrella).**
+  ``` r
 
-- New helper `tests/testthat/helper-isolation.R` exposes
-  `local_flexybayes_clean_state(seed = NULL, .local_envir, deterministic_ops = FALSE)`
-  that composes `local_clean_emit_state()` unconditionally and
-  `local_tf_seed()` when a `seed` is provided. The umbrella file header
-  consolidates the three cross-helper discipline rules learned during
-  Phase A + B + B’: never bare `options(flexyBayes.*)` without
-  [`withr::local_options()`](https://withr.r-lib.org/reference/with_options.html);
-  greta-MCMC numerical- agreement tests must call `local_tf_seed()`;
-  emit-state- dependent tests must call `local_clean_emit_state()`. Each
-  underlying helper remains the right entry point for single- surface
-  tests.
+  # before
+  flexybayes(yield ~ 1, residual = ~ ar1(row):ar1(col), data = trial)
 
-**User-facing impact: zero.** All changes are test-infrastructure or
-test-tolerance only. Public-API `options(flexyBayes.silence_*)` toggles
-unchanged.
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-/
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-/
-[`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
-signatures unchanged. The internal `flexyBayes._..._emitted` option
-names (leading-underscore, never declared API) are no longer consulted
-by package code.
+  # after
+  flexybayes(yield ~ 1, random = ~ ar1(row):ar1(col), data = trial)
+  ```
 
-**Cumulative tally on the v0.3.9 release tree: PASS 1894 / FAIL 0 / SKIP
-8** (was 1871 / 0 / 8 at v0.3.8; +23 PASS, equal SKIP count). The
-skip-count parity is intentional – each closed flake-class skip is
-replaced by an opt-in stress-gated skip exercising the strict assertion
-under the release-rehearsal probe.
+  The INLA emit builds a latent autoregressive field plus the Gaussian
+  observation nugget: four parameters on a field grid: the row
+  correlation, the column correlation, the field SD and the nugget SD.
+  `residual = ~ ar1(row):ar1(col)` is ASReml’s name for a *different*
+  model, the nugget-free separable residual, which has three parameters
+  and which the four-parameter model contains as the nugget goes to
+  zero. On data with real plot-to-plot noise the two return different
+  correlations, because a nugget-free model must absorb independent
+  noise into the correlated structure. Emitting one under the other’s
+  name was the one place the package kept the original spelling for a
+  model it was not fitting.
 
-**Cairns**:
-`ledger/r-package/2026-05-27-emit-state-latch-env-migration.cairn.md`
-(Phase A, T3, alternatives bracketed: status-quo / env-keyed-CHOSEN /
-withr-only / rlang-typed-message-deferred-v0.4.0);
-`ledger/r-package/2026-05-27-tf-rng-containment-hybrid-sleepstudy.cairn.md`
-(Phase B, T3, alternatives bracketed: status-quo / greta-opt-MAP-bypass
-/ hybrid-CHOSEN / hybrid-plus-deterministic-ops-deferred);
-`ledger/r-package/2026-05-27-aggregated-inla-tolerance-amendment.cairn.md`
-(Phase B’, T2, alternatives bracketed: status-quo / hybrid-CHOSEN /
-INLA-session-state-investigation-deferred /
-unconditional-1e-2-loosening);
-`ledger/r-package/2026-05-27-isolation-helper-umbrella.cairn.md` (Phase
-C, T2, alternatives bracketed: separate-helpers / umbrella-CHOSEN /
-inlined-monolith).
+  A random-side field is a random effect, so the new spelling states the
+  model truthfully. The residual spelling now refuses by name
+  (`ar1_residual_not_representable`), naming both routes: the
+  random-side field, or ASReml itself for the residual formulation. The
+  emit, the grid conditions and the recovered values are unchanged. Only
+  the spelling moves. brms refuses the field
+  (`stan_cannot_represent_ar1_field`) because it has no lowering for a
+  Kronecker autoregressive precision.
 
-## flexyBayes 0.3.8
+- **[`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`print()`](https://rdrr.io/r/base/print.html) report all four field
+  parameters**, labelled and on the correlation and standard-deviation
+  scales. INLA’s precision-scale names (`Rho for row_id`,
+  `GroupRho for row_id`) are no longer left for the reader to translate.
+  The fourth parameter is exactly what separates this model from
+  ASReml’s, so a user who acts on the correlations can see what they are
+  acting on.
 
-### Audit-close hardening + planner + truth display
+- **`lgm_gate()`’s hyperparameter budget counts the field’s own
+  parameters**: two for `ar1(t)`, three for the separable form, with the
+  observation nugget counted on the family side. It previously counted
+  the 1-D field as one, and the budget is what decides whether INLA’s
+  numerical integration stays tractable.
 
-Four themed Phase commits close the 2026-05-25 audit
-(`feedback_v0.3.7_to_v0.4.0_2026-05-25.md`, five Critical Fixes and
-thirteen sub-recommendations) and ratify ADR 0030 contracts C1 (planner
-verb) + C7 (refusal-registry scaffold) + Decision 4 (`Representation:` /
-`Engine:` two-line truth display).
+- **The random / residual grammar is a closed vocabulary.** An
+  unrecognised call was read as a plain variable whose name was its own
+  source text, so `ar2(row)` became a lookup for a column called
+  `"ar2(row)"` and `corgh(site):gen` became a crossing of two invented
+  factors. Any call outside the recognised set now refuses
+  (`asreml_function_not_recognised`), naming the token and the nearest
+  spellings the parser does read.
 
-**Phase A `fix:` (shared prediction kernel + alignment validators +
-sparse-precision policy).**
+- **The structures that parse for the formula catalogue but have no emit
+  path are refused by name**: `ar2()` points at `ar1()`,
+  [`cor()`](https://rdrr.io/r/stats/cor.html) reuses the equicorrelation
+  refusal, [`str()`](https://rdrr.io/r/utils/str.html) names the
+  per-term structures to write instead, `fa()` names `us()` and
+  [`diag()`](https://rdrr.io/r/base/diag.html), and an interaction
+  matching none of the recognised patterns (`us(trait):vm(gen)`, the
+  multi-trait idiom) says so. All of these previously reached an
+  `lgm_gate()` print on INLA and an untyped
+  [`stop()`](https://rdrr.io/r/base/stop.html) on brms, two vocabularies
+  for one fact.
 
-- File-backed prediction and the in-memory path now share a single
-  per-draw kernel (`R/predict_kernel.R`); the smooth-bypass bug on
-  `predict(..., output_file = ...)` that lost partial contributions of
-  spline terms is closed. Audit Critical Fix
-  [\#1](https://github.com/AAGI-AUS/flexyBayes/issues/1).
-- Known-matrix carriers passed via `known_matrices = list(...)` validate
-  against the IR at fit time on both backends: dimension mismatches,
-  level mismatches between `dimnames(M)` and the factor’s
-  [`levels()`](https://rdrr.io/r/base/levels.html), and dimname
-  misalignments raise typed refusals (`known_matrix_dim_mismatch`,
-  `known_matrix_dimnames_mismatch`, `known_matrix_level_mismatch`)
-  instead of crashing inside the emit. Audit Critical Fix
-  [\#2](https://github.com/AAGI-AUS/flexyBayes/issues/2).
-- The PD probe on user-supplied sparse precision matrices Q is now
-  sparse-native – `Matrix::chol(forceSymmetric(Q))` rather than coercing
-  to dense and calling base
-  [`chol()`](https://rdrr.io/r/base/chol.html). The
-  `flexyBayes.trust_pd` option allows callers who have already verified
-  PD externally to skip the probe. Audit Critical Fix
-  [\#3](https://github.com/AAGI-AUS/flexyBayes/issues/3).
+- **The brms formula reconstruction refuses by name instead of stopping
+  untyped** (`brms_cannot_represent_term`), naming the term type and the
+  route that does fit it. `spl()` on brms is the common case and now
+  points at INLA.
 
-**Phase B `feat:` (planner + truth display + refusal registry
-scaffold).**
+- **A numeric variable inside a nested or multi-way random interaction
+  is refused** (`numeric_variable_in_random_interaction`).
+  `~ Subject + Subject:Days` with numeric `Days` reads as a random
+  regression to an ASReml user and emits as one independent deviation
+  per Subject-by-Day cell (180 of them on `sleepstudy`). Both readings
+  are defensible. The refusal names them and the route to each:
+  `(Days || Subject)` for the slope, an explicit factor conversion for
+  the per-cell effect. A crossing of two factors is untouched.
 
-- New exported verb
-  `fb_plan(formula, data, backend, priors, known_matrices, family, link, weights, aggregate, memory_ceiling_gb, predict_plan, ...)`.
-  Returns a `<fb_plan>` object showing the pre-fit dispatch decision,
-  representation plan, rejected-route trace, predict-shape derivation,
-  and known-matrix summary – without running the fit.
-  [`print()`](https://rdrr.io/r/base/print.html) surfaces a
-  flight-checklist form;
-  [`summary()`](https://rdrr.io/r/base/summary.html) adds per-term
-  preflight detail;
-  [`as.data.frame()`](https://rdrr.io/r/base/as.data.frame.html) coerces
-  to a wide single row for tabular aggregation across plans.
+### Triangulation is a gated diagnostic
+
+- **`triangulate()` now gates the comparison before reporting it.** It
+  compared any two objects that produced draws, on any parameters whose
+  names happened to coincide, whatever model, data, prior or convergence
+  state each carried. A distance between two such posteriors measures
+  the difference between two questions, and there was nothing in the
+  output that said so.
+
+  Three gates now run first.
+
+  - **Comparability.** Every fit records a model fingerprint at fit
+    time: the canonical formula triple, family and link, the data
+    dimensions, column names and a content digest, and the prior
+    recorded on each variance component. Two fits whose fingerprints
+    disagree raise `triangulate_incomparable_fits`, naming the first
+    element that differs. There is no override argument, because
+    comparing two different models is a different operation. A fit built
+    outside the package carries no fingerprint, so comparability cannot
+    be verified and the status is `inconclusive`.
+  - **Diagnostics.** A brms fit passes on R-hat at most 1.01, bulk ESS
+    at least 400 and no divergent transitions. An INLA fit passes its
+    own numerical-confirm gate. A failing fit yields `inconclusive` and
+    no parameter verdict at all, because disagreement between an
+    unconverged fit and a converged one is not a finding.
+  - **Matched priors.** A variance component is compared only when both
+    fits record the same prior for it. The rest come back `not_compared`
+    with the reason, most often that the term is outside the
+    default-prior walker, so each engine chose its own hyperprior.
+
+- **The result carries a status**, `concordant` / `discordant` /
+  `inconclusive`, plus a per-parameter verdict, the mean shift and the
+  Wasserstein-1 distance in posterior-SD units. The thresholds behind
+  the verdicts (0.1 SD, 0.1 SD, an SD ratio inside \[0.9, 1.1\]) are
+  documented as heuristics for directing attention, in the sense Gelman
+  et al. (2020) use for cross-implementation checks. They carry no error
+  rate, and the man page states that the package ships no
+  simulation-based calibration of its own fits, so `concordant` is not a
+  calibration claim.
+
+- **The man page and the README stop presenting triangulation as the
+  package’s validation contract.** It is a diagnostic on a gated
+  overlap. Agreement between two engines reading the same parsed model
+  cannot detect a mistranslation of that model, and both surfaces say so
+  in the paragraph that introduces the function.
+
+### Priors reach more of the model
+
+- **The default uniform-on-SD prior now reaches nested,
+  `diag`/`idh`/`at` and `us` group terms** on the brms path. It
+  previously walked simple, uncorrelated-slope, `vm` and `ped` terms
+  only, which meant the terms most likely to be triangulated
+  (multi-stratum and genotype-by-environment variances) were the ones on
+  which the two engines were never asked the same question. Fits of
+  those models with no explicit `prior` will shift: the variance
+  components now carry `uniform(0, U)` where they previously carried
+  whatever the engine chose.
+
+- **Terms still outside the walker are recorded as engine defaults**:
+  the `us` correlation block (which keeps brms’s LKJ), multi-way random
+  interactions, and the AR1 latent field (which keeps INLA’s own
+  hyperprior). The record is what lets `triangulate()` exclude them by
+  name instead of comparing them.
+
+- **The heterogeneous-residual prior retarget now uses the multiplier
+  that actually produced its bound.** With `sigma ~ 0 + f` the scalar
+  residual prior has no parameter to attach to, so it is retargeted onto
+  the log-sigma coefficients as `normal(log(sd(y)), 1)`. The code
+  recovered `sd(y)` by dividing the uniform bound by 2.5 (the superseded
+  penalised-complexity default’s multiplier), while the uniform default
+  had moved to `U = 5 * sd(y)`. The prior’s median residual SD was
+  therefore twice the data SD, where its own rationale states the data
+  SD. The bound `U` is unchanged. The divisor reads from the same
+  constant that sets it, and heterogeneous-residual fits under the
+  default prior will shift slightly.
+
+### The combined multi-environment-trial model fits
+
+- **Interaction random effects and a sectioned residual now fit
+  together**, on brms, and the capability table says so. The two halves
+  had been tested apart, the combination only at the emit level, and
+  every public surface said as much. The matrix row read `emits`,
+  meaning the Stan program carried both blocks and nobody had run it. It
+  runs: `tests/testthat/test-met-combined.R` asserts both blocks in the
+  emitted formula and in the Stan program, then fits the model on
+  simulated multi-environment data and asserts every R-hat below 1.05,
+  no divergent transitions, and per-environment residual variances
+  recovered in the order they were simulated in. `auto` reaches brms for
+  this class. INLA still refuses it structurally.
+
+  The verified fit is 120 rows.
   [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  forwards no `control` list to Stan, so a trial series large enough to
+  need a raised `adapt_delta` has no route to one, and that is the next
+  thing this capability needs.
+
+- **[`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`print()`](https://rdrr.io/r/base/print.html) report the per-level
+  residual variances** on a fit with a sectioned residual.
+  `sigma ~ 0 + f` puts the predictor on log sigma, so a `b_sigma_*`
+  coefficient is neither a variance nor a standard deviation, and the
+  sectioning leaves no scalar `sigma` for the variance-component table
+  to report. The residual was absent from the printed output of a model
+  whose whole point was the residual. Both quantities are now summarised
+  from the draws of `exp(2 * b)` and `exp(b)`, as posterior medians with
+  a credible interval, labelled by the factor’s own levels. They are not
+  point transforms of a posterior mean:
+  [`exp()`](https://rdrr.io/r/base/Log.html) is convex, so those are
+  different numbers.
+
+- **[`fb_plan()`](https://aagi-aus.github.io/flexyBayes/reference/fb_plan.md)
+  no longer reports that a model will not fit and then fits it.** Under
+  `backend = "auto"` the plan read the latent-Gaussian gate’s verdict on
+  INLA as the fit’s verdict, so every model the router hands to brms
+  (multi-stratum designs, heterogeneous variances, the combined MET
+  model above) printed `Will fit: no (preflight refused)` while also
+  printing `Backend chosen: brms`. Both halves of that line were wrong:
+  the preflight had sized every term, and the chosen route fits.
+  `will_fit` now follows the resolved route, and where there is none the
+  printed reason names which dead end it was.
+
+- **The plan’s representation table includes the residual structure.** A
+  sectioned residual is half of a multi-environment-trial model and did
+  not appear in the plan at all.
+
+- **The convergence warning stopped misdiagnosing `us()` terms.** It
+  blamed non-identified factor-analytic loadings, which does not apply:
+  brms parameterises `us(f):g` by standard deviations and a Cholesky
+  correlation factor, and those converge. What fails at one observation
+  per cell is the split between the covariance diagonal and the
+  residual, which are confounded there. The old text sent the reader to
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md),
+  which abstains for `us()` terms. The note now names the confounding
+  and the two remedies that work on it, replication within cell or an
+  informative prior on the residual.
+
+### Heterogeneous variances
+
+- **`diag(f):g`, `idh(f):g` and `at(f):g` now fit**, on the brms
+  backend: a separate variance for every level of the outer factor, with
+  no covariance between them. This is the workhorse structure of a
+  multi-environment trial, where the genotype variance differs by site,
+  and it previously refused on both active backends, because it had been
+  a greta capability and greta is quarantined. ASReml treats
+  [`diag()`](https://rdrr.io/r/base/diag.html) and `idh()` as the same
+  structure, and so does flexyBayes: all three spellings emit identical
+  code.
+
+- **`us(f):g`** emits the correlated sibling, one character apart in the
+  brms formula and the whole difference between *k* parameters and
+  *k(k+1)/2*.
+
+- **Heterogeneous residuals**: `dsum(~ units | f)`, and the
+  `at(f):units` spelling that parses to the same node, now lower to
+  distributional regression on the residual scale. Refused for families
+  that have no residual scale parameter to vary. A Poisson’s dispersion
+  is a function of its mean, so there is nothing there to make
+  heterogeneous.
+
+- **`at(f, level):g` is refused instead of being treated as diagonal.**
+  Conditioning a random effect on selected levels is a different model
+  from varying its variance across all of them. The two share a
+  spelling, which is exactly how one gets fitted under the other’s name.
+
+  The mappings are validated against ASReml before use, not after, in
+  `oracle_heterogeneous.R`: ASReml’s `diag(site):gen`, an explicit
+  `lme4` expansion and the brms emit are fitted on the same data and
+  checked on the parameter count before the values, because estimates
+  alone cannot tell a diagonal structure from an unstructured one when
+  the true cross-level correlations are zero. The two REML arms agree to
+  3.5e-05. All three fit exactly *k* variances and no covariances.
+
+  The residual side has its own probe in the same script, with four arms
+  so that neither Bayesian arm is its own oracle. Fitted through
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  on 360 simulated plots, the per-site posterior-mean residual variances
+  are 0.1146 / 1.1516 / 4.6981 where ASReml’s `dsum` gives 0.1093 /
+  1.1248 / 4.6079 and
+  [`nlme::varIdent`](https://rdrr.io/pkg/nlme/man/varIdent.html)
+  reproduces ASReml to 1.3e-07. The largest gap is 4.8 per cent, on the
+  smallest of the three variances, which is where a posterior mean and a
+  REML point estimate are least alike. Every arm fits three free
+  residual scales, no covariance, and no scalar `sigma`. The structure
+  is asserted before any value is compared. Run of 2026-08-15,
+  `results/oracle_het.log`.
+
+### Missing responses preserve the design
+
+- **New `na_action` argument on
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  /
+  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)**,
+  defaulting to `"augment"`. A missing response removes an observation,
+  not a design node. Where the model carries a covariance indexed by the
+  design (a separable AR1(row) x AR1(col) residual over a field trial),
+  deleting the row of a lost plot changes the index set the covariance
+  is built over, so the model that gets fitted is no longer the model
+  that was written down. Under `"augment"` such rows are retained and
+  carried as latent quantities, and design cells absent from the data
+  frame are reinstated where their model variables are determinable.
+  This is ASReml’s `na.method(y = "include")` behaviour. `"omit"` drops
+  them (complete-case), and `"fail"` refuses.
+
+  The layer adds no inference machinery: INLA already treats an NA
+  response as a latent prediction target and marginalises it. What is
+  new is keeping the design intact so the engine is handed the right
+  index set. Previously a single lost plot made an `ar1(row):ar1(col)`
+  model unfittable, since the emit refuses an incomplete grid.
+
+  Under ignorability the parameter posterior is the same whether the
+  cell is imputed or omitted. Augmentation preserves the
+  *representation*, not information. Where missingness depends on the
+  unobserved response itself, both are biased and neither this argument
+  nor any diagnostic here will say so. Missing *covariates* are refused
+  under every setting: a filled-in predictor is a fabricated
+  observation, which is a deliberate departure from ASReml’s
+  drop-or-zero-fill and a stricter one.
+
+  Validated against oracles flexyBayes did not author, in
+  `design-preserving-missingness/`: ASReml’s own device, an
+  independently written observed-data REML (so ASReml is not its own
+  oracle), and complete-case `lme4`. What that sweep establishes is a
+  **REML device identity**: the ASReml augment device and the
+  independent observed-data REML agree to about 1e-4 relative on every
+  design. It is not an identity between a flexyBayes posterior and a
+  REML estimate, which is a different claim and is not made here.
+  Complete-case deletion reproduces the device on iid designs and
+  departs on the correlated-residual one, which is the whole subject.
+
+- The fitted object records what the layer did, under
+  `$extras$na_action`. Whether a posterior was computed on the design as
+  laid out or on the plots that survived was not otherwise recoverable.
+
+### Model-fidelity fixes
+
+- **The vignette deck merges from thirteen pages to eleven.** Two pairs
+  overlapped enough that a reader had to hold both open. *Structured
+  covariance* (05) is now part of the formula-surface page (02), which
+  carries the whole term catalogue plus heterogeneous residual variance,
+  design variance components, the `vm()` / `ped()` carriers and the
+  genotype-by-environment family in one place. *Extending backends* (15)
+  is now Section 9 of *dispatch and refusals* (11), next to the gate and
+  the capability trail it describes, with its live registry dump and its
+  availability-versus-capability split intact. No scientific content was
+  dropped, the two shipped filenames are unchanged, and the numbering
+  gaps at 05 and 12–15 record the merges. One stale claim was corrected
+  on the way: `ar1(env):geno` has an INLA route, which the retired page
+  denied.
+
+- **The teaching pages pass `seed`.** Tutorial 01 told the reader that
+  Stan’s sampler was seeded while the call above it passed none, so the
+  printed diagnostics could not be reproduced from the code shown. The
+  brms fits in *getting started*, *multi-environment trials and genomic
+  selection* and *cross-engine triangulation* now pass a seed, and two
+  knits of each return identical output. The INLA half of *getting
+  started* still does not reproduce: the collapsed `Subject` precision
+  lands orders of magnitude apart between runs, single-threaded as well
+  as threaded. The page says so, since instability across re-runs of a
+  deterministic engine carries the same warning as a failed sampler
+  diagnostic. Baked numbers on those three pages moved with the seeds.
+
+- **The triangulation page’s posterior-predictive check draws from the
+  posterior predictive.** Section 5.3 simulated from the posterior-mean
+  linear predictor with the group intercepts dropped, the same error
+  Tutorial 08’s `loo` repair had just fixed one page over. It now uses
+  `brms::posterior_predict()` and keeps the mean surface beside it for
+  contrast: the two are five-fold apart at the upper percentile. The
+  page’s lead no longer says that INLA silently approximates outside the
+  latent-Gaussian class, since `lgm_gate()` refuses the model before
+  INLA is called. The caveat on what cross-engine agreement buys moves
+  to the start of the page.
+
+- **[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  gains `seed` and `control`, so a brms fit is reproducible and its
+  sampler is tunable.** Neither was reachable: the entry point took no
+  `...`, so [`set.seed()`](https://rdrr.io/r/base/Random.html) before a
+  call did not pin Stan’s stream and `adapt_delta` could only be raised
+  by dropping to `brms::brm()` directly. The gap mattered: the package’s
+  own heterogeneous-variance oracle measured 0.27 percent run-to-run
+  drift on the per-environment variances it quotes.
+
+  ``` r
+
+  flexybayes(
+    yield ~ site, random = ~ gen, data = trial,
+    seed = 20260815L, control = list(adapt_delta = 0.95)
+  )
+  ```
+
+  Both are forwarded to `brms::brm()` and recorded on the fit, so
+  [`update()`](https://rdrr.io/r/stats/update.html) repeats them. `NULL`
+  maps onto brms’s own defaults (`seed = NA`, `control = NULL`) instead
+  of being passed through. The INLA path is a deterministic Laplace
+  approximation with no random stream and no adaptation phase, so both
+  are no-ops there and say so once per fit. Silence the note with
+  `options(flexyBayes.silence_sampler_arg_note = TRUE)`. The convergence
+  warning now names `adapt_delta` as a route where divergent transitions
+  are the symptom, and says that on an unstructured term at one
+  observation per cell it lowers the divergence count without
+  identifying the split.
+
+- **Tutorial 08’s `loo` now includes the subject offsets, and shows why
+  that matters.** The ELPD was computed from a pointwise log-likelihood
+  built out of population-level coefficients only, which answers the
+  leave-one-out question for a *new* subject, not for a new observation
+  on a subject already in the data. The tell was a `p_loo` of 57 on a
+  three-parameter mean structure. The vignette now takes the array from
+  `brms::log_lik(fit$brms)` (`p_loo` 19.5, against 18 subjects plus
+  three parameters), keeps the population-level version alongside as the
+  mistake a reader would otherwise make, and tabulates the two.
+
+- **Tutorial 03 stops promising mgcv smooths in its title, converts
+  INLA’s precision output, and checks its own recovery claim.** The
+  title named a capability no active engine has (`s(x)` parses and is
+  refused), and the text said the hyperparameter block reported a
+  standard deviation where INLA had printed a precision. The residual
+  scale is now converted to $`\sigma =
+  \tau^{-1/2}`$, with the interval reversed as that monotone-decreasing
+  map requires, and the vignette tests that the interval covers the
+  simulation’s 0.3.
+
+- **Tutorials 15 and 16 each run something.** Both shipped entirely
+  `eval = FALSE`. Tutorial 15 now knits its backend-registry dump live,
+  so the roster a reader sees is read out of the installed package.
+  Tutorial 16 gains a worked example small enough to execute at build
+  time: the same 720-row model fitted with `aggregate = TRUE` and
+  `FALSE`, whose fixed-effect posteriors agree to six decimal places. It
+  is retitled to match what a reader can run, states the streaming
+  envelope once (exact cell-likelihood aggregation for iid
+  exponential-family models with a small cell count, from partitioned
+  `.fst`, on INLA), and labels its billion-row tables as an external
+  benchmark, not as vignette output.
+
+- **Augmenting past roughly 30 percent missing responses now says what
+  that does to the estimand.** The augmentation identity is algebraic
+  and holds at any missing fraction. What weakens is the restricted
+  likelihood it targets: variance components reach the boundary, the
+  surface flattens, and two correct implementations legitimately stop at
+  different points. A one-time warning states that, so a user comparing
+  the posterior against ASReml or lme4 at a high missing fraction reads
+  a disagreement as a property of the design, not as evidence against
+  either fit. Silence with
+  `options(flexyBayes.silence_high_missingness_warning = TRUE)`. The
+  fraction is also recorded on the fit’s missing-data metadata.
+
+- **A streaming source past `2^31 - 1` rows refuses instead of recording
+  `NA`.** Four sites cast the row count with
+  [`as.integer()`](https://rdrr.io/r/base/integer.html), which returns
+  `NA` past the integer limit, so a five-billion-row single file would
+  have produced an aggregation plan and a fitted object carrying no row
+  count at all, with no error. They now raise
+  `row_count_exceeds_integer` and name the route that has no such
+  ceiling: partitioned `.fst` input, whose reader keeps its total as a
+  double.
+
+- **[`flexybayes_stream()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes_stream.md)
+  no longer offers greta as a backend.** INLA is the only engine with an
+  aggregated emit and is the default and the only active choice.
+  `"greta"` stays in the recognised vocabulary so passing it refuses by
+  name (`backend_quarantined`) instead of failing on argument matching.
+
+- **The greta S3 shim registers whichever order the packages load in.**
+  The registration was guarded on `isNamespaceLoaded("greta")`, which
+  answers only for the instant `.onLoad()` runs, so a user who attached
+  flexyBayes first and greta second, the usual order, never received it.
+  A `setHook(packageEvent("greta", "onLoad"), ...)` registration covers
+  that direction. The registrar carries its own loadedness guard, since
+  [`asNamespace()`](https://rdrr.io/r/base/ns-internal.html) would
+  otherwise load greta and pay exactly the cost the guard exists to
+  avoid.
+
+- **[`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md)
+  reports the whole prior, not the half this package chose.** On a fit
+  with a distributional residual (`dsum(~ units | f)`) it printed
+  `sigma ~ uniform(0, U)`, a parameter the model does not contain, under
+  a distribution Stan did not use, because the declared uniform on the
+  SD scale is retargeted onto the per-level log-sigma coefficients. It
+  also said nothing about terms the default-prior walker does not reach,
+  so a reader concluded the shared default had been applied to both
+  variance components of a combined GxE model when it had been applied
+  to one.
+
+  The summary now names the retarget explicitly, lists every parameter
+  carrying the engine’s own default with the reason, and on a brms fit
+  carries `brms::prior_summary()` of the fitted model. brms is the
+  authority on what reached Stan, so the declaration is checked against
+  the engine’s own record.
+
+- **[`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md)
+  abstains by name.** It raised a bare
+  [`stop()`](https://rdrr.io/r/base/stop.html) on both active engines,
+  the last export doing so. It now refuses with
+  `met_summary_not_available`, and points at
+  [`summary()`](https://rdrr.io/r/base/summary.html) and
+  `brms::VarCorr()`. It no longer points at
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md),
+  which abstains for every structure an active engine can fit.
+  [`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md)
   and
-  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-  accept `plan = FALSE` (default) -\> `TRUE` to short-circuit to the
-  plan. ADR 0030 contract C1.
-- [`print.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes.md)
+  [`fb_log_posterior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_log_posterior.md)
+  carry a lifecycle note recording that they are superseded while greta
+  is quarantined, and both, with
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md),
+  gain live tests on an active engine. None of the three previously had
+  a test that ran.
+
+- **The LGM gate’s refusals carry a class.** `lgm_gate()` returns an
+  `<lgm_refusal>` value with a rule-by-rule check-list, and under an
+  explicit `backend = "inla"` request dispatch turned it into a bare
+  [`stop()`](https://rdrr.io/r/base/stop.html). That left one refusal a
+  caller could not catch by name while every other refusal in the
+  package carried `flexybayes_refusal_<code>`. The message and the
+  check-list are unchanged. The throw site raises `inla_gate_refused`,
+  carries the `<lgm_refusal>` object on the condition, and adds a
+  `flexybayes_lgm_<rule_id>` class so one failing rule can be caught
+  without catching the rest.
+
+- **INLA fits join the shared class graph.** An INLA fit was
+  `c("flexybayes_inla", "list")` while a brms fit was
+  `c("flexybayes_brms", "flexybayes", "list")`, so the two engines had
+  no common parent and every generic needed a parallel method. An INLA
+  fit is now `c("flexybayes_inla", "flexybayes", "list")`.
+
+  Five parent methods had no INLA sibling and so reached
+  `stats::*.default` on an INLA fit. Each now resolves its inputs from
+  the slots the object carries.
+  [`nobs()`](https://rdrr.io/r/stats/nobs.html) and
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) answer
+  correctly. [`confint()`](https://rdrr.io/r/stats/confint.html) reads
+  INLA’s own posterior marginals through the new
+  [`confint.flexybayes_inla()`](https://aagi-aus.github.io/flexyBayes/reference/confint.flexybayes_inla.md)
+  method, where
+  [`stats::confint.default`](https://rdrr.io/r/stats/confint.html)
+  previously returned a normal approximation built from
+  [`vcov()`](https://rdrr.io/r/stats/vcov.html) without saying so.
+  [`update()`](https://rdrr.io/r/stats/update.html) and
+  [`anova()`](https://rdrr.io/r/stats/anova.html) refuse by name
+  (`update_call_not_reconstructable`,
+  `conditional_loglik_not_available`): an INLA fit records six of the
+  thirteen arguments a re-fit needs, and INLA reports a marginal
+  log-likelihood, where a criterion needs the conditional one.
+
+- **[`logLik()`](https://rdrr.io/r/stats/logLik.html) refuses instead of
+  returning a silent `NA`.** The `flexybayes` method wrapped its
+  evaluation in [`tryCatch()`](https://rdrr.io/r/base/conditions.html)
+  and returned `NA` with a warning on any failure, and returned `NA`
+  without comment for any family outside gaussian, binomial and poisson.
+  [`AIC()`](https://rdrr.io/r/stats/AIC.html) and
+  [`anova()`](https://rdrr.io/r/stats/anova.html) then consumed that
+  `NA` as though a log-likelihood had been computed. Both paths now
+  raise a typed refusal naming the family or the missing slot.
+
+- **The correlated-random-slope refusal now names the model to fit
+  instead.** `(x | g)` refused with a generic pointer at “(x \|\| g)”,
+  and Tutorials 01 and 04 filled the gap by teaching the ASReml crossing
+  `~ Subject + Subject:Days` as the random-slope route. With a numeric
+  `Days` that crossing is one independent deviation per Subject-by-Day
+  cell (180 of them on `sleepstudy`), not a per-subject slope. The
+  refusal now spells out `(Days || Subject)` for the model at hand, says
+  what that model is, and warns against the crossing by name. The
+  condition’s `workaround` slot carries the concrete spelling.
+
+- **[`library(flexyBayes)`](https://aagi-aus.github.io/flexyBayes/) no
+  longer loads greta.** The load hook registers a handful of greta S3
+  methods for the quarantined aggregated-greta emit, and guarded that on
+  [`requireNamespace("greta")`](https://greta-dev.github.io/greta/),
+  which loads greta, reticulate and TensorFlow on every session, for a
+  path dispatch cannot reach. The guard is now
+  `isNamespaceLoaded("greta")`, so the shim registers when the user has
+  loaded greta themselves and costs nothing otherwise. greta stops
+  appearing in every
+  [`sessionInfo()`](https://rdrr.io/r/utils/sessionInfo.html).
+
+- **A requested structured residual can no longer be dropped from the
+  fitted model.** `backend = "auto"` could fall back from INLA to brms
+  on a model carrying an `ar1(row):ar1(col)` residual, and brms has no
+  residual-covariance lowering at all. The emitted Stan program was an
+  intercept-only independent Gaussian, with neither row/column indices
+  nor correlation parameters, and no error was raised. Three routes
+  reached that outcome: the automatic fallback after an INLA runtime
+  failure, the code-inspection modes (`return_code` / `review_code`),
+  which resolved `"auto"` to brms unconditionally, and an explicit
+  `backend = "brms"` request, whose capability gate matched a single
+  reason code by name and so failed open on any capability added later.
+
+  The brms capability predicate now inspects `residual_terms` as well as
+  `random_terms`, against a positive allowlist (only the iid `units`
+  residual, which brms carries as the family scale parameter), so a
+  residual form the parser learns later defaults to a refusal instead of
+  silent omission. Two refusal codes are registered:
+  `stan_cannot_represent_ar1_residual` and
+  `stan_cannot_represent_structured_residual`. The code-inspection modes
+  now gate their `"auto"` to brms resolution on the same predicate, and
+  the explicit-brms gate refuses on any capability failure, re-raising
+  the predicate’s own reason code. A complete grid still emits the
+  separable AR1xAR1 field on INLA, unchanged.
+
+  The regression test that covered this path asserted on the returned
+  object’s class and recorded backend, both of which were correct while
+  the model was wrong. It now asserts on the emitted code, and a new
+  `test-residual-structure-fidelity.R` holds that contract for both
+  directions: a structured residual either appears in the emitted model
+  or the call refuses.
+
+- Three refusal messages still directed users to `backend = "greta"` as
+  a workaround, which the quarantine had made unreachable.
+
+### Reshape: two-engine faithful core (brms + INLA)
+
+- **greta and gretaR are quarantined as fitting engines** (reshape R1).
+  The active backends are now brms and INLA. `backend = "greta"` /
+  `"gretaR"` refuse with a structured `backend_quarantined` reason.
+  `backend = "auto"` routes to brms (when it can represent the model) or
+  INLA, and refuses with `auto_no_active_route` when neither can. There
+  is no silent greta fallback. A native greta model graph can no longer
+  be fit (`native_greta_fit_quarantined`). The greta / gretaR registry
+  descriptors, the emit code, and the legacy greta *import* grammar
+  (`fb_from_greta()`, reading an already-fitted object’s draws) are
+  retained. Re-entry requires repair and conformance to the backend
+  conformance battery, never a bare re-add. The backend registry gains a
+  `quarantined` lifecycle state alongside `active` / `dormant`.
+- **Closed a gap in the “no silent greta fallback” guarantee above.** A
+  DATA-dependent INLA runtime failure (for example
+  `ar1_spatial_requires_complete_grid` on an incomplete field-trial
+  grid) took a separate `backend = "auto"` code path from a structural
+  `lgm_gate()` refusal, and that path still hard-coded a greta fallback.
+  The fallback was unreachable through an explicit `backend = "greta"`
+  request, but reachable through `"auto"` on a model INLA’s gate accepts
+  and its emit refuses at fit time. It resolves through the same
+  brms-or-refuse logic as every other auto fallback, with a new
+  regression test covering it.
+- **Swept the remaining stale “re-route to greta” advice** left over
+  from the quarantine, found via a `--as-cran` release rehearsal and a
+  full-suite test failure. `emit_brms()`’s correlated-random-slope
+  refusal, `lgm_gate()`’s generic refusal print method, and the
+  `emit_inla()` uncorrelated-random- slope verification deferral all
+  pointed users at `backend = "greta"` as a workaround. The last of
+  these no longer matched the package’s behaviour, since
+  `backend = "auto"` already falls back to brms on that exact refusal.
+  All three now name the working route (brms) instead, with the
+  corresponding tests updated to match. Also fixed the package startup
+  banner and two [`stop()`](https://rdrr.io/r/base/stop.html) messages
+  ([`fb_gwas()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gwas.md),
+  [`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md))
+  that still listed greta as an active engine.
+- **All sixteen vignettes reshaped for the two-engine core**,
+  restructured so eleven target a general audience and two (*dispatch
+  and refusals*, *extending backends*) are the technical/internals
+  reference. The old `flexyBayes-11-lgm-feasibility` /
+  `-12-backend-internals` / `-13-lgm-feasibility-memory` /
+  `-14-engine-selection` vignettes are merged into one *dispatch and
+  refusals* vignette. README and `_pkgdown.yml` rewritten to match.
+
+### New features
+
+- **Separable AR1(row) x AR1(col) spatial models on INLA (WP16).** A
+  designed field trial’s spatial structure (`ar1(row):ar1(col)`, or a 1D
+  `ar1(t)`, written as a random effect or a residual structure) fits on
+  INLA as the grouped-AR1 latent field
+  `f(row, model = "ar1", group = col, control.group = list(model = "ar1"))`
+  plus the Gaussian nugget, with canonical `rho_row` / `rho_col` /
+  `sd_spatial` hyperparameters. `backend = "auto"` routes a designed
+  spatial trial to INLA. The latent-field representation is faithful
+  under one observation per grid node (validated against an independent
+  GLS/REML oracle). An incomplete or replicated grid refuses
+  (`ar1_spatial_requires_complete_grid`) instead of silently
+  approximating. This restores, faithfully, the spatial capability the
+  greta quarantine removed (greta emitted `ar1(row):ar1(col)` as
+  additive iid row/col effects). The *spatio-temporal models* vignette
+  is rewritten for the new INLA-native path, including the complete-grid
+  refusal on a real field trial with missing plots and the graceful
+  `"auto"` fallback to brms when it fires.
+
+- *(Superseded by the quarantine above.)* **An explicit
+  `backend = "greta"` request now fits crossed interaction random
+  effects and a heteroscedastic per-environment residual**, the full
+  ASReml-style multi-environment-trial (MET) shape
+  (`random = ~ gen + gen:env`, `residual = ~ dsum(~ units | env)`). The
+  greta code generator already gathered these terms, and the dispatch
+  preflight sizes `nested` / `combo` interaction random intercepts (an
+  index gather into a per-combination latent vector) so the plan clears
+  and the fit proceeds. `backend = "greta"` is a deliberate opt-in for
+  the greta path. See the next entry for how `backend = "auto"` routes
+  these models.
+
+- **`backend = "auto"` routes a multi-stratum designed experiment to
+  brms, the faithful full-HMC backend.** A model with interaction random
+  effects (`gen:env`, `env:rep`, `env:rep:block`) is refused
+  structurally by INLA, which collapses the finest variance components
+  to zero. `auto` routes such a model to brms when brms is installed and
+  can fit it, instead of falling back to greta, which under-mixes them.
+  brms recovers every variance component against the ASReml / lme4 REML
+  reference (validated on `agridat::besag.met`). `emit_brms()` fits
+  these interaction random effects natively as `(1 | A:B)`. INLA
+  continues to refuse them by name. The fallback-to-greta clause this
+  entry originally carried was removed by the quarantine above: when
+  brms cannot represent the model, `auto` now refuses with
+  `auto_no_active_route`.
+
+- *(Superseded by the quarantine above.)* **The greta backend
+  warm-starts the intercept from the response mean** (identity / log /
+  logit / probit link scale), shortening the initial sampler transient
+  while leaving the variance components and random effects at their
+  prior-draw starts so convergence diagnostics stay informative.
+
+### Bug fixes
+
+- **Interaction random terms no longer crash the dispatch plan.** A
+  three-way interaction random term (for example `gen:loc:yearf`)
+  previously aborted the preflight with a base-R “the condition has
+  length \> 1” error, then a “no such index at level 1” error. The
+  level-count helper now counts distinct observed combinations and the
+  term label collapses to a single string, so an interaction random term
+  reaches the normal (structural-refusal or fit) path.
+- **A structured `dsum()` residual no longer silently drops its spatial
+  structure.** `residual = ~ dsum(~ ar1(col):ar1(row) | env)` previously
+  parsed to a per-region heteroscedastic variance, discarding the
+  separable `ar1():ar1()` autocorrelation with no warning and fitting a
+  different model than the one written. flexyBayes represents `dsum()`
+  only as a per-region heteroscedastic variance (inner `units`), so a
+  structured inner raises a refusal naming the dropped structure instead
+  of silently reducing the model. Per-region structured residuals are
+  planned for a future release.
+
+### Breaking changes
+
+- **The residual-structure argument `rcov` is renamed to `residual`,
+  matching ASReml 4.** ASReml-R renamed this argument from `rcov`
+  (ASReml 3) to `residual` (ASReml 4). flexyBayes follows the ASReml 4
+  name across every entry point
+  ([`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
   /
-  [`summary.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/summary.flexybayes.md)
+  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
+  [`fb_from_asreml()`](https://aagi-aus.github.io/flexyBayes/reference/fb_from_asreml.md),
+  and the engine pins `fb_greta()` /
+  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md)
   /
-  [`print.flexybayes_aggregated()`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes_aggregated.md)
-  replace the single `Exact.:` line with two adjacent lines
-  `Representation:` (the IR’s exactness vocabulary – `exact_index`,
-  `aggregated_exact`, `legacy_inla_simple_slope`, etc.) and `Engine:`
-  (the live engine name – `greta_MCMC`, `INLA_Laplace`, `stan_brms_HMC`
-  – distinct from `Representation:` because several representations can
-  run on the same engine). Closes audit Critical Fix
-  [\#4](https://github.com/AAGI-AUS/flexyBayes/issues/4). ADR 0030
-  Decision 4.
-- New `.refusal_registry` environment + `.register_refusal()` /
-  `.lookup_refusal()` helpers, empty + locked at end of `.onLoad()`.
-  Per-site migration of the ~30 existing
-  [`stop()`](https://rdrr.io/r/base/stop.html) refusals to
-  registry-backed messages is deferred to v0.4.0 per
-  `feedback_staged_release_pattern`; the v0.3.8 scaffold is
-  forward-architecture for the v0.4.0 export of
-  [`fb_refusals()`](https://aagi-aus.github.io/flexyBayes/reference/fb_refusals.md).
-  ADR 0030 contract C7.
+  [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)).
+  Supplying the old `rcov =` argument raises an error pointing to
+  `residual =`. Update calls such as `rcov = ~ at(env):units` to
+  `residual = ~ at(env):units`. The residual grammar itself is
+  unchanged. The print method labels the residual structure `Residual`
+  (previously `Rcov`), and the two associated refusal identifiers are
+  renamed to match (`rcov_type_unsupported_for_aggregation` -\>
+  `residual_type_unsupported_for_aggregation`, `rcov_term_type_inla` -\>
+  `residual_term_type_inla`).
 
-**Phase C `docs:` (audit-drift close + selective vignette refresh).**
+## flexyBayes 0.8.3
 
-- Workspace `AGENTS.md` rewritten as a thin pointer to `CLAUDE.md`
-  (eliminates the stale `bayesreml` / `Codex (ctb)` references the audit
-  flagged).
-- Workspace `README.md` replaced (the 2026-04-26 pre-implementation
-  review guide is now historical; current-state README documents v0.2.5
-  -\> v0.3.7 release history + the local-tarball install path pending
-  D8).
-- Package `README.md`: install line replaces the 404-ing
-  `remotes::install_github("AAGI-AUS/flexyBayes")` with
-  `R CMD INSTALL release_tarballs/flexyBayes_0.3.8.tar.gz` plus a “will
-  resume after D8” forward-pointer.
-- `AMBITION_STAGE.md` §8.6: `v0.3.6` mis-label corrected (Stage 4 ADR
-  0024, not Stage 5B ADR 0026); `v0.3.7` + `v0.3.8` rows added.
-- ADR 0024 §Consequences amendments (a) per-term INLA estimator
-  - 3.  vignette companion both updated to reflect the v0.3.7 -\> v0.3.8
-        -\> follow-on deferral chain.
-- Selective vignette re-precompile – only vignettes whose printed code
-  chunks render `print(fit)` / `summary(fit)` and therefore show the new
-  `Representation:` / `Engine:` lines. Full sweep deferred to v0.4.0
-  alongside the vignette deck restructure (per the v0.3.8 plan §12.3
-  ratification).
-- `cran-comments.md`: v0.3.8 bump + 3-NOTE-sub-item reframing.
+A documentation-accuracy and ergonomics release on the 0.8.x line. There
+are no modelling-behaviour changes. The additions are accessor coverage,
+clearer refusals, and metadata / vignette consistency for the first
+public development release.
 
-**Phase D `test:` (skip ledger + benchmark profiles).**
+### New features
 
-- New `tools/skip_ledger.R` parses every `tests/testthat/test-*.R` for
-  `skip()` / `skip_if_not()` / `skip_on_cran()` /
-  `skip_if_not_installed()` calls and classifies them against five
-  reason classes (unavailable optional backend; CRAN/CI time budget;
-  stress-only; external toolchain unavailable; deliberately deferred
-  feature); writes `inst/skip-ledger.md` for users and reviewers.
-- Four named benchmark profiles under `tools/profiles/`: `smoke.R` (~30
-  s pure-R subset), `release.R` (5–10 min canonical release-ceremony
-  gate), `stress.R` (sets `FLEXYBAYES_RUN_STRESS=true`; unblocks the
-  greta MCMC posterior-equivalence tests), `huge_n_probe.R` (skeleton at
-  v0.3.8; the actual `N = 5e6` runs land at v0.4.0 per the trust-release
-  gate).
-- `tools/tally.R` now refreshes `inst/skip-ledger.md` as its closing
-  step.
+- **[`glance()`](https://generics.r-lib.org/reference/glance.html) /
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) gain
+  explicit INLA methods.** Calling
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) or
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) on an
+  INLA fit (`flexybayes_inla`) previously raised a bare “no applicable
+  method” error, because that class does not inherit `flexybayes`. They
+  now dispatch to informative refusals pointing to
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html)
+  (coefficient-level summaries) and
+  [`summary()`](https://rdrr.io/r/base/summary.html) /
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md)
+  (variance components).
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) covers all
+  three backends.
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) /
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) cover
+  the greta and brms classes and refuse with a message on INLA.
 
-### Corrections
+### Minor improvements and fixes
 
-- `emit_gaussian_aggregated()`: the aggregated INLA path now preserves
-  the `flexybayes_inla` class label on the returned fit
-  (`c("flexybayes_aggregated", "flexybayes_inla", "flexybayes")`). The
-  previous shape dropped `flexybayes_inla`, so
-  [`fb_as_draws_simple()`](https://aagi-aus.github.io/flexyBayes/reference/fb_as_draws_simple.md)
-  dispatched to the greta extractor and crashed with “fit$`greta`$draws
-  is missing” – silently breaking `triangulate(fit_g, fit_i)` on the
-  aggregated path. Class-invariant test_that() blocks in
-  `tests/testthat/test-emit-gaussian-aggregated.R` cover both backend
-  shapes. The greta path stays at the two-element
-  `c("flexybayes_aggregated", "flexybayes")` (no `flexybayes_greta`
-  class is introduced; `fb_as_draws_simple.flexybayes` is the greta
-  extractor). Decision recorded at
-  `ledger/r-package/2026-05-26-aggregated-inla-dispatch-fix-class-vector.cairn.md`.
-- `tests/testthat/test-fb-brms.R:284`
-  [`backend_decision()`](https://aagi-aus.github.io/flexyBayes/reference/backend_decision.md)
-  shape expectation updated from the 4-field ADR-0006 baseline to the
-  8-field ADR-0024 shape (`backend` / `path` / `gate_checks` / `reason`
-  / `preflight_summary` / `representation_plan` / `rejected_routes` /
-  `routing_policy_version`). The test silently failed under
-  `NOT_CRAN=true` since the v0.3.6 close.
+- **[`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md)
+  distinguishes the wrong-backend case.** Passing an INLA or brms fit
+  now returns a backend-specific message (breeder summaries need a greta
+  factor-analytic fit, and the INLA / brms MET path reports variance
+  components via [`summary()`](https://rdrr.io/r/base/summary.html) /
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md))
+  instead of a generic “not a flexybayes object” error.
+- **Development-release signalling and metadata reconciliation.**
+  `.onAttach()` and `README` state that all exports are experimental and
+  the package is not on CRAN. The package-level documentation,
+  `CITATION` / `codemeta` / Zenodo metadata, `_pkgdown.yml`,
+  `API_STABILITY.md`, and the security / support / contributor docs are
+  reconciled to the 0.8.x line and the three-backend (greta / INLA /
+  brms) surface.
+- **Vignette convergence disclaimers** propagated to the remaining
+  small-budget reference vignettes. Every vignette that prints a high
+  R-hat carries an “illustration of output shape, not inference”
+  callout.
+- `NEWS` broom-coverage wording corrected. Package-level roxygen updated
+  to three engines and sixteen vignettes.
 
-## flexyBayes 0.3.7
+## flexyBayes 0.8.2
 
-### Stage 5A – known-covariance input formats
+### New features
 
-`vm()` and `ped()` now accept user-supplied covariance carriers beyond
-the dense $`V`$ matrix. Three new formats activate in v0.3.7; two more
-reserve their input slots for v0.3.8 / v0.4.0:
+- **[`fb_log_posterior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_log_posterior.md):
+  a log-posterior producer for downstream tools.** A new exported
+  generic turns a fitted flexyBayes object into a vectorised,
+  domain-safe, unnormalised log-posterior callable that
+  `proxymix::from_fb_posterior()` compresses into a closed-form
+  Gaussian-mixture proxy. It is the single inference-result outflow from
+  flexyBayes and works on a real posterior, not a mock. The returned
+  callable takes a numeric matrix (rows = parameter draws, columns =
+  parameters on the natural / constrained scale) and returns one
+  unnormalised `log p(theta | data)` per row. It carries
+  `parameter_names`, an `NA` `log_normalizer` (a posterior’s marginal
+  likelihood is generally unknown, and is reported as unknown, not
+  fabricated), the parameters’ `support_lower` / `support_upper` bounds,
+  and the fit’s posterior `draws` to seed the consumer’s proposal.
 
-- **Cholesky factor** (greta backend):
+  The **greta** backend is the canonical real producer: it evaluates the
+  retained model graph’s unadjusted joint density at the free-state
+  image of the supplied natural-scale parameters, which is the
+  unnormalised natural-scale log-posterior exactly (validated against an
+  analytic conjugate posterior to machine precision: correlation 1,
+  constant offset). Out-of-support rows return `-Inf` instead of an
+  error. The **brms** and **INLA** backends abstain with an informative,
+  classed `fb_c4_unavailable` condition: brms’s log-density lives on the
+  Stan unconstrained scale with a version-fragile name mapping, and
+  INLA’s posterior is a deterministic Laplace / grid approximation, not
+  a sampling log-density. Both abstain instead of offering a plausible
+  but wrong producer. flexyBayes does not depend on proxymix. The
+  cross-package demonstration lives in a separate integration harness,
+  which keeps the dependency graph acyclic.
 
-  ``` r
+## flexyBayes 0.8.1
 
-  L <- t(chol(G))   # user pre-computes the lower-triangular factor
-  flexybayes(
-    yield ~ env, random = ~ vm(geno, chol = L),
-    data = dat, known_matrices = list(L = L),
-    backend = "greta"
-  )
-  ```
+A hub-ergonomics release: a single broom dialect across the three
+backends, two standalone maximum-likelihood fitters for distributions
+outside the GLM emit path, and an INLA-led multi-environment-trial
+vignette.
 
-  Skips the `t(chol(V))` step at fit time. Useful when $`L`$ is already
-  available (e.g., from a prior pre-processing step that factorised a
-  kinship matrix once and serialised the factor).
+### New features
 
-- **Sparse precision** (greta + INLA backends):
+- **[`tidy()`](https://generics.r-lib.org/reference/tidy.html) /
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) /
+  [`augment()`](https://generics.r-lib.org/reference/augment.html): one
+  broom dialect across the hub.** The broom-style
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) generic
+  (re-exported from `generics`, now a lightweight `Imports`) returns a
+  flat one-row-per-term `data.frame` with the canonical `term` /
+  `estimate` / `std.error` / `conf.low` / `conf.high` columns for the
+  greta (`flexybayes`), brms (`flexybayes_brms`), and INLA
+  (`flexybayes_inla`) fit classes alike. The INLA class gains its own
+  [`tidy.flexybayes_inla()`](https://aagi-aus.github.io/flexyBayes/reference/tidy.flexybayes_inla.md)
+  method (it does not inherit from `flexybayes`).
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) and
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) cover
+  the greta and brms classes. On an INLA fit they error (turned into an
+  informative refusal in 0.8.3). A cross-engine comparison table is an
+  [`rbind()`](https://rdrr.io/r/base/cbind.html) of two
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) outputs,
+  with no hand-built reconciliation of three different backend layouts.
+  It mirrors the
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) method
+  kernR adopted, so the orchestra packages share one tidy dialect.
+- **[`fb_gev()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gev.md):
+  generalised extreme value (block-maxima) fitter.** Fits the location,
+  scale, and shape of a GEV distribution to block maxima (annual maximum
+  rainfall, peak yields) by dependency-free maximum likelihood, and
+  reports return levels for the requested return periods. The family
+  descriptor
+  [`fb_family_gev()`](https://aagi-aus.github.io/flexyBayes/reference/fb_family_gev.md)
+  and the simulator
+  [`rgev()`](https://aagi-aus.github.io/flexyBayes/reference/rgev.md)
+  ship alongside. `family = "gen_extreme_value"` in
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  now routes to
+  [`fb_gev()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gev.md)
+  with an explicit pointer instead of a generic refusal. Block maxima
+  have no GLM mean-link, so they do not belong on the formula emit path.
+  (A scalable Bayesian GEV on INLA’s native `gev` family is planned.)
+- **[`fb_dirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/fb_dirichlet.md):
+  compositional (simplex) Dirichlet fitter.** Fits the concentration
+  vector of a Dirichlet distribution to compositional rows (soil texture
+  fractions, species abundance, allele frequencies) by maximum
+  likelihood (the default, dependency-free) or via greta’s native
+  `dirichlet` distribution (`method = "greta"`), and reports the fitted
+  mean composition. The family descriptor
+  [`fb_family_dirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/fb_family_dirichlet.md)
+  and the simulator
+  [`rdirichlet()`](https://aagi-aus.github.io/flexyBayes/reference/rdirichlet.md)
+  ship alongside. `family = "dirichlet"` in
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  routes here.
 
-  ``` r
+### Minor improvements and fixes
 
-  Q <- solve(G)     # or build sparse Q directly via ICAR / BYM2
-  flexybayes(
-    y ~ 1, random = ~ vm(cell, precision = Q),
-    data = dat, known_matrices = list(Q = Q),
-    backend = "inla"
-  )
-  ```
+- The MET and genomics vignette now leads with the scalable INLA MET
+  path (the diagonal genotype-by-environment model fits in seconds with
+  trustworthy posteriors) as the recommended route, and presents the
+  greta factor-analytic route as the slower, harder-mixing alternative
+  for the stability decomposition.
+- `generics` moves from `Suggests` to `Imports`, so
+  [`tidy()`](https://generics.r-lib.org/reference/tidy.html) /
+  [`glance()`](https://generics.r-lib.org/reference/glance.html) /
+  [`augment()`](https://generics.r-lib.org/reference/augment.html) are
+  available without attaching `broom`. The runtime
+  [`registerS3method()`](https://rdrr.io/r/base/ns-internal.html) shim
+  in `.onLoad()` is replaced by static `S3method()` registration.
 
-  Routes through INLA’s `f(<var>_id, model = "generic0", Cmatrix = Q)`
-  interface (Rue & Held 2005, *Gaussian Markov Random Fields*; Lindgren
-  et al. 2011) when `backend = "inla"`. Order-of-magnitude memory win on
-  large sparse problems (BYM2 spatial models, sparse-inverse pedigree
-  relationship matrices). On greta the precision matrix densifies at fit
-  time (`as.matrix(solve(chol(Q)))`); use INLA for the sparse-efficiency
-  win.
+## flexyBayes 0.8.0
 
-- **Pedigree sparse-precision** opt-in for `ped()`:
+### Genomics and MET expansion
 
-  ``` r
+- **`triangulate_genomic()` / `triangulate_gwas()`: cross-engine and
+  field-standard genomic triangulation.** `triangulate_genomic()`
+  compares two GBLUP / pedigree analyses on heritability, the variance
+  components, and the breeding values (matched by genotype). It takes
+  either two flexyBayes fits (does greta agree with brms and INLA?) or a
+  flexyBayes fit against a generic *genomic lens*
+  (`list(h2, var_g, var_e, gebv)`), the form a field-standard REML
+  answer from sommer supplies. `triangulate_gwas()` compares two genome
+  scans by the Jaccard overlap of the significant marker sets, the
+  top-marker overlap, and the effect correlation. Both carry the same
+  shared-upstream caveat as `triangulate()` (agreement is not
+  correspondence). flexyBayes core never depends on the field tools. The
+  lens form lets the companion build the koine fourth opinion.
+  Breeding-value labels are now the genotype factor levels on every
+  backend (previously the greta and INLA paths used positional labels),
+  so GEBVs match across engines.
+- **[`fb_met_summary()`](https://aagi-aus.github.io/flexyBayes/reference/fb_met_summary.md):
+  breeder summary of a factor-analytic MET fit.** For a `fa(env, k):gen`
+  factor-analytic genotype-by-environment fit it reports the quantities
+  a plant breeder acts on: each genotype’s overall performance (the
+  across-environment mean of its realised effects) and stability (the
+  across-environment spread), the genotype-by-environment BLUPs, the
+  factor loadings, and the environment genetic-correlation matrix, which
+  shows the crossover structure (negative correlations are rank
+  reversals across environments). These come from the *realised*
+  effects, which are identified (invariant to the loadings’ rotation and
+  sign ambiguity), so their posteriors are interpretable. The greta
+  factor-analytic fit now monitors those realised
+  genotype-by-environment effects (it previously monitored only the
+  loadings and specific variances).
+- **[`fb_gblup_cv()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gblup_cv.md):
+  genomic-prediction accuracy by cross-validation.** The payoff layer of
+  genomic selection: how well does a GBLUP trained on phenotyped
+  genotypes predict the held-out performance of genotypes seen only
+  through their markers? Each fold estimates the variance components by
+  REML on the training set and predicts the held-out breeding values
+  from the relationship matrix (the exact GBLUP prediction equation,
+  evaluated through the spectral primitive), then reports prediction
+  accuracy (predicted-observed correlation), bias (the observed-on-
+  predicted slope), and the per-fold spread, with repeated-CV averaging.
+  Validated against an exact full-matrix prediction. Accuracy is near
+  zero for an unrelated / non-heritable trait, rises with heritability,
+  and is substantial when genotypes are related, which is the realistic
+  selection setting.
+- **[`fb_gwas()`](https://aagi-aus.github.io/flexyBayes/reference/fb_gwas.md):
+  genome-wide association scan.** A whole-genome EMMAX / P3D scan (Kang
+  et al. 2010): the polygenic null mixed model is fit once by REML to
+  estimate the variance components, then every marker is tested by exact
+  generalised least squares under those fixed components. The shared
+  spectral primitive turns the per-marker test into an `O(n)` weighted
+  least squares after a single eigendecomposition, so the scan is
+  feasible without a per-marker model fit, and it needs no MCMC backend.
+  It is a deterministic frequentist fast path (the backends enter only
+  at optional top-hit refinement). Returns marker effects, standard
+  errors, chi-square statistics, p-values, Bonferroni and
+  Benjamini-Hochberg FDR adjustments, the genomic-control inflation
+  factor, and the null REML heritability, with
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html) (Manhattan /
+  QQ) methods. The REML variance components are validated against an
+  exact full-matrix reference and against ’s independent REML. The
+  per-marker statistic is validated against exact per-marker GLS.
+- **Genomic BLUP is now three-engine triangulatable.** The genomic /
+  pedigree relationship random effect `vm(geno, G)` / `ped(animal, A)`
+  reaches all three backends: greta and brms via the dense relationship
+  matrix (brms’s native `gr(geno, cov = G)` group term, which Cholesky-
+  factors the covariance internally), and INLA via the precision carrier
+  `vm(geno, cov = fb_cov(solve(G), type = "precision"))` (the `generic0`
+  sparse-precision path. A dense GBLUP precision is INLA-feasible but
+  forgoes INLA’s sparsity advantage, so it is opt-in by carrier.) A
+  simulated heritability is recovered on all three engines with
+  mutually-close posterior means, so `triangulate()` can cross-check a
+  GBLUP fit across paradigms.
+- **[`genomic_summary()`](https://aagi-aus.github.io/flexyBayes/reference/genomic_summary.md)**
+  extracts the breeder-facing quantities from a fitted relationship
+  model on any backend: narrow-sense heritability , genomic estimated
+  breeding values (GEBVs) with posterior reliability, and the genetic /
+  residual variances. The greta GBLUP fit now also monitors the
+  breeding-value vector, so GEBVs are available on greta, brms, and INLA
+  alike (previously the greta path reported only the variance
+  components).
+- **Spectral efficiency primitive (foundations).** A shared internal
+  eigendecomposition primitive now underpins the genomics / MET work: it
+  decomposes a relationship matrix once and exposes the rotation that
+  turns a structured genetic random effect into an independent one. This
+  is the machinery a genome-wide scan reuses across every marker (the
+  rotated model has a diagonal residual covariance, so each marker is an
+  `O(n)` score test instead of a fresh mixed-model fit), and that scales
+  genomic BLUP and variance-component estimation. It is
+  positive-semidefinite aware (numerical-noise negative eigenvalues are
+  clamped and reported, and genuine indefiniteness is refused) and is
+  validated against full-covariance generalised least squares to machine
+  tolerance. It is internal at this stage. The fit routes that consume
+  it follow.
+- **Genomic output contract (foundations).** A standardised genomic
+  summary (narrow-sense heritability , genomic estimated breeding values
+  with posterior reliability, and, for whole-genome marker models,
+  marker effects with posterior retention probabilities) is now computed
+  engine- agnostically from posterior draws, so the greta / INLA / brms
+  paths all feed the same triangulatable result. The fit-level accessor
+  lands with the multi-backend GBLUP route.
 
-  ped(animal, A_inv, use_sparse_precision = TRUE)
-  ```
+### Triangulation accuracy
 
-  When the user has already inverted the pedigree to `A_inv = solve(A)`
-  (or pulled the sparse $`A^{-1}`$ directly from `pedigreemm`), this
-  flag routes through the precision codepath without a redundant
-  inversion. The user is responsible for the inversion at construction
-  time; flexyBayes does not depend on `pedigreemm` or any other
-  pedigree-graph library.
+- `triangulate()` gained a `data_independence` argument and a
+  `shared_upstream_caveat` result field. It measures inter-fit
+  *agreement*, and the backend-independence registry certifies code (not
+  data) independence. If both fits share the same upstream data, a
+  fabricated data fact is common-mode and their agreement cannot detect
+  it. Unless the caller declares `data_independence = TRUE`, the result
+  carries a caveat (surfaced prominently by
+  [`print()`](https://rdrr.io/r/base/print.html)) that agreement does
+  not test a shared upstream data fact. This is metadata only. The
+  metrics are unchanged.
 
-The dense $`V`$ path (`vm(group, V = G)`) is **unchanged** –
-byte-identical to v0.3.6. Existing fits saved as `.rds` reload without
-IR migration: the new `cov_representation` IR slot is additive, and
-legacy IRs default to `format = "dense"`.
+### Engine reliability and diagnostics
 
-Two more formats reserve their input slots in v0.3.7 but refuse cleanly
-with forward-pointer messages: `blocks = list(V1, V2, ...)` defers to
-v0.3.8 with `route_not_yet_emitted`; `low_rank_factor =` +
-`low_rank_scheme = "pca"` defers to v0.4.0 (ADR 0027 approximation
-registry) with `approximate_route_not_yet_registered`. Reserving the
-input vocabulary now lets future releases ship without changing the
-`vm()` / `ped()` call shape.
+- **Faithful default prior on the INLA backend.** The package’s default
+  `uniform(0, scale)` prior on every variance-component standard
+  deviation (and any user-supplied `uniform()` / `half_normal()` prior)
+  is now represented *exactly* on the INLA backend via an
+  expression-prior on the log-precision, replacing the former PC-prior
+  approximation. The PC approximation concentrated prior mass at zero
+  and so shrank a small-group variance component more than the greta
+  backend’s flat uniform did, producing a cross-engine prior mismatch
+  that surfaced as spurious `triangulate()` disagreement on the variance
+  components for models with few groups. The two engines carry the same
+  default prior, so their variance-component posteriors agree far more
+  closely. This changes the default INLA variance-component posterior
+  for random-effects models fit without an explicit prior.
+- **Convergence warning.** MCMC fits (`greta`, `brms`) now emit a
+  warning when the sampler may not have converged (a parameter with Rhat
+  at or above 1.1, or a low effective sample size). Previously it
+  surfaced only as a print-method badge. Silence it for intentionally
+  short fits with
+  `options(flexyBayes.silence_convergence_warning = TRUE)`. The
+  deterministic INLA path carries no such warning.
+- **New
+  [`fb_structured_cov()`](https://aagi-aus.github.io/flexyBayes/reference/fb_structured_cov.md)**
+  reports the *identified* covariance for factor-analytic `fa()` terms,
+  with an entrywise Rhat. The raw loadings are identified only up to
+  rotation and sign, so their per-entry Rhat is meaningless. is
+  rotation- and sign-invariant and is the quantity whose convergence is
+  interpretable. The convergence warning points to it when a
+  factor-analytic / unstructured term is present.
+- **Fixed** an intercept-only model on the aggregated INLA path
+  (`y ~ 1 + (1 | g)`, `backend = "inla"`, `aggregate = TRUE`), which
+  crashed in the fixed-effect summariser because a length-one variance
+  vector was misread by [`diag()`](https://rdrr.io/r/base/diag.html) as
+  a dimension. The one-coefficient covariance is now built correctly.
 
-**Backend dispatch.** With `backend = "auto"`, INLA accepts vm/ped only
-when the precision representation is supplied; dense or chol inputs
-route to greta. With explicit `backend = "inla"`, dense or chol inputs
-raise a structured `lgm_gate` refusal naming the actionable workaround
-(re-express as `vm(group, precision = solve(V))`, or route via
-`backend = "greta"`). The refusal text branches on the format to point
-the user at the right remedy.
+### Usability
 
-**Validation.** Each format passes through a typed structural validator
-on the user-supplied matrix before the emit path runs:
+- **New
+  [`fb_backend_status()`](https://aagi-aus.github.io/flexyBayes/reference/fb_backend_status.md)**
+  reports which inference backends are installed and usable in the
+  current session (greta additionally needs a reachable Python /
+  TensorFlow stack), with an actionable install hint per backend. It is
+  read-only and runs without any backend present.
 
-- `chol` must be square and lower-triangular (refusals
-  `chol_not_square`, `chol_not_triangular`).
-- `precision` must be symmetric and positive-definite (refusals
-  `precision_not_symmetric`, `precision_not_positive_definite`). The PD
-  check uses base R [`chol()`](https://rdrr.io/r/base/chol.html) on the
-  dense coercion; performance-grade sparse-PD probes land in v0.3.8.
+### Lean-core split
 
-Mutual exclusion across `V` / `chol` / `precision` / `blocks` /
-`low_rank_factor` is enforced at parse time with the
-`vm_redundant_specification` refusal.
+- The orchestra-composition layer has been extracted to the companion
+  package **flexyBayesOrchestra** (`Imports: flexyBayes`): the surrogate
+  emulators (`fit_surrogate()`, `fb_surrogate_ies()`,
+  `fb_surrogate_ppc()`), ensemble sources (`fb_ensemble()`,
+  `as_fb_ensemble()`, `read_fb_ensemble()`, `verify_fb_ensemble()`,
+  `register_ensemble_source()`), the PESTO ensemble-derived priors
+  (`fb_pesto()`, `fb_prior_from_ensemble()`), the surrogate conformers
+  (`register_pesto_surrogates()`, `register_kernr_surrogates()`,
+  `register_surrogate()`), and the dormant koine fourth-opinion slot
+  (`koine_status()`). Install `flexyBayesOrchestra` for these.
+  `flexyBayes` alone ships the mixed-model and cross-engine
+  triangulation core.
+- Dropped `kernR`, `PESTO`, `S7`, and `gretaR` from `Suggests` and
+  removed the `Remotes:` field, so the package installs cleanly from
+  CRAN-style repositories with no GitHub- or r-universe-only
+  dependencies. The `greta` (CRAN) and `INLA` backends remain. `INLA` is
+  served by its own `Additional_repositories`. The `gretaR` R-native
+  engine is still wired as a dormant, opt-in backend: install `gretaR`
+  yourself and it is detected at run time, but it is no longer a
+  declared dependency of the public core.
 
-**Routing audit anchor.** `backend_decision(fit)$routing_policy_version`
-bumps from `"stage4_v1"` to `"stage5a_v1"` (per ADR 0024) to record that
-INLA’s allowlist behaviour materially changed at v0.3.7.
+### Methodology
 
-## flexyBayes 0.3.6
+- **Identified factor-analytic loadings.** `fa(x, k)` now emits the
+  loadings matrix `Lambda` with the standard lower-triangular,
+  positive-diagonal identification (Lopes & West 2004): the strict upper
+  triangle is zeroed and the diagonal is constrained positive.
+  Previously `Lambda` was a free `normal(0, 1)` matrix, which is
+  unidentified up to rotation, sign, and column permutation for `k > 1`,
+  so its posterior summaries were not interpretable. Predictions and the
+  g-side covariance are unchanged because the product `F %*% t(Lambda)`
+  is rotation-invariant. Only the loadings interpretation is affected.
+- **Factor-analytic rank upper bound.** `fa(x, k)` is now refused at fit
+  time when `k` is not strictly below the number of levels of `x` (new
+  refusal `fa_rank_exceeds_dim`). A factor-analytic covariance is
+  identifiable only for `k < n_outer`: at `k = n_outer` the loadings and
+  specific variances are an over-parameterised reparameterisation of the
+  unstructured form, and at `k > n_outer` the lower-triangular loadings
+  carry empty columns. The check is data-aware (the number of levels is
+  known only once the term is matched against the data), complementing
+  the existing data-free `k >= 1` floor (`fa_rank_invalid`). The refusal
+  message points to `us(x)` for a full unstructured covariance.
+- **Removed the `rhat_means` triangulation metric.** `triangulate()` no
+  longer reports `rhat_means`. It pooled two *different* engines’
+  posteriors as if they were chains of a single sampler, which conflates
+  genuine between-engine approximation bias with within-sampler
+  non-convergence. It was therefore not a valid convergence diagnostic,
+  and it was mislabelled “rank-normalised R-hat” although it applied no
+  rank-normalisation. Cross-engine discrepancy is reported by the
+  distributional metrics: `wasserstein_1`, `sd_ratio`, `mean_diff`, and
+  the quantile differences. (The per-fit, within-engine rank-normalised
+  R-hat used as a convergence diagnostic is unaffected.)
+- **Default-prior provenance stated in full.** The default
+  variance-component prior (bounded uniform on each SD, with
+  `U = 5 * sd(y)` for Gaussian) was attributed “following Gelman
+  (2006)”. Gelman (2006) in fact recommends a half-t / half-Cauchy for
+  variance components with few groups and cautions against a flat prior
+  there. The uniform-on-SD default is a weakly-informative choice for
+  *moderate* group counts, and the `5 * sd(y)` bound is a flexyBayes
+  heuristic. The attribution is corrected throughout (the one-time
+  announcement message,
+  [`prior_summary()`](https://aagi-aus.github.io/flexyBayes/reference/prior_summary.md),
+  the docstrings, the README, and the regression + priors vignettes).
+  The default behaviour is unchanged. `fb_prior(half_cauchy(...))`
+  remains the documented choice for small `J` (see the priors vignette).
 
-### Stage 4 – backend routing trace + preflight metadata consumption
+### Documentation
 
-Two architectural additions complete the v0.2.6 -\> v0.3.x dispatch
-story. The existing four-backend surface (`greta` / `inla` /
-`brms`-passthrough / `gretaR`-scaffold) now routes deliberately and
-reports its decisions reproducibly.
+- **Vignettes migrated to the engine-pin API.** Eight vignettes still
+  showed the pre-0.5.0 universal
+  `fb_brms(..., backend = "greta" / "inla" / "auto")` call surface,
+  which the 0.5.0 engine-pin refactor removed
+  ([`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
+  now pins to Stan and rejects a conflicting `backend`). Every example
+  is updated to the current surface: `fb_greta()` /
+  [`fb_inla()`](https://aagi-aus.github.io/flexyBayes/reference/fb_inla.md)
+  for a fixed engine,
+  [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  /
+  [`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+  for the universal entry that takes a `backend` argument. The
+  brms-style *grammar* is unchanged and still accepted by every entry.
+  Only the engine selection moved. Stale prose is corrected: the
+  `backend` default is `"auto"`, not `"greta"`, the Stan/brms emit
+  backend is live, not “queued”, and the native-greta canonical-name map
+  is supplied via `fb_from_greta(model, canonical_names = ...)`.
+  Vignettes were re-precompiled.
 
-**`backend_decision(fit)` gains four new fields.** Every fit produced
-under v0.3.6 carries the existing four fields (`backend` / `path` /
-`gate_checks` / `reason`, per ADR 0006) plus:
+## flexyBayes 0.7.0
 
-- `preflight_summary` – the `.fb_preflight()` return value when
-  preflight ran (\>1e5-row path); NULL on the small-data fast path by
-  design.
-- `representation_plan` – a slim list of one entry per IR term:
-  `(term_id, representation_class, justification)`. Derived from
-  `preflight_summary`; NULL when no preflight ran.
-- `rejected_routes` – a list of `(backend, reason)` pairs for the
-  backends considered but not chosen. Empty for explicit user requests
-  (policy bypassed). For `backend = "auto"`, the list enumerates the
-  non-chosen candidates from `{greta, inla, gretaR}` with per-backend
-  reason codes.
-- `routing_policy_version` – the policy version that decided this fit’s
-  dispatch (e.g., `"stage4_v1"`). Bumping this string is the
-  audit-anchor for reproducibility – a fit produced under an older
-  policy carries the older string.
+> **Note (current state).** The orchestra-composition features described
+> in this section (the ensemble-source data contract, simulator-derived
+> priors, the surrogate emulators and predictive checks, and the dormant
+> fourth-opinion slot) were later extracted to the companion package
+> **flexyBayesOrchestra** (see the lean-core split under 0.8.0 above).
+> They are no longer part of the `flexyBayes` exported surface. The
+> entries below record the 0.7.0 history.
 
-Legacy fits (those that recorded the v0.2 / v0.3.5 four-field trace
-before v0.3.6 landed) read out via the accessor with NULL defaults on
-the four new fields; downstream code reading
-`backend_decision(fit)$chosen_backend` is unaffected.
+This release reconciles three parallel development streams onto the
+engine, data, and surrogate axes: gretaR activated as a fourth inference
+engine (the engine axis), the ensemble-source data contract and its
+first consumers (the data axis), and the surrogate carried end-to-end
+from a reference emulator to a distribution-preserving predictive check
+(the surrogate axis).
 
-**`lgm_gate(fb, preflight = NULL)`.** The gate signature gains an
-optional second argument. When `preflight` is NULL (the v0.3.5 calling
-convention), the gate behaves exactly as today – 10 structural rules.
-When `preflight` is supplied, the gate runs an 11th rule,
-`.lgm_check_memory_feasibility_inla(fb, preflight)`, that refuses when
-the INLA path’s projected memory exceeds the active ceiling. The Stage 4
-ship is a single-multiplier approximation: INLA memory ~= 3x the indexed
-preflight total (the INLA dense intermediate inflation rule of thumb).
-Per-term estimators are queued for a follow-on release alongside the
-LGM-feasibility vignette; deferred at v0.3.6 close, deferred again at
-v0.3.7 close to keep the Stage 5A known-covariance work the focus, and
-deferred again at v0.3.8 close (audit hardening was prioritised). The
-multiplier is configurable via
-`options(flexyBayes.inla_memory_multiplier = <value>)`. **The new
-refusal reason code is `memory_infeasibility_inla`** – distinct from the
-existing structural reason codes (`fixed_term_type_inla` /
-`random_term_type_inla` / `rcov_term_type_inla` from ADR 0017, the six
-original family / predictor / distributional / re_prior / latent_class /
-hyperparam_budget). The structural-vs-memory distinction is the central
-new piece of dispatch information – distinguishable from
-`rejected_routes` alone, without re-running the gate.
+### New features
 
-**Routing-policy registry.** The policy lives in
-`.routing_policy_table()`, a small data.frame in `R/dispatch.R` that
-encodes the (`user_request`, `gate_outcome`, `preflight_outcome`,
-`inla_installed`) tuple -\> `(chosen_backend, reason_code)` mapping.
-This is the single source of truth: the dispatch logic queries the table
-via `.resolve_routing()` rather than re-deriving the decision from
-nested ifs. Changing the policy is a table-edit, not a control-flow
-surgery.
+- **gretaR activated as a fourth inference engine.**
+  `flexybayes(..., backend = "gretaR")` fits supported hierarchical
+  models through an out-of-process torch-NUTS worker, returning
+  canonical parameter names and a `draws_array` that flows into
+  `triangulate()` like any other engine. The integration is governed by
+  a versioned backend contract with an **executable conformance
+  battery**. A new engine onboards by adding one descriptor, gated on
+  `triangulate()`-agreement within an SBC-calibrated threshold. A
+  **dormant koine backend slot** is provisioned (scaffolded and correct,
+  switched on when koine’s programmatic model builder is confirmed
+  against the contract).
+- **`fb_ensemble()` and the `ensemble_source` data contract.** A
+  canonical ingest shape for calibrated parameter ensembles, with PESTO
+  (via its manifest), raw `apsimx`, and file as conforming producers, so
+  flexyBayes is standalone-functional for methods work without depending
+  on any one producer’s internals. **`fb_pesto()`** turns a calibrated
+  ensemble into an informative `fb_prior` for a downstream fit (moments
+  method, with the joint and KDE methods refusing behind their gates).
+- **[`fitted()`](https://rdrr.io/r/stats/fitted.values.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html), and
+  [`logLik()`](https://rdrr.io/r/stats/logLik.html) methods for INLA
+  fits.** [`fitted()`](https://rdrr.io/r/stats/fitted.values.html) and
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html) now return
+  values for a `flexybayes_inla` fit (previously `NULL`).
+  [`logLik()`](https://rdrr.io/r/stats/logLik.html) returns `NA` with
+  the right shape where INLA does not expose a likelihood, instead of an
+  error.
+- **`fb_surrogate_ppc(whiten = TRUE)` whitens the outputs before the
+  MMD.** The predictive draws and `observed` are Mahalanobis-whitened by
+  their pooled covariance. This label-agnostic representation puts the
+  outputs on a common footing and removes the cross-output scale
+  heterogeneity that makes a single median bandwidth too coarse to
+  resolve a distortion in a low-variance direction. The map depends only
+  on the pooled cloud (not the draws-vs-observed labels), so the
+  permutation test stays valid, and the same map is applied to both
+  clouds, so a relative scale, shape, or mean difference is preserved.
+  It lifts power substantially on localised / heterogeneous-scale
+  distortions a raw-output check misses (with no blind spot found across
+  a mean / variance / shape battery), at a valid level. It is opt-in (a
+  graduated ridge guards a near-singular pooled covariance) and composes
+  with `project` and `aggregate`.
+- **`fb_surrogate_ppc(aggregate = TRUE)` runs an aggregated multi-kernel
+  MMD.** An MMDAgg test (Schrab et al. 2023) over an RBF bandwidth grid
+  around the median heuristic, sharing the permutations across
+  bandwidths and aggregating by the weighted-quantile statistic
+  `min_g p_g / w_g`. It removes the bandwidth choice and stays reliable
+  when the median heuristic is mis-scaled, at a valid level. The kernel
+  weights are set by `agg_weights` (`"uniform"` default, or
+  `"increasing"` / `"decreasing"` / `"centred"`, or a numeric vector):
+  up-weighting the scale a distortion is expected to live at recovers
+  power, and `"uniform"` recovers the min p-value aggregation. It
+  orchestrates kernR’s single-kernel `mmd_test` over the grid (the MMD
+  machinery stays kernR’s) and composes with `project`. Returns an
+  `fb_mmd_agg` object.
+- **New vignette: distribution-preserving surrogates (emulate, invert,
+  check).** A self-contained walkthrough of the surrogate workflow
+  (ingest an ensemble, fit a surrogate, read its predictive
+  distribution, invert it with `fb_surrogate_ies()`, and check it with
+  `fb_surrogate_ppc()`), runnable on the built-in reference surrogate
+  with no other package.
+- **`fb_surrogate_ppc(project = TRUE)` runs a factor-space MMD for large
+  output counts.** For a surrogate that stores a low-rank covariance
+  (`cov_rank`), the predictive-check draws and `observed` are projected
+  onto the surrogate’s `q` factor directions before the MMD, so the test
+  runs in `q` dimensions, not `k`. This is cheaper and has more power on
+  the correlated cross-output structure (the MMD loses power as the
+  dimension grows). It is, by design, blind to distortions orthogonal to
+  the factor space (idiosyncratic per-output errors, which the marginal
+  and `joint = FALSE` checks cover), so it complements the full-space
+  check.
+- **`fit_surrogate(cov_method = "auto")` picks the low-rank factor
+  method.** In addition to `"eigen"` (default) and `"fa"`, `"auto"`
+  selects between them from the heteroscedasticity of the eigen-residual
+  diagonal: `"fa"` when the residual is uneven (where eigen-truncation
+  is biased), `"eigen"` otherwise. The resolved method is recorded in
+  the fitted object.
+- **`fit_surrogate(ard_refit = "cv")` now uses k-fold
+  cross-validation.** The held-out predictive-density objective is
+  summed over a k-fold partition of the subsample instead of a single
+  split. The objective is less noisy, so the Nelder-Mead search lands on
+  sharper lengthscales.
+- **`fb_surrogate_ppc()` samples a low-rank covariance factored.** When
+  the surrogate stores a low-rank covariance (`cov_rank`), the joint
+  predictive-check draws are sampled from the factored form directly (a
+  `q`-dimensional factor noise plus a `k`-dimensional idiosyncratic
+  noise), so the `k x k` covariance slice is never formed (the native
+  low-rank consumer for the PPC, `O(k q)` per draw). It draws from the
+  same per-row covariance as the dense path.
+- **`fb_surrogate_ies()` consumes a low-rank covariance natively
+  (Woodbury).** When the surrogate stores a low-rank covariance
+  (`cov_rank`), the ES-MDA Kalman update folds the factored form
+  straight in via the Woodbury identity (a rank-sized solve) and samples
+  the observation perturbation factored, so the `d x d` data covariance
+  is never formed. The inversion cost scales with the covariance rank,
+  not the output count. Produces the same Kalman gain as the dense path
+  (a dense-joint or marginal surrogate keeps the dense path).
+- **`fit_surrogate(cov_method = "fa")` learns the low-rank factor by
+  EM.** In addition to the default eigen-truncation (`"eigen"`), the
+  rank-`cov_rank` factor can be fitted by factor-analysis EM, which
+  recovers the loadings more faithfully when the residual diagonal is
+  heteroscedastic (the eigenvectors of the full covariance are otherwise
+  contaminated by the uneven diagonal). The covariance diagonal stays
+  exact either way.
+- **`fit_surrogate(ard_refit = "cv")` regularises the fuller
+  evidence-ARD.** The `ard_refit = TRUE` profiling maximises the
+  in-sample evidence and can over-shorten lengthscales. `"cv"` instead
+  maximises the held-out predictive log-density on a train/validation
+  split, keeping the relevance sharpening without the in-sample
+  over-shortening.
+- **`fb_surrogate_ppc()` gains a joint draw path.** With `joint = TRUE`
+  (default) the predictive-check draws are sampled from the full
+  cross-output predictive covariance (`predict(cov = TRUE)` + a per-row
+  Cholesky), so the emulator’s cross-output correlation is exercised.
+  This is the second consumer of the joint covariance after
+  `fb_surrogate_ies()`. On a correlated-output simulator, marginal draws
+  (`joint = FALSE`) discard that structure and false-reject a faithful
+  surrogate, so the joint path is the correct distribution-preserving
+  check. A single output, or a marginals-only surrogate, behaves exactly
+  as before.
+- **`fit_surrogate(method = "rff")` gains `cov_rank` for large output
+  counts.** Stores the cross-output noise covariance in a rank-`q`
+  factor-analysis form (`U U' + diag`), `O(k q)` instead of `O(k^2)`.
+  The per-output marginal sd and the covariance diagonal are reproduced
+  exactly. Only the off-diagonal covariance is approximated.
+  `predict(<fb_surrogate>, newdata, cov = "lowrank")` returns the
+  compact factored predictive (`cov_lowrank = list(u, d, infl)`), and
+  the new `fb_cov_slice()` reconstructs a `k x k` covariance slice from
+  either the dense or the factored form.
+- **`fit_surrogate(method = "rff")` gains `ard_refit` (fuller
+  evidence-ARD).** When `TRUE`, the prior/noise precisions `(a, t)` are
+  re-estimated by evidence at each candidate lengthscale (the evidence
+  profiled over `(a, t)`), a fuller marginal likelihood, never lower at
+  equal lengthscales. It sharpens relevance ranking but can over-shorten
+  lengthscales (a higher evidence does not guarantee better held-out
+  recovery for finite-feature models), so it is opt-in
+  (`ard_refit = FALSE` default).
+- **The reference `rff` surrogate gains ARD lengthscales and a joint
+  multi-output fit, both on by default.**
+  `fit_surrogate(method = "rff")` now learns per-input (automatic
+  relevance determination) lengthscales by maximising the model evidence
+  (`ard = TRUE`), so irrelevant parameters are stretched out of the
+  kernel. It also fits a joint matrix-normal inverse-Wishart model
+  across outputs (`joint = TRUE`), preserving the cross-output
+  predictive covariance as well as the marginals. Both default
+  behaviours can be turned off (`ard = FALSE`, `joint = FALSE`) to
+  recover the isotropic, per-output fit. The per-output `<o>_sd`
+  contract is unchanged.
+- **`predict(<fb_surrogate>, newdata, cov = TRUE)` returns the joint
+  predictive distribution**: an `fb_surrogate_prediction` with the
+  predictive mean matrix and a per-row cross-output covariance array. A
+  marginals-only surrogate (independent `rff`, or a conformer reporting
+  only `<o>_sd`) returns a diagonal covariance, so the call always
+  states what it used.
+- **`fb_surrogate_ies()` consumes the joint predictive covariance.**
+  When the surrogate is joint, the full cross-output predictive
+  covariance enters the ES-MDA data covariance
+  (`use_surrogate_cov = TRUE`, default), so correlated emulator errors
+  are assimilated coherently. A marginals-only surrogate falls back to
+  the diagonal path, identical to before.
+- **Sibling surrogate backends register as conformers.** PESTO’s GP
+  surrogate (`method = "gp"`) and kernR’s conditional mean embedding
+  (`method = "cme"`) are available to `fit_surrogate()` when the member
+  package is installed, registered through the existing surrogate
+  registry. PESTO’s GP already reports a per-output predictive mean and
+  variance. kernR’s CME is a kernel linear smoother, so the adapter
+  supplies the standard linear-smoother predictive variance
+  `sigma^2 (1 + ||w||^2)` to honour the distribution-preserving `<o>_sd`
+  requirement. Both register opportunistically on load, or explicitly
+  via `register_pesto_surrogates()` / `register_kernr_surrogates()`. The
+  surrogate methods are consumed through the contract, never copied into
+  flexyBayes, and the built-in `rff` reference keeps the package
+  standalone.
+- **`fb_surrogate_ies()` calibrates a parameter ensemble through a
+  surrogate.** An Ensemble Smoother with Multiple Data Assimilation
+  (ES-MDA) drives a prior parameter ensemble toward observed data using
+  the surrogate in place of the forward model. The predictive `<o>_sd`
+  is folded into the data covariance, so emulator uncertainty inflates
+  the assimilation noise.
+- **`fb_surrogate_ppc()` checks whether a surrogate distorted the output
+  distribution.** It draws from the surrogate’s predictive distribution
+  at held-out parameter sets and runs kernR’s `mmd_ppc()` against the
+  true simulator outputs there. This is a distribution-level check, not
+  a mean-only accuracy measure.
 
-**Approximate-scheme guard.** Backend names carrying an
-approximate-scheme exactness label (e.g., `"inla_pardiso_approximate"`,
-`"variational_advi"`) now refuse at the entry function with
-`approximate_route_not_yet_registered`, pointing to ADR 0027 (the future
-approximation registry). The package’s identity rests on exactness
-labelling (per Stage 3A / ADR 0022); silently routing an approximate
-request would violate that contract.
+### Bug fixes
 
-Worked example – a memory-infeasible model on `backend = "auto"` now
-produces a trace like:
-
-``` r
-
-bd <- backend_decision(fit)
-bd$backend                # "greta"
-bd$path                   # "auto_lgm_refuse_memory"
-bd$rejected_routes
-# list(
-#   list(backend = "inla",   reason = "memory_infeasibility_inla"),
-#   list(backend = "gretaR", reason = "backend_not_activated")
-# )
-bd$routing_policy_version # "stage4_v1"
-```
-
-The decision is now reproducible from `backend_decision(fit)` alone,
-plus the policy version string. The reproducibility posture mirrors
-`targets::tar_metadata()` (Landau 2021), which captures the chosen
-execution plan plus the rejected alternatives + reasons on every
-pipeline run.
-
-The vignette companion (`flexyBayes-11-lgm-feasibility.Rmd.orig`
-extension for the structural-vs-memory refusal distinction) is staged
-for v0.3.7 alongside the per-term INLA memory estimator.
-
-## flexyBayes 0.3.5
-
-### Stage 3B (file-output) – file-backed prediction + sample activation
-
-Two additions to `predict.flexybayes(newdata, ...)` complete the Stage
-3B scope opened at 0.3.4.
-
-**File-backed prediction output.** Three new arguments – `output_file`,
-`format`, `interop` – route
-[`predict()`](https://rdrr.io/r/stats/predict.html) to a disk-backed
-tabular output when `output_file` is supplied. The file carries `point`,
-`lower`, `upper` (95% posterior credible bounds) plus optional `se.fit`,
-plus the columns of `newdata`, under the format resolved by:
-
-    format = "auto" (default):
-      if (interop)                        return "csv"
-      if (N >= 1e6 && fst_available)      return "fst"
-      if (N >= 1e6 && !fst_available)     return "rds"
-      if (N <  1e6)                       return "rds"
-
-    format = "csv": always "csv" (no fst dependency)
-    format = "rds": always "rds" (no fst dependency)
-    format = "fst":
-      if (fst_available)                  return "fst"
-      else                                stop(structured_refusal_with_install_hint)
-
-The fst path is 30-40x faster than rds at N \>= 1e6 for essentially the
-same on-disk size (single-platform benchmark under
-`benchmark_results/fst_stage3b_2026-05-23`). `fst` is declared in
-`Suggests` with a `>= 0.9.0` floor; `predict(..., format = "fst")` with
-`fst` not installed raises a structured refusal naming the install
-command and the `format = "rds"` override line. Refusing rather than
-silently falling back is consistent with the package’s broader
-no-silent-refusal posture. Pre-existing prediction grids are not
-overwritten: if `output_file` already exists,
-[`predict()`](https://rdrr.io/r/stats/predict.html) raises a structured
-stop suggesting [`unlink()`](https://rdrr.io/r/base/unlink.html) rather
-than overwriting silently.
-
-The posterior intervals follow posterior expected-response quantile
-semantics (mirrors `brms::posterior_epred()`; Gelman et al. 2013,
-*Bayesian Data Analysis*, section 15.4 on linear-predictor posteriors):
-the linear predictor is evaluated under each retained posterior draw,
-the link inverse is applied per draw, and `point` / `lower` / `upper`
-are read off the rowwise mean and 2.5% / 97.5% quantiles. **These are
-intervals on the expected response, not posterior-predictive intervals**
-— they do not include residual observation noise. For full
-posterior-predictive intervals (observation noise included), route the
-in-memory draws through external tooling such as
-`brms::posterior_predict()` on a refit, or add a residual-noise draw per
-row using `fit$sigma`. Chunked vs unchunked file output is equivalent at
-floating-point precision; BLAS non-associativity at the matrix-size
-boundary introduces ULP-level differences (~2e-16) but no numerically
-meaningful drift.
-
-**`allow_new_levels = "sample"` is now active.** The label was stable at
-0.3.4; the implementation ships here. Unknown factor levels in `newdata`
-get a fresh `Normal(0, tau_group)` random-effect realisation layered
-onto the linear predictor per posterior draw (mirrors
-`brms::posterior_epred(..., sample_new_levels = "gaussian")`). Caller’s
-[`set.seed()`](https://rdrr.io/r/base/Random.html) controls
-reproducibility. The in-memory return reports the posterior-mean point
-estimate; the sampled-RE contribution averages toward zero across draws
-so the in-memory point estimate sits close to the population baseline –
-the file-backed return captures the proper per-row posterior interval
-reflecting sampled-RE uncertainty. INLA fits do not currently expose
-per-draw access and route to a structured refusal; an INLA draws adapter
-is queued for a future release.
-
-### Internals
-
-- New `R/predict_file_output.R` (`.fst_available`, `.resolve_format`,
-  `.predict_write_file`, `.predict_to_file`).
-- New `R/predict_posterior.R` (`.predict_per_draw`,
-  `.predict_intervals`, `.predict_sample_re_for_unknowns`,
-  `.predict_in_memory_sample`).
-- `R/predict_chunked.R` – `.predict_resolve_factors()` drops the 0.3.4
-  deferred-stop on `"sample"`; the new branch tags unknown rows via
-  `attr(newdata, "sample_re_summary")` for downstream per-draw
-  consumption.
-- `R/methods.R` –
-  [`predict.flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/predict.flexybayes.md)
-  gains `output_file`, `format`, `interop` arguments and two new
-  dispatch branches.
-
-### Test coverage
-
-- New `tests/testthat/test-predict-file-output.R` (16 blocks) covering
-  the pure-path resolution table, the structured fst refusal,
-  csv/rds/fst round-trip with factor preservation, chunked invariance,
-  format = “auto” end-to-end with mocked fst availability, the interop
-  branch, and overwrite refusal.
-- New `tests/testthat/test-predict-sample-new-levels.R` (7 blocks)
-  covering active success on mixed known+unknown rows,
-  caller-seed-driven non-determinism, posterior-interval variance
-  scaling, backward-compat with legacy fits, deferred-stop removal
-  confirmation, and the no-draws fit refusal.
-
-Total test counts: PASS 1317 / FAIL 0 / SKIP 73 (0.3.4 baseline was
-1262/0/73; +55 expectations across 22 new blocks).
-
-## flexyBayes 0.3.4
-
-### Stage 3B (core) – chunked indexed prediction + factor-dictionary handling
-
-Three new pieces on the `predict.flexybayes(newdata, ...)` surface for
-prediction grids large enough to warrant chunked iteration and for cases
-where `newdata` carries factor levels not seen at fit time.
-
-**Dictionary-backed factor handling.** Fits now carry a metadata- only
-`<fb_dataset>` descriptor (frozen factor-level dictionaries plus
-column-type cache) on `fit$extras$fb_dataset`. At `predict(newdata)`
-time, factor columns in `newdata` resolve against this dictionary
-instead of being re-derived from `newdata`. The change closes a latent
-silent-re-levelling bug where the v0.3.3 prediction path could permute a
-random-effect contribution under specific `newdata` orderings.
-
-**`allow_new_levels = c("population", "sample", "refuse")`.** Policy for
-factor values in `newdata` that are not in the fit- time dictionary.
-`"population"` (default) coerces unknown-level rows to NA on the
-affected column and emits a warning naming the count; downstream
-prediction returns the population-level prediction for those rows.
-`"refuse"` raises a structured stop on the first unknown level, naming
-the column and (up to five) unknown values. `"sample"` (fresh
-random-effect draw per unknown level) is reserved at 0.3.4 – the label
-is stable but the implementation ships at 0.3.5 alongside the
-file-backed prediction output.
-
-**`chunk_size` argument.** When supplied and
-`nrow(newdata) > chunk_size`, prediction iterates over chunks of the
-requested size and concatenates the per-chunk results. Default `NULL`
-preserves the single-pass behaviour. `chunk_size` is a wall-time / peak-
-memory knob – the numerical output is identical to the single- pass
-call. A typical setting at large `newdata` is `chunk_size = 10000L`.
-
-The file-backed prediction output formats
-(`format = c("auto", "csv", "rds", "fst")` + `output_file` argument)
-ship together at 0.3.5; this release covers the in-memory prediction
-surface only.
+- **Registered surrogate conformers now predict on the standardised
+  design.** `predict.fb_surrogate()` previously passed raw `newdata` to
+  a registered conformer’s
+  [`predict()`](https://rdrr.io/r/stats/predict.html) while training it
+  on the standardised design, so train and predict disagreed on scale.
+  The standardised design is now passed consistently.
 
 ------------------------------------------------------------------------
 
-## flexyBayes 0.3.3
-
-### Stage 3A – Gaussian aggregated emit (greta path)
-
-Completes the aggregated-gaussian path by activating the greta backend
-alongside INLA. `fb_brms(..., backend = "greta", aggregate = TRUE)` and
-`flexybayes(..., backend = "greta", aggregate = TRUE)` now route through
-the same sufficient-statistics emit as the INLA path. The greta
-implementation factorises the cell-mean weighted gaussian observation
-against a gamma observation on the within-cell sum of squares; together
-these recover the per-row gaussian log- likelihood exactly (the
-algebraic identity proof is in Searle, Casella & McCulloch (1992)
-*Variance Components* §3). On a fixed- seed synthetic dataset with N =
-800, J = 20, the aggregated greta posterior recovers a known (beta,
-sigma, tau) triple within MC tolerance; the backend-fidelity check is
-shipped as a stress-gated test (`FLEXYBAYES_RUN_STRESS=true`).
-
-**Known caveat.** The aggregated INLA path still uses an explicit
-`loggamma(1, 5e-5)` precision prior on random-intercept terms when the
-user has not supplied a prior via `prior = fb_prior(...)`, for the
-data-scale-stability reason in the 0.3.2 caveat. Unifying the
-default-prior behaviour across per-row and aggregated paths remains
-queued. The greta aggregated path follows the same default prior shape
-(sd-scale) as the per-row greta path; matched-prior comparisons within
-greta are therefore consistent without extra configuration.
-
-**Heterogeneous residual.** `at(f):units` on greta now flows through the
-aggregated path end-to-end (when `f` is in the cell key). The
-multi-likelihood INLA stack required for the same on the INLA aggregated
-path remains queued.
-
-------------------------------------------------------------------------
-
-## flexyBayes 0.3.2
-
-### Stage 3A – Gaussian aggregated emit (INLA path)
-
-Wires the sufficient-statistics aggregation foundation (introduced in
-0.3.0 as `<fb_aggregated>` + `<fb_aggregation_plan>`) into the live
-dispatch path. Gaussian-identity LMMs whose linear predictor is
-cell-constant – fixed numeric / factor effects plus random intercepts on
-factor groupings – now have an aggregated emit path that fits the same
-posterior on per-cell sufficient statistics rather than per-observation
-likelihood contributions. The aggregated log-likelihood is the algebraic
-identity of the per-row form (no approximation; see Searle, Casella &
-McCulloch (1992) *Variance Components* §3 and Bates et al. (2015) §3 on
-the profiled-deviance shortcut); the bit-exact equivalence is gated by a
-property-based test in `tests/testthat/test-aggregate-gaussian.R`.
-
-**API.** A new `aggregate = c("auto", TRUE, FALSE)` argument joins
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-and
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md).
-The default `"auto"` consults the plan and silently routes through the
-aggregated emit when the IR is in scope and compression is productive
-(`K/N <= 0.5`); falls through to the per-row path when out of scope.
-`TRUE` forces aggregation – raises a structured refusal naming the
-plan’s reason code when ineligible. `FALSE` skips the gate entirely.
-
-**Exactness field.** Every flexybayes fit now carries an `$exactness`
-slot. Per-row paths populate it as `"exact"`; aggregated paths populate
-it as `"aggregated_exact"`. The dispatch trace’s `path` slot reads
-`"aggregated_gaussian"` on aggregated fits.
-[`summary()`](https://rdrr.io/r/base/summary.html) and a new
-[`print.flexybayes_aggregated()`](https://aagi-aus.github.io/flexyBayes/reference/print.flexybayes_aggregated.md)
-/
-[`summary.flexybayes_aggregated()`](https://aagi-aus.github.io/flexyBayes/reference/summary.flexybayes_aggregated.md)
-surface the field plus a compression-ratio line when N/K \>= 2
-(suppressed on smaller datasets to avoid misleading claims).
-
-**Backend coverage at 0.3.2.** INLA-backed aggregation is shipped
-end-to-end (cell-mean weighted gaussian + a custom precision-prior
-expression that absorbs the within-cell sum-of-squares correction; the
-algebra is documented in the file header). Greta-backed aggregation is
-deferred to a follow-on – the algebraic pattern (cell-mean weighted
-gaussian plus a gamma observation on the within-cell SS) is viable, but
-the package wiring needs a codegen-without-runtime-parse workaround for
-an R S3 dispatch context-sensitivity that surfaces only inside the
-package namespace. `aggregate = TRUE` on `backend = "greta"` refuses
-cleanly with a deferred-feature message; `aggregate = "auto"` on greta
-silently falls through to the per-row path.
-
-**Heterogeneous residual.** `at(f):units` is supported on the aggregated
-path when `f` is a cell-key term (so each cell has a single residual
-variance). When the residual factor is not a cell key the per-row /
-per-cell algebraic identity breaks and the emit refuses with a
-structured `heterogeneous_residual_factor_not_in_- cell_key` reason
-code.
-
-**Known caveat.** The aggregated INLA path uses an explicit
-`loggamma(1, 5e-5)` precision prior on random-intercept terms when the
-user has not supplied a prior via `prior = fb_prior(...)`, because
-INLA’s data-scale-dependent default would otherwise produce different
-effective priors on the per-row and aggregated data scales.
-Matched-prior comparisons between per-row and aggregated paths therefore
-require either passing an explicit
-[`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
-or accepting that the residual / random-intercept posteriors will differ
-on tail behaviour. The fixed-effect posteriors remain bit-exactly
-equivalent under the algebraic identity. Unifying the per-row
-default-prior behaviour with the aggregated path is queued for a
-follow-on.
-
-------------------------------------------------------------------------
-
-## flexyBayes 0.3.1
-
-### Trust Pass – preflight + aggregation honesty hardening
-
-A focused three-phase pass on the public API’s honesty contract,
-spanning the preflight layer, the aggregation taxonomy, and the
-public-facing metadata. Closes a deep review of the v0.3.0.9000
-development tip end-to-end. No user-facing API signature changes; every
-revision tightens behaviour the package already promised.
-
-**Trust bugs.** A session-level
-`options(flexyBayes.review_code_default = TRUE)` no longer slips past
-the unsupported-backend refusal on `backend = "inla"` / `"auto"` for
-either
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-or
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-– option resolution now runs before the backend guard. The preflight
-refusal headline no longer claims “the design exceeds the active memory
-ceiling” when the refusal is actually
-`representation_unknown_for_preflight`; the headline now branches on the
-reason code so an unknown-representation refusal does not falsely send
-the user down the ceiling-override path.
-
-**Preflight taxonomy.** Structured-covariance random terms are split
-into known-indexed forms (`vm`, `ped`, `ar1`, `ar1_spatial`) that keep
-the tested heuristic estimator, and everything else (`at`, `us`, `fa`,
-`at_simple`, `us_gxe`, `fa_gxe`, `vm_gxe`, …) that now routes to
-`representation_unknown_for_preflight` rather than silently
-under-estimating the design memory at large N. The previous “single
-level” fallback in `.preflight_term_level_count()` was replaced with
-`NA_integer_`; every consumer branch (structured-cov, random intercept,
-uncorrelated random slope, fixed factor, factor :numeric interaction)
-now treats an unresolvable level count as the signal to escalate to an
-unknown-representation refusal.
-
-**Aggregation refusal codes.** The Stage 3A out-of-scope taxonomy was
-renamed and aligned across the two emitters that report it:
-`.assert_aggregate_in_scope()` (the runtime gate) and
-`.fb_aggregation_plan()` (the model-level planner) now produce the same
-reason code for the same model. The previous catch-all
-`random_slope_in_scope` is replaced by three positively-named codes
-(`random_slope_not_aggregatable`, `structured_random_not_aggregatable`,
-`smooth_term_not_aggregatable`); the planner’s
-`compression_data_dependent` is renamed
-`continuous_cell_key_data_dependent` for clarity.
-
-**Public-facing metadata.** The `codemeta.json` version field, the
-`cran-comments.md` build description, `SECURITY.md`, `SUPPORT.md`, and
-the README’s `review_code` support row are all refreshed for the 0.3.x
-line. `API_STABILITY.md` splits the structured-covariance default-priors
-row by actual implemented behaviour (`vm`/`ped` on the uniform-on-SD
-default; `at`/`us`/`fa`/`ar1`/`spl` on the legacy lognormal).
-`CONTRIBUTING.md` documents the source-directory `R CMD check` footgun
-and recommends the build-then-check workflow.
-
-The AAGI-AUS GitHub URL declared in `DESCRIPTION` is the agreed forward
-destination; until the upstream repository rename ships, the
-CRAN-incoming feasibility check raises a sub-NOTE for the URL.
-`cran-comments.md` itemises this and the other structural NOTE sub-items
-in full.
-
-### Test coverage
-
-`PASS 1187 / FAIL 0 / SKIP 72` on `tools/tally.R` (was 1151/0/72 at the
-deep-review baseline; +36 expectations across the Trust Pass). 9 new
-`test_that` blocks pin the structured-covariance preflight split and the
-renamed aggregation taxonomy; 8 ordered cases pin the `review_code`
-option-default ordering across both formula verbs.
-
-## flexyBayes 0.3.0.9000
-
-### Stage 3A foundation – exact Gaussian aggregation via sufficient statistics
-
-Internal `.fb_aggregate_gaussian()` collapses a per-row
-Gaussian-identity mixed model into one row per cell, where a cell is the
-maximal subset of observations sharing the same linear-predictor value.
-Three sufficient statistics per cell (`n_k`, `S1_k = sum(y)`,
-`S2_k = sum(y^2)`) carry all the information the Gaussian-identity
-log-likelihood needs.
-
-The implementation is foundation-only at this release: the algebraic
-correctness gate landed, the backend emit path is not yet wired. A
-property-based test draws twenty random in-scope intermediate
-representations across three N scales (100, 500, 2000) with random
-coefficients and confirms that the aggregated log-likelihood matches the
-raw per-row form to relative error below `1e-12` in every case. The
-biased cell-mean shortcut is exposed only so the same test can confirm a
-regression would be caught.
-
-The scope envelope refuses (typed condition
-`flexybayes_aggregate_out_of_scope`) on: non-Gaussian family,
-non-identity link, smooth fixed-effect term, or any random slope – all
-of which break the cell-constant linear predictor.
-
-Internal-only at v0.3.0.9000; surfaces user-facing in v0.3.2 alongside
-the greta / INLA aggregated emit path and the `$exactness` slot.
-
-### Stage 3A foundation – memory shape correction + model-level plan
-
-Two follow-up changes to the Stage 3A foundation surfaced by the
-2026-05-23 audit:
-
-- `<fb_aggregated>$design_matrix` (the full `N x p` per-row design
-  matrix) is replaced by `$cell_design` (the `K x p` per-cell form). The
-  aggregated emit path only needs the per-cell linear predictor;
-  carrying the per-row matrix defeated the compression contract at large
-  `N` and was not an implementation shape compatible with the
-  10M-100M-row roadmap. Per-row equivalence verification (the bit-exact
-  log-likelihood gate) now rebuilds the per-row design locally via
-  [`stats::model.matrix()`](https://rdrr.io/r/stats/model.matrix.html).
-
-- New internal `.fb_aggregation_plan()` returning a model-level
-  `<fb_aggregation_plan>` with seven slots: `eligible`, `reason_codes`,
-  `cell_key_terms`, `requires_materialisation`, `K_est`, `N`,
-  `compression_est`. The plan reads only IR + dataset metadata; no
-  design materialised. `.fb_preflight()` attaches the plan to its result
-  for diagnostic visibility. The plan is informational at v0.3.0.9000:
-  the per-term `aggregated_likelihood_candidate` flag remains the
-  dispatcher contract through v0.3.1. In v0.3.2 the plan supersedes
-  per-term flags as the dispatch input when the aggregated emit path
-  lands.
-
-  Productivity threshold: `K_est / N <= 0.5` (at least 2:1 compression
-  expected from metadata). Below the threshold the plan reports
-  `eligible = TRUE`; above it reports
-  `reason_codes = "compression_unproductive"`. Continuous fixed terms
-  make the cell count data-dependent (cannot estimate from metadata) and
-  the plan reports `reason_codes = "compression_data_dependent"`.
-
-### Preflight hardening – smooth/spline estimators + unknown-term refusal
-
-The Stage 2 preflight layer now characterises every term class the
-asreml and brms parsers can emit. Five new branches:
-
-- Mgcv smooth terms (`s(x)`, `smooth_mgcv` in the IR) on either side of
-  the formula: dense `N x k` basis estimate using the resolved `term$k`
-  from
-  [`mgcv::smoothCon()`](https://rdrr.io/pkg/mgcv/man/smoothCon.html).
-  Previously parser-emitted smooths fell through to a single-column
-  estimate – a factor-of-`k` under-estimate that could let a large
-  smooth model pass preflight when the actual basis exceeded the
-  ceiling.
-- P-spline terms (`spl(x)`): dense `N x df` basis with `df = 8` matching
-  the codegen default.
-- Factor:factor interactions: dense treatment-coded `N x (prod(L) - 1)`
-  estimate; the audit-named high-cardinality scary case.
-- Factor:continuous interactions (ADR 0019 indexed slope): integer index
-  column + continuous column + `(L - 1)` per-level slope coefficients.
-- Polynomial terms (`pol(x, d)`): dense `N x d` basis.
-
-The fixed and random fallthrough branches no longer record a
-single-dense-column estimate framed as “conservative lower bound” – a
-lower bound is the opposite of conservative for a refusal gate.
-Unrecognised term classes now flag the per-term entry with
-`unknown_representation = TRUE` and the top-level preflight returns a
-typed `flexybayes_preflight_refusal` with
-`reason_code = "representation_unknown_for_preflight"` carrying the
-binding term label. Structured-covariance random terms (`vm`, `ped`,
-`fa`, `us`, `at`, `ar1`, `nested`, etc.) remain estimated via the
-indexed-representation heuristic and are now labelled
-`representation_class = "indexed_structured_estimate"` with a header
-note that production fits at large `N` should set `memory_ceiling_gb`
-explicitly rather than relying on the default.
-
-### Behaviour change – default RAM fraction lowered from 80% to 60%
-
-The default design-memory ceiling is now `60%` of system RAM (was
-`80%`). This is conservative for shared workstations, CI runners, and
-interactive laptops where the user expects the rest of the machine to
-remain responsive under load. A new global option
-`flexyBayes.preflight_ram_fraction` exposes the fraction for per-host
-tuning:
-
-``` r
-
-options(flexyBayes.preflight_ram_fraction = 0.5)   # tighter
-options(flexyBayes.preflight_ram_fraction = 0.9)   # looser, single-user host
-```
-
-The fraction is validated as `(0, 1]`. The 8 GiB fallback (used when
-neither the `benchmarkme` nor the `memuse` RAM probe is installed) is
-unaffected – the fallback is already a conservative absolute floor.
-
-## flexyBayes 0.3.0
-
-### Stage 2 design-memory preflight
-
-flexyBayes now estimates the design-representation memory of a model
-upstream of the backend dispatch and refuses with a structured
-diagnostic when the estimate exceeds an active ceiling. The aim is to
-replace the v0.2 silent-allocation antipattern
-(`Error: cannot allocate vector of size 3.2 Gb` from
-[`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) mid-fit)
-with an explicit, per-term refusal that names the binding term and a
-numeric override.
-
-The default ceiling is 80% of system RAM, probed via `benchmarkme` or
-`memuse` when either is installed; otherwise an 8 GiB fallback applies.
-Users can set a stricter cap via the global option
-`flexyBayes.preflight_ceiling_gb` (e.g. on shared hosts where the full
-RAM should not be claimed for a single fit).
-
-The check runs only on fits with `n_rows >= 1e5` so the v0.2 user
-surface is unchanged at small scales. On larger fits the check reads
-only `n_rows`, factor-level counts, and column types – no row-wise data
-scan – so the runtime is `O(terms)` regardless of `n_rows`. A 1e8-row
-metadata-only check completes in milliseconds on the development laptop.
-
-The refusal is a typed condition `flexybayes_preflight_refusal` carrying
-the binding term name, its byte estimate, the active ceiling, and a
-suggested override. On `flexybayes(..., review_code = TRUE)` and
-`fb_brms(..., review_code = TRUE)` the resulting `<flexybayes_review>`
-token now carries a `$preflight` slot; the preflight summary appears in
-`print(rev)` above the
-[`cat_code()`](https://aagi-aus.github.io/flexyBayes/reference/cat_code.md)
-prompt.
-
-The `aggregated_likelihood_candidate` flag on each per-term entry is a
-forward-looking promise to the gaussian-identity aggregated backend
-path; the flag has no runtime effect at v0.3.0 (no aggregation runs yet)
-but is consumed by later stages.
-
-## flexyBayes 0.2.6
-
-### Correctness fix – factor:continuous interaction (ADR 0019)
-
-`flexybayes(y ~ x * f, data = ...)` where `f` is a factor and `x` is
-numeric previously emitted the interaction term using a coefficient
-broadcast that did not match base R’s treatment-coded model matrix –
-producing posterior estimates that disagreed with `lme4::lmer` by more
-than three standard deviations on simulated data. The fix emits the
-interaction as a treatment-coded indexed slope: the reference level’s
-slope is fixed to zero; the L-1 non- reference levels carry their own
-slope deviations sampled from the prior, indexed back to the observation
-vector via the factor’s level codes. Posterior estimates now match
-`lme4::lmer` within MCMC tolerance and the linear-predictor equality
-`eta_flexybayes == model.matrix(~ f * x) %*% beta` holds at tolerance
-`1e-10` for any compatible coefficient vector.
-
-The new term class `factor_numeric_interaction` registers the
-canonical-name family `slope_<f>_<x>[<level>]` per non-reference level
-for both the greta and brms backends. The dispatch trace records which
-emit branch fired via `fit$extras$parse_info$factor_continuous_emit`
-(`"option_c"` for the greta-native concatenation idiom; `"option_d"` for
-the per- observation lookup-vector fallback gated on
-`options(flexyBayes.force_option_d = TRUE)`).
-
-Unsupported contrast types (`contr.helmert`, `contr.sdif`, `contr.sum`,
-ordered factors, user-supplied custom contrast matrices) refuse at
-ingest with a structured `flexybayes_contrast_unsupported` condition
-carrying `contrast`, `factor_name`, and `deferral_target` slots; the
-message points at the v0.3 representation IR for general contrast
-support.
-
-The INLA mapper for the new term class registers only after a
-three-arbitrator verification test (INLA vs greta vs `lme4::lmer`)
-passes on the host; on hosts where INLA verification cannot complete the
-gate refuses INLA dispatch with a v0.3 deferral message rather than
-silently shipping an unverified translation.
-
-### Feature – uncorrelated random slopes (x \|\| g) (ADR 0020)
-
-`fb_brms(y ~ x + (x || g), ...)` now parses and emits the uncorrelated
-random-effect form – in lme4 / brms semantics each level of `g` carries
-an independent intercept deviation AND an independent slope deviation,
-both drawn from their own univariate- normal priors (no correlation
-parameter shared between intercept and slope). The explicit
-`(1 + x || g)` shape is equivalent; `(0 + x || g)` suppresses the
-intercept block, yielding a slope- only random effect. The correlated
-form `(x | g)` continues to refuse with a v0.3 deferral message pointing
-to ADR 0025 (Stage 5A known-covariance inputs), which will admit the
-user- supplied Cholesky factor that makes the correlated form tractable;
-the refusal raises a typed condition
-(`flexybayes_correlated_slope_unsupported`) carrying `grouping_factor`,
-`slope_variable`, `deferral_target`, and `workaround` slots so
-downstream tooling can pattern-match.
-
-Canonical-name family `sd_<x>_<g>` registered on the greta + brms
-backends – the brms-side `sd_<g>__<x>` parameter (brms’s
-double-underscore Stan convention) maps to the canonical `sd_<x>_<g>`.
-INLA mapping is gated by a three-arbitrator verification test (INLA vs
-greta vs lme4) on a simple fixture following the §3.4 verification
-policy in `plan-indexing-bigdata-merged-2026-05-23-v2.md`; until the
-verification artefact records pass, the INLA backend refuses `(x || g)`
-with a v0.3 deferral message naming `backend = "greta"` as the
-workaround. Triangulation between greta and brms on `(x || g)` fits
-agrees on slope-variance posteriors within `W_1 <= 0.20 * tau_true` (the
-loosened envelope per merged-v2 §5.6 risk 3 – slope-variance posteriors
-are intrinsically less identified than intercept-variance ones at modest
-J).
-
-### Representation benchmarks (Stage 1C per merged-v2 plan section 4.2.3)
-
-The benchmark harness gains three new rows per term class:
-`generated_code_size_bytes`, `pre_fit_object_size_bytes`, and
-`code_generation_time_sec`. Snapshot tests assert that the greta
-fit-time codegen path does not call
-[`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) for
-supported indexed term classes – the indexed-emit path replaces the
-dense matrix at any `n`, so generated code size stays nearly constant in
-`n`.
-
-Benchmark filename rename: `tools/benchmark_flexyBayes_0.2.5.R` -\>
-`tools/benchmark_flexyBayes.R` (version stamp dropped; the harness runs
-against whichever version is installed, and names its output directory
-accordingly at run time).
-
-## flexyBayes 0.2.5.9000
-
-### Correctness fix – predict(newdata) on smooths (ADR 0018)
-
-`predict.flexybayes(..., newdata = ...)` on fits containing one or more
-`s()` smooth terms now uses retained `mgcv` `Smooth` objects via
-[`mgcv::PredictMat()`](https://rdrr.io/pkg/mgcv/man/smoothCon.html),
-restoring correctness on `newdata` containing `x` values inside or near
-the training range. Previously the basis was implicitly re-derived from
-`newdata` via
-[`stats::model.matrix()`](https://rdrr.io/r/stats/model.matrix.html),
-producing correct-by-coincidence values inside the training range and
-silently wrong values near or beyond. The fix retains the
-[`mgcv::smoothCon()`](https://rdrr.io/pkg/mgcv/man/smoothCon.html)
-output on the IR (internal slot `random_terms[[i]]$smooth_obj`) and
-threads it via `extras$parse_info$smooths`. `fb_brms(backend = "brms")`
-and
-[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-are exempt – both already correct.
-
-A correctness refusal fires on legacy fits saved before this fix: re-fit
-on the current version to enable `predict(newdata)`.
-
-### Code-size fix – smooth emit literal-matrix storage
-
-The `greta` emit path for `s()` smooths no longer inlines the n-row
-basis matrix as a literal in the generated code. The basis is bound into
-the model environment as `B_s_<varname>` and the emitted code references
-`as_data(B_s_<varname>)` instead. `nchar(return_code(fit))` for `s(x)`
-at `n = 10000` dropped from ~10 MB to under 10 kB.
-
-### Gate truth = emit truth (ADR 0017)
-
-`lgm_gate(fb) == accept` is now a sufficient condition for the INLA emit
-path to succeed structurally. Three new gate rules
-(`fixed_term_type_inla`, `random_term_type_inla`, `rcov_term_type_inla`)
-fold the prior emit-time refusal sites into `lgm_gate()` so users see
-refusals before the INLA machinery is invoked. `backend = "auto"` no
-longer carries a separate emit-time fall-back path; dispatch trace’s
-auto-non-LGM path is uniformly `"auto_lgm_refuse"`.
-
-### Visual-regression test tier upgraded (AMBITION_STAGE §1.1)
-
-The `vdiffr` SVG-snapshot tests in `test-plot-vdiffr.R` (which had been
-skipped unconditionally due to MCMC-float-drift fragility) are replaced
-with numerical snapshots on the plotted data structure. Equivalent
-coverage for “did the plot get built correctly” without the SVG-diff
-fragility.
-
-### Structured-cov default priors – vm() + ped() now uniform-on-SD
-
-`.default_uniform_prior()` (extending ADR 0004) now fires on `vm()` and
-`ped()` random-term inputs, closing the documented inconsistency where
-`simple`/`ide`/`id` RE SDs defaulted to uniform-on-SD while `vm`/`ped`
-fell back to legacy lognormal. The other structured forms (`at`, `us`,
-`fa`, `ar1`) remain on the legacy default for now.
-
-## flexyBayes 0.2.0 (development)
-
-### Four-verb API
-
-`flexyBayes` exposes four user-facing entry points covering the
-formula-grammar × backend-ambition cross-product:
-
-| Verb | Grammar | Backend choices | Use when |
-|----|----|----|----|
-| [`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md) | ASReml (`fixed` / `random` / `rcov`) | `greta`, `inla`, `auto` | ASReml syntax; agricultural / variance-component workflows. |
-| [`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md) | brms / lme4 (`y ~ x + (1 | g)`) | `greta`, `inla`, `brms`, `auto` | brms or lme4 syntax; Stan passthrough on `backend = "brms"`. |
-| [`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md) | direct greta model graph | `greta` | Expert escape hatch; supplies a pre-built greta model. |
-| [`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md) | n/a | n/a | Pairwise cross-engine posterior comparison. |
-
-[`fb()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
-remains as a literal alias for
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md).
-
-### Dispatch trace
-
-Every fit records a structured
-[`backend_decision()`](https://aagi-aus.github.io/flexyBayes/reference/backend_decision.md)
-describing which backend ran and why:
-
-``` r
-
-fit <- flexybayes(yield ~ env, random = ~ geno, data = trial)
-backend_decision(fit)
-#> $backend     "greta"
-#> $path        "auto_inla_refuse"
-#> $gate_checks <list of lgm_gate rules + pass/fail>
-#> $reason      "lgm_gate refused at check `hyperparam_budget`."
-```
-
-`backend = "auto"` runs `lgm_gate()` and routes to INLA on acceptance,
-otherwise to greta. `auto` never routes to Stan — brms’s first-call Stan
-compile (typically 30–60 s) is incompatible with the auto-fast- path
-promise; Stan is opt-in only via explicit `backend = "brms"` on
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md).
-
-### Stan passthrough on `fb_brms(backend = "brms")`
-
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-builds the flexyBayes intermediate representation (IR), translates the
-prior, hands off to `brms::brm()`, and wraps the returned `brmsfit` in a
-`c("flexybayes_brms", "flexybayes")` subclass. The live `brmsfit` is
-exposed on the `$brms` slot so brms’s own posterior tooling (`loo()`,
-`posterior_predict()`, `bayes_factor()`) remains directly available.
-
-``` r
-
-fit_s <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy, backend = "brms")
-fit_g <- fb_brms(Reaction ~ Days + (1 | Subject),
-                 data = sleepstudy, backend = "greta")
-triangulate(fit_s, fit_g)
-```
-
-`review_code = TRUE` on the Stan path returns Stan source via
-`brms::make_stancode()` — compile-free inspection before any Stan
-compilation fires.
-
-### Cross-engine triangulation
-
-`triangulate(fit_a, fit_b)` computes mean difference, SD ratio, tail
-drift, Wasserstein-1, and R-hat-on-means on every parameter the two fits
-have in common. Canonical-name resolution (see below) means the caller
-usually does not need to pass a `name_map`.
-
-``` r
-
-fit_g <- flexybayes(yield ~ env, random = ~ geno, data = trial,
-                    backend = "greta")
-fit_i <- flexybayes(yield ~ env, random = ~ geno, data = trial,
-                    backend = "inla")
-triangulate(fit_g, fit_i)
-#> Common parameters: 5
-#> # A tibble: 5 × 6
-#>   parameter        mean_diff sd_ratio tail_drift wasserstein_1 rhat_means
-#>   <chr>                <dbl>    <dbl>      <dbl>         <dbl>      <dbl>
-#> 1 (Intercept)        -0.041   0.997      0.012         0.041     1.002
-#> ...
-```
-
-### `canonical_names()` registry
-
-Each backend names parameters differently (greta’s `sigma_g`, INLA’s
-`Precision for g` on the precision scale, brms’s `sd_g__Intercept`,
-etc.).
-[`canonical_names()`](https://aagi-aus.github.io/flexyBayes/reference/canonical_names.md)
-resolves backend-native names to a single canonical name and applies the
-appropriate scale transform — most visibly, INLA’s precision draws are
-flipped to the SD scale before comparison.
-
-``` r
-
-canonical_names(fit_i)
-#>   native                canonical    transform
-#>   "(Intercept)"         "(Intercept)" identity
-#>   "Precision for g"     "sd_g"        1/sqrt(.)
-#>   "Precision for the Gaussian observations" "sigma" 1/sqrt(.)
-```
-
-[`triangulate()`](https://aagi-aus.github.io/flexyBayes/reference/triangulate.md)
-uses the registry to align parameters before computing metrics.
-
-### `prior_summary()` accessor
-
-A new exported S3 generic surfaces the resolved priors used to fit the
-model. The summary distinguishes three resolution paths:
-
-- **auto-default** — bounded uniform on SD per Gelman (2006); fires when
-  neither a user
-  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
-  nor a legacy `prior_vc_sd` scalar is supplied.
-- **user-supplied** — the
-  [`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
-  object the caller passed via the `prior` argument.
-- **legacy-scalar** — the `prior_fixed_sd` / `prior_vc_sd` bridge,
-  preserved verbatim when `prior_vc_sd` is passed explicitly.
-
-``` r
-
-fit <- flexybayes(Reaction ~ Days, random = ~ Subject,
-                  data = sleepstudy)
-prior_summary(fit)
-#> <prior_summary>  backend = greta
-#>   Source: auto-default bounded uniform on SD (Gelman 2006)
-#>     Upper bound U = 282.7
-#>     Scale basis    = 5 * sd(Reaction)
-```
-
-On
-[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-fits the summary is flagged `declaration_only = TRUE` because flexyBayes
-does not re-prior the user-built greta graph; the prior records what the
-user declared the model encodes.
-
-### `review_code = TRUE` workflow
-
-A new optional argument on
-[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md),
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md),
-and
-[`fb_greta()`](https://aagi-aus.github.io/flexyBayes/reference/fb_greta.md)
-lets users inspect the generated backend code before any sampling fires,
-then advance into the fit when ready:
-
-``` r
-
-rev <- flexybayes(yield ~ env, random = ~ geno, data = trial,
-                  review_code = TRUE)
-rev                  # two-line summary: backend + IR dimensions
-cat_code(rev)        # emit the generated greta (or Stan) code
-fit <- proceed(rev)  # fit; a second proceed(rev) returns the cache
-```
-
-The returned `<flexybayes_review>` object carries the generated code,
-the parsed IR, the resolved prior, the captured call, and a snapshot of
-`.Random.seed`. The seed snapshot is restored on
-[`proceed()`](https://aagi-aus.github.io/flexyBayes/reference/proceed.md)
-entry so a direct call and a review-then-proceed pair reproduce the same
-R-RNG state.
-
-`review_code = TRUE` and `return_code = TRUE` (the older
-code-string-only option) are mutually exclusive. Default is `FALSE`;
-session-level override via
-`options(flexyBayes.review_code_default = TRUE)`.
-
-### Prior contract
-
-Auto-default (no `prior` and no `prior_vc_sd` supplied):
-
-| Target | Default | Notes |
-|----|----|----|
-| Residual `sigma` (Gaussian / identity link) | `uniform(0, 5 * sd(y))` | Gelman 2006 |
-| Residual `sigma` (log link) | `uniform(0, 5 * sd(log(y + 0.5)))` | Gelman 2006 |
-| Residual `sigma` (logit link) | `uniform(0, 5)` | Gelman 2006 |
-| `sd(group)` for `simple` / `ide` / `id` terms | matched to residual by family | Gelman 2006 |
-| Fixed-effect coefficients | `normal(0, prior_fixed_sd)`, `prior_fixed_sd = 100` | Gelman 2006 |
-
-Structured-covariance random terms (`vm`, `ped`, `at`, `us`, `fa`,
-`ar1`) currently fall back to the legacy `lognormal(0, prior_vc_sd)`
-default; per-form uniform defaults are scheduled for v0.2.5.
-
-The PC prior remains a first-class explicit option via
-`fb_prior(sigma ~ pc(upper = U, prob = p))` and is the cross-engine
-interlingua (Simpson et al. 2017) for translation across greta / INLA /
-brms.
-
-The `prior_fixed_sd` default was raised from 10 to 100 in this cycle;
-the previous value was too tight for responses on the natural data scale
-(e.g., `sleepstudy$Reaction` with mean ≈ 298 ms) and induced a
-substantial intercept bias against the REML reference.
-
-[`fb_prior()`](https://aagi-aus.github.io/flexyBayes/reference/fb_prior.md)
-accepts the targets `sigma`, `sd(group)`, `b(name)`, `cor(group)`,
-`smooth(var)`, and the families `pc`, `normal`, `student_t`,
-`half_normal`, `half_cauchy`, `cauchy`, `gamma`, `exponential`, `lkj`,
-`uniform`.
-
-### LGM feasibility filter
-
-`lgm_gate(fb)` runs a structural feasibility check on the parsed IR
-before INLA dispatch. The filter returns either an acceptance or an
-`lgm_refusal` object carrying every rule that failed, the diagnostic,
-the suggested re-route (`backend = "brms"` via
-[`fb_brms()`](https://aagi-aus.github.io/flexyBayes/reference/fb_brms.md)
-for the Stan passthrough; greta for the broader flexyBayes formula
-path), and a two-key-armed override path.
-
-The structural refusals currently live in two places (the gate plus
-`emit_inla()`); folding the emit-time refusals into the gate is the ADR
-0017 v0.2.5 work.
-
-### `gretaR` slot
-
-A dormant scaffold for the `gretaR` backend is registered:
-[`gretaR_status()`](https://aagi-aus.github.io/flexyBayes/reference/gretaR_status.md)
-reports `activated = FALSE` and explains the activation procedure. The
-four touch-points (`match.arg` extension, canonical-name mapper,
-dispatch branch, status helper) are in place so v0.3 activation reduces
-to a single short patch plus the `emit_gretaR.R` body — once the gretaR
-package goes public and audit-clean.
-
-### Vignettes
-
-Twelve numbered vignettes ship with the package:
-
-1.  Getting started · 2. ASReml-shaped formulas · 3. Foundational
-    regression · 4. Hierarchical models · 5. Structured covariance ·
-2.  Priors and regularisation · 7. METs and genomic selection ·
-3.  Downstream analysis · 9. Spatio-temporal models · 10. Cross- engine
-    triangulation · 11. LGM feasibility filter · 12. Backend internals.
-
-Heavy MCMC vignettes use a `.Rmd.orig` precompile pattern
-(`vignettes/_precompile.R`); the `.Rmd` that ships in the package
-tarball is the pre-evaluated static output.
-
-### References
-
-- Gelman, A. (2006). Prior distributions for variance parameters in
-  hierarchical models. *Bayesian Analysis* 1(3): 515–534.
-- Simpson, D., Rue, H., Riebler, A., Martins, T. G., & Sørbye, S. H.
-  (2017). Penalising model component complexity: a principled, practical
-  approach to constructing priors. *Statistical Science* 32(1): 1–28.
-- Rue, H., Martino, S., & Chopin, N. (2009). Approximate Bayesian
-  inference for latent Gaussian models by using integrated nested
-  Laplace approximations. *JRSS: Series B* 71(2): 319–392.
+Older release history (0.6.0 and earlier) lives in `NEWS_ARCHIVE.md`.

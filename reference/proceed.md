@@ -18,14 +18,40 @@ proceed(x, ...)
 
 - x:
 
-  a `<flexybayes_review>` object.
+  A `<flexybayes_review>` object holding the deferred fit.
 
 - ...:
 
-  reserved for future deferred-execution classes (e.g., deferred
-  triangulation).
+  Reserved for future deferred-execution classes.
 
 ## Value
 
-the fit object the originating call would have returned (class
-`flexybayes`).
+The fit object the originating call would have returned, of class
+`flexybayes`. A second call returns the cached fit.
+
+## Deprecated
+
+`proceed()` is deprecated in flexyBayes 0.13.0 and will be removed in a
+later release. Call
+[`flexybayes()`](https://aagi-aus.github.io/flexyBayes/reference/flexybayes.md)
+with the same arguments and `review_code = FALSE`, and set `seed` for a
+reproducible brms fit. A call warns with a condition of class
+`flexybayes_deprecated`.
+
+## Examples
+
+``` r
+# The direct call fits the model proceed() would have fitted. The Stan
+# compile is the expensive part of running this, so the fit is given a
+# small budget.
+if (requireNamespace("brms", quietly = TRUE)) {
+  set.seed(1)
+  d <- data.frame(y = rnorm(60), x = rnorm(60), g = factor(rep(1:6, 10)))
+  # \donttest{
+    fit <- flexybayes(y ~ x + (1 | g), data = d, backend = "brms",
+                      chains = 1L, n_samples = 200L, warmup = 100L,
+                      seed = 1L)
+    class(fit)
+  # }
+}
+```
