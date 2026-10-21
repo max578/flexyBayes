@@ -100,8 +100,8 @@ if (requireNamespace("brms", quietly = TRUE) &&
 #> 
 #> SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 #> Chain 1: 
-#> Chain 1: Gradient evaluation took 3.5e-05 seconds
-#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.35 seconds.
+#> Chain 1: Gradient evaluation took 3.1e-05 seconds
+#> Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.31 seconds.
 #> Chain 1: Adjust your expectations accordingly!
 #> Chain 1: 
 #> Chain 1: 
@@ -133,9 +133,9 @@ if (requireNamespace("brms", quietly = TRUE) &&
 #> Chain 1: Iteration: 4800 / 5000 [ 96%]  (Sampling)
 #> Chain 1: Iteration: 5000 / 5000 [100%]  (Sampling)
 #> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.484 seconds (Warm-up)
-#> Chain 1:                0.955 seconds (Sampling)
-#> Chain 1:                1.439 seconds (Total)
+#> Chain 1:  Elapsed Time: 0.485 seconds (Warm-up)
+#> Chain 1:                0.967 seconds (Sampling)
+#> Chain 1:                1.452 seconds (Total)
 #> Chain 1: 
 #> (Intercept)        Days 
 #>   251.32745    10.47849 
