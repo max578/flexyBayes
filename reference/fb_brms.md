@@ -133,9 +133,9 @@ if (requireNamespace("brms", quietly = TRUE) &&
 #> Chain 1: Iteration: 4800 / 5000 [ 96%]  (Sampling)
 #> Chain 1: Iteration: 5000 / 5000 [100%]  (Sampling)
 #> Chain 1: 
-#> Chain 1:  Elapsed Time: 0.265 seconds (Warm-up)
-#> Chain 1:                0.492 seconds (Sampling)
-#> Chain 1:                0.757 seconds (Total)
+#> Chain 1:  Elapsed Time: 0.484 seconds (Warm-up)
+#> Chain 1:                0.955 seconds (Sampling)
+#> Chain 1:                1.439 seconds (Total)
 #> Chain 1: 
 #> (Intercept)        Days 
 #>   251.32745    10.47849 
